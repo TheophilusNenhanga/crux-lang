@@ -22,14 +22,16 @@ typedef enum {
 typedef struct {
     int count;
     int capacity;
-    uint8_t* code;
-    int* lines;
+    uint8_t *code;
+    int *lines;
     ValueArray constants;
-}Chunk;
+} Chunk;
 
-void initChunk(Chunk* chunk);
-void writeChunk(Chunk* chunk, uint8_t byte, int line); // Can write opcodes or operands
-void freeChunk(Chunk* chunk);
-int addConstant(Chunk* chunk, Value value);
+void initChunk(Chunk *chunk);
+
+void writeChunk(Chunk *chunk, uint8_t byte, int line); // Can write opcodes or operands
+void freeChunk(Chunk *chunk);
+
+int addConstant(Chunk *chunk, Value value);
 
 #endif //CHUNK_H

@@ -8,15 +8,15 @@
 
 #include "memory.h"
 
-void initValueArray(ValueArray* array) {
-    array -> values = NULL;
-    array ->capacity = 0;
-    array ->count = 0;
+void initValueArray(ValueArray *array) {
+    array->values = NULL;
+    array->capacity = 0;
+    array->count = 0;
 }
 
-void writeValueArray(ValueArray* array, Value value) {
-    if (array -> capacity < array ->count + 1) {
-        int oldCapacity = array ->capacity;
+void writeValueArray(ValueArray *array, Value value) {
+    if (array->capacity < array->count + 1) {
+        int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
         array->values = GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
     }
@@ -33,5 +33,3 @@ void freeValueArray(ValueArray *array) {
 void printValue(Value value) {
     printf("%g", value);
 }
-
-

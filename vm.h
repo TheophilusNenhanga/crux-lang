@@ -17,16 +17,20 @@ typedef enum {
 } InterpretResult;
 
 typedef struct {
-    Chunk* chunk;
-    uint8_t* ip; // instruction pointer
+    Chunk *chunk;
+    uint8_t *ip; // instruction pointer
     Value stack[STACK_MAX]; // always points just past the last item
-    Value* stackTop;
+    Value *stackTop;
 } VM;
 
 void initVM();
+
 void freeVM();
-InterpretResult interpret(Chunk* chunk);
+
+InterpretResult interpret(const char *source);
+
 void push(Value value);
+
 Value pop();
 
 #endif //VM_H

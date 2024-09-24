@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "debug.h"
+#include "compiler.h"
 
 VM vm;
 
@@ -79,7 +80,8 @@ do {\
                 push(-pop()); // this can be optimized
                 break;
             }
-            case OP_ADD: BINARY_OP(+); // an operator can be passed as an argument to the preprocessor...it is just treated as a text token like everything else
+            case OP_ADD: BINARY_OP(+);
+            // an operator can be passed as an argument to the preprocessor...it is just treated as a text token like everything else
                 break;
             case OP_SUBTRACT: BINARY_OP(-);
                 break;
@@ -88,7 +90,6 @@ do {\
             case OP_DIVIDE: BINARY_OP(/);
                 break;
             default: {
-
             };
         }
     }
@@ -97,10 +98,21 @@ do {\
 #undef BINARY_OP
 }
 
-InterpretResult interpret(Chunk *chunk) {
-    vm.chunk = chunk; // Store the chunk being executed in the VM
-    vm.ip = vm.chunk->code; // points to teh instruction that is about to be executed
-    return run();
+InterpretResult interpret(const char *source) {
+    Chunk chunk;
+    initChunk(&chunk);
+    if (!compile(source, &chunk)) {
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+
+    InterpretResult result = run();
+
+    freeChunk(&chunk);
+    return result;
 }
 
 // Store ip in a local variable to improve performance
