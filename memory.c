@@ -6,7 +6,7 @@
 #include "memory.h"
 
 
-void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
+void *reallocate(void *pointer, size_t oldSize, const size_t newSize) {
     if (newSize == 0) {
         free(pointer);
         return NULL;

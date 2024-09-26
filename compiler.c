@@ -69,7 +69,7 @@ static Chunk *currentChunk() {
     return compilingChunk;
 }
 
-static void errorAt(Token *token, const char *message) {
+static void errorAt(const Token *token, const char *message) {
     if (parser.panicMode) return; // if in panic mode do not show more errors (avoid cascading errors)
     parser.panicMode = true; // if we see an error, enter panic mode
     fprintf(stderr, "[line %d] Error", token->line);
@@ -150,6 +150,18 @@ static void binary() {
     parsePrecedence((Precedence) (rule->precedence + 1));
 
     switch (operatorType) {
+        case TOKEN_BANG_EQUAL: emitByte(OP_NOT_EQUAL);
+            break;
+        case TOKEN_EQUAL_EQUAL: emitByte(OP_EQUAL);
+            break;
+        case TOKEN_GREATER: emitByte(OP_GREATER);
+            break;
+        case TOKEN_GREATER_EQUAL: emitByte(OP_GREATER_EQUAL);
+            break;
+        case TOKEN_LESS: emitByte(OP_LESS);
+            break;
+        case TOKEN_LESS_EQUAL: emitByte(OP_LESS_EQUAL);
+            break;
         case TOKEN_PLUS: emitByte(OP_ADD);
             break;
         case TOKEN_MINUS: emitByte(OP_SUBTRACT);
@@ -158,6 +170,17 @@ static void binary() {
             break;
         case TOKEN_SLASH: emitByte(OP_DIVIDE);
             break;
+        default: return; // unreachable
+    }
+}
+
+static void literal() {
+    switch (parser.previous.type) {
+        case TOKEN_FALSE: emitByte(OP_FALSE);
+            break;
+        case TOKEN_NIL: emitByte(OP_NIL);
+            break;
+        case TOKEN_TRUE: emitByte(OP_TRUE);
         default: return; // unreachable
     }
 }
@@ -183,20 +206,13 @@ static void grouping() {
 
 static void number() {
     const double value = strtod(parser.previous.start, NULL);
-
-    // TODO: Try this
-    //    Check if the value is an integer
-    //    if (value == (int64_t)value) {
-    //        // It's an integer
-    //        int64_t intValue = (int64_t)value;
-    //        emitConstant(NUMBER_VAL(intValue));
-    //    } else {
-    //        // It's a floating-point number
-    //        emitConstant(NUMBER_VAL(value));
-    //    }
-
-
-    emitConstant(value);
+    // TODO: TEST THIS: MULTIPLICATION BETWEEN INTS AND FLOATS
+    if (value == (int64_t) value) {
+        const int64_t intValue = (int64_t) value;
+        emitConstant(INT_VAL(intValue));
+    } else {
+        emitConstant(FLOAT_VAL(value));
+    }
 }
 
 
@@ -207,6 +223,8 @@ static void unary() {
     parsePrecedence(PREC_UNARY);
 
     switch (operatorType) {
+        case TOKEN_BANG: emitByte(OP_NOT);
+            break;
         case TOKEN_MINUS: emitByte(OP_NEGATE);
             break;
         default: return; // unreachable
@@ -226,14 +244,14 @@ ParseRule rules[] = {
     [TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
     [TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
     [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_BANG] = {NULL, NULL, PREC_NONE},
-    [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
+    [TOKEN_BANG] = {unary, NULL, PREC_NONE},
+    [TOKEN_BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
     [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_GREATER] = {NULL, NULL, PREC_NONE},
-    [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
+    [TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_EQUALITY},
+    [TOKEN_GREATER] = {NULL, binary, PREC_COMPARISON},
+    [TOKEN_GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
+    [TOKEN_LESS] = {NULL, binary, PREC_COMPARISON},
+    [TOKEN_LESS_EQUAL] = {NULL, binary, PREC_COMPARISON},
     [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
     [TOKEN_STRING] = {NULL, NULL, PREC_NONE},
     [TOKEN_INT] = {number, NULL, PREC_NONE},
@@ -241,17 +259,17 @@ ParseRule rules[] = {
     [TOKEN_AND] = {NULL, NULL, PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_FALSE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
     [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
     [TOKEN_FN] = {NULL, NULL, PREC_NONE},
     [TOKEN_IF] = {NULL, NULL, PREC_NONE},
-    [TOKEN_NIL] = {NULL, NULL, PREC_NONE},
+    [TOKEN_NIL] = {literal, NULL, PREC_NONE},
     [TOKEN_OR] = {NULL, NULL, PREC_NONE},
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
     [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
     [TOKEN_SELF] = {NULL, NULL, PREC_NONE},
-    [TOKEN_TRUE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_LET] = {NULL, NULL, PREC_NONE},
     [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
@@ -262,9 +280,9 @@ ParseRule rules[] = {
 /**
 starts at the current token and parses any expression at the given precedence or higher
 */
-static void parsePrecedence(Precedence precedence) {
+static void parsePrecedence(const Precedence precedence) {
     advance();
-    ParseFn prefixRule = getRule(parser.previous.type)->prefix;
+    const ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     if (prefixRule == NULL) {
         error("Expected expression.");
         return;
@@ -273,12 +291,12 @@ static void parsePrecedence(Precedence precedence) {
 
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
-        ParseFn infixRule = getRule(parser.previous.type)->infix;
+        const ParseFn infixRule = getRule(parser.previous.type)->infix;
         infixRule();
     }
 }
 
-static ParseRule *getRule(TokenType type) {
+static ParseRule *getRule(const TokenType type) {
     return &rules[type]; // Returns the rule at the given index
 }
 
