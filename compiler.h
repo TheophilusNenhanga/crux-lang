@@ -8,4 +8,4 @@
 
 bool compile(const char *source, Chunk *chunk);
 
-#endif //COMPILER_H
+#endif // COMPILER_H

@@ -7,75 +7,76 @@
 #include "debug.h"
 #include "vm.h"
 
-
 static char *readFile(const char *path) {
-    FILE *file = fopen(path, "rb");
+  FILE *file = fopen(path, "rb");
 
-    if (file == NULL) {
-        // If teh file does not exist of the user does not have access to it
-        fprintf(stderr, "Could not open file \"%s\".\n", path);
-        exit(74);
-    }
+  if (file == NULL) {
+    // If teh file does not exist of the user does not have access to it
+    fprintf(stderr, "Could not open file \"%s\".\n", path);
+    exit(74);
+  }
 
-    fseek(file, 0L, SEEK_END); // go to the end of the file
-    const size_t fileSize = ftell(file); // Tell us how far away the end is
-    rewind(file); // bring us back to the beginning
+  fseek(file, 0L, SEEK_END);           // go to the end of the file
+  const size_t fileSize = ftell(file); // Tell us how far away the end is
+  rewind(file);                        // bring us back to the beginning
 
-    char *buffer = (char *) malloc(fileSize + 1);
+  char *buffer = (char *)malloc(fileSize + 1);
 
-    if (buffer == NULL) {
-        // If the file does not exist of the user does not have access to it
-        fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
-        exit(74);
-    }
+  if (buffer == NULL) {
+    // If the file does not exist of the user does not have access to it
+    fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
+    exit(74);
+  }
 
-    const size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
+  const size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
 
-    if (bytesRead < fileSize) {
-        fprintf(stderr, "Could not read file \"%s\".\n", path);
-    }
+  if (bytesRead < fileSize) {
+    fprintf(stderr, "Could not read file \"%s\".\n", path);
+  }
 
-    buffer[bytesRead] = '\0';
+  buffer[bytesRead] = '\0';
 
-    fclose(file);
-    return buffer;
+  fclose(file);
+  return buffer;
 }
 
 static void repl() {
-    char line[1024];
-    while (true) {
-        printf("> ");
+  char line[1024];
+  while (true) {
+    printf("> ");
 
-        if (!fgets(line, sizeof(line), stdin)) {
-            printf("\n");
-            break;
-        }
-        interpret(line);
+    if (!fgets(line, sizeof(line), stdin)) {
+      printf("\n");
+      break;
     }
+    interpret(line);
+  }
 }
 
 static void runFile(const char *path) {
-    char *source = readFile(path);
-    const InterpretResult result = interpret(source);
-    free(source);
+  char *source = readFile(path);
+  const InterpretResult result = interpret(source);
+  free(source);
 
-    if (result == INTERPRET_COMPILE_ERROR) exit(65);
-    if (result == INTERPRET_RUNTIME_ERROR) exit(70);
+  if (result == INTERPRET_COMPILE_ERROR)
+    exit(65);
+  if (result == INTERPRET_RUNTIME_ERROR)
+    exit(70);
 }
 
 int main(const int argc, const char *argv[]) {
-    initVM();
+  initVM();
 
-    if (argc == 1) {
-        // arg 0 is always the name of the executable being run
-        repl();
-    } else if (argc == 2) {
-        runFile(argv[1]);
-    } else {
-        fprintf(stderr, "Usage: stella [path]\n");
-        exit(64);
-    }
+  if (argc == 1) {
+    // arg 0 is always the name of the executable being run
+    repl();
+  } else if (argc == 2) {
+    runFile(argv[1]);
+  } else {
+    fprintf(stderr, "Usage: stella [path]\n");
+    exit(64);
+  }
 
-    freeVM();
-    return 0;
+  freeVM();
+  return 0;
 }

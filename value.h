@@ -9,21 +9,20 @@
 
 #define EPSILON 1e-9
 
-typedef enum {
-    VAL_BOOL,
-    VAL_NIL,
-    VAL_INT,
-    VAL_FLOAT,
-} ValueType;
+typedef struct Object Object;
+typedef struct ObjectString ObjectString;
+
+typedef enum { VAL_BOOL, VAL_NIL, VAL_INT, VAL_FLOAT, VAL_OBJECT } ValueType;
 
 typedef struct {
-    ValueType type;
+  ValueType type;
 
-    union {
-        bool _bool;
-        double _float;
-        int _int;
-    } as;
+  union {
+    bool _bool;
+    double _float;
+    int _int;
+    Object *_object;
+  } as;
 } Value;
 
 // Check a given value's type
@@ -31,24 +30,25 @@ typedef struct {
 #define IS_NIL(value) ((value).type == VAL_NIL)
 #define IS_INT(value) ((value).type == VAL_INT)
 #define IS_FLOAT(value) ((value).type == VAL_FLOAT)
-
+#define IS_OBJECT(value) ((value).type == VAL_OBJECT)
 
 // Make a StellaC type a value
 #define AS_BOOL(value) ((value).as._bool)
 #define AS_INT(value) ((value).as._int)
 #define AS_FLOAT(value) ((value).as._float)
-
+#define AS_OBJECT(value) ((value).as._object)
 
 // Make a value a StellaC type
-#define BOOL_VAL(value) ((Value) {VAL_BOOL, {._bool=value}})
-#define NIL_VAL ((Value) {VAL_NIL, {._int=0}})
-#define INT_VAL(value) ((Value) {VAL_INT, {._int = value}})
-#define FLOAT_VAL(value) ((Value) {VAL_FLOAT, {._float=value}})
+#define BOOL_VAL(value) ((Value){VAL_BOOL, {._bool = value}})
+#define NIL_VAL ((Value){VAL_NIL, {._int = 0}})
+#define INT_VAL(value) ((Value){VAL_INT, {._int = value}})
+#define FLOAT_VAL(value) ((Value){VAL_FLOAT, {._float = value}})
+#define OBJECT_VAL(value) ((Value){VAL_OBJECT, {._object = value}})
 
 typedef struct {
-    int capacity;
-    int count;
-    Value *values;
+  int capacity;
+  int count;
+  Value *values;
 } ValueArray;
 
 bool valuesEqual(Value a, Value b);
@@ -61,4 +61,4 @@ void freeValueArray(ValueArray *array);
 
 void printValue(Value value);
 
-#endif //VALUE_H
+#endif // VALUE_H
