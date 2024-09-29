@@ -48,6 +48,7 @@ typedef enum {
   TOKEN_SELF,
   TOKEN_TRUE,
   TOKEN_LET,
+  TOKEN_SET,
   TOKEN_WHILE,
   TOKEN_ERROR,
   TOKEN_EOF

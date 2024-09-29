@@ -13,7 +13,6 @@
 #include "value.h"
 #include "vm.h"
 
-
 #include "object.h"
 
 VM vm;
@@ -71,10 +70,12 @@ void initVM() {
   resetStack();
   vm.objects = NULL;
   initTable(&vm.strings);
+  initTable(&vm.globals);
 }
 
-void freeVM() { 
+void freeVM() {
   freeTable(&vm.strings);
+  freeTable(&vm.globals);
   freeObjects();
 }
 
@@ -86,6 +87,7 @@ static InterpretResult run() {
   // Reads the next byte from the byte code treats the resulting number as an
   // index and looks up the corresponding Value in the chunk's constant table
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
 #define BOOL_BINARY_OP(op)                                                     \
   do {                                                                         \
@@ -173,8 +175,7 @@ static InterpretResult run() {
       break;
     }
     case OP_RETURN: {
-      printValue(pop());
-      printf("\n");
+      // Exit the interpreter
       return INTERPRET_OK;
     }
     case OP_NIL:
@@ -263,6 +264,37 @@ static InterpretResult run() {
     case OP_NOT:
       push(BOOL_VAL(isFalsy(pop())));
       break;
+    case OP_PRINT:
+      printValue(pop());
+      printf("\n");
+      break;
+    case OP_POP:
+      pop();
+      break;
+    case OP_DEFINE_GLOBAL:
+      ObjectString *name = READ_STRING();
+      tableSet(&vm.globals, name, peek(0));
+      pop();
+      break;
+    case OP_GET_GLOBAL: {
+      ObjectString *name = READ_STRING();
+      Value value;
+      if (!tableGet(&vm.globals, name, &value)) {
+        runtimeError("Undefined variable '&s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(value);
+      break;
+    }
+    case OP_SET_GLOBAL: {
+      ObjectString *name = READ_STRING();
+      if (tableSet(&vm.globals, name, peek(0))) {
+        tableDelete(&vm.globals, name);
+        runtimeError("Undefined Variable '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      break;
+    }
     default: {
     };
     }
@@ -271,6 +303,7 @@ static InterpretResult run() {
 #undef READ_CONSTANT
 #undef BINARY_OP
 #undef BOOL_BINARY_OP
+#undef READ_STRING
 }
 
 InterpretResult interpret(const char *source) {

@@ -1,0 +1,12 @@
+statement       ->  expressionStatement
+                  | forStatement
+                  | ifStatement
+                  | printStatement
+                  | returnStatement
+                  | whileStatement
+                  | block;
+
+declaration     ->  classDeclaration
+                  | functionDeclaration
+                  | variableDeclaration
+                  | statement

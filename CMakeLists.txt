@@ -22,4 +22,5 @@ add_executable(StellaC
         scanner.h
         object.c
         table.c
-        table.h)
+        table.h
+        object.h)
