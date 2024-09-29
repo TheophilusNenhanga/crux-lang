@@ -6,7 +6,6 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
 
 
 #include "memory.h"
@@ -76,12 +75,8 @@ bool valuesEqual(const Value a, const Value b) {
     return AS_INT(a) == AS_INT(b);
   case VAL_FLOAT:
     return fabs(AS_FLOAT(a) - AS_FLOAT(b)) < EPSILON;
-  case VAL_OBJECT: {
-    ObjectString *aString = AS_STRING(a);
-    ObjectString *bString = AS_STRING(b);
-    return aString->length == bString->length &&
-           memcmp(aString->chars, bString->chars, aString->length) == 0;
-  }
+  case VAL_OBJECT: 
+    return AS_OBJECT(a) == AS_OBJECT(b);
   default:
     return false; // Unknown type. Unreachable
   }

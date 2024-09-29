@@ -6,7 +6,6 @@
 #include "memory.h"
 #include <stdlib.h>
 
-
 void initChunk(Chunk *chunk) {
   chunk->count = 0;
   chunk->capacity = 0;
@@ -41,6 +40,6 @@ void freeChunk(Chunk *chunk) {
 int addConstant(Chunk *chunk, Value value) {
   writeValueArray(&chunk->constants, value);
   return chunk->constants.count - 1;
-  // After we add teh constant we return the index where the constant was
+  // After we add the constant we return the index where the constant was
   // appended so that we can locate the same constant later
 }

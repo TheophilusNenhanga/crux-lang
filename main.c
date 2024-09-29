@@ -11,7 +11,7 @@ static char *readFile(const char *path) {
   FILE *file = fopen(path, "rb");
 
   if (file == NULL) {
-    // If teh file does not exist of the user does not have access to it
+    // If the file does not exist of the user does not have access to it
     fprintf(stderr, "Could not open file \"%s\".\n", path);
     exit(74);
   }

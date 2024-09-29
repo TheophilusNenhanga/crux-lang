@@ -4,7 +4,7 @@ project(StellaC C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(StellaC
-    main.c
+        main.c
         common.h
         chunk.h
         chunk.c
@@ -20,4 +20,6 @@ add_executable(StellaC
         compiler.h
         scanner.c
         scanner.h
-        object.c)
+        object.c
+        table.c
+        table.h)
