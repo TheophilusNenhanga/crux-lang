@@ -98,6 +98,15 @@ bool tableDelete(Table *table, ObjectString *key) {
   return true;
 }
 
+bool tableCheck(Table *table, ObjectString *key) {
+  if (table->count == 0)
+    return false;
+  Entry *entry = findEntry(table->entries, table->capacity, key);
+  if (entry->key == NULL)
+    return false;
+  return true;
+}
+
 bool tableGet(Table *table, ObjectString *key, Value *value) {
   if (table->count == 0)
     return false;
