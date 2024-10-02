@@ -273,6 +273,10 @@ static InterpretResult run() {
       break;
     case OP_DEFINE_GLOBAL:
       ObjectString *name = READ_STRING();
+      if (tableCheck(&vm.constants, name)) {
+        runtimeError("Cannot define variable '%s' because it is already set defined.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
       tableSet(&vm.globals, name, peek(0));
       pop();
       break;
@@ -307,6 +311,10 @@ static InterpretResult run() {
     }
     case OP_DEFINE_GLOBAL_CONSTANT: {
       ObjectString *name = READ_STRING();
+      if (tableCheck(&vm.globals, name)) {
+        runtimeError("Cannot define '%s' because it is already let defined.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
       tableSet(&vm.constants, name, peek(0));
       pop();
       break;
