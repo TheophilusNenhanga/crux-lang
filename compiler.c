@@ -160,6 +160,10 @@ static void defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
+static void defineConstantVariable(uint8_t global) {
+  emitBytes(OP_DEFINE_GLOBAL_CONSTANT, global);
+}
+
 static void binary(bool canAssign) {
   const TokenType operatorType = parser.previous.type;
   const ParseRule *rule = getRule(operatorType);
@@ -219,7 +223,7 @@ static void literal(bool canAssign) {
 static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
 
 static void varDeclaration() {
-  uint8_t global = parseVariable("Expected Variable Name.");
+  const uint8_t global = parseVariable("Expected Variable Name.");
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -228,6 +232,17 @@ static void varDeclaration() {
   }
   consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
   defineVariable(global);
+}
+
+static void constDeclaration() {
+  const uint8_t global = parseVariable("Expected Variable Name.");
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    error("Expected constant after variable declaration.");
+  }
+  consume(TOKEN_SEMICOLON, "Expected ';' after constant declaration.");
+  defineConstantVariable(global);
 }
 
 static void expressionStatement() {
@@ -266,8 +281,10 @@ static void synchronize() {
 }
 
 static void declaration() {
-  if (match(TOKEN_LET) || match(TOKEN_SET)) {
+  if (match(TOKEN_LET)) {
     varDeclaration();
+  }else if (match(TOKEN_SET)) {
+    constDeclaration();
   } else {
     statement();
   }
