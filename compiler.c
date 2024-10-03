@@ -234,9 +234,10 @@ static uint8_t parseVariable(const char *errorMessage) {
 }
 
 static void defineVariable(uint8_t global) {
-    if (current->scopeDepth > 0)
+    if (current->scopeDepth > 0) {
         markInitialized();
         return;
+    }
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
@@ -419,7 +420,6 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
     const double value = strtod(parser.previous.start, NULL);
-    // TODO: TEST THIS: MULTIPLICATION BETWEEN INTS AND FLOATS
     if (value == (int64_t) value) {
         const int64_t intValue = (int64_t) value;
         emitConstant(INT_VAL(intValue));
