@@ -4,9 +4,11 @@ statement       ->  expressionStatement
                   | printStatement
                   | returnStatement
                   | whileStatement
-                  | block;
+                  | block               ;
 
 declaration     ->  classDeclaration
                   | functionDeclaration
                   | variableDeclaration
-                  | statement
+                  | statement           ;
+
+block           -> "{" declaration* "}" ;
