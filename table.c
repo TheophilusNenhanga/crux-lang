@@ -29,11 +29,10 @@ static Entry *findEntry(Entry *entries, const int capacity, ObjectString *key) {
       if (IS_NIL(entry->value)) {
         // empty entry
         return tombstone != NULL ? tombstone : entry;
-      } else {
-        // we found a tombstone
-        if (tombstone == NULL)
-          tombstone = entry;
       }
+      // we found a tombstone
+      if (tombstone == NULL)
+        tombstone = entry;
     } else if (entry->key == key) {
       // we found the key
       return entry;
@@ -67,7 +66,7 @@ static void adjustCapacity(Table *table, int capacity) {
 }
 
 // Returns true when a new key is inserted false otherwise
-bool tableSet(Table *table, ObjectString *key, Value value) {
+TableResponse tableSet(Table *table, ObjectString *key, Value value) {
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
@@ -75,12 +74,19 @@ bool tableSet(Table *table, ObjectString *key, Value value) {
 
   Entry *entry = findEntry(table->entries, table->capacity, key);
   const bool isNewKey = entry->key == NULL;
-  if (isNewKey && IS_NIL(entry->value))
+
+  const bool isNilValue = IS_NIL(entry->value);
+
+  if (isNewKey && isNilValue)
     table->count++;
+
+  if (!isNilValue) {
+    if (!entry->value.isMutable) return IMMUTABLE_OVERWRITE; // attempting to update immutable value;
+  }
 
   entry->key = key;
   entry->value = value;
-  return isNewKey;
+  return isNewKey ? NEW_KEY_SUCCESS : SET_SUCCESS;
 }
 
 bool tableDelete(Table *table, ObjectString *key) {
@@ -107,15 +113,22 @@ bool tableCheck(Table *table, ObjectString *key) {
   return true;
 }
 
-bool tableGet(Table *table, ObjectString *key, Value *value) {
+bool isTableValueMutable(Table * table, ObjectString *key) {
   if (table->count == 0)
-    return false;
+    false;
+  const Entry *entry = findEntry(table->entries, table->capacity, key);
+  return entry->value.isMutable;
+}
+
+TableResponse tableGet(Table *table, ObjectString *key, Value *value) {
+  if (table->count == 0)
+    return TABLE_EMPTY;
 
   Entry *entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL)
-    return false;
+    return VAR_NOT_FOUND;
   *value = entry->value;
-  return true;
+  return GET_SUCCESS;
 }
 
 void tableAddAll(Table *from, Table *to) {

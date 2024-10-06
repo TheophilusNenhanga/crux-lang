@@ -29,7 +29,7 @@ ObjectString *takeString(char *chars, int length);
 ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
 
-static inline bool isObjectType(Value value, ObjectType type) {
+static bool isObjectType(Value value, ObjectType type) {
   return IS_OBJECT(value) && AS_OBJECT(value)->type == type;
 }
 

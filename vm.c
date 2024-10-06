@@ -34,15 +34,12 @@ static void runtimeError(const char *format, ...) {
 }
 
 void push(const Value value) {
-	*vm.stackTop =
-			value; // stores value in the array element at the top of the stack
-	vm.stackTop++; // stack top points just past the last used element, at the
-	// next available one
+	*vm.stackTop = value; // stores value in the array element at the top of the stack
+	vm.stackTop++; // stack top points just past the last used element, at the next available one
 }
 
 Value pop() {
-	vm.stackTop--; // Move the stack pointer back to get the most recent slot in
-	// the array
+	vm.stackTop--; // Move the stack pointer back to get the most recent slot in the array
 	return *vm.stackTop;
 }
 
@@ -79,10 +76,8 @@ void freeVM() {
 	freeObjects();
 }
 
-// The most important function
 static InterpretResult run() {
-	// reads the byte  currently being pointed at by the ip and then advances the
-	// ip
+	// reads the byte currently being pointed at by the ip and then advances the ip
 #define READ_BYTE() (*vm.ip++)
 	// Reads the next byte from the byte code treats the resulting number as an
 	// index and looks up the corresponding Value in the chunk's constant table
@@ -174,19 +169,26 @@ static InterpretResult run() {
 				push(constant);
 				break;
 			}
+
 			case OP_RETURN: {
 				// Exit the interpreter
 				return INTERPRET_OK;
 			}
-			case OP_NIL:
+
+			case OP_NIL: {
 				push(NIL_VAL);
 				break;
-			case OP_TRUE:
+			}
+
+			case OP_TRUE: {
 				push(BOOL_VAL(true));
 				break;
-			case OP_FALSE:
+			}
+
+			case OP_FALSE: {
 				push(BOOL_VAL(false));
 				break;
+			}
 
 			case OP_EQUAL: {
 				Value b = pop();
@@ -227,7 +229,8 @@ static InterpretResult run() {
 				}
 				break;
 			}
-			case OP_ADD:
+
+			case OP_ADD: {
 				if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
 					concatenate();
 				} else if (IS_INT(peek(0)) && IS_INT(peek(1))) {
@@ -252,85 +255,138 @@ static InterpretResult run() {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
-			case OP_SUBTRACT:
+			}
+
+			case OP_SUBTRACT: {
 				BINARY_OP(INT_VAL, FLOAT_VAL, 0, -);
 				break;
-			case OP_MULTIPLY:
+			}
+
+			case OP_MULTIPLY: {
 				BINARY_OP(INT_VAL, FLOAT_VAL, 0, *);
 				break;
-			case OP_DIVIDE:
+			}
+
+			case OP_DIVIDE: {
 				BINARY_OP(INT_VAL, FLOAT_VAL, 1, /);
 				break;
-			case OP_NOT:
+			}
+
+			case OP_NOT: {
 				push(BOOL_VAL(isFalsy(pop())));
 				break;
-			case OP_PRINT:
+			}
+
+			case OP_PRINT: {
 				printValue(pop());
 				printf("\n");
 				break;
-			case OP_POP:
+			}
+
+			case OP_POP: {
 				pop();
 				break;
-			case OP_DEFINE_GLOBAL:
+			}
+
+			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (tableCheck(&vm.constants, name)) {
-					runtimeError("Cannot define variable '%s' because it is already set defined.", name->chars);
-					return INTERPRET_RUNTIME_ERROR;
+
+				switch (tableSet(&vm.globals, name, peek(0))) {
+					case IMMUTABLE_OVERWRITE: {
+						runtimeError("Cannot define '%s' because it is already defined.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					case NEW_KEY_SUCCESS: {
+						pop();
+						break;
+					}
+					case SET_SUCCESS: {
+						runtimeError("Cannot define '%s' because it is already defined.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					default:
+						break;
 				}
-				tableSet(&vm.globals, name, peek(0));
-				pop();
 				break;
+			}
+
 			case OP_GET_GLOBAL: {
 				ObjectString *name = READ_STRING();
 				Value value;
 
-				if (!tableGet(&vm.globals, name, &value)) {
-					if (!tableGet(&vm.constants, name, &value)) {
+				switch (tableGet(&vm.globals, name, &value)) {
+					case TABLE_EMPTY:
+					case VAR_NOT_FOUND: {
 						runtimeError("Undefined variable '%s'.", name->chars);
 						return INTERPRET_RUNTIME_ERROR;
 					}
+					case GET_SUCCESS: {
+						push(value);
+						break;
+					}
+					default: break;
 				}
-
-				push(value);
 				break;
 			}
+
 			case OP_SET_GLOBAL: {
 				ObjectString *name = READ_STRING();
-
-				if (tableCheck(&vm.constants, name)) {
-					runtimeError("Cannot modify constant variable '%s'.", name->chars);
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				if (tableSet(&vm.globals, name, peek(0))) {
-					tableDelete(&vm.globals, name);
-					runtimeError("Undefined Variable '%s'.", name->chars);
-					return INTERPRET_RUNTIME_ERROR;
+				switch (tableSet(&vm.globals, name, peek(0))) {
+					case SET_SUCCESS: {
+						break;
+					}
+					case NEW_KEY_SUCCESS: {
+						runtimeError("Cannot define '%s' because variable with this name already exists.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					case IMMUTABLE_OVERWRITE: {
+						runtimeError("Cannot modify <set> defined variable '%s'.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					default: break;
 				}
 				break;
 			}
+
 			case OP_DEFINE_GLOBAL_CONSTANT: {
 				ObjectString *name = READ_STRING();
-				if (tableCheck(&vm.globals, name)) {
-					runtimeError("Cannot define '%s' because it is already let defined.", name->chars);
-					return INTERPRET_RUNTIME_ERROR;
+				Value value = peek(0);
+				switch (tableSet(&vm.globals, name, value)) {
+					case IMMUTABLE_OVERWRITE:
+					case SET_SUCCESS: {
+						runtimeError("Cannot define '%s' because it is already defined.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					case NEW_KEY_SUCCESS: {
+						pop();
+						break;
+					}
+					default: {
+						break;
+					}
 				}
-				tableSet(&vm.constants, name, peek(0));
-				pop();
 				break;
 			}
+
 			case OP_GET_LOCAL: {
 				uint8_t slot = READ_BYTE();
 				push(vm.stack[slot]);
 				break;
 			}
+
 			case OP_SET_LOCAL: {
 				uint8_t slot = READ_BYTE();
-				vm.stack[slot] = peek(0);
+				if (vm.stack[slot].isMutable) {
+					vm.stack[slot] = peek(0);
+				} else {
+					runtimeError("Cannot modify <set> defined local variable");
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
+
 			default: {
-			};
+			}
 		}
 	}
 #undef READ_BYTE

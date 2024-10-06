@@ -1,7 +1,3 @@
-//
-// Created by theon on 08/09/2024.
-//
-
 #include "debug.h"
 #include "value.h"
 
@@ -28,8 +24,7 @@ static int byteInstruction(const char *name, const Chunk *chunk, const int offse
 	return offset + 2;
 }
 
-static int constantInstruction(const char *name, const Chunk *chunk,
-                               const int offset) {
+static int constantInstruction(const char *name, const Chunk *chunk, const int offset) {
 	uint8_t constant = chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	printValue(chunk->constants.values[constant]); // print the constant's value
