@@ -3,8 +3,8 @@
 //
 
 #include "chunk.h"
-#include "memory.h"
 #include <stdlib.h>
+#include "memory.h"
 
 void initChunk(Chunk *chunk) {
 	chunk->count = 0;
@@ -18,10 +18,8 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
 	if (chunk->capacity < chunk->count + 1) {
 		// check if the current array already has the capacity for the new byte
 		int oldCapacity = chunk->capacity;
-		chunk->capacity = GROW_CAPACITY(
-			oldCapacity); // Growing the array to make room for the next byte
-		chunk->code =
-				GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
+		chunk->capacity = GROW_CAPACITY(oldCapacity); // Growing the array to make room for the next byte
+		chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
 		chunk->lines = GROW_ARRAY(int, chunk->lines, oldCapacity, chunk->capacity);
 	}
 

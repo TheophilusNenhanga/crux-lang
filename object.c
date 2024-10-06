@@ -3,12 +3,11 @@
 
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
-#include "table.h"
 
-#define ALLOCATE_OBJECT(type, objectType)                                      \
-  (type *)allocateObject(sizeof(type), objectType)
+#define ALLOCATE_OBJECT(type, objectType) (type *) allocateObject(sizeof(type), objectType)
 
 static Object *allocateObject(size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(NULL, 0, size);
@@ -44,12 +43,12 @@ ObjectString *copyString(const char *chars, int length) {
 	uint32_t hash = hashString(chars, length);
 
 	ObjectString *interned = tableFindString(&vm.strings, chars, length, hash);
-	if (interned != NULL) return interned;
+	if (interned != NULL)
+		return interned;
 
 	char *heapChars = ALLOCATE(char, length + 1);
 	memcpy(heapChars, chars, length);
-	heapChars[length] =
-			'\0'; // terminating the string because it is not terminated in the source
+	heapChars[length] = '\0'; // terminating the string because it is not terminated in the source
 	return allocateString(heapChars, length, hash);
 }
 
@@ -68,7 +67,7 @@ ObjectString *takeString(char *chars, int length) {
 	ObjectString *interned = tableFindString(&vm.strings, chars, length, hash);
 	if (interned != NULL) {
 		// free the string that was passed to us.
-		FREE_ARRAY(char, chars, length+1);
+		FREE_ARRAY(char, chars, length + 1);
 		return interned;
 	}
 

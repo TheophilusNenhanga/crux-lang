@@ -15,14 +15,14 @@ typedef struct ObjectString ObjectString;
 typedef enum { VAL_BOOL, VAL_NIL, VAL_INT, VAL_FLOAT, VAL_OBJECT } ValueType;
 
 typedef struct {
-  ValueType type;
-  union {
-    bool _bool;
-    double _float;
-    int _int;
-    Object *_object;
-  } as;
-  bool isMutable;
+	ValueType type;
+	union {
+		bool _bool;
+		double _float;
+		int _int;
+		Object *_object;
+	} as;
+	bool isMutable;
 } Value;
 
 // Check a given value's type
@@ -42,14 +42,14 @@ typedef struct {
 // Make a value a StellaC type
 #define BOOL_VAL(value) ((Value){VAL_BOOL, {._bool = value}, true})
 #define NIL_VAL ((Value){VAL_NIL, {._int = 0}, true})
-#define INT_VAL(value) ((Value){VAL_INT, {._int = value},true})
+#define INT_VAL(value) ((Value){VAL_INT, {._int = value}, true})
 #define FLOAT_VAL(value) ((Value){VAL_FLOAT, {._float = value}, true})
 #define OBJECT_VAL(value) ((Value){VAL_OBJECT, {._object = value}, true})
 
 typedef struct {
-  int capacity;
-  int count;
-  Value *values;
+	int capacity;
+	int count;
+	Value *values;
 } ValueArray;
 
 bool valuesEqual(Value a, Value b);

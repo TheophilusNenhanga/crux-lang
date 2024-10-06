@@ -32,13 +32,10 @@ static char peekNext() {
 }
 
 static bool isIdentifierStarter(char c) {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' ||
-	       c == '$';
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$';
 }
 
-static bool isAlpha(char c) {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
+static bool isAlpha(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'; }
 
 static void skipWhitespace() {
 	for (;;) {
@@ -70,10 +67,8 @@ static void skipWhitespace() {
 	}
 }
 
-static TokenType checkKeyword(int start, const int length, const char *rest,
-                              const TokenType type) {
-	if (scanner.current - scanner.start == start + length &&
-	    memcmp(scanner.start + start, rest, length) == 0) {
+static TokenType checkKeyword(int start, const int length, const char *rest, const TokenType type) {
+	if (scanner.current - scanner.start == start + length && memcmp(scanner.start + start, rest, length) == 0) {
 		return type;
 	}
 	return TOKEN_IDENTIFIER;

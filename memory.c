@@ -1,7 +1,7 @@
 #include "memory.h"
+#include <stdlib.h>
 #include "object.h"
 #include "vm.h"
-#include <stdlib.h>
 
 void *reallocate(void *pointer, size_t oldSize, const size_t newSize) {
 	if (newSize == 0) {
@@ -9,8 +9,7 @@ void *reallocate(void *pointer, size_t oldSize, const size_t newSize) {
 		return NULL;
 	}
 
-	void *result = realloc(
-		pointer, newSize); // When oldSize is zero this is equivalent to malloc
+	void *result = realloc(pointer, newSize); // When oldSize is zero this is equivalent to malloc
 	if (result == NULL)
 		exit(1);
 	return result;

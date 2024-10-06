@@ -41,8 +41,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		printf("%4d ", chunk->lines[offset]);
 	}
 
-	uint8_t instruction =
-			chunk->code[offset]; // read a single byte, that is the opcode
+	uint8_t instruction = chunk->code[offset]; // read a single byte, that is the opcode
 
 	switch (instruction) {
 		case OP_RETURN:

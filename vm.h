@@ -6,25 +6,21 @@
 #define VM_H
 
 #include "chunk.h"
-#include "value.h"
 #include "table.h"
+#include "value.h"
 
 #define STACK_MAX 256
 
-typedef enum {
-  INTERPRET_OK,
-  INTERPRET_COMPILE_ERROR,
-  INTERPRET_RUNTIME_ERROR
-} InterpretResult;
+typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } InterpretResult;
 
 typedef struct {
-  Chunk *chunk;
-  uint8_t *ip;            // instruction pointer
-  Value stack[STACK_MAX]; // always points just past the last item
-  Value *stackTop;
-  Object *objects;
-  Table strings;
-  Table globals;
+	Chunk *chunk;
+	uint8_t *ip; // instruction pointer
+	Value stack[STACK_MAX]; // always points just past the last item
+	Value *stackTop;
+	Object *objects;
+	Table strings;
+	Table globals;
 } VM;
 
 extern VM vm;
