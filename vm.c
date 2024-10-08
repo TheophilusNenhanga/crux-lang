@@ -81,6 +81,7 @@ static InterpretResult run() {
 	// index and looks up the corresponding Value in the chunk's constant table
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
+#define READ_SHORT() (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 
 #define BOOL_BINARY_OP(op)                                                                                             \
 	do {                                                                                                                 \
@@ -384,6 +385,27 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_JUMP_IF_FALSE: {
+				uint16_t offset = READ_SHORT();
+				if (isFalsy(peek(0))) {
+					vm.ip += offset;
+					break;
+				}
+				break;
+			}
+
+			case OP_JUMP: {
+				uint16_t offset = READ_SHORT();
+				vm.ip += offset;
+				break;
+			}
+
+			case OP_LOOP:{
+				uint16_t offset = READ_SHORT();
+				vm.ip -= offset;
+				break;
+			}
+
 			default: {
 			}
 		}
@@ -393,6 +415,7 @@ static InterpretResult run() {
 #undef BINARY_OP
 #undef BOOL_BINARY_OP
 #undef READ_STRING
+#undef READ_SHORT
 }
 
 InterpretResult interpret(const char *source) {
