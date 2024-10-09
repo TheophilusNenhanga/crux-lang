@@ -1,7 +1,3 @@
-//
-// Created by theon on 08/09/2024.
-//
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +18,7 @@ static void resetStack() { vm.stackTop = vm.stack; }
 static void runtimeError(const char *format, ...) {
 	va_list args;
 	va_start(args, format);
+	fprintf(stderr, "-------RUNTIME ERROR-------\n");
 	vfprintf(stderr, format, args);
 	va_end(args);
 	fputs("\n", stderr);
@@ -81,7 +78,7 @@ static InterpretResult run() {
 	// index and looks up the corresponding Value in the chunk's constant table
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
-#define READ_SHORT() (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
+#define READ_SHORT() (vm.ip += 2, (uint16_t) ((vm.ip[-2] << 8) | vm.ip[-1]))
 
 #define BOOL_BINARY_OP(op)                                                                                             \
 	do {                                                                                                                 \
@@ -400,7 +397,7 @@ static InterpretResult run() {
 				break;
 			}
 
-			case OP_LOOP:{
+			case OP_LOOP: {
 				uint16_t offset = READ_SHORT();
 				vm.ip -= offset;
 				break;

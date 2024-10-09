@@ -55,7 +55,15 @@ typedef struct {
 	Local locals[UINT8_COUNT];
 	int localCount;
 	int scopeDepth; // 0 is global scope
+	int loopDepth;
 } Compiler;
+
+typedef struct {
+	int loopStart;
+	int exitJump;
+} LoopContext;
+
+LoopContext loopStack[UINT16_MAX];
 
 // Make these two non globals
 Parser parser;
@@ -87,6 +95,7 @@ static void errorAt(const Token *token, const char *message) {
 	if (parser.panicMode)
 		return; // if in panic mode do not show more errors (avoid cascading errors)
 	parser.panicMode = true; // if we see an error, enter panic mode
+	fprintf(stderr, "-------COMPILER ERROR-------\n");
 	fprintf(stderr, "[line %d] Error", token->line);
 	if (token->type == TOKEN_EOF) {
 		fprintf(stderr, " at end");
@@ -146,8 +155,9 @@ static void emitBytes(const uint8_t byte1, const uint8_t byte2) {
 
 static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
-	int offset = currentChunk()->count - loopStart  +2; // +2 takes into account the size of the OP_LOOP
-	if (offset > UINT16_MAX) error("Loop body too large.");
+	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
+	if (offset > UINT16_MAX)
+		error("Loop body too large.");
 
 	emitByte((offset >> 8) & 0xff);
 	emitByte(offset & 0xff);
@@ -157,7 +167,7 @@ static int emitJump(const uint8_t instruction) {
 	emitByte(instruction);
 	emitByte(0xff);
 	emitByte(0xff);
-	return currentChunk()->count-2;
+	return currentChunk()->count - 2;
 }
 
 static void emitReturn() { emitByte(OP_RETURN); }
@@ -185,7 +195,7 @@ static void emitConstant(const Value value) { emitBytes(OP_CONSTANT, makeConstan
 
 static void patchJump(int offset) {
 	// -2 to adjust for the bytecode for the jump offset itself
-	int jump = currentChunk()->count - offset -2;
+	int jump = currentChunk()->count - offset - 2;
 	if (jump > UINT16_MAX) {
 		error("Too much code to jump over.");
 	}
@@ -205,6 +215,7 @@ static void emitConstantWithMutability(Value value) {
 static void initCompiler(Compiler *compiler) {
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+	compiler->loopDepth = 0;
 	current = compiler;
 }
 
@@ -299,7 +310,7 @@ static void defineConstantVariable(const uint8_t global) {
 }
 
 static void and_(bool canAssign) {
-	int endJump = emitJump(OP_JUMP_IF_FALSE);
+	const int endJump = emitJump(OP_JUMP_IF_FALSE);
 	emitByte(OP_POP);
 	parsePrecedence(PREC_AND);
 
@@ -411,6 +422,51 @@ static void expressionStatement() {
 	emitByte(OP_POP);
 }
 
+static void breakStatement() {
+	if (current->scopeDepth == 0) {
+		error("'break' cannot be used outside of a loop.");
+		return;
+	}
+	consume(TOKEN_SEMICOLON, "Expected ';' after break statement.");
+	loopStack[current->loopDepth - 1].exitJump = emitJump(OP_JUMP);
+}
+
+static void continueStatement() {
+	if (current->loopDepth == 0) {
+		error("'continue' cannot be used outside of a loop.");
+		return;
+	}
+	consume(TOKEN_SEMICOLON, "Expected ';' after continue statement.");
+	emitLoop(loopStack[current->loopDepth - 1].loopStart);
+}
+
+static void whileStatement() {
+	const int loopStart = currentChunk()->count;
+	consume(TOKEN_LEFT_PAREN, "Expected '(' after 'while'.");
+	expression();
+	consume(TOKEN_RIGHT_PAREN, "Expected ')' after <while> statement.");
+	const int exitJump = emitJump(OP_JUMP_IF_FALSE);
+	emitByte(OP_POP);
+
+	loopStack[current->loopDepth].loopStart = loopStart;
+	loopStack[current->loopDepth].exitJump = -1;
+	current->loopDepth++;
+
+	statement();
+
+	emitLoop(loopStart);
+
+	patchJump(exitJump);
+	emitByte(OP_POP);
+
+	// patching breaks
+	if (loopStack[current->loopDepth - 1].exitJump != -1) {
+		patchJump(loopStack[current->loopDepth - 1].exitJump);
+	}
+
+	current->loopDepth--;
+}
+
 static void forStatement() {
 	beginScope();
 	consume(TOKEN_LEFT_PAREN, "Expected '(' after 'for'.");
@@ -419,7 +475,7 @@ static void forStatement() {
 		// no initializer
 	} else if (match(TOKEN_LET)) {
 		varDeclaration();
-	}else if (match(TOKEN_SET)){
+	} else if (match(TOKEN_SET)) {
 		error("Cannot use <set> defined variable as <for> initializer. Use <let> instead.");
 	} else {
 		expressionStatement();
@@ -437,8 +493,8 @@ static void forStatement() {
 
 	// check for right paren here
 	if (!match(TOKEN_RIGHT_PAREN)) {
-		int bodyJump = emitJump(OP_JUMP);
-		int incrementStart = currentChunk()->count;
+		const int bodyJump = emitJump(OP_JUMP);
+		const int incrementStart = currentChunk()->count;
 		expression();
 		emitByte(OP_POP);
 		consume(TOKEN_RIGHT_PAREN, "Expected ')' after <for> statement clauses.");
@@ -448,6 +504,10 @@ static void forStatement() {
 		patchJump(bodyJump);
 	}
 
+	loopStack[current->loopDepth].loopStart = loopStart;
+	loopStack[current->loopDepth].exitJump = exitJump;
+	current->loopDepth++;
+
 	statement();
 	emitLoop(loopStart);
 
@@ -456,6 +516,12 @@ static void forStatement() {
 		emitByte(OP_POP);
 	}
 
+	// patching breaks
+	if (loopStack[current->loopDepth - 1].exitJump != -1) {
+		patchJump(loopStack[current->loopDepth - 1].exitJump);
+	}
+
+	current->loopDepth--;
 	endScope();
 }
 
@@ -469,23 +535,9 @@ static void ifStatement() {
 	patchJump(thenJump);
 	emitByte(OP_POP);
 
-	if (match(TOKEN_ELSE)) statement();
+	if (match(TOKEN_ELSE))
+		statement();
 	patchJump(elseJump);
-}
-
-static void whileStatement() {
-	int loopStart = currentChunk()->count;
-	consume(TOKEN_LEFT_PAREN, "Expected '(' after 'while'.");
-	expression();
-	consume(TOKEN_RIGHT_PAREN, "Expected ')' after <while> statement.");
-	int exitJump = emitJump(OP_JUMP_IF_FALSE);
-	emitByte(OP_POP);
-	statement(); // the body of the loop
-
-	emitLoop(loopStart);
-
-	patchJump(exitJump);
-	emitByte(OP_POP);
 }
 
 static void printStatement() {
@@ -502,8 +554,6 @@ static void endCompiler() {
 	}
 #endif
 }
-
-
 
 
 static void synchronize() {
@@ -548,7 +598,7 @@ static void declaration() {
 static void statement() {
 	if (match(TOKEN_PRINT)) {
 		printStatement();
-	}else if (match(TOKEN_IF)){
+	} else if (match(TOKEN_IF)) {
 		ifStatement();
 	} else if (match(TOKEN_LEFT_BRACE)) {
 		beginScope();
@@ -556,9 +606,13 @@ static void statement() {
 		endScope();
 	} else if (match(TOKEN_WHILE)) {
 		whileStatement();
-	}else if (match(TOKEN_FOR)) {
+	} else if (match(TOKEN_FOR)) {
 		forStatement();
-	}else {
+	} else if (match(TOKEN_BREAK)) {
+		breakStatement();
+	} else if (match(TOKEN_CONTINUE)) {
+		continueStatement();
+	} else {
 		expressionStatement();
 	}
 }
@@ -650,6 +704,8 @@ ParseRule rules[] = {
 		[TOKEN_STRING] = {string, NULL, PREC_NONE},
 		[TOKEN_INT] = {number, NULL, PREC_NONE},
 		[TOKEN_FLOAT] = {number, NULL, PREC_NONE},
+		[TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
+		[TOKEN_BREAK] = {NULL, NULL, PREC_NONE},
 		[TOKEN_AND] = {NULL, and_, PREC_AND},
 		[TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ELSE] = {NULL, NULL, PREC_NONE},

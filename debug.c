@@ -4,12 +4,11 @@
 #include <stdio.h>
 
 void disassembleChunk(Chunk *chunk, const char *name) {
-	printf("== %s ==\n", name); // So we can tell which chunk we are looking at
+	printf("======= %s =======\n", name); // So we can tell which chunk we are looking at
 
 	for (int offset = 0; offset < chunk->count;) {
 		offset = disassembleInstruction(chunk, offset);
-		// This changes the size of offset, because instructions can have different
-		// sizes
+		// This changes the size of offset, because instructions can have different sizes
 	}
 }
 
@@ -39,7 +38,7 @@ static int constantInstruction(const char *name, const Chunk *chunk, const int o
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
 
-int disassembleInstruction(Chunk *chunk, int offset) {
+int disassembleInstruction(Chunk *chunk, const int offset) {
 	printf("%04d", offset); // Prints the byte offset of the given instruction
 
 	if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
