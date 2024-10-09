@@ -47,6 +47,8 @@ typedef enum {
 	TOKEN_SET,
 	TOKEN_WHILE,
 	TOKEN_ERROR,
+	TOKEN_BREAK,
+	TOKEN_CONTINUE,
 	TOKEN_EOF
 } TokenType;
 
