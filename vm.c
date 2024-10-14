@@ -13,8 +13,28 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value *args) {
-	return FLOAT_VAL((double) clock() / CLOCKS_PER_SEC);
+static Value clockNative(int argCount, Value *args) { return FLOAT_VAL((double) clock() / CLOCKS_PER_SEC); }
+
+static Value printNative(int argCount, Value *args) {
+	Value value = args[0];
+	switch (value.type) {
+		case VAL_BOOL:
+			printf(AS_BOOL(value) ? "true\n" : "false\n");
+			break;
+		case VAL_NIL:
+			printf("nil\n");
+			break;
+		case VAL_INT:
+			printf("%lld\n", AS_INT(value));
+			break;
+		case VAL_FLOAT:
+			printf("%g\n", AS_FLOAT(value));
+			break;
+		case VAL_OBJECT:
+			printObject(value);
+			break;
+	}
+	return NIL_VAL;
 }
 
 static void resetStack() {
@@ -30,14 +50,14 @@ static void runtimeError(const char *format, ...) {
 	va_end(args);
 	fputs("\n", stderr);
 
-	for (int i= vm.frameCount -1; i >= 0; i--) {
-		CallFrame* frame = &vm.frames[i];
-		ObjectFunction* function = frame->function;
-		size_t instruction = frame->ip - function->chunk.code -1;
+	for (int i = vm.frameCount - 1; i >= 0; i--) {
+		CallFrame *frame = &vm.frames[i];
+		ObjectFunction *function = frame->function;
+		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
 		if (function->name == NULL) {
 			fprintf(stderr, "script\n");
-		}else {
+		} else {
 			printf("%s()\n", function->name->chars);
 		}
 	}
@@ -45,15 +65,15 @@ static void runtimeError(const char *format, ...) {
 	resetStack();
 }
 
-static void defineNative(const char* name, const NativeFn function) {
+static void defineNative(const char *name, NativeFn function, int arity) {
 	push(OBJECT_VAL(copyString(name, (int) strlen(name))));
-	push(OBJECT_VAL(newNative(function)));
+	push(OBJECT_VAL(newNative(function, arity)));
 	tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
 	pop();
 	pop();
 }
 
-void push(const Value value) {
+void push(Value value) {
 	*vm.stackTop = value; // stores value in the array element at the top of the stack
 	vm.stackTop++; // stack top points just past the last used element, at the next available one
 }
@@ -63,9 +83,9 @@ Value pop() {
 	return *vm.stackTop;
 }
 
-static Value peek(const int distance) { return vm.stackTop[-1 - distance]; }
+static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
-static bool call(ObjectFunction* function, int argCount) {
+static bool call(ObjectFunction *function, int argCount) {
 	if (argCount != function->arity) {
 		runtimeError("Expected %d arguments, got %d", function->arity, argCount);
 		return false;
@@ -76,7 +96,7 @@ static bool call(ObjectFunction* function, int argCount) {
 		return false;
 	}
 
-	CallFrame* frame = &vm.frames[vm.frameCount++];
+	CallFrame *frame = &vm.frames[vm.frameCount++];
 	frame->function = function;
 	frame->ip = function->chunk.code;
 	frame->slots = vm.stackTop - argCount - 1;
@@ -89,21 +109,25 @@ static bool callValue(Value callee, int argCount) {
 			case OBJECT_FUNCTION:
 				return call(AS_FUNCTION(callee), argCount);
 			case OBJECT_NATIVE: {
-				NativeFn native = AS_NATIVE(callee);
-				Value result = native(argCount, vm.stackTop- argCount);
+				ObjectNative *native = AS_NATIVE_FN(callee);
+				if (argCount != native->arity) {
+					runtimeError("Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+				Value result = native->function(argCount, vm.stackTop - argCount);
 				vm.stackTop -= argCount + 1;
 				push(result);
 				return true;
 			}
 			default:
-				break; //non callable object type
+				break;
 		}
 	}
 	runtimeError("Can only call functions and classes");
 	return false;
 }
 
-static bool isFalsy(const Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
+static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
 static void concatenate() {
 	ObjectString *b = AS_STRING(pop());
@@ -125,7 +149,8 @@ void initVM() {
 	initTable(&vm.strings);
 	initTable(&vm.globals);
 
-	defineNative("clock", clockNative);
+	defineNative("clock", clockNative, 0);
+	defineNative("print", printNative, 1);
 }
 
 void freeVM() {
@@ -259,6 +284,13 @@ static InterpretResult run() {
 				Value b = pop();
 				Value a = pop();
 				push(BOOL_VAL(valuesEqual(a, b)));
+				break;
+			}
+
+			case OP_NOT_EQUAL: {
+				Value b = pop();
+				Value a = pop();
+				push(BOOL_VAL(!valuesEqual(a, b)));
 				break;
 			}
 
@@ -478,7 +510,7 @@ static InterpretResult run() {
 				if (!callValue(peek(argCount), argCount)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				frame = &vm.frames[vm.frameCount-1];
+				frame = &vm.frames[vm.frameCount - 1];
 				break;
 			}
 
@@ -495,8 +527,9 @@ static InterpretResult run() {
 }
 
 InterpretResult interpret(const char *source) {
-	ObjectFunction* function = compile(source);
-	if (function == NULL) return INTERPRET_COMPILE_ERROR;
+	ObjectFunction *function = compile(source);
+	if (function == NULL)
+		return INTERPRET_COMPILE_ERROR;
 
 	push(OBJECT_VAL(function));
 	call(function, 0);

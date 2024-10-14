@@ -19,7 +19,7 @@ typedef struct {
 	union {
 		bool _bool;
 		double _float;
-		int _int;
+		int64_t _int;
 		Object *_object;
 	} as;
 	bool isMutable;
@@ -31,7 +31,6 @@ typedef struct {
 #define IS_INT(value) ((value).type == VAL_INT)
 #define IS_FLOAT(value) ((value).type == VAL_FLOAT)
 #define IS_OBJECT(value) ((value).type == VAL_OBJECT)
-#define IS_UNDEFINED(value) ((value).type == VAL_UNDEFINED)
 
 // Make a StellaC type a value
 #define AS_BOOL(value) ((value).as._bool)

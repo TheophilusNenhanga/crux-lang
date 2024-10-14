@@ -1,8 +1,7 @@
+#include "object.h"
 #include <stdio.h>
 #include <string.h>
-
 #include "memory.h"
-#include "object.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
@@ -52,7 +51,7 @@ ObjectString *copyString(const char *chars, int length) {
 	return allocateString(heapChars, length, hash);
 }
 
-static void printFunction(const ObjectFunction *function) {
+static void printFunction(ObjectFunction *function) {
 	if (function->name == NULL) {
 		printf("<script>");
 		return;
@@ -77,7 +76,7 @@ void printObject(Value value) {
 	}
 }
 
-ObjectString *takeString(char *chars, int length) {
+ObjectString *takeString(const char *chars, int length) {
 	// claims ownership of the string that you give it
 	uint32_t hash = hashString(chars, length);
 
@@ -91,16 +90,17 @@ ObjectString *takeString(char *chars, int length) {
 	return allocateString(chars, length, hash);
 }
 
-ObjectFunction* newFunction() {
-	ObjectFunction* function = ALLOCATE_OBJECT(ObjectFunction, OBJECT_FUNCTION);
+ObjectFunction *newFunction() {
+	ObjectFunction *function = ALLOCATE_OBJECT(ObjectFunction, OBJECT_FUNCTION);
 	function->arity = 0;
 	function->name = NULL;
 	initChunk(&function->chunk);
 	return function;
 }
 
-ObjectNative* newNative(NativeFn function) {
-	ObjectNative* native = ALLOCATE_OBJECT(ObjectNative, OBJECT_NATIVE);
+ObjectNative *newNative(NativeFn function, int arity) {
+	ObjectNative *native = ALLOCATE_OBJECT(ObjectNative, OBJECT_NATIVE);
 	native->function = function;
+	native->arity = arity;
 	return native;
 }

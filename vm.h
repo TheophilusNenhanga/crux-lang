@@ -12,9 +12,9 @@ typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } 
 
 // A single ongoing function call
 typedef struct {
-	ObjectFunction* function;
-	uint8_t* ip;
-	Value* slots;
+	ObjectFunction *function;
+	uint8_t *ip;
+	Value *slots;
 } CallFrame;
 
 typedef struct {

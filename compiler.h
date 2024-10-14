@@ -2,6 +2,6 @@
 #define COMPILER_H
 #include "object.h"
 
-ObjectFunction * compile(const char *source);
+ObjectFunction *compile(const char *source);
 
 #endif // COMPILER_H

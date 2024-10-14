@@ -15,6 +15,7 @@
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
 #define AS_FUNCTION(value) ((ObjectFunction *) AS_OBJECT(value))
 #define AS_NATIVE(value) (((ObjectNative *) AS_OBJECT(value))->function)
+#define AS_NATIVE_FN(value) ((ObjectNative *) value.as._object)
 
 typedef enum {
 	OBJECT_STRING,
@@ -39,18 +40,19 @@ typedef struct {
 	int arity;
 	Chunk chunk;
 	ObjectString *name;
-} ObjectFunction ;
+} ObjectFunction;
 
 typedef Value (*NativeFn)(int argCount, Value *args);
 
 typedef struct {
 	Object object;
 	NativeFn function;
+	int arity;
 } ObjectNative;
 
+ObjectNative *newNative(NativeFn function, int arity);
 ObjectFunction *newFunction();
-ObjectNative *newNative(NativeFn function);
-ObjectString *takeString(char *chars, int length);
+ObjectString *takeString(const char *chars, int length);
 ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
 

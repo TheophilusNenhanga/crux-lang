@@ -38,7 +38,6 @@ typedef enum {
 	TOKEN_IF,
 	TOKEN_NIL,
 	TOKEN_OR,
-	TOKEN_PRINT,
 	TOKEN_RETURN,
 	TOKEN_SUPER,
 	TOKEN_SELF,
@@ -53,8 +52,8 @@ typedef enum {
 } TokenType;
 
 typedef struct {
-	TokenType type; // what type of token it is
-	const char *start; //
+	TokenType type;
+	const char *start;
 	int length;
 	int line;
 } Token;

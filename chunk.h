@@ -1,7 +1,3 @@
-//
-// Created by theon on 08/09/2024.
-//
-
 #ifndef CHUNK_H
 #define CHUNK_H
 
