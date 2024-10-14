@@ -37,11 +37,8 @@ void printValue(Value value) {
 		case VAL_NIL:
 			printf("nil");
 			break;
-		case VAL_INT:
-			printf("%d", AS_INT(value));
-			break;
-		case VAL_FLOAT:
-			printf("%g", AS_FLOAT(value));
+		case VAL_NUMBER:
+			printf("%lg", AS_NUMBER(value));
 			break;
 		case VAL_OBJECT:
 			printObject(value);
@@ -50,25 +47,13 @@ void printValue(Value value) {
 }
 
 bool valuesEqual(Value a, Value b) {
-	if (a.type != b.type) {
-		// Special case: comparing int and float
-		if ((a.type == VAL_INT && b.type == VAL_FLOAT) || (a.type == VAL_FLOAT && b.type == VAL_INT)) {
-			double aNum = (a.type == VAL_INT) ? (double) AS_INT(a) : AS_FLOAT(a);
-			double bNum = (b.type == VAL_INT) ? (double) AS_INT(b) : AS_FLOAT(b);
-			return fabs(aNum - bNum) < EPSILON;
-		}
-		return false;
-	}
-
 	switch (a.type) {
 		case VAL_BOOL:
 			return AS_BOOL(a) == AS_BOOL(b);
 		case VAL_NIL:
 			return true;
-		case VAL_INT:
-			return AS_INT(a) == AS_INT(b);
-		case VAL_FLOAT:
-			return fabs(AS_FLOAT(a) - AS_FLOAT(b)) < EPSILON;
+		case VAL_NUMBER:
+			return AS_NUMBER(a) == AS_NUMBER(b);
 		case VAL_OBJECT:
 			return AS_OBJECT(a) == AS_OBJECT(b);
 		default:

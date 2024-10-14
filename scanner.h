@@ -15,7 +15,6 @@ typedef enum {
 	TOKEN_SLASH,
 	TOKEN_STAR,
 	// One or two character tokens.
-	TOKEN_BANG,
 	TOKEN_BANG_EQUAL,
 	TOKEN_EQUAL,
 	TOKEN_EQUAL_EQUAL,
@@ -30,6 +29,7 @@ typedef enum {
 	TOKEN_FLOAT,
 	// Keywords.
 	TOKEN_AND,
+	TOKEN_NOT,
 	TOKEN_CLASS,
 	TOKEN_ELSE,
 	TOKEN_FALSE,

@@ -386,7 +386,7 @@ static ObjectFunction *endCompiler() {
 static void binary(bool canAssign) {
 	TokenType operatorType = parser.previous.type;
 	ParseRule *rule = getRule(operatorType);
-	parsePrecedence((Precedence) (rule->precedence + 1));
+	parsePrecedence(rule->precedence + 1);
 
 	switch (operatorType) {
 		case TOKEN_BANG_EQUAL:
@@ -720,12 +720,7 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
 	double value = strtod(parser.previous.start, NULL);
-	if (value == (int64_t) value) {
-		int64_t intValue = (int64_t) value;
-		emitConstantWithMutability(INT_VAL(intValue));
-	} else {
-		emitConstantWithMutability(FLOAT_VAL(value));
-	}
+	emitConstantWithMutability(NUMBER_VAL(value));
 }
 
 static void string(bool canAssign) {
@@ -764,7 +759,7 @@ static void unary(bool canAssign) {
 	parsePrecedence(PREC_UNARY);
 
 	switch (operatorType) {
-		case TOKEN_BANG:
+		case TOKEN_NOT:
 			emitByte(OP_NOT);
 			break;
 		case TOKEN_MINUS:
@@ -788,7 +783,7 @@ ParseRule rules[] = {
 		[TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
 		[TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
-		[TOKEN_BANG] = {unary, NULL, PREC_NONE},
+		[TOKEN_NOT] = {unary, NULL, PREC_NONE},
 		[TOKEN_BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
 		[TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_EQUALITY},
