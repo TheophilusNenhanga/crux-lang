@@ -1,7 +1,3 @@
-//
-// Created by theon on 08/09/2024.
-//
-
 #include "chunk.h"
 #include <stdlib.h>
 #include "memory.h"

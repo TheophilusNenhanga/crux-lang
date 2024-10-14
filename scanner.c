@@ -1,7 +1,3 @@
-//
-// Created by theon on 11/09/2024.
-//
-
 #include "scanner.h"
 
 #include <stdbool.h>
@@ -67,7 +63,7 @@ static void skipWhitespace() {
 	}
 }
 
-static TokenType checkKeyword(int start, const int length, const char *rest, const TokenType type) {
+static TokenType checkKeyword(int start, int length, char *rest, TokenType type) {
 	if (scanner.current - scanner.start == start + length && memcmp(scanner.start + start, rest, length) == 0) {
 		return type;
 	}
@@ -87,6 +83,7 @@ static TokenType identifierType() {
 						return checkKeyword(2, 3, "ass", TOKEN_CLASS);
 					case 'o':
 						return checkKeyword(2, 6, "ntinue", TOKEN_CONTINUE);
+					default:;
 				}
 			}
 			return checkKeyword(1, 4, "lass", TOKEN_CLASS);
@@ -97,11 +94,20 @@ static TokenType identifierType() {
 		case 'l':
 			return checkKeyword(1, 2, "et", TOKEN_LET);
 		case 'n':
-			return checkKeyword(1, 2, "il", TOKEN_NIL);
+			if (scanner.current - scanner.start > 1) {
+				switch (scanner.start[1]) {
+					case 'o': {
+						return checkKeyword(2, 1, "t", TOKEN_NOT);
+					}
+					case 'i': {
+						return checkKeyword(2, 1, "l", TOKEN_NIL);
+					}
+					default:;
+				}
+			}
+
 		case 'o':
 			return checkKeyword(1, 1, "r", TOKEN_OR);
-		case 'p':
-			return checkKeyword(1, 4, "rint", TOKEN_PRINT);
 		case 'r':
 			return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
 		case 's':
@@ -114,10 +120,12 @@ static TokenType identifierType() {
 									return TOKEN_SET;
 								case 'l':
 									return checkKeyword(3, 1, "f", TOKEN_SELF);
+								default:;
 							}
 						}
 					case 'u':
 						return checkKeyword(2, 3, "per", TOKEN_SUPER);
+					default:;
 				}
 			}
 		case 'w':
@@ -137,6 +145,7 @@ static TokenType identifierType() {
 			}
 		case 't':
 			return checkKeyword(1, 3, "rue", TOKEN_TRUE);
+		default:;
 	}
 
 	return TOKEN_IDENTIFIER;
@@ -148,7 +157,7 @@ void initScanner(const char *source) {
 	scanner.line += 1;
 }
 
-static Token makeToken(const TokenType type) {
+static Token makeToken(TokenType type) {
 	Token token;
 	token.type = type;
 	token.start = scanner.start;
@@ -167,8 +176,6 @@ static Token errorToken(const char *message) {
 }
 
 static bool match(char expected) {
-	// if the current character is the desired character we advance and return
-	// true
 	if (isAtEnd())
 		return false;
 	if (*scanner.current != expected)
@@ -197,10 +204,7 @@ static Token number() {
 	while (isDigit(peek()))
 		advance();
 	bool fpFound = false;
-	// look for a fractional part
 	if (peek() == '.' && isDigit(peekNext())) {
-		// TODO: Ensure that floats only have one point
-		// Consume the '.'
 		fpFound = true;
 		advance();
 		while (isDigit(peek()))
@@ -255,7 +259,9 @@ Token scanToken() {
 		case '*':
 			return makeToken(TOKEN_STAR);
 		case '!':
-			return makeToken(match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
+			if (match('=')) {
+				return makeToken(TOKEN_BANG_EQUAL);
+			}
 		case '=':
 			return makeToken(match('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);
 		case '<':
@@ -264,6 +270,7 @@ Token scanToken() {
 			return makeToken(match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
 		case '"':
 			return string();
+		default:;
 	}
 	return errorToken("Unexpected character.");
 }

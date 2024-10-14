@@ -8,7 +8,6 @@
 
 #define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
 
-// Macro to calculate new capacity based on old capacity
 #define GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
 
 #define GROW_ARRAY(type, pointer, oldCount, newCount)                                                                  \

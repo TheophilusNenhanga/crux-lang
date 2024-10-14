@@ -4,9 +4,12 @@
 #include "memory.h"
 #include "object.h"
 #include "table.h"
+
+#include <stdio.h>
+
 #include "value.h"
 
-#define TABLE_MAX_LOAD 0.75
+#define TABLE_MAX_LOAD 0.6
 
 void initTable(Table *table) {
 	table->count = 0;
@@ -19,27 +22,26 @@ void freeTable(Table *table) {
 	initTable(table);
 }
 
-static Entry *findEntry(Entry *entries, const int capacity, ObjectString *key) {
-	uint32_t index = key->hash % capacity;
+static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
+	// uint32_t index = key->hash % capacity;
+	uint32_t index = key->hash & (capacity - 1);
 	Entry *tombstone = NULL;
 	for (;;) {
 		Entry *entry = &entries[index];
 
 		if (entry->key == NULL) {
 			if (IS_NIL(entry->value)) {
-				// empty entry
 				return tombstone != NULL ? tombstone : entry;
 			}
-			// we found a tombstone
 			if (tombstone == NULL)
 				tombstone = entry;
 		} else if (entry->key == key) {
-			// we found the key
 			return entry;
 		}
 
 		// We have collided, start probing
-		index = (index + 1) % capacity;
+		// index = (index + 1) % capacity;
+		index = (index + 1) & (capacity - 1);
 	}
 }
 
@@ -65,7 +67,6 @@ static void adjustCapacity(Table *table, int capacity) {
 	table->capacity = capacity;
 }
 
-// Returns true when a new key is inserted false otherwise
 TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
@@ -73,16 +74,15 @@ TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 	}
 
 	Entry *entry = findEntry(table->entries, table->capacity, key);
-	const bool isNewKey = entry->key == NULL;
+	bool isNewKey = entry->key == NULL;
+	bool isNilValue = IS_NIL(entry->value);
 
-	const bool isNilValue = IS_NIL(entry->value);
-
-	if (isNewKey && isNilValue)
+	if (isNewKey && isNilValue) {
 		table->count++;
+	}
 
-	if (!isNilValue) {
-		if (!entry->value.isMutable)
-			return IMMUTABLE_OVERWRITE; // attempting to update immutable value;
+	if (!isNewKey && !entry->value.isMutable) {
+		return IMMUTABLE_OVERWRITE;
 	}
 
 	entry->key = key;
@@ -117,7 +117,7 @@ bool tableCheck(Table *table, ObjectString *key) {
 bool isTableValueMutable(Table *table, ObjectString *key) {
 	if (table->count == 0)
 		false;
-	const Entry *entry = findEntry(table->entries, table->capacity, key);
+	Entry *entry = findEntry(table->entries, table->capacity, key);
 	return entry->value.isMutable;
 }
 

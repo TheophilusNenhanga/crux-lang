@@ -1,4 +1,6 @@
 #include "vm.h"
+
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,8 +15,38 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value *args) {
-	return FLOAT_VAL((double) clock() / CLOCKS_PER_SEC);
+static Value clockNative(int argCount, Value *args) { return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC); }
+
+static Value printNative(int argCount, Value *args) {
+	Value value = args[0];
+	switch (value.type) {
+		case VAL_BOOL: {
+			printf(AS_BOOL(value) ? "true\n" : "false\n");
+			break;
+		}
+		case VAL_NIL: {
+			printf("nil\n");
+			break;
+		}
+		case VAL_NUMBER: {
+			double number = AS_NUMBER(value);
+			double intPart;
+			double fracPart = modf(number, &intPart);
+
+			if (fracPart == 0.0) {
+				printf("%.0f\n", intPart);
+			} else {
+				printf("%lf\n", number);
+			}
+			break;
+		}
+		case VAL_OBJECT: {
+			printObject(value);
+			break;
+		}
+
+	}
+	return NIL_VAL;
 }
 
 static void resetStack() {
@@ -30,14 +62,14 @@ static void runtimeError(const char *format, ...) {
 	va_end(args);
 	fputs("\n", stderr);
 
-	for (int i= vm.frameCount -1; i >= 0; i--) {
-		CallFrame* frame = &vm.frames[i];
-		ObjectFunction* function = frame->function;
-		size_t instruction = frame->ip - function->chunk.code -1;
+	for (int i = vm.frameCount - 1; i >= 0; i--) {
+		CallFrame *frame = &vm.frames[i];
+		ObjectFunction *function = frame->function;
+		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
 		if (function->name == NULL) {
 			fprintf(stderr, "script\n");
-		}else {
+		} else {
 			printf("%s()\n", function->name->chars);
 		}
 	}
@@ -45,15 +77,15 @@ static void runtimeError(const char *format, ...) {
 	resetStack();
 }
 
-static void defineNative(const char* name, const NativeFn function) {
+static void defineNative(const char *name, NativeFn function, int arity) {
 	push(OBJECT_VAL(copyString(name, (int) strlen(name))));
-	push(OBJECT_VAL(newNative(function)));
+	push(OBJECT_VAL(newNative(function, arity)));
 	tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
 	pop();
 	pop();
 }
 
-void push(const Value value) {
+void push(Value value) {
 	*vm.stackTop = value; // stores value in the array element at the top of the stack
 	vm.stackTop++; // stack top points just past the last used element, at the next available one
 }
@@ -63,9 +95,9 @@ Value pop() {
 	return *vm.stackTop;
 }
 
-static Value peek(const int distance) { return vm.stackTop[-1 - distance]; }
+static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
-static bool call(ObjectFunction* function, int argCount) {
+static bool call(ObjectFunction *function, int argCount) {
 	if (argCount != function->arity) {
 		runtimeError("Expected %d arguments, got %d", function->arity, argCount);
 		return false;
@@ -76,7 +108,7 @@ static bool call(ObjectFunction* function, int argCount) {
 		return false;
 	}
 
-	CallFrame* frame = &vm.frames[vm.frameCount++];
+	CallFrame *frame = &vm.frames[vm.frameCount++];
 	frame->function = function;
 	frame->ip = function->chunk.code;
 	frame->slots = vm.stackTop - argCount - 1;
@@ -89,21 +121,25 @@ static bool callValue(Value callee, int argCount) {
 			case OBJECT_FUNCTION:
 				return call(AS_FUNCTION(callee), argCount);
 			case OBJECT_NATIVE: {
-				NativeFn native = AS_NATIVE(callee);
-				Value result = native(argCount, vm.stackTop- argCount);
+				ObjectNative *native = AS_NATIVE_FN(callee);
+				if (argCount != native->arity) {
+					runtimeError("Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+				Value result = native->function(argCount, vm.stackTop - argCount);
 				vm.stackTop -= argCount + 1;
 				push(result);
 				return true;
 			}
 			default:
-				break; //non callable object type
+				break;
 		}
 	}
 	runtimeError("Can only call functions and classes");
 	return false;
 }
 
-static bool isFalsy(const Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
+static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
 static void concatenate() {
 	ObjectString *b = AS_STRING(pop());
@@ -125,13 +161,78 @@ void initVM() {
 	initTable(&vm.strings);
 	initTable(&vm.globals);
 
-	defineNative("clock", clockNative);
+	defineNative("clock", clockNative, 0);
+	defineNative("print", printNative, 1);
 }
 
 void freeVM() {
 	freeTable(&vm.strings);
 	freeTable(&vm.globals);
 	freeObjects();
+}
+
+static bool binaryOperation(BinaryOpType operation) {
+
+	Value b = peek(0);
+	Value a = peek(1);
+
+	if (!(IS_NUMBER(a) || IS_NUMBER(b))) {
+		runtimeError("{ Error: Binary Operation } Operands must be of type <number>.");
+		return false;
+	}
+
+	pop();
+	pop();
+
+	double aNum = AS_NUMBER(a);
+	double bNum = AS_NUMBER(b);
+
+	switch (operation) {
+		case ADD: {
+			push(NUMBER_VAL(aNum + bNum));
+			break;
+		}
+
+		case SUBTRACT: {
+			push(NUMBER_VAL(aNum - bNum));
+			break;
+		}
+
+		case MULTIPLY: {
+			push(NUMBER_VAL(aNum * bNum));
+			break;
+		}
+
+		case DIVIDE: {
+			if (bNum == 0) {
+				runtimeError("{ Error: Division by Zero }");
+				return false;
+			}
+			push(NUMBER_VAL(aNum / bNum));
+			break;
+		}
+
+		case LESS_OR_EQUAL: {
+			push(BOOL_VAL(aNum <= bNum));
+			break;
+		}
+
+		case GREATER_OR_EQUAL: {
+			push(BOOL_VAL(aNum >= bNum));
+			break;
+		}
+
+		case LESS: {
+			push(BOOL_VAL(aNum < bNum));
+			break;
+		}
+
+		case GREATER: {
+			push(BOOL_VAL(aNum > bNum));
+			break;
+		}
+	}
+	return true;
 }
 
 static InterpretResult run() {
@@ -141,68 +242,6 @@ static InterpretResult run() {
 #define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
-
-#define BOOL_BINARY_OP(op)                                                                                             \
-	do {                                                                                                                 \
-		Value b = peek(0);                                                                                                 \
-		Value a = peek(1);                                                                                                 \
-		pop();                                                                                                             \
-		pop();                                                                                                             \
-		if (IS_INT(a) && IS_INT(b)) {                                                                                      \
-			int aNum = AS_INT(a);                                                                                            \
-			int bNum = AS_INT(b);                                                                                            \
-			push(BOOL_VAL(aNum op bNum));                                                                                    \
-		} else if (IS_FLOAT(a) && IS_FLOAT(b)) {                                                                           \
-			double aNum = AS_FLOAT(a);                                                                                       \
-			double bNum = AS_FLOAT(b);                                                                                       \
-			push(BOOL_VAL(aNum op bNum));                                                                                    \
-		} else if ((IS_INT(a) && IS_FLOAT(b)) || (IS_FLOAT(a) && IS_INT(b))) {                                             \
-			double aNum = IS_FLOAT(a) ? AS_FLOAT(a) : (double) AS_INT(a);                                                    \
-			double bNum = IS_FLOAT(b) ? AS_FLOAT(b) : (double) AS_INT(b);                                                    \
-			push(BOOL_VAL(aNum op bNum));                                                                                    \
-		} else {                                                                                                           \
-			runtimeError("{ Error: Boolean Binary Operation } Operands must be two numbers "                                 \
-									 "or two integers.");                                                                                \
-			return INTERPRET_RUNTIME_ERROR;                                                                                  \
-		}                                                                                                                  \
-	} while (false)
-
-#define BINARY_OP(valueTypeInt, valueTypeFloat, isDivision, op)                                                        \
-	do {                                                                                                                 \
-		Value b = peek(0);                                                                                                 \
-		Value a = peek(1);                                                                                                 \
-                                                                                                                       \
-		if (!(IS_INT(a) || IS_FLOAT(a)) || !(IS_INT(b) || IS_FLOAT(b))) {                                                  \
-			runtimeError("{ Error: Binary Operation } Operands must be of type "                                             \
-									 "<int> or <float>");                                                                                \
-			return INTERPRET_RUNTIME_ERROR;                                                                                  \
-		}                                                                                                                  \
-		pop();                                                                                                             \
-		pop();                                                                                                             \
-		if (IS_INT(a) && IS_INT(b)) {                                                                                      \
-			if (isDivision == 1) {                                                                                           \
-				double aNum = AS_FLOAT(a);                                                                                     \
-				double bNum = AS_FLOAT(b);                                                                                     \
-				push(valueTypeFloat(aNum op bNum));                                                                            \
-			} else {                                                                                                         \
-				int aNum = AS_INT(a);                                                                                          \
-				int bNum = AS_INT(b);                                                                                          \
-				push(valueTypeInt(aNum op bNum));                                                                              \
-			}                                                                                                                \
-		} else if (IS_INT(a) && IS_FLOAT(b)) {                                                                             \
-			int aNum = AS_INT(a);                                                                                            \
-			double bNum = AS_FLOAT(b);                                                                                       \
-			push(valueTypeFloat(aNum op bNum));                                                                              \
-		} else if (IS_FLOAT(a) && IS_INT(b)) {                                                                             \
-			double aNum = AS_FLOAT(a);                                                                                       \
-			int bNum = AS_INT(b);                                                                                            \
-			push(valueTypeFloat(aNum op bNum));                                                                              \
-		} else {                                                                                                           \
-			double aNum = AS_FLOAT(a);                                                                                       \
-			double bNum = AS_FLOAT(b);                                                                                       \
-			push(valueTypeFloat(aNum op bNum));                                                                              \
-		}                                                                                                                  \
-	} while (false);
 
 	for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -262,78 +301,78 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_NOT_EQUAL: {
+				Value b = pop();
+				Value a = pop();
+				push(BOOL_VAL(!valuesEqual(a, b)));
+				break;
+			}
+
 			case OP_GREATER: {
-				BOOL_BINARY_OP(>);
+				if (!binaryOperation(GREATER)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_LESS: {
-				BOOL_BINARY_OP(<);
+				if (!binaryOperation(LESS)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_LESS_EQUAL: {
-				BOOL_BINARY_OP(<=);
+				if (!binaryOperation(LESS_OR_EQUAL)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_GREATER_EQUAL: {
-				BOOL_BINARY_OP(>=);
+				if (!binaryOperation(GREATER_OR_EQUAL)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_NEGATE: {
-				if (!IS_INT(peek(0)) && !IS_FLOAT(peek(0))) {
-					runtimeError("Operand must be of type <int> or <float>.");
-					return INTERPRET_RUNTIME_ERROR;
+				if (IS_NUMBER(peek(0))) {
+					push(NUMBER_VAL(-AS_NUMBER(pop())));
+					break;
 				}
-				if (IS_INT(peek(0))) {
-					push(INT_VAL(-AS_INT(pop())));
-				} else if (IS_FLOAT(peek(0))) {
-					push(FLOAT_VAL(-AS_FLOAT(pop())));
-				}
-				break;
+				runtimeError("Operand must be of type <number>.");
+				return INTERPRET_RUNTIME_ERROR;
 			}
 
 			case OP_ADD: {
 				if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
 					concatenate();
-				} else if (IS_INT(peek(0)) && IS_INT(peek(1))) {
-					int b = AS_INT(pop());
-					int a = AS_INT(pop());
-					push(INT_VAL(a + b));
-				} else if (IS_INT(peek(0)) && IS_FLOAT(peek(1))) {
-					int b = AS_INT(pop());
-					double a = AS_FLOAT(pop());
-					push(FLOAT_VAL(a + b));
-				} else if (IS_FLOAT(peek(0)) && IS_INT(peek(1))) {
-					double b = AS_FLOAT(pop());
-					int a = AS_INT(pop());
-					push(FLOAT_VAL(a + b));
-				} else if (IS_FLOAT(peek(0)) && IS_FLOAT(peek(1))) {
-					double b = AS_FLOAT(pop());
-					double a = AS_FLOAT(pop());
-					push(FLOAT_VAL(a + b));
-				} else {
-					runtimeError("{ Error Binary Addition Operation: Operands must be of "
-											 "type <int> or <float> }");
+				}
+				if (!binaryOperation(ADD)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_SUBTRACT: {
-				BINARY_OP(INT_VAL, FLOAT_VAL, 0, -);
+				if (!binaryOperation(SUBTRACT)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_MULTIPLY: {
-				BINARY_OP(INT_VAL, FLOAT_VAL, 0, *);
+				if (!binaryOperation(MULTIPLY)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
 			case OP_DIVIDE: {
-				BINARY_OP(INT_VAL, FLOAT_VAL, 1, /);
+				if (!binaryOperation(DIVIDE)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
 				break;
 			}
 
@@ -478,7 +517,7 @@ static InterpretResult run() {
 				if (!callValue(peek(argCount), argCount)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				frame = &vm.frames[vm.frameCount-1];
+				frame = &vm.frames[vm.frameCount - 1];
 				break;
 			}
 
@@ -495,8 +534,9 @@ static InterpretResult run() {
 }
 
 InterpretResult interpret(const char *source) {
-	ObjectFunction* function = compile(source);
-	if (function == NULL) return INTERPRET_COMPILE_ERROR;
+	ObjectFunction *function = compile(source);
+	if (function == NULL)
+		return INTERPRET_COMPILE_ERROR;
 
 	push(OBJECT_VAL(function));
 	call(function, 0);

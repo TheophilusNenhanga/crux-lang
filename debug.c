@@ -17,8 +17,8 @@ static int simpleInstruction(const char *name, const int offset) {
 	return offset + 1;
 }
 
-static int byteInstruction(const char *name, const Chunk *chunk, const int offset) {
-	const uint8_t slot = chunk->code[offset + 1];
+static int byteInstruction(const char *name, Chunk *chunk, int offset) {
+	uint8_t slot = chunk->code[offset + 1];
 	printf("%-16s %4d\n", name, slot);
 	return offset + 2;
 }
@@ -30,7 +30,7 @@ static int jumpInstruction(const char *name, int sign, Chunk *chunk, int offset)
 	return offset + 3;
 }
 
-static int constantInstruction(const char *name, const Chunk *chunk, const int offset) {
+static int constantInstruction(const char *name, Chunk *chunk, int offset) {
 	uint8_t constant = chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	printValue(chunk->constants.values[constant]); // print the constant's value
@@ -38,7 +38,7 @@ static int constantInstruction(const char *name, const Chunk *chunk, const int o
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
 
-int disassembleInstruction(Chunk *chunk, const int offset) {
+int disassembleInstruction(Chunk *chunk, int offset) {
 	printf("%04d", offset); // Prints the byte offset of the given instruction
 
 	if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -105,7 +105,7 @@ int disassembleInstruction(Chunk *chunk, const int offset) {
 		case OP_LOOP:
 			return jumpInstruction("OP_LOOP", -1, chunk, offset);
 		case OP_CALL:
-				return byteInstruction("OP_CALL", chunk, offset);
+			return byteInstruction("OP_CALL", chunk, offset);
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;

@@ -15,7 +15,6 @@ typedef enum {
 	TOKEN_SLASH,
 	TOKEN_STAR,
 	// One or two character tokens.
-	TOKEN_BANG,
 	TOKEN_BANG_EQUAL,
 	TOKEN_EQUAL,
 	TOKEN_EQUAL_EQUAL,
@@ -30,6 +29,7 @@ typedef enum {
 	TOKEN_FLOAT,
 	// Keywords.
 	TOKEN_AND,
+	TOKEN_NOT,
 	TOKEN_CLASS,
 	TOKEN_ELSE,
 	TOKEN_FALSE,
@@ -38,7 +38,6 @@ typedef enum {
 	TOKEN_IF,
 	TOKEN_NIL,
 	TOKEN_OR,
-	TOKEN_PRINT,
 	TOKEN_RETURN,
 	TOKEN_SUPER,
 	TOKEN_SELF,
@@ -53,8 +52,8 @@ typedef enum {
 } TokenType;
 
 typedef struct {
-	TokenType type; // what type of token it is
-	const char *start; //
+	TokenType type;
+	const char *start;
 	int length;
 	int line;
 } Token;
