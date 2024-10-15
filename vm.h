@@ -12,7 +12,7 @@ typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } 
 
 // A single ongoing function call
 typedef struct {
-	ObjectFunction *function;
+	ObjectClosure *closure;
 	uint8_t *ip;
 	Value *slots;
 } CallFrame;
@@ -25,11 +25,10 @@ typedef struct {
 	Table globals;
 	CallFrame frames[FRAMES_MAX];
 	int frameCount;
+	ObjectUpvalue *openUpvalues;
 } VM;
 
-typedef enum {
-	ADD, SUBTRACT, MULTIPLY, DIVIDE, LESS_OR_EQUAL, GREATER_OR_EQUAL, LESS, GREATER
-}BinaryOpType;
+typedef enum { ADD, SUBTRACT, MULTIPLY, DIVIDE, LESS_OR_EQUAL, GREATER_OR_EQUAL, LESS, GREATER } BinaryOpType;
 
 extern VM vm;
 

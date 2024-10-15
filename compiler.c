@@ -49,7 +49,13 @@ typedef struct {
 typedef struct {
 	Token name;
 	int depth;
+	bool isCaptured;
 } Local;
+
+typedef struct {
+	uint8_t index;
+	bool isLocal;
+} Upvalue;
 
 typedef enum {
 	TYPE_FUNCTION,
@@ -60,11 +66,11 @@ typedef struct {
 	struct Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;
-
 	Local locals[UINT8_COUNT];
 	int localCount;
 	int scopeDepth; // 0 is global scope
 	int loopDepth;
+	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
 typedef struct {
@@ -79,7 +85,7 @@ Parser parser;
 Compiler *current = NULL;
 Chunk *compilingChunk;
 
-// Forward declarations
+
 static void expression();
 
 static void parsePrecedence(Precedence precedence);
@@ -102,14 +108,13 @@ static Chunk *currentChunk() { return &current->function->chunk; }
 
 static void errorAt(Token *token, const char *message) {
 	if (parser.panicMode)
-		return; // if in panic mode do not show more errors (avoid cascading errors)
-	parser.panicMode = true; // if we see an error, enter panic mode
+		return;
+	parser.panicMode = true;
 	fprintf(stderr, "-------COMPILER ERROR-------\n");
 	fprintf(stderr, "[line %d] Error", token->line);
 	if (token->type == TOKEN_EOF) {
 		fprintf(stderr, " at end");
 	} else if (token->type == TOKEN_ERROR) {
-		// Nothing
 	} else {
 		fprintf(stderr, " at '%.*s'", token->length, token->start);
 	}
@@ -119,10 +124,7 @@ static void errorAt(Token *token, const char *message) {
 
 static void error(const char *message) { errorAt(&parser.previous, message); }
 
-static void errorAtCurrent(const char *message) {
-	errorAt(&parser.current, message); // Parser.current is used to tell the user
-	// where the error was found
-}
+static void errorAtCurrent(const char *message) { errorAt(&parser.current, message); }
 
 static void advance() {
 	parser.previous = parser.current;
@@ -242,6 +244,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 	local->depth = 0;
 	local->name.start = "";
 	local->name.length = 0;
+	local->isCaptured = false;
 }
 
 static uint8_t identifierConstant(Token *name) {
@@ -254,7 +257,11 @@ static void endScope() {
 	current->scopeDepth--;
 
 	while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) {
-		emitByte(OP_POP);
+		if (current->locals[current->localCount - 1].isCaptured) {
+			emitByte(OP_CLOSE_UPVALUE);
+		} else {
+			emitByte(OP_POP);
+		}
 		current->localCount--;
 	}
 }
@@ -278,6 +285,44 @@ static int resolveLocal(Compiler *compiler, Token *name) {
 	return -1;
 }
 
+static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
+	int upvalueCount = compiler->function->upvalueCount;
+
+	for (int i = 0; i < upvalueCount; i++) {
+		Upvalue *upvalue = &compiler->upvalues[i];
+		if (upvalue->index == index && upvalue->isLocal == isLocal) {
+			return i;
+		}
+	}
+
+	if (upvalueCount >= UINT8_COUNT) {
+		error("Too many closure variables in function.");
+		return 0;
+	}
+
+	compiler->upvalues[upvalueCount].isLocal = isLocal;
+	compiler->upvalues[upvalueCount].index = index;
+	return compiler->function->upvalueCount++;
+}
+
+static int resolveUpvalue(Compiler *compiler, Token *name) {
+	if (compiler->enclosing == NULL)
+		return -1;
+
+	int local = resolveLocal(compiler->enclosing, name);
+	if (local != -1) {
+		((Compiler *) compiler->enclosing)->locals[local].isCaptured = true; //
+		return addUpvalue(compiler, (uint8_t) local, true);
+	}
+
+	int upValue = resolveUpvalue(compiler->enclosing, name);
+	if (upValue != -1) {
+		return addUpvalue(compiler, (uint8_t) upValue, false);
+	}
+
+	return -1;
+}
+
 static void addLocal(Token name) {
 	if (current->localCount == UINT8_COUNT) {
 		error("Too many local variables in function.");
@@ -287,6 +332,7 @@ static void addLocal(Token name) {
 	Local *local = &current->locals[current->localCount++];
 	local->name = name;
 	local->depth = -1;
+	local->isCaptured = false;
 }
 
 static void declareVariable() {
@@ -477,7 +523,12 @@ static void function(FunctionType type) {
 	block();
 
 	ObjectFunction *function = endCompiler();
-	emitBytes(OP_CONSTANT, makeConstant(OBJECT_VAL(function)));
+	emitBytes(OP_CLOSURE, makeConstant(OBJECT_VAL(function)));
+
+	for (int i = 0; i < function->upvalueCount; i++) {
+		emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+		emitByte(compiler.upvalues[i].index);
+	}
 }
 
 static void fnDeclaration() {
@@ -536,9 +587,7 @@ static void continueStatement() {
 
 static void whileStatement() {
 	int loopStart = currentChunk()->count;
-	consume(TOKEN_LEFT_PAREN, "Expected '(' after 'while'.");
 	expression();
-	consume(TOKEN_RIGHT_PAREN, "Expected ')' after <while> statement.");
 	int exitJump = emitJump(OP_JUMP_IF_FALSE);
 	emitByte(OP_POP);
 
@@ -563,7 +612,6 @@ static void whileStatement() {
 
 static void forStatement() {
 	beginScope();
-	consume(TOKEN_LEFT_PAREN, "Expected '(' after 'for'.");
 
 	if (match(TOKEN_SEMICOLON)) {
 		// no initializer
@@ -591,7 +639,6 @@ static void forStatement() {
 		int incrementStart = currentChunk()->count;
 		expression();
 		emitByte(OP_POP);
-		consume(TOKEN_RIGHT_PAREN, "Expected ')' after <for> statement clauses.");
 
 		emitLoop(loopStart); // main loop that takes us bak to the top of the for loop
 		loopStart = incrementStart;
@@ -736,6 +783,9 @@ static void namedVariable(Token name, bool canAssign) {
 	if (arg != -1) {
 		getOp = OP_GET_LOCAL;
 		setOp = OP_SET_LOCAL;
+	} else if ((arg = resolveUpvalue(current, &name)) != -1) {
+		getOp = OP_GET_UPVALUE;
+		setOp = OP_SET_UPVALUE;
 	} else {
 		arg = identifierConstant(&name);
 		getOp = OP_GET_GLOBAL;

@@ -18,6 +18,27 @@ static Object *allocateObject(size_t size, ObjectType type) {
 	return object;
 }
 
+ObjectUpvalue *newUpvalue(Value *slot) {
+	ObjectUpvalue *upvalue = ALLOCATE_OBJECT(ObjectUpvalue, OBJECT_UPVALUE);
+	upvalue->location = slot;
+	upvalue->next = NULL;
+	upvalue->closed = NIL_VAL;
+	return upvalue;
+}
+
+ObjectClosure *newClosure(ObjectFunction *function) {
+	ObjectUpvalue **upvalues = ALLOCATE(ObjectUpvalue *, function->upvalueCount);
+	for (int i = 0; i < function->upvalueCount; i++) {
+		upvalues[i] = NULL;
+	}
+
+	ObjectClosure *closure = ALLOCATE_OBJECT(ObjectClosure, OBJECT_CLOSURE);
+	closure->function = function;
+	closure->upvalues = upvalues;
+	closure->upvalueCount = function->upvalueCount;
+	return closure;
+}
+
 static ObjectString *allocateString(char *chars, int length, uint32_t hash) {
 	// creates a copy of the characters on the heap
 	// that the ObjectString can own
@@ -62,7 +83,7 @@ static void printFunction(ObjectFunction *function) {
 void printObject(Value value) {
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_STRING: {
-			printf("%s", AS_CSTRING(value));
+			printf("%s\n", AS_CSTRING(value));
 			break;
 		}
 		case OBJECT_FUNCTION: {
@@ -70,7 +91,15 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_NATIVE: {
-			printf("<native fn>");
+			printf("<native fn>\n");
+			break;
+		}
+		case OBJECT_CLOSURE: {
+			printFunction(AS_CLOSURE(value)->function);
+			break;
+		}
+		case OBJECT_UPVALUE: {
+			printf("<upvalue>\n");
 			break;
 		}
 	}
@@ -94,6 +123,7 @@ ObjectFunction *newFunction() {
 	ObjectFunction *function = ALLOCATE_OBJECT(ObjectFunction, OBJECT_FUNCTION);
 	function->arity = 0;
 	function->name = NULL;
+	function->upvalueCount = 0;
 	initChunk(&function->chunk);
 	return function;
 }

@@ -5,7 +5,7 @@
 #include "value.h"
 
 typedef enum {
-	OP_RETURN, // Return from the current function
+	OP_RETURN,
 	OP_CONSTANT,
 	OP_NIL,
 	OP_TRUE,
@@ -34,6 +34,10 @@ typedef enum {
 	OP_JUMP,
 	OP_LOOP,
 	OP_CALL,
+	OP_CLOSURE,
+	OP_GET_UPVALUE,
+	OP_SET_UPVALUE,
+	OP_CLOSE_UPVALUE,
 } OpCode;
 
 typedef struct {
@@ -46,8 +50,7 @@ typedef struct {
 
 void initChunk(Chunk *chunk);
 
-void writeChunk(Chunk *chunk, uint8_t byte,
-								int line); // Can write opcodes or operands
+void writeChunk(Chunk *chunk, uint8_t byte, int line);
 
 void freeChunk(Chunk *chunk);
 
