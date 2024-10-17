@@ -26,6 +26,11 @@ typedef struct {
 	CallFrame frames[FRAMES_MAX];
 	int frameCount;
 	ObjectUpvalue *openUpvalues;
+	int grayCount;
+	int grayCapacity;
+	size_t bytesAllocated;
+	size_t nextGC;
+	Object** grayStack;
 } VM;
 
 typedef enum { ADD, SUBTRACT, MULTIPLY, DIVIDE, LESS_OR_EQUAL, GREATER_OR_EQUAL, LESS, GREATER } BinaryOpType;

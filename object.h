@@ -30,6 +30,7 @@ typedef enum {
 struct Object {
 	ObjectType type;
 	Object *next;
+	bool isMarked;
 };
 
 struct ObjectString {

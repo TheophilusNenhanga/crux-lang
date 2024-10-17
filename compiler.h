@@ -3,5 +3,6 @@
 #include "object.h"
 
 ObjectFunction *compile(const char *source);
+void markCompilerRoots();
 
 #endif // COMPILER_H

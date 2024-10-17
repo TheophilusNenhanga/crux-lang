@@ -38,6 +38,10 @@ void tableAddAll(Table *from, Table *to);
 
 ObjectString *tableFindString(Table *table, const char *chars, int length, uint32_t hash);
 
+void tableRemoveWhite(Table *table);
+
+void markTable(Table* table);
+
 bool tableCheck(Table *table, ObjectString *key);
 
 bool isTableValueMutable(Table *table, ObjectString *key);
