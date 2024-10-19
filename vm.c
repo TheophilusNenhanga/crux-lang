@@ -131,6 +131,11 @@ static bool callValue(Value callee, int argCount) {
 				push(result);
 				return true;
 			}
+			case OBJECT_CLASS: {
+				ObjectClass *klass = AS_CLASS(callee);
+				vm.stackTop[-argCount - 1] = OBJECT_VAL(newInstance(klass));
+				return true;
+			}
 			default:
 				break;
 		}
@@ -195,7 +200,7 @@ void initVM() {
 	resetStack();
 	vm.objects = NULL;
 	vm.bytesAllocated = 0;
-	vm.nextGC = 1024*1024;
+	vm.nextGC = 1024 * 1024;
 
 	vm.grayCount = 0;
 	vm.grayCapacity = 0;
@@ -519,6 +524,7 @@ static InterpretResult run() {
 			case OP_DEFINE_GLOBAL_CONSTANT: {
 				ObjectString *name = READ_STRING();
 				Value value = peek(0);
+				value.isMutable = false;
 				switch (tableSet(&vm.globals, name, value)) {
 					case IMMUTABLE_OVERWRITE:
 					case SET_SUCCESS: {
@@ -598,6 +604,66 @@ static InterpretResult run() {
 			case OP_CLOSE_UPVALUE: {
 				closeUpvalue(vm.stackTop - 1);
 				pop();
+				break;
+			}
+
+			case OP_CLASS: {
+				push(OBJECT_VAL(newClass(READ_STRING())));
+				break;
+			}
+
+			case OP_GET_PROPERTY: {
+				if (!IS_INSTANCE(peek(0))) {
+					runtimeError("Only instances have properties.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				ObjectInstance *instance = AS_INSTANCE(peek(0));
+				ObjectString *name = READ_STRING();
+
+				Value value;
+				switch (tableGet(&instance->fields, name, &value)) {
+					case GET_SUCCESS: {
+						pop();
+						push(value);
+						break;
+					}
+					case NEW_KEY_SUCCESS:
+					case VAR_NOT_FOUND:
+					case IMMUTABLE_OVERWRITE:
+					case SET_SUCCESS:
+					case TABLE_EMPTY: {
+						runtimeError("Undefined property '%s'.", name->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				}
+				break;
+			}
+
+			case OP_SET_PROPERTY: {
+				if (!IS_INSTANCE(peek(1))) {
+					runtimeError("Only instances have fields.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				ObjectInstance *instance = AS_INSTANCE(peek(1));
+				switch (tableSet(&instance->fields, READ_STRING(), peek(0))) {
+					case NEW_KEY_SUCCESS:
+					case SET_SUCCESS: {
+						Value value = pop();
+						pop();
+						push(value);
+						break;
+					}
+					case IMMUTABLE_OVERWRITE: {
+						runtimeError("Cannot set property '%s' because it is immutable.", READ_STRING());
+					}
+					case VAR_NOT_FOUND:
+					case GET_SUCCESS:
+					case TABLE_EMPTY: {
+						runtimeError("Undefined property '%s'.", READ_STRING());
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				}
 				break;
 			}
 

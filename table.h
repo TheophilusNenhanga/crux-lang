@@ -40,7 +40,7 @@ ObjectString *tableFindString(Table *table, const char *chars, int length, uint3
 
 void tableRemoveWhite(Table *table);
 
-void markTable(Table* table);
+void markTable(Table *table);
 
 bool tableCheck(Table *table, ObjectString *key);
 

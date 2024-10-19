@@ -12,7 +12,7 @@ static Object *allocateObject(size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(NULL, 0, size);
 
 #ifdef DEBUG_LOG_GC
-	printf("%p mark ", (void*)object);
+	printf("%p mark ", (void *) object);
 	printValue(OBJECT_VAL(object));
 	printf("\n");
 #endif
@@ -23,10 +23,16 @@ static Object *allocateObject(size_t size, ObjectType type) {
 	vm.objects = object;
 
 #ifdef DEBUG_LOG_GC
-	printf("%p allocate %zu for %d\n", (void*)object, size, type);
+	printf("%p allocate %zu for %d\n", (void *) object, size, type);
 #endif
 
 	return object;
+}
+
+ObjectClass *newClass(ObjectString *name) {
+	ObjectClass *klass = ALLOCATE_OBJECT(ObjectClass, OBJECT_CLASS);
+	klass->name = name;
+	return klass;
 }
 
 ObjectUpvalue *newUpvalue(Value *slot) {
@@ -95,6 +101,10 @@ static void printFunction(ObjectFunction *function) {
 
 void printObject(Value value) {
 	switch (OBJECT_TYPE(value)) {
+		case OBJECT_CLASS: {
+			printf("'%s' <class>\n", AS_CLASS(value)->name->chars);
+			break;
+		}
 		case OBJECT_STRING: {
 			printf("%s\n", AS_CSTRING(value));
 			break;
@@ -113,6 +123,10 @@ void printObject(Value value) {
 		}
 		case OBJECT_UPVALUE: {
 			printf("<upvalue>\n");
+			break;
+		}
+		case OBJECT_INSTANCE: {
+			printf("'%s' <instance>\n", AS_INSTANCE(value)->klass->name->chars);
 			break;
 		}
 	}
@@ -139,6 +153,13 @@ ObjectFunction *newFunction() {
 	function->upvalueCount = 0;
 	initChunk(&function->chunk);
 	return function;
+}
+
+ObjectInstance *newInstance(ObjectClass *klass) {
+	ObjectInstance *instance = ALLOCATE_OBJECT(ObjectInstance, OBJECT_INSTANCE);
+	instance->klass = klass;
+	initTable(&instance->fields);
+	return instance;
 }
 
 ObjectNative *newNative(NativeFn function, int arity) {

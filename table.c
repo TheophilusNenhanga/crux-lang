@@ -75,15 +75,17 @@ TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	bool isNewKey = entry->key == NULL;
+
+	if (!isNewKey && !entry->value.isMutable) {
+		return IMMUTABLE_OVERWRITE;
+	}
+
 	bool isNilValue = IS_NIL(entry->value);
 
 	if (isNewKey && isNilValue) {
 		table->count++;
 	}
 
-	if (!isNewKey && !entry->value.isMutable) {
-		return IMMUTABLE_OVERWRITE;
-	}
 
 	entry->key = key;
 	entry->value = value;
@@ -161,10 +163,10 @@ ObjectString *tableFindString(Table *table, const char *chars, int length, uint3
 	}
 }
 
-void markTable(Table* table) {
+void markTable(Table *table) {
 	for (int i = 0; i < table->capacity; i++) {
 		Entry *entry = &table->entries[i];
-		markObject((Object*)entry->key);
+		markObject((Object *) entry->key);
 		markValue(entry->value);
 	}
 }
