@@ -31,6 +31,7 @@ typedef enum {
 	PREC_AND, // and
 	PREC_EQUALITY, // == !=
 	PREC_COMPARISON, // < > <= >=
+	PREC_SHIFT, // << >>
 	PREC_TERM, // + -
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
@@ -469,6 +470,12 @@ static void binary(bool canAssign) {
 		case TOKEN_PERCENT:
 			emitByte(OP_MODULUS);
 			break;
+		case TOKEN_RIGHT_SHIFT:
+			emitByte(OP_RIGHT_SHIFT);
+			break;
+		case TOKEN_LEFT_SHIFT:
+			emitByte(OP_LEFT_SHIFT);
+			break;
 		default:
 			return; // unreachable
 	}
@@ -865,6 +872,8 @@ ParseRule rules[] = {
 		[TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_PERCENT] = {NULL, binary, PREC_FACTOR},
+		[TOKEN_LEFT_SHIFT] = {NULL, binary, PREC_SHIFT},
+		[TOKEN_RIGHT_SHIFT] = {NULL, binary, PREC_SHIFT},
 		[TOKEN_NOT] = {unary, NULL, PREC_NONE},
 		[TOKEN_BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
 		[TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},

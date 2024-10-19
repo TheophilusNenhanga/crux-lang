@@ -279,8 +279,16 @@ static bool binaryOperation(OpCode operation) {
 			push(BOOL_VAL(aNum > bNum));
 			break;
 		}
-	case OP_MODULUS: {
+		case OP_MODULUS: {
 			push(NUMBER_VAL((int64_t)aNum % (int64_t)bNum));
+			break;
+		}
+		case OP_LEFT_SHIFT: {
+			push(NUMBER_VAL((int64_t)aNum << (int64_t)bNum));
+			break;
+		}
+		case OP_RIGHT_SHIFT: {
+			push(NUMBER_VAL((int64_t)aNum >> (int64_t)bNum));
 			break;
 		}
 	}
@@ -447,8 +455,22 @@ static InterpretResult run() {
 				break;
 			}
 
-		case OP_MODULUS: {
+			case OP_MODULUS: {
 				if (!binaryOperation(OP_MODULUS)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_LEFT_SHIFT: {
+				if (!binaryOperation(OP_LEFT_SHIFT)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_RIGHT_SHIFT: {
+				if (!binaryOperation(OP_RIGHT_SHIFT)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;

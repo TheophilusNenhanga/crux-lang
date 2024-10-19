@@ -84,6 +84,12 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return simpleInstruction("OP_LESS_EQUAL", offset);
 		case OP_GREATER_EQUAL:
 			return simpleInstruction("OP_GREATER_EQUAL", offset);
+		case OP_MODULUS:
+			return simpleInstruction("OP_MODULUS", offset);
+		case OP_LEFT_SHIFT:
+			return simpleInstruction("OP_LEFT_SHIFT", offset);
+		case OP_RIGHT_SHIFT:
+			return simpleInstruction("OP_RIGHT_SHIFT", offset);
 		case OP_PRINT:
 			return simpleInstruction("OP_PRINT", offset);
 		case OP_POP:
