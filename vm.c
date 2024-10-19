@@ -219,7 +219,7 @@ void freeVM() {
 	freeObjects();
 }
 
-static bool binaryOperation(BinaryOpType operation) {
+static bool binaryOperation(OpCode operation) {
 
 	Value b = peek(0);
 	Value a = peek(1);
@@ -236,22 +236,22 @@ static bool binaryOperation(BinaryOpType operation) {
 	double bNum = AS_NUMBER(b);
 
 	switch (operation) {
-		case ADD: {
+		case OP_ADD: {
 			push(NUMBER_VAL(aNum + bNum));
 			break;
 		}
 
-		case SUBTRACT: {
+		case OP_SUBTRACT: {
 			push(NUMBER_VAL(aNum - bNum));
 			break;
 		}
 
-		case MULTIPLY: {
+		case OP_MULTIPLY: {
 			push(NUMBER_VAL(aNum * bNum));
 			break;
 		}
 
-		case DIVIDE: {
+		case OP_DIVIDE: {
 			if (bNum == 0) {
 				runtimeError("{ Error: Division by Zero }");
 				return false;
@@ -260,23 +260,27 @@ static bool binaryOperation(BinaryOpType operation) {
 			break;
 		}
 
-		case LESS_OR_EQUAL: {
+		case OP_LESS_EQUAL: {
 			push(BOOL_VAL(aNum <= bNum));
 			break;
 		}
 
-		case GREATER_OR_EQUAL: {
+		case OP_GREATER_EQUAL: {
 			push(BOOL_VAL(aNum >= bNum));
 			break;
 		}
 
-		case LESS: {
+		case OP_LESS: {
 			push(BOOL_VAL(aNum < bNum));
 			break;
 		}
 
-		case GREATER: {
+		case OP_GREATER: {
 			push(BOOL_VAL(aNum > bNum));
+			break;
+		}
+	case OP_MODULUS: {
+			push(NUMBER_VAL((int64_t)aNum % (int64_t)bNum));
 			break;
 		}
 	}
@@ -376,28 +380,28 @@ static InterpretResult run() {
 			}
 
 			case OP_GREATER: {
-				if (!binaryOperation(GREATER)) {
+				if (!binaryOperation(OP_GREATER)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_LESS: {
-				if (!binaryOperation(LESS)) {
+				if (!binaryOperation(OP_LESS)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_LESS_EQUAL: {
-				if (!binaryOperation(LESS_OR_EQUAL)) {
+				if (!binaryOperation(OP_LESS_EQUAL)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_GREATER_EQUAL: {
-				if (!binaryOperation(GREATER_OR_EQUAL)) {
+				if (!binaryOperation(OP_GREATER_EQUAL)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
@@ -416,28 +420,35 @@ static InterpretResult run() {
 				if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
 					concatenate();
 				}
-				if (!binaryOperation(ADD)) {
+				if (!binaryOperation(OP_ADD)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_SUBTRACT: {
-				if (!binaryOperation(SUBTRACT)) {
+				if (!binaryOperation(OP_SUBTRACT)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_MULTIPLY: {
-				if (!binaryOperation(MULTIPLY)) {
+				if (!binaryOperation(OP_MULTIPLY)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
 
 			case OP_DIVIDE: {
-				if (!binaryOperation(DIVIDE)) {
+				if (!binaryOperation(OP_DIVIDE)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+		case OP_MODULUS: {
+				if (!binaryOperation(OP_MODULUS)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;

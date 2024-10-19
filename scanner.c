@@ -258,6 +258,8 @@ Token scanToken() {
 			return makeToken(TOKEN_SLASH);
 		case '*':
 			return makeToken(TOKEN_STAR);
+		case '%':
+			return makeToken(TOKEN_PERCENT);
 		case '!':
 			if (match('=')) {
 				return makeToken(TOKEN_BANG_EQUAL);

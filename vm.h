@@ -33,8 +33,6 @@ typedef struct {
 	Object **grayStack;
 } VM;
 
-typedef enum { ADD, SUBTRACT, MULTIPLY, DIVIDE, LESS_OR_EQUAL, GREATER_OR_EQUAL, LESS, GREATER } BinaryOpType;
-
 extern VM vm;
 
 void initVM();

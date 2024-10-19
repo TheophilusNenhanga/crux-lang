@@ -41,6 +41,7 @@ typedef enum {
 	OP_CLASS,
 	OP_GET_PROPERTY,
 	OP_SET_PROPERTY,
+	OP_MODULUS,
 } OpCode;
 
 typedef struct {
