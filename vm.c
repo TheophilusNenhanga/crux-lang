@@ -134,14 +134,84 @@ static bool callValue(Value callee, int argCount) {
 			case OBJECT_CLASS: {
 				ObjectClass *klass = AS_CLASS(callee);
 				vm.stackTop[-argCount - 1] = OBJECT_VAL(newInstance(klass));
+				Value initializer;
+				switch (tableGet(&klass->methods, vm.initString, &initializer)) {
+					case GET_SUCCESS: {
+						return call(AS_CLOSURE(initializer), argCount);
+					}
+					default: {
+						if (argCount != 0) {
+							runtimeError("Expected 0 arguments but got %d arguments.", argCount);
+							return false;
+						}
+					}
+				}
 				return true;
+			}
+			case OBJECT_BOUND_METHOD: {
+				ObjectBoundMethod *bound = AS_BOUND_METHOD(callee);
+				vm.stackTop[-argCount - 1] = bound->receiver;
+				return call(bound->method, argCount);
 			}
 			default:
 				break;
 		}
 	}
-	runtimeError("Can only call functions and classes");
+	runtimeError("Can only call functions and classes.");
 	return false;
+}
+
+static bool invokeFromClass(ObjectClass *klass, ObjectString *name, int argCount) {
+	Value method;
+	switch (tableGet(&klass->methods, name, &method)) {
+		case GET_SUCCESS: {
+			return call(AS_CLOSURE(method), argCount);
+		}
+		default: {
+			runtimeError("Undefined property '%s'.", name->chars);
+			return false;
+		}
+	}
+}
+
+static bool invoke(ObjectString *name, int argCount) {
+	Value receiver = peek(argCount);
+
+	if (!IS_INSTANCE(receiver)) {
+		runtimeError("Only instances have methods.");
+		return false;
+	}
+
+	ObjectInstance *instance = AS_INSTANCE(receiver);
+
+	Value value;
+	switch (tableGet(&instance->fields, name, &value)) {
+		case GET_SUCCESS: {
+			vm.stackTop[-argCount - 1] = value;
+			return callValue(value, argCount);
+		}
+		default: {
+		}
+	}
+
+	return invokeFromClass(instance->klass, name, argCount);
+}
+
+static bool bindMethod(ObjectClass *klass, ObjectString *name) {
+	Value method;
+	switch (tableGet(&klass->methods, name, &method)) {
+		case GET_SUCCESS: {
+			break;
+		}
+		default: {
+			runtimeError("Undefined property '%s'", name->chars);
+			return false;
+		}
+	}
+	ObjectBoundMethod *bound = newBoundMethod(peek(0), AS_CLOSURE(method));
+	pop();
+	push(OBJECT_VAL(bound));
+	return true;
 }
 
 static ObjectUpvalue *captureUpvalue(Value *local) {
@@ -169,12 +239,27 @@ static ObjectUpvalue *captureUpvalue(Value *local) {
 	return createdUpvalue;
 }
 
-static void closeUpvalue(Value *last) {
+static void closeUpvalues(Value *last) {
 	while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
 		ObjectUpvalue *upvalue = vm.openUpvalues;
 		upvalue->closed = *upvalue->location;
 		upvalue->location = &upvalue->closed;
 		vm.openUpvalues = upvalue->next;
+	}
+}
+
+static void defineMethod(ObjectString *name) {
+	Value method = peek(0);
+	ObjectClass *klass = AS_CLASS(peek(1));
+	switch (tableSet(&klass->methods, name, method)) {
+		case NEW_KEY_SUCCESS: {
+			pop();
+			break;
+		}
+		default: {
+			// TODO: add warnings?
+			break;
+		}
 	}
 }
 
@@ -209,6 +294,9 @@ void initVM() {
 	initTable(&vm.strings);
 	initTable(&vm.globals);
 
+	vm.initString = NULL;
+	vm.initString = copyString("init", 4);
+
 	defineNative("clock", clockNative, 0);
 	defineNative("print", printNative, 1);
 }
@@ -216,6 +304,7 @@ void initVM() {
 void freeVM() {
 	freeTable(&vm.strings);
 	freeTable(&vm.globals);
+	vm.initString = NULL;
 	freeObjects();
 }
 
@@ -315,7 +404,7 @@ static InterpretResult run() {
 
 			case OP_RETURN: {
 				Value result = pop();
-				closeUpvalue(frame->slots);
+				closeUpvalues(frame->slots);
 				vm.frameCount--;
 				if (vm.frameCount == 0) {
 					pop();
@@ -415,6 +504,7 @@ static InterpretResult run() {
 			case OP_ADD: {
 				if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
 					concatenate();
+					break;
 				}
 				if (!binaryOperation(ADD)) {
 					return INTERPRET_RUNTIME_ERROR;
@@ -602,7 +692,7 @@ static InterpretResult run() {
 			}
 
 			case OP_CLOSE_UPVALUE: {
-				closeUpvalue(vm.stackTop - 1);
+				closeUpvalues(vm.stackTop - 1);
 				pop();
 				break;
 			}
@@ -621,18 +711,19 @@ static InterpretResult run() {
 				ObjectString *name = READ_STRING();
 
 				Value value;
+				bool fieldFound = false;
 				switch (tableGet(&instance->fields, name, &value)) {
 					case GET_SUCCESS: {
 						pop();
 						push(value);
+						fieldFound = true;
 						break;
 					}
-					case NEW_KEY_SUCCESS:
-					case VAR_NOT_FOUND:
-					case IMMUTABLE_OVERWRITE:
-					case SET_SUCCESS:
-					case TABLE_EMPTY: {
-						runtimeError("Undefined property '%s'.", name->chars);
+					default: {
+					}
+				}
+				if (!fieldFound) {
+					if (!bindMethod(instance->klass, name)) {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
@@ -664,6 +755,20 @@ static InterpretResult run() {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
+				break;
+			}
+			case OP_METHOD: {
+				defineMethod(READ_STRING());
+				break;
+			}
+
+			case OP_INVOKE: {
+				ObjectString *method = READ_STRING();
+				int argCount = READ_BYTE();
+				if (!invoke(method, argCount)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				frame = &vm.frames[vm.frameCount - 1];
 				break;
 			}
 
