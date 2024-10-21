@@ -31,7 +31,7 @@ typedef struct {
 	size_t bytesAllocated;
 	size_t nextGC;
 	Object **grayStack;
-	ObjectString* initString;
+	ObjectString *initString;
 } VM;
 
 typedef enum { ADD, SUBTRACT, MULTIPLY, DIVIDE, LESS_OR_EQUAL, GREATER_OR_EQUAL, LESS, GREATER } BinaryOpType;

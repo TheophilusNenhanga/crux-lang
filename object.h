@@ -88,7 +88,7 @@ typedef struct {
 	Object object;
 	Value receiver;
 	ObjectClosure *method;
-}ObjectBoundMethod;
+} ObjectBoundMethod;
 
 
 typedef Value (*NativeFn)(int argCount, Value *args);

@@ -78,7 +78,8 @@ typedef struct {
 
 typedef struct ClassCompiler {
 	struct ClassCompiler *enclosing;
-}ClassCompiler;
+	bool hasSuperclass;
+} ClassCompiler;
 
 typedef struct {
 	int loopStart;
@@ -90,7 +91,7 @@ LoopContext loopStack[UINT16_MAX];
 // Make these two non globals
 Parser parser;
 Compiler *current = NULL;
-ClassCompiler* currentClass = NULL;
+ClassCompiler *currentClass = NULL;
 Chunk *compilingChunk;
 
 
@@ -192,7 +193,7 @@ static int emitJump(uint8_t instruction) {
 static void emitReturn() {
 	if (current->type == TYPE_INITIALIZER) {
 		emitBytes(OP_GET_LOCAL, 0);
-	}else {
+	} else {
 		emitByte(OP_NIL);
 	}
 	emitByte(OP_RETURN);
@@ -261,7 +262,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 	if (type != TYPE_FUNCTION) {
 		local->name.start = "self";
 		local->name.length = 4;
-	}else {
+	} else {
 		local->name.start = "";
 		local->name.length = 0;
 	}
@@ -517,7 +518,7 @@ static void dot(bool canAssign) {
 	if (canAssign && match(TOKEN_EQUAL)) {
 		expression();
 		emitBytes(OP_SET_PROPERTY, name);
-	}else if (match(TOKEN_LEFT_PAREN)){
+	} else if (match(TOKEN_LEFT_PAREN)) {
 		uint8_t argCount = argumentList();
 		emitBytes(OP_INVOKE, name);
 		emitByte(argCount);
@@ -549,6 +550,39 @@ static void namedVariable(Token name, bool canAssign) {
 		emitBytes(setOp, (uint8_t) arg);
 	} else {
 		emitBytes(getOp, (uint8_t) arg);
+	}
+}
+
+static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
+
+static Token syntheticToken(const char *text) {
+	Token token;
+	token.start = text;
+	token.length = strlen(text);
+	return token;
+}
+
+static void super_(bool canAssign) {
+	if (currentClass == NULL) {
+		error("Cannot use 'super' outside of a class");
+	} else if (!currentClass->hasSuperclass) {
+		error("Cannot use 'super' in a class that does not have a superclass");
+	}
+
+	consume(TOKEN_DOT, "Expected '.' after 'super'.");
+	consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
+	uint8_t name = identifierConstant(&parser.previous);
+	namedVariable(syntheticToken("self"), false);
+	namedVariable(syntheticToken("super"), false);
+
+	if (match(TOKEN_LEFT_PAREN)) {
+		uint8_t argCount = argumentList();
+		namedVariable(syntheticToken("super"), false);
+		emitBytes(OP_SUPER_INVOKE, name);
+		emitByte(argCount);
+	} else {
+		namedVariable(syntheticToken("super"), false);
+		emitBytes(OP_GET_SUPER, name);
 	}
 }
 
@@ -592,13 +626,13 @@ static void function(FunctionType type) {
 }
 
 static void method() {
-	consume (TOKEN_FN, "Expected 'fn' to start a method declaration.");
+	consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
 	consume(TOKEN_IDENTIFIER, "Expected method name.");
 	uint8_t constant = identifierConstant(&parser.previous);
 
 	FunctionType type = TYPE_METHOD;
 
-	if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4)==0) {
+	if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0) {
 		type = TYPE_INITIALIZER;
 	}
 
@@ -618,18 +652,40 @@ static void classDeclaration() {
 
 	ClassCompiler classCompiler;
 	classCompiler.enclosing = currentClass;
+	classCompiler.hasSuperclass = false;
 	currentClass = &classCompiler;
+
+	if (match(TOKEN_LESS)) {
+		consume(TOKEN_IDENTIFIER, "Expected super class name after '<'.");
+		variable(false);
+
+		if (identifiersEqual(&className, &parser.previous)) {
+			error("A class cannot inherit from itself");
+		}
+
+		beginScope();
+		addLocal(syntheticToken("super"));
+		defineVariable(0);
+
+		namedVariable(className, false);
+		emitByte(OP_INHERIT);
+		classCompiler.hasSuperclass = true;
+	}
 
 	namedVariable(className, false);
 
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before class body");
 
-	while (!check(TOKEN_RIGHT_BRACE)&& !check(TOKEN_EOF)) {
+	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		method();
 	}
 
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after class body");
 	emitByte(OP_POP);
+
+	if (classCompiler.hasSuperclass) {
+		endScope();
+	}
 
 	currentClass = classCompiler.enclosing;
 }
@@ -884,8 +940,6 @@ static void string(bool canAssign) {
 }
 
 
-static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
-
 static void self() {
 	if (currentClass == NULL) {
 		error("'self' cannot be used outside of a class.");
@@ -950,7 +1004,7 @@ ParseRule rules[] = {
 		[TOKEN_NIL] = {literal, NULL, PREC_NONE},
 		[TOKEN_OR] = {NULL, or_, PREC_OR},
 		[TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-		[TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
+		[TOKEN_SUPER] = {super_, NULL, PREC_NONE},
 		[TOKEN_SELF] = {self, NULL, PREC_NONE},
 		[TOKEN_TRUE] = {literal, NULL, PREC_NONE},
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},

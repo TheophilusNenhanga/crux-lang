@@ -772,6 +772,41 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_INHERIT: {
+				Value superClass = peek(1);
+
+				if (!IS_CLASS(superClass)) {
+					runtimeError("Cannot inherit from non class object.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				ObjectClass *subClass = AS_CLASS(peek(0));
+				tableAddAll(&AS_CLASS(superClass)->methods, &subClass->methods);
+				pop();
+				break;
+			}
+
+			case OP_GET_SUPER: {
+				ObjectString *name = READ_STRING();
+				ObjectClass *superClass = AS_CLASS(pop());
+
+				if (!bindMethod(superClass, name)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_SUPER_INVOKE: {
+				ObjectString *method = READ_STRING();
+				int argCount = READ_BYTE();
+				ObjectClass *superClass = AS_CLASS(pop());
+				if (!invokeFromClass(superClass, method, argCount)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				frame = &vm.frames[vm.frameCount - 1];
+				break;
+			}
+
 			default: {
 			}
 		}

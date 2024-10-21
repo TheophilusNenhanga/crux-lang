@@ -102,9 +102,9 @@ static void blackenObject(Object *object) {
 			break;
 		}
 		case OBJECT_BOUND_METHOD: {
-			ObjectBoundMethod* bound = (ObjectBoundMethod*)object;
+			ObjectBoundMethod *bound = (ObjectBoundMethod *) object;
 			markValue(bound->receiver);
-			markObject((Object*)bound->method);
+			markObject((Object *) bound->method);
 			break;
 		}
 		case OBJECT_NATIVE:
@@ -158,7 +158,7 @@ static void freeObject(Object *object) {
 		}
 		case OBJECT_BOUND_METHOD:
 			FREE(ObjectBoundMethod, object);
-		break;
+			break;
 	}
 }
 
@@ -177,7 +177,7 @@ void markRoots() {
 
 	markTable(&vm.globals);
 	markCompilerRoots();
-	markObject((Object*)vm.initString);
+	markObject((Object *) vm.initString);
 }
 
 static void traceReferences() {
