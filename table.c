@@ -74,10 +74,6 @@ TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	bool isNewKey = entry->key == NULL;
 
-	if (!isNewKey && !entry->value.isMutable) {
-		return IMMUTABLE_OVERWRITE;
-	}
-
 	bool isNilValue = IS_NIL(entry->value);
 
 	if (isNewKey && isNilValue) {
@@ -103,22 +99,6 @@ bool tableDelete(Table *table, ObjectString *key) {
 	entry->key = NULL;
 	entry->value = BOOL_VAL(true);
 	return true;
-}
-
-bool tableCheck(Table *table, ObjectString *key) {
-	if (table->count == 0)
-		return false;
-	Entry *entry = findEntry(table->entries, table->capacity, key);
-	if (entry->key == NULL)
-		return false;
-	return true;
-}
-
-bool isTableValueMutable(Table *table, ObjectString *key) {
-	if (table->count == 0)
-		false;
-	Entry *entry = findEntry(table->entries, table->capacity, key);
-	return entry->value.isMutable;
 }
 
 TableResponse tableGet(Table *table, ObjectString *key, Value *value) {

@@ -15,14 +15,7 @@ typedef struct {
 	Entry *entries;
 } Table;
 
-typedef enum {
-	SET_SUCCESS,
-	NEW_KEY_SUCCESS,
-	IMMUTABLE_OVERWRITE,
-	GET_SUCCESS,
-	VAR_NOT_FOUND,
-	TABLE_EMPTY
-} TableResponse;
+typedef enum { SET_SUCCESS, NEW_KEY_SUCCESS, GET_SUCCESS, VAR_NOT_FOUND, TABLE_EMPTY } TableResponse;
 
 void initTable(Table *table);
 
@@ -41,9 +34,5 @@ ObjectString *tableFindString(Table *table, const char *chars, int length, uint3
 void tableRemoveWhite(Table *table);
 
 void markTable(Table *table);
-
-bool tableCheck(Table *table, ObjectString *key);
-
-bool isTableValueMutable(Table *table, ObjectString *key);
 
 #endif

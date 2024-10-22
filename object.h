@@ -53,9 +53,9 @@ struct ObjectString {
 typedef struct {
 	Object object;
 	int arity;
+	int upvalueCount;
 	Chunk chunk;
 	ObjectString *name;
-	int upvalueCount;
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {

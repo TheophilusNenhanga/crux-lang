@@ -19,32 +19,24 @@ static Value clockNative(int argCount, Value *args) { return NUMBER_VAL((double)
 
 static Value printNative(int argCount, Value *args) {
 	Value value = args[0];
-	switch (value.type) {
-		case VAL_BOOL: {
-			printf(AS_BOOL(value) ? "true\n" : "false\n");
-			break;
-		}
-		case VAL_NIL: {
-			printf("nil\n");
-			break;
-		}
-		case VAL_NUMBER: {
-			double number = AS_NUMBER(value);
-			double intPart;
-			double fracPart = modf(number, &intPart);
+	if (IS_BOOL(value)) {
+		printf(AS_BOOL(value) ? "true" : "false");
+	} else if (IS_NIL(value)) {
+		printf("nil");
+	} else if (IS_NUMBER(value)) {
+		double number = AS_NUMBER(value);
+		double intPart;
+		double fracPart = modf(number, &intPart);
 
-			if (fracPart == 0.0) {
-				printf("%.0f\n", intPart);
-			} else {
-				printf("%lf\n", number);
-			}
-			break;
+		if (fracPart == 0.0) {
+			printf("%.0f", intPart);
+		} else {
+			printf("%lf", number);
 		}
-		case VAL_OBJECT: {
-			printObject(value);
-			break;
-		}
+	} else if (IS_OBJECT(value)) {
+		printObject(value);
 	}
+	printf("\n");
 	return NIL_VAL;
 }
 
@@ -551,12 +543,7 @@ static InterpretResult run() {
 
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
-
 				switch (tableSet(&vm.globals, name, peek(0))) {
-					case IMMUTABLE_OVERWRITE: {
-						runtimeError("Cannot define '%s' because it is already defined.", name->chars);
-						return INTERPRET_RUNTIME_ERROR;
-					}
 					case NEW_KEY_SUCCESS: {
 						pop();
 						break;
@@ -601,33 +588,8 @@ static InterpretResult run() {
 						runtimeError("Cannot give variable '%s' a value because it has not been defined", name->chars);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-					case IMMUTABLE_OVERWRITE: {
-						runtimeError("Cannot modify <set> defined variable '%s'.", name->chars);
-						return INTERPRET_RUNTIME_ERROR;
-					}
 					default:
 						break;
-				}
-				break;
-			}
-
-			case OP_DEFINE_GLOBAL_CONSTANT: {
-				ObjectString *name = READ_STRING();
-				Value value = peek(0);
-				value.isMutable = false;
-				switch (tableSet(&vm.globals, name, value)) {
-					case IMMUTABLE_OVERWRITE:
-					case SET_SUCCESS: {
-						runtimeError("Cannot define '%s' because it is already defined.", name->chars);
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					case NEW_KEY_SUCCESS: {
-						pop();
-						break;
-					}
-					default: {
-						break;
-					}
 				}
 				break;
 			}
@@ -640,12 +602,7 @@ static InterpretResult run() {
 
 			case OP_SET_LOCAL: {
 				uint8_t slot = READ_BYTE();
-				if (frame->slots[slot].isMutable) {
-					frame->slots[slot] = peek(0);
-				} else {
-					runtimeError("Cannot modify <set> defined local variable");
-					return INTERPRET_RUNTIME_ERROR;
-				}
+				frame->slots[slot] = peek(0);
 				break;
 			}
 
@@ -744,9 +701,6 @@ static InterpretResult run() {
 						pop();
 						push(value);
 						break;
-					}
-					case IMMUTABLE_OVERWRITE: {
-						runtimeError("Cannot set property '%s' because it is immutable.", READ_STRING());
 					}
 					case VAR_NOT_FOUND:
 					case GET_SUCCESS:

@@ -13,14 +13,11 @@
 #include "debug.h"
 #endif
 
-typedef enum { MUTABLE, IMMUTABLE, NEITHER } MutabilityState;
-
 typedef struct {
 	Token current;
 	Token previous;
 	bool hadError;
 	bool panicMode;
-	MutabilityState mutabilityState;
 } Parser;
 
 // Precedence in order from lowest to highest
@@ -200,11 +197,6 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant(Value value) {
-	if (parser.mutabilityState == IMMUTABLE) {
-		value.isMutable = false;
-	} else {
-		value.isMutable = true;
-	}
 	int constant = addConstant(currentChunk(), value);
 	// Add constant adds the given value to the end of the constant table and
 	// returns the index.
@@ -228,15 +220,6 @@ static void patchJump(int offset) {
 	}
 	currentChunk()->code[offset] = (jump >> 8) & 0xff;
 	currentChunk()->code[offset + 1] = jump & 0xff;
-}
-
-static void emitConstantWithMutability(Value value) {
-	if (parser.mutabilityState == IMMUTABLE) {
-		value.isMutable = false;
-	} else {
-		value.isMutable = true;
-	}
-	emitConstant(value);
 }
 
 static void initCompiler(Compiler *compiler, FunctionType type) {
@@ -395,14 +378,6 @@ static void defineVariable(uint8_t global) {
 		return;
 	}
 	emitBytes(OP_DEFINE_GLOBAL, global);
-}
-
-static void defineConstantVariable(uint8_t global) {
-	if (current->scopeDepth > 0) {
-		markInitialized();
-		return;
-	}
-	emitBytes(OP_DEFINE_GLOBAL_CONSTANT, global);
 }
 
 static uint8_t argumentList() {
@@ -608,7 +583,7 @@ static void function(FunctionType type) {
 				errorAtCurrent("Functions cannot have more than 255 arguments");
 			}
 			uint8_t constant = parseVariable("Expected parameter name");
-			defineConstantVariable(constant);
+			defineVariable(constant);
 		} while (match(TOKEN_COMMA));
 	}
 
@@ -648,7 +623,7 @@ static void classDeclaration() {
 	declareVariable();
 
 	emitBytes(OP_CLASS, nameConstant);
-	defineConstantVariable(nameConstant);
+	defineVariable(nameConstant);
 
 	ClassCompiler classCompiler;
 	classCompiler.enclosing = currentClass;
@@ -694,7 +669,7 @@ static void fnDeclaration() {
 	uint8_t global = parseVariable("Expected function name");
 	markInitialized();
 	function(TYPE_FUNCTION);
-	defineConstantVariable(global);
+	defineVariable(global);
 }
 
 static void varDeclaration() {
@@ -707,17 +682,6 @@ static void varDeclaration() {
 	}
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 	defineVariable(global);
-}
-
-static void constDeclaration() {
-	uint8_t global = parseVariable("Expected Variable Name.");
-	if (match(TOKEN_EQUAL)) {
-		expression();
-	} else {
-		error("Expected constant after variable declaration.");
-	}
-	consume(TOKEN_SEMICOLON, "Expected ';' after constant declaration.");
-	defineConstantVariable(global);
 }
 
 static void expressionStatement() {
@@ -776,8 +740,6 @@ static void forStatement() {
 		// no initializer
 	} else if (match(TOKEN_LET)) {
 		varDeclaration();
-	} else if (match(TOKEN_SET)) {
-		error("Cannot use <set> defined variable as <for> initializer. Use <let> instead.");
 	} else {
 		expressionStatement();
 	}
@@ -867,7 +829,6 @@ static void synchronize() {
 			case TOKEN_CLASS:
 			case TOKEN_FN:
 			case TOKEN_LET:
-			case TOKEN_SET:
 			case TOKEN_FOR:
 			case TOKEN_IF:
 			case TOKEN_WHILE:
@@ -881,19 +842,12 @@ static void synchronize() {
 
 static void declaration() {
 	if (match(TOKEN_LET)) {
-		parser.mutabilityState = MUTABLE;
 		varDeclaration();
-	} else if (match(TOKEN_SET)) {
-		parser.mutabilityState = IMMUTABLE;
-		constDeclaration();
 	} else if (match(TOKEN_CLASS)) {
-		parser.mutabilityState = NEITHER;
 		classDeclaration();
 	} else if (match(TOKEN_FN)) {
-		parser.mutabilityState = NEITHER;
 		fnDeclaration();
 	} else {
-		parser.mutabilityState = NEITHER;
 		statement();
 	}
 
@@ -930,12 +884,12 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
 	double value = strtod(parser.previous.start, NULL);
-	emitConstantWithMutability(NUMBER_VAL(value));
+	emitConstant(NUMBER_VAL(value));
 }
 
 static void string(bool canAssign) {
 	// +1 -2 trims the leading and trailing quotation marks
-	emitConstantWithMutability(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	emitConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
 	// TODO: translate string escape sequences
 }
 
@@ -1050,7 +1004,6 @@ ObjectFunction *compile(const char *source) {
 
 	parser.hadError = false;
 	parser.panicMode = false;
-	parser.mutabilityState = NEITHER;
 
 	advance();
 
