@@ -4,8 +4,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
+#include "./natives/io.h"
+#include "./natives/time.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -14,31 +15,6 @@
 #include "value.h"
 
 VM vm;
-
-static Value clockNative(int argCount, Value *args) { return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC); }
-
-static Value printNative(int argCount, Value *args) {
-	Value value = args[0];
-	if (IS_BOOL(value)) {
-		printf(AS_BOOL(value) ? "true" : "false");
-	} else if (IS_NIL(value)) {
-		printf("nil");
-	} else if (IS_NUMBER(value)) {
-		double number = AS_NUMBER(value);
-		double intPart;
-		double fracPart = modf(number, &intPart);
-
-		if (fracPart == 0.0) {
-			printf("%.0f", intPart);
-		} else {
-			printf("%lf", number);
-		}
-	} else if (IS_OBJECT(value)) {
-		printObject(value);
-	}
-	printf("\n");
-	return NIL_VAL;
-}
 
 static void resetStack() {
 	vm.stackTop = vm.stack;
@@ -289,7 +265,8 @@ void initVM() {
 	vm.initString = NULL;
 	vm.initString = copyString("init", 4);
 
-	defineNative("clock", clockNative, 0);
+	defineNative("time_s", currentTimeSeconds, 0);
+	defineNative("time_ms", currentTimeMillis, 0);
 	defineNative("print", printNative, 1);
 }
 
@@ -758,6 +735,40 @@ static InterpretResult run() {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				frame = &vm.frames[vm.frameCount - 1];
+				break;
+			}
+
+			case OP_ARRAY: {
+				uint16_t elementCount = READ_SHORT();
+				ObjectArray *array = newArray(elementCount);
+				array->size = elementCount;
+				for (int i = elementCount - 1; i >= 0; i--) {
+					array->array[i] = pop();
+				}
+				push(OBJECT_VAL(array));
+				break;
+			}
+
+			case OP_GET_ARRAY: {
+				int index = AS_NUMBER(pop());
+				ObjectArray *array = AS_ARRAY(pop());
+				if (index >= 0 && index < array->size) {
+					push(array->array[index]);
+				} else {
+					runtimeError("{ Error: OP_GET_ARRAY } Array index out of bounds.");
+				}
+				break;
+			}
+
+			case OP_SET_ARRAY: {
+				Value value = pop();
+				int index = AS_NUMBER(pop());
+				ObjectArray *array = AS_ARRAY(pop());
+				if (index >= 0 && index < array->size) {
+					array->array[index] = value;
+				} else {
+					runtimeError("{ Error: OP_SET_ARRAY } Array index out of bounds.");
+				}
 				break;
 			}
 
