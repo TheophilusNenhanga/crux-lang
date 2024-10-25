@@ -30,7 +30,7 @@ class Zoo {
 
 let zoo = Zoo();
 let sum = 0;
-let start = clock();
+let start = time_ms();
 while sum < 100000000 {
     sum = sum + zoo.ant()
                 + zoo.banana()
@@ -45,5 +45,5 @@ while sum < 100000000 {
                 + zoo.hop()
                 + zoo.roar();
 }
-print(clock() - start);
+print(time_ms() - start);
 print(sum);

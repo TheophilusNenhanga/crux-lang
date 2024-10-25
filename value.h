@@ -70,10 +70,10 @@ typedef struct {
 #define AS_OBJECT(value) ((value).as._object)
 
 // Make a value a StellaC type
-#define BOOL_VAL(value) ((Value){VAL_BOOL, {._bool = value}, true})
-#define NIL_VAL ((Value){VAL_NIL, {._number = 0}, true})
-#define NUMBER_VAL(value) ((Value){VAL_NUMBER, {._number = value}, true})
-#define OBJECT_VAL(value) ((Value){VAL_OBJECT, {._object = value}, true})
+#define BOOL_VAL(value) ((Value){VAL_BOOL, {._bool = value}})
+#define NIL_VAL ((Value){VAL_NIL, {._number = 0}})
+#define NUMBER_VAL(value) ((Value){VAL_NUMBER, {._number = value}})
+#define OBJECT_VAL(value) ((Value){VAL_OBJECT, {._object = value}})
 #endif
 
 typedef struct {

@@ -23,4 +23,8 @@ add_executable(StellaC
         object.c
         table.c
         table.h
-        object.h)
+        object.h
+        natives/io.h
+        natives/io.c
+        natives/time.h
+        natives/time.c)

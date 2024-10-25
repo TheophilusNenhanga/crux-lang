@@ -31,7 +31,7 @@ typedef enum {
 	PREC_TERM, // + -
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
-	PREC_CALL, // . ()
+	PREC_CALL, // . () []
 	PREC_PRIMARY
 } Precedence;
 
@@ -672,6 +672,36 @@ static void fnDeclaration() {
 	defineVariable(global);
 }
 
+static void arrayLiteral(bool canAssign) {
+	uint16_t elementCount = 0;
+
+	if (!match(TOKEN_RIGHT_SQUARE)) {
+		do {
+			expression();
+			if (elementCount >= UINT16_MAX) {
+				error("Too many elements in array literal");
+			}
+			elementCount++;
+		} while (match(TOKEN_COMMA));
+	}
+	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
+	emitByte(OP_ARRAY);
+	emitByte((elementCount >> 8) & 0xff);
+	emitByte(elementCount & 0xff);
+}
+
+static void arrayIndex(bool canAssign) {
+	expression(); // array index
+	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
+
+	if (match(TOKEN_EQUAL)) {
+		expression();
+		emitByte(OP_SET_ARRAY);
+	} else {
+		emitByte(OP_GET_ARRAY);
+	}
+}
+
 static void varDeclaration() {
 	uint8_t global = parseVariable("Expected Variable Name.");
 
@@ -927,6 +957,8 @@ ParseRule rules[] = {
 		[TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
 		[TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
+		[TOKEN_LEFT_SQUARE] = {arrayLiteral, arrayIndex, PREC_CALL},
+		[TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_COMMA] = {NULL, NULL, PREC_NONE},
 		[TOKEN_DOT] = {NULL, dot, PREC_CALL},
 		[TOKEN_MINUS] = {unary, binary, PREC_TERM},
