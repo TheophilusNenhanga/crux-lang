@@ -63,6 +63,12 @@ void markArray(ValueArray *array) {
 	}
 }
 
+void markObjectArray(ObjectArray *array) {
+	for (int i = 0; i < array->size; i++) {
+		markValue(array->array[i]);
+	}
+}
+
 static void blackenObject(Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p blacken ", (void *) object);
@@ -92,12 +98,24 @@ static void blackenObject(Object *object) {
 		case OBJECT_CLASS: {
 			ObjectClass *klass = (ObjectClass *) object;
 			markObject((Object *) klass->name);
+			markTable(&klass->methods);
 			break;
 		}
 		case OBJECT_INSTANCE: {
 			ObjectInstance *instance = (ObjectInstance *) object;
 			markObject((Object *) instance->klass);
 			markTable(&instance->fields);
+			break;
+		}
+		case OBJECT_BOUND_METHOD: {
+			ObjectBoundMethod *bound = (ObjectBoundMethod *) object;
+			markValue(bound->receiver);
+			markObject((Object *) bound->method);
+			break;
+		}
+		case OBJECT_ARRAY: {
+			ObjectArray *array = (ObjectArray *) object;
+			markObjectArray(array);
 			break;
 		}
 		case OBJECT_NATIVE:
@@ -138,6 +156,8 @@ static void freeObject(Object *object) {
 			break;
 		}
 		case OBJECT_CLASS: {
+			ObjectClass *klass = (ObjectClass *) object;
+			freeTable(&klass->methods);
 			FREE(ObjectClass, object);
 			break;
 		}
@@ -147,7 +167,20 @@ static void freeObject(Object *object) {
 			FREE(ObjectInstance, object);
 			break;
 		}
+		case OBJECT_BOUND_METHOD: {
+			FREE(ObjectBoundMethod, object);
+			break;
+		}
+
+		case OBJECT_ARRAY: {
+			ObjectArray *array = (ObjectArray *) object;
+			FREE_ARRAY(Value, array->array, array->capacity);
+			FREE(ObjectArray, object);
+		}
+
 	}
+
+
 }
 
 void markRoots() {
@@ -165,6 +198,7 @@ void markRoots() {
 
 	markTable(&vm.globals);
 	markCompilerRoots();
+	markObject((Object *) vm.initString);
 }
 
 static void traceReferences() {

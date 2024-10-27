@@ -29,8 +29,16 @@ static Object *allocateObject(size_t size, ObjectType type) {
 	return object;
 }
 
+ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method) {
+	ObjectBoundMethod *bound = ALLOCATE_OBJECT(ObjectBoundMethod, OBJECT_BOUND_METHOD);
+	bound->receiver = receiver;
+	bound->method = method;
+	return bound;
+}
+
 ObjectClass *newClass(ObjectString *name) {
 	ObjectClass *klass = ALLOCATE_OBJECT(ObjectClass, OBJECT_CLASS);
+	initTable(&klass->methods);
 	klass->name = name;
 	return klass;
 }
@@ -106,7 +114,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_STRING: {
-			printf("%s\n", AS_CSTRING(value));
+			printf("\"%s\"", AS_CSTRING(value));
 			break;
 		}
 		case OBJECT_FUNCTION: {
@@ -127,6 +135,14 @@ void printObject(Value value) {
 		}
 		case OBJECT_INSTANCE: {
 			printf("'%s' <instance>\n", AS_INSTANCE(value)->klass->name->chars);
+			break;
+		}
+		case OBJECT_BOUND_METHOD: {
+			printFunction(AS_BOUND_METHOD(value)->method->function);
+			break;
+		}
+		case OBJECT_ARRAY: {
+			printf("<array>\n");
 			break;
 		}
 	}
@@ -167,4 +183,35 @@ ObjectNative *newNative(NativeFn function, int arity) {
 	native->function = function;
 	native->arity = arity;
 	return native;
+}
+
+static int calculateArrayCapacity(int n) {
+	if (n >= UINT16_MAX - 1) {
+		return UINT16_MAX - 1;
+	}
+
+	if (n < 1)
+		return 1;
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+
+	return n + 1;
+}
+
+ObjectArray *newArray(int elementCount) {
+	ObjectArray *array = ALLOCATE_OBJECT(ObjectArray, OBJECT_ARRAY);
+	array->capacity = calculateArrayCapacity(elementCount);
+	array->size = 0;
+	array->array = ALLOCATE(Value, array->capacity);
+	return array;
+}
+
+ObjectArray *growArray(ObjectArray *array) {
+	array->array = GROW_ARRAY(Value, array->array, array->capacity, array->capacity * 2);
+	array->capacity *= 2;
+	return array;
 }

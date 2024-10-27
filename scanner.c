@@ -115,13 +115,7 @@ static TokenType identifierType() {
 				switch (scanner.start[1]) {
 					case 'e':
 						if (scanner.current - scanner.start > 2) {
-							switch (scanner.start[2]) {
-								case 't':
-									return TOKEN_SET;
-								case 'l':
-									return checkKeyword(3, 1, "f", TOKEN_SELF);
-								default:;
-							}
+							return checkKeyword(2, 2, "lf", TOKEN_SELF);
 						}
 					case 'u':
 						return checkKeyword(2, 3, "per", TOKEN_SUPER);
@@ -244,6 +238,10 @@ Token scanToken() {
 			return makeToken(TOKEN_LEFT_BRACE);
 		case '}':
 			return makeToken(TOKEN_RIGHT_BRACE);
+		case '[':
+			return makeToken(TOKEN_LEFT_SQUARE);
+		case ']':
+			return makeToken(TOKEN_RIGHT_SQUARE);
 		case ';':
 			return makeToken(TOKEN_SEMICOLON);
 		case ',':

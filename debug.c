@@ -40,6 +40,15 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset) {
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
 
+static int invokeInstruction(const char *name, Chunk *chunk, int offset) {
+	uint8_t constant = chunk->code[offset + 1];
+	uint8_t argCount = chunk->code[offset + 2];
+	printf("%-16s (%d args) %4d '", name, argCount, constant);
+	printValue(chunk->constants.values[constant]);
+	printf("'\n");
+	return offset + 3;
+}
+
 int disassembleInstruction(Chunk *chunk, int offset) {
 	printf("%04d", offset); // Prints the byte offset of the given instruction
 
@@ -100,8 +109,6 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return constantInstruction("OP_GET_GLOBAL", chunk, offset);
 		case OP_SET_GLOBAL:
 			return constantInstruction("OP_SET_GLOBAL", chunk, offset);
-		case OP_DEFINE_GLOBAL_CONSTANT:
-			return simpleInstruction("OP_DEFINE_GLOBAL_CONSTANT", offset);
 		case OP_GET_LOCAL:
 			return byteInstruction("OP_GET_LOCAL", chunk, offset);
 		case OP_SET_LOCAL:
@@ -143,6 +150,16 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return constantInstruction("OP_GET_PROPERTY", chunk, offset);
 		case OP_SET_PROPERTY:
 			return constantInstruction("OP_SET_PROPERTY", chunk, offset);
+		case OP_METHOD:
+			return constantInstruction("OP_METHOD", chunk, offset);
+		case OP_INVOKE:
+			return invokeInstruction("OP_INVOKE", chunk, offset);
+		case OP_INHERIT:
+			return simpleInstruction("OP_INHERIT", offset);
+		case OP_GET_SUPER:
+			return constantInstruction("OP_GET_SUPER", chunk, offset);
+		case OP_SUPER_INVOKE:
+			return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;

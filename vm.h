@@ -31,6 +31,7 @@ typedef struct {
 	size_t bytesAllocated;
 	size_t nextGC;
 	Object **grayStack;
+	ObjectString *initString;
 } VM;
 
 extern VM vm;

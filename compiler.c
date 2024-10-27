@@ -13,14 +13,11 @@
 #include "debug.h"
 #endif
 
-typedef enum { MUTABLE, IMMUTABLE, NEITHER } MutabilityState;
-
 typedef struct {
 	Token current;
 	Token previous;
 	bool hadError;
 	bool panicMode;
-	MutabilityState mutabilityState;
 } Parser;
 
 // Precedence in order from lowest to highest
@@ -35,7 +32,7 @@ typedef enum {
 	PREC_TERM, // + -
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
-	PREC_CALL, // . ()
+	PREC_CALL, // . () []
 	PREC_PRIMARY
 } Precedence;
 
@@ -62,6 +59,8 @@ typedef struct {
 typedef enum {
 	TYPE_FUNCTION,
 	TYPE_SCRIPT,
+	TYPE_METHOD,
+	TYPE_INITIALIZER,
 } FunctionType;
 
 typedef struct {
@@ -75,6 +74,11 @@ typedef struct {
 	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
+typedef struct ClassCompiler {
+	struct ClassCompiler *enclosing;
+	bool hasSuperclass;
+} ClassCompiler;
+
 typedef struct {
 	int loopStart;
 	int exitJump;
@@ -85,6 +89,7 @@ LoopContext loopStack[UINT16_MAX];
 // Make these two non globals
 Parser parser;
 Compiler *current = NULL;
+ClassCompiler *currentClass = NULL;
 Chunk *compilingChunk;
 
 
@@ -169,31 +174,28 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
 static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
-	if (offset > UINT16_MAX)
-		error("Loop body too large.");
-
-	emitByte((offset >> 8) & 0xff);
-	emitByte(offset & 0xff);
+	if (offset > UINT16_MAX) {
+	  error("Loop body too large.");
+	}
+  emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
 
 static int emitJump(uint8_t instruction) {
 	emitByte(instruction);
-	emitByte(0xff);
-	emitByte(0xff);
+  emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
 
 static void emitReturn() {
-	emitByte(OP_NIL);
+	if (current->type == TYPE_INITIALIZER) {
+		emitBytes(OP_GET_LOCAL, 0);
+	} else {
+		emitByte(OP_NIL);
+	}
 	emitByte(OP_RETURN);
 }
 
 static uint8_t makeConstant(Value value) {
-	if (parser.mutabilityState == IMMUTABLE) {
-		value.isMutable = false;
-	} else {
-		value.isMutable = true;
-	}
 	int constant = addConstant(currentChunk(), value);
 	// Add constant adds the given value to the end of the constant table and
 	// returns the index.
@@ -219,15 +221,6 @@ static void patchJump(int offset) {
 	currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
-static void emitConstantWithMutability(Value value) {
-	if (parser.mutabilityState == IMMUTABLE) {
-		value.isMutable = false;
-	} else {
-		value.isMutable = true;
-	}
-	emitConstant(value);
-}
-
 static void initCompiler(Compiler *compiler, FunctionType type) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
@@ -247,6 +240,14 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 	local->name.start = "";
 	local->name.length = 0;
 	local->isCaptured = false;
+
+	if (type != TYPE_FUNCTION) {
+		local->name.start = "self";
+		local->name.length = 4;
+	} else {
+		local->name.start = "";
+		local->name.length = 0;
+	}
 }
 
 static uint8_t identifierConstant(Token *name) {
@@ -378,14 +379,6 @@ static void defineVariable(uint8_t global) {
 	emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
-static void defineConstantVariable(uint8_t global) {
-	if (current->scopeDepth > 0) {
-		markInitialized();
-		return;
-	}
-	emitBytes(OP_DEFINE_GLOBAL_CONSTANT, global);
-}
-
 static uint8_t argumentList() {
 	uint8_t argCount = 0;
 	if (!check(TOKEN_RIGHT_PAREN)) {
@@ -508,12 +501,73 @@ static void dot(bool canAssign) {
 	if (canAssign && match(TOKEN_EQUAL)) {
 		expression();
 		emitBytes(OP_SET_PROPERTY, name);
+	} else if (match(TOKEN_LEFT_PAREN)) {
+		uint8_t argCount = argumentList();
+		emitBytes(OP_INVOKE, name);
+		emitByte(argCount);
 	} else {
 		emitBytes(OP_GET_PROPERTY, name);
 	}
 }
 
 static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
+
+static void namedVariable(Token name, bool canAssign) {
+	uint8_t getOp, setOp;
+	int arg = resolveLocal(current, &name);
+
+	if (arg != -1) {
+		getOp = OP_GET_LOCAL;
+		setOp = OP_SET_LOCAL;
+	} else if ((arg = resolveUpvalue(current, &name)) != -1) {
+		getOp = OP_GET_UPVALUE;
+		setOp = OP_SET_UPVALUE;
+	} else {
+		arg = identifierConstant(&name);
+		getOp = OP_GET_GLOBAL;
+		setOp = OP_SET_GLOBAL;
+	}
+
+	if (canAssign && match(TOKEN_EQUAL)) {
+		expression();
+		emitBytes(setOp, (uint8_t) arg);
+	} else {
+		emitBytes(getOp, (uint8_t) arg);
+	}
+}
+
+static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
+
+static Token syntheticToken(const char *text) {
+	Token token;
+	token.start = text;
+	token.length = strlen(text);
+	return token;
+}
+
+static void super_(bool canAssign) {
+	if (currentClass == NULL) {
+		error("Cannot use 'super' outside of a class");
+	} else if (!currentClass->hasSuperclass) {
+		error("Cannot use 'super' in a class that does not have a superclass");
+	}
+
+	consume(TOKEN_DOT, "Expected '.' after 'super'.");
+	consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
+	uint8_t name = identifierConstant(&parser.previous);
+	namedVariable(syntheticToken("self"), false);
+	namedVariable(syntheticToken("super"), false);
+
+	if (match(TOKEN_LEFT_PAREN)) {
+		uint8_t argCount = argumentList();
+		namedVariable(syntheticToken("super"), false);
+		emitBytes(OP_SUPER_INVOKE, name);
+		emitByte(argCount);
+	} else {
+		namedVariable(syntheticToken("super"), false);
+		emitBytes(OP_GET_SUPER, name);
+	}
+}
 
 static void block() {
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
@@ -537,7 +591,7 @@ static void function(FunctionType type) {
 				errorAtCurrent("Functions cannot have more than 255 arguments");
 			}
 			uint8_t constant = parseVariable("Expected parameter name");
-			defineConstantVariable(constant);
+			defineVariable(constant);
 		} while (match(TOKEN_COMMA));
 	}
 
@@ -554,25 +608,105 @@ static void function(FunctionType type) {
 	}
 }
 
+static void method() {
+	consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
+	consume(TOKEN_IDENTIFIER, "Expected method name.");
+	uint8_t constant = identifierConstant(&parser.previous);
+
+	FunctionType type = TYPE_METHOD;
+
+	if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0) {
+		type = TYPE_INITIALIZER;
+	}
+
+	function(type);
+
+	emitBytes(OP_METHOD, constant);
+}
+
 static void classDeclaration() {
 	consume(TOKEN_IDENTIFIER, "Expected class name");
+	Token className = parser.previous;
 	uint8_t nameConstant = identifierConstant(&parser.previous);
 	declareVariable();
 
 	emitBytes(OP_CLASS, nameConstant);
-	defineConstantVariable(nameConstant);
+	defineVariable(nameConstant);
+
+	ClassCompiler classCompiler;
+	classCompiler.enclosing = currentClass;
+	classCompiler.hasSuperclass = false;
+	currentClass = &classCompiler;
+
+	if (match(TOKEN_LESS)) {
+		consume(TOKEN_IDENTIFIER, "Expected super class name after '<'.");
+		variable(false);
+
+		if (identifiersEqual(&className, &parser.previous)) {
+			error("A class cannot inherit from itself");
+		}
+
+		beginScope();
+		addLocal(syntheticToken("super"));
+		defineVariable(0);
+
+		namedVariable(className, false);
+		emitByte(OP_INHERIT);
+		classCompiler.hasSuperclass = true;
+	}
+
+	namedVariable(className, false);
 
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before class body");
 
+	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+		method();
+	}
 
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after class body");
+	emitByte(OP_POP);
+
+	if (classCompiler.hasSuperclass) {
+		endScope();
+	}
+
+	currentClass = classCompiler.enclosing;
 }
 
 static void fnDeclaration() {
 	uint8_t global = parseVariable("Expected function name");
 	markInitialized();
 	function(TYPE_FUNCTION);
-	defineConstantVariable(global);
+	defineVariable(global);
+}
+
+static void arrayLiteral(bool canAssign) {
+	uint16_t elementCount = 0;
+
+	if (!match(TOKEN_RIGHT_SQUARE)) {
+		do {
+			expression();
+			if (elementCount >= UINT16_MAX) {
+				error("Too many elements in array literal");
+			}
+			elementCount++;
+		} while (match(TOKEN_COMMA));
+	    consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
+	}
+	emitByte(OP_ARRAY);
+  emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+}
+
+static void arrayIndex(bool canAssign) {
+	expression(); // array index
+	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
+
+	if (match(TOKEN_EQUAL)) {
+		expression();
+		emitByte(OP_SET_ARRAY);
+	} else {
+		emitByte(OP_GET_ARRAY);
+	}
 }
 
 static void varDeclaration() {
@@ -585,17 +719,6 @@ static void varDeclaration() {
 	}
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 	defineVariable(global);
-}
-
-static void constDeclaration() {
-	uint8_t global = parseVariable("Expected Variable Name.");
-	if (match(TOKEN_EQUAL)) {
-		expression();
-	} else {
-		error("Expected constant after variable declaration.");
-	}
-	consume(TOKEN_SEMICOLON, "Expected ';' after constant declaration.");
-	defineConstantVariable(global);
 }
 
 static void expressionStatement() {
@@ -654,8 +777,6 @@ static void forStatement() {
 		// no initializer
 	} else if (match(TOKEN_LET)) {
 		varDeclaration();
-	} else if (match(TOKEN_SET)) {
-		error("Cannot use <set> defined variable as <for> initializer. Use <let> instead.");
 	} else {
 		expressionStatement();
 	}
@@ -726,10 +847,13 @@ static void returnStatement() {
 	if (match(TOKEN_SEMICOLON)) {
 		emitReturn();
 	} else {
-		expression();
-		consume(TOKEN_SEMICOLON, "Expected ';' after return value");
-		emitByte(OP_RETURN);
+		if (current->type == TYPE_INITIALIZER) {
+			error("Cannot return a value from an 'init' function");
+		}
 	}
+	expression();
+	consume(TOKEN_SEMICOLON, "Expected ';' after return value");
+	emitByte(OP_RETURN);
 }
 
 static void synchronize() {
@@ -742,7 +866,6 @@ static void synchronize() {
 			case TOKEN_CLASS:
 			case TOKEN_FN:
 			case TOKEN_LET:
-			case TOKEN_SET:
 			case TOKEN_FOR:
 			case TOKEN_IF:
 			case TOKEN_WHILE:
@@ -756,19 +879,12 @@ static void synchronize() {
 
 static void declaration() {
 	if (match(TOKEN_LET)) {
-		parser.mutabilityState = MUTABLE;
 		varDeclaration();
-	} else if (match(TOKEN_SET)) {
-		parser.mutabilityState = IMMUTABLE;
-		constDeclaration();
 	} else if (match(TOKEN_CLASS)) {
-		parser.mutabilityState = NEITHER;
 		classDeclaration();
 	} else if (match(TOKEN_FN)) {
-		parser.mutabilityState = NEITHER;
 		fnDeclaration();
 	} else {
-		parser.mutabilityState = NEITHER;
 		statement();
 	}
 
@@ -805,40 +921,24 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
 	double value = strtod(parser.previous.start, NULL);
-	emitConstantWithMutability(NUMBER_VAL(value));
+	emitConstant(NUMBER_VAL(value));
 }
 
 static void string(bool canAssign) {
 	// +1 -2 trims the leading and trailing quotation marks
-	emitConstantWithMutability(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	emitConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
 	// TODO: translate string escape sequences
 }
 
-static void namedVariable(Token name, bool canAssign) {
-	uint8_t getOp, setOp;
-	int arg = resolveLocal(current, &name);
 
-	if (arg != -1) {
-		getOp = OP_GET_LOCAL;
-		setOp = OP_SET_LOCAL;
-	} else if ((arg = resolveUpvalue(current, &name)) != -1) {
-		getOp = OP_GET_UPVALUE;
-		setOp = OP_SET_UPVALUE;
-	} else {
-		arg = identifierConstant(&name);
-		getOp = OP_GET_GLOBAL;
-		setOp = OP_SET_GLOBAL;
+static void self() {
+	if (currentClass == NULL) {
+		error("'self' cannot be used outside of a class.");
+		return;
 	}
 
-	if (canAssign && match(TOKEN_EQUAL)) {
-		expression();
-		emitBytes(setOp, (uint8_t) arg);
-	} else {
-		emitBytes(getOp, (uint8_t) arg);
-	}
+	variable(false);
 }
-
-static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
 
 static void unary(bool canAssign) {
 	TokenType operatorType = parser.previous.type;
@@ -864,6 +964,8 @@ ParseRule rules[] = {
 		[TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
 		[TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
+		[TOKEN_LEFT_SQUARE] = {arrayLiteral, arrayIndex, PREC_CALL},
+		[TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_COMMA] = {NULL, NULL, PREC_NONE},
 		[TOKEN_DOT] = {NULL, dot, PREC_CALL},
 		[TOKEN_MINUS] = {unary, binary, PREC_TERM},
@@ -898,8 +1000,8 @@ ParseRule rules[] = {
 		[TOKEN_NIL] = {literal, NULL, PREC_NONE},
 		[TOKEN_OR] = {NULL, or_, PREC_OR},
 		[TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-		[TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
-		[TOKEN_SELF] = {NULL, NULL, PREC_NONE},
+		[TOKEN_SUPER] = {super_, NULL, PREC_NONE},
+		[TOKEN_SELF] = {self, NULL, PREC_NONE},
 		[TOKEN_TRUE] = {literal, NULL, PREC_NONE},
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
@@ -944,7 +1046,6 @@ ObjectFunction *compile(const char *source) {
 
 	parser.hadError = false;
 	parser.panicMode = false;
-	parser.mutabilityState = NEITHER;
 
 	advance();
 

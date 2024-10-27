@@ -1,14 +1,36 @@
-statement       ->  expressionStatement
-                  | forStatement
-                  | ifStatement
-                  | printStatement
-                  | returnStatement
-                  | whileStatement
-                  | block               ;
+program → declaration* EOF ;
 
-declaration     ->  classDeclaration
-                  | functionDeclaration
-                  | variableDeclaration
-                  | statement           ;
+declaration → classDecl
+            | funDecl
+            | varDecl
+            | statement ;
 
-block           -> "{" declaration* "}" ;
+classDecl → "class" IDENTIFIER ( "<" IDENTIFIER )?
+            "{" function* "}" ;'
+
+funDecl → "fn" function ;
+
+varDecl → "let" | "set" IDENTIFIER ( "=" expression )? ";" ;
+
+statement → exprStmt
+            | forStmt
+            | ifStmt
+            | printStmt
+            | returnStmt
+            | whileStmt
+            | block ;
+
+exprStmt → expression ";" ;
+
+forStmt → "for"  ( varDecl | exprStmt | ";" )
+                    expression? ";"
+                    expression?  statement ;
+
+ifStmt → "if"  expression  statement
+                    ( "else" statement )? ;
+
+returnStmt → "return" expression? ";" ;
+
+whileStmt → "while"  expression  statement ;
+
+block → "{" declaration* "}" ;

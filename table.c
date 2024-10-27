@@ -23,7 +23,6 @@ void freeTable(Table *table) {
 }
 
 static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
-	// uint32_t index = key->hash % capacity;
 	uint32_t index = key->hash & (capacity - 1);
 	Entry *tombstone = NULL;
 	for (;;) {
@@ -40,7 +39,6 @@ static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
 		}
 
 		// We have collided, start probing
-		// index = (index + 1) % capacity;
 		index = (index + 1) & (capacity - 1);
 	}
 }
@@ -67,7 +65,7 @@ static void adjustCapacity(Table *table, int capacity) {
 	table->capacity = capacity;
 }
 
-TableResponse tableSet(Table *table, ObjectString *key, Value value) {
+bool tableSet(Table *table, ObjectString *key, Value value) {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
 		adjustCapacity(table, capacity);
@@ -76,20 +74,15 @@ TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	bool isNewKey = entry->key == NULL;
 
-	if (!isNewKey && !entry->value.isMutable) {
-		return IMMUTABLE_OVERWRITE;
-	}
-
 	bool isNilValue = IS_NIL(entry->value);
 
 	if (isNewKey && isNilValue) {
 		table->count++;
 	}
 
-
 	entry->key = key;
 	entry->value = value;
-	return isNewKey ? NEW_KEY_SUCCESS : SET_SUCCESS;
+	return isNewKey || !isNilValue ? true : false;
 }
 
 bool tableDelete(Table *table, ObjectString *key) {
@@ -107,31 +100,15 @@ bool tableDelete(Table *table, ObjectString *key) {
 	return true;
 }
 
-bool tableCheck(Table *table, ObjectString *key) {
+bool tableGet(Table *table, ObjectString *key, Value *value) {
 	if (table->count == 0)
 		return false;
+
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	if (entry->key == NULL)
 		return false;
-	return true;
-}
-
-bool isTableValueMutable(Table *table, ObjectString *key) {
-	if (table->count == 0)
-		false;
-	Entry *entry = findEntry(table->entries, table->capacity, key);
-	return entry->value.isMutable;
-}
-
-TableResponse tableGet(Table *table, ObjectString *key, Value *value) {
-	if (table->count == 0)
-		return TABLE_EMPTY;
-
-	Entry *entry = findEntry(table->entries, table->capacity, key);
-	if (entry->key == NULL)
-		return VAR_NOT_FOUND;
 	*value = entry->value;
-	return GET_SUCCESS;
+	return true;
 }
 
 void tableAddAll(Table *from, Table *to) {
@@ -147,7 +124,7 @@ ObjectString *tableFindString(Table *table, const char *chars, int length, uint3
 	if (table->count == 0)
 		return NULL;
 
-	uint32_t index = hash % table->capacity;
+	uint32_t index = hash & (table->capacity - 1);
 	for (;;) {
 		Entry *entry = &table->entries[index];
 		if (entry->key == NULL) {
@@ -159,7 +136,7 @@ ObjectString *tableFindString(Table *table, const char *chars, int length, uint3
 			// we found it
 			return entry->key;
 		}
-		index = (index + 1) % table->capacity;
+		index = (index + 1) & (table->capacity - 1);
 	}
 }
 
