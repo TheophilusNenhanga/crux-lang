@@ -65,7 +65,7 @@ static void adjustCapacity(Table *table, int capacity) {
 	table->capacity = capacity;
 }
 
-TableResponse tableSet(Table *table, ObjectString *key, Value value) {
+bool tableSet(Table *table, ObjectString *key, Value value) {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
 		adjustCapacity(table, capacity);
@@ -80,10 +80,9 @@ TableResponse tableSet(Table *table, ObjectString *key, Value value) {
 		table->count++;
 	}
 
-
 	entry->key = key;
 	entry->value = value;
-	return isNewKey ? NEW_KEY_SUCCESS : SET_SUCCESS;
+	return isNewKey || !isNilValue ? true : false;
 }
 
 bool tableDelete(Table *table, ObjectString *key) {
@@ -101,15 +100,15 @@ bool tableDelete(Table *table, ObjectString *key) {
 	return true;
 }
 
-TableResponse tableGet(Table *table, ObjectString *key, Value *value) {
+bool tableGet(Table *table, ObjectString *key, Value *value) {
 	if (table->count == 0)
-		return TABLE_EMPTY;
+		return false;
 
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	if (entry->key == NULL)
-		return VAR_NOT_FOUND;
+		return false;
 	*value = entry->value;
-	return GET_SUCCESS;
+	return true;
 }
 
 void tableAddAll(Table *from, Table *to) {
