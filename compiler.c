@@ -173,17 +173,15 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
 static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
-	if (offset > UINT16_MAX)
-		error("Loop body too large.");
-
-	emitByte((offset >> 8) & 0xff);
-	emitByte(offset & 0xff);
+	if (offset > UINT16_MAX) {
+	  error("Loop body too large.");
+	}
+  emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
 
 static int emitJump(uint8_t instruction) {
 	emitByte(instruction);
-	emitByte(0xff);
-	emitByte(0xff);
+  emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
 
@@ -683,11 +681,10 @@ static void arrayLiteral(bool canAssign) {
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
+	    consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
 	}
-	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
 	emitByte(OP_ARRAY);
-	emitByte((elementCount >> 8) & 0xff);
-	emitByte(elementCount & 0xff);
+  emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
 static void arrayIndex(bool canAssign) {

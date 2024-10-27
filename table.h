@@ -15,15 +15,13 @@ typedef struct {
 	Entry *entries;
 } Table;
 
-typedef enum { SET_SUCCESS, NEW_KEY_SUCCESS, GET_SUCCESS, VAR_NOT_FOUND, TABLE_EMPTY } TableResponse;
-
 void initTable(Table *table);
 
 void freeTable(Table *table);
 
-TableResponse tableSet(Table *table, ObjectString *key, Value value);
+bool tableSet(Table *table, ObjectString *key, Value value);
 
-TableResponse tableGet(Table *table, ObjectString *key, Value *value);
+bool tableGet(Table *table, ObjectString *key, Value *value);
 
 bool tableDelete(Table *table, ObjectString *key);
 
