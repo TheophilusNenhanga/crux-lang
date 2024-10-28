@@ -8,16 +8,16 @@ A memory managed, interpreted programming language.
 
 ```shell
 mkdir build
-cd build 
-cmake -DCMAKE_BUILD_TYPE=Release ..  
-cmake --build . --config Release   
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
 ```
 
 ### Linux 
 
 ```shell
 mkdir build
-cd build 
-cmake -DCMAKE_BUILD_TYPE=Release .. 
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
