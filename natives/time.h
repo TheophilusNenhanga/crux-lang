@@ -6,4 +6,4 @@
 Value currentTimeSeconds(int argCount, Value *args);
 Value currentTimeMillis(int argCount, Value *args);
 
-#endif //TIME_H
+#endif // TIME_H
