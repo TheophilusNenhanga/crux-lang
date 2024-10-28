@@ -95,10 +95,10 @@ typedef struct {
 
 typedef struct {
 	Object object;
-	Value* array;
+	Value *array;
 	int size;
 	int capacity;
-}ObjectArray;
+} ObjectArray;
 
 typedef Value (*NativeFn)(int argCount, Value *args);
 
@@ -108,8 +108,8 @@ typedef struct {
 	int arity;
 } ObjectNative;
 
-ObjectArray* newArray(int elementCount);
-ObjectArray* growArray(ObjectArray* array);
+ObjectArray *newArray(int elementCount);
+ObjectArray *growArray(ObjectArray *array);
 ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(Value *slot);
 ObjectClosure *newClosure(ObjectFunction *function);

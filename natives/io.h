@@ -6,4 +6,4 @@
 
 Value printNative(int argCount, Value *args);
 
-#endif //IO_H
+#endif // IO_H

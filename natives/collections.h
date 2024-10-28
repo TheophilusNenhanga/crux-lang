@@ -3,12 +3,12 @@
 
 #include "../value.h"
 
-#define MAX_ARRAY_SIZE UINT16_MAX-1
+#define MAX_ARRAY_SIZE UINT16_MAX - 1
 
-Value length(int argCount, Value* args);
+Value length(int argCount, Value *args);
 
-Value arrayAdd(int argCount, Value* args);
+Value arrayAdd(int argCount, Value *args);
 
-Value arrayRemove(int argCount, Value* args);
+Value arrayRemove(int argCount, Value *args);
 
 #endif

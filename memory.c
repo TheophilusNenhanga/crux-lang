@@ -177,10 +177,7 @@ static void freeObject(Object *object) {
 			FREE_ARRAY(Value, array->array, array->capacity);
 			FREE(ObjectArray, object);
 		}
-
 	}
-
-
 }
 
 void markRoots() {

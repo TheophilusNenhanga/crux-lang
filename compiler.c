@@ -28,12 +28,15 @@ typedef enum {
 	PREC_AND, // and
 	PREC_EQUALITY, // == !=
 	PREC_COMPARISON, // < > <= >=
+	PREC_SHIFT, // << >>
 	PREC_TERM, // + -
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
 	PREC_CALL, // . () []
 	PREC_PRIMARY
 } Precedence;
+
+typedef enum { COMPOUND_OP_PLUS, COMPOUND_OP_MINUS, COMPOUND_OP_STAR, COMPOUND_OP_SLASH } CompoundOp;
 
 typedef void (*ParseFn)(bool canAssign);
 
@@ -174,14 +177,14 @@ static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
 	if (offset > UINT16_MAX) {
-	  error("Loop body too large.");
+		error("Loop body too large.");
 	}
-  emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
+	emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
 
 static int emitJump(uint8_t instruction) {
 	emitByte(instruction);
-  emitBytes(0xff, 0xff);
+	emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
 
@@ -459,6 +462,15 @@ static void binary(bool canAssign) {
 		case TOKEN_SLASH:
 			emitByte(OP_DIVIDE);
 			break;
+		case TOKEN_PERCENT:
+			emitByte(OP_MODULUS);
+			break;
+		case TOKEN_RIGHT_SHIFT:
+			emitByte(OP_RIGHT_SHIFT);
+			break;
+		case TOKEN_LEFT_SHIFT:
+			emitByte(OP_LEFT_SHIFT);
+			break;
 		default:
 			return; // unreachable
 	}
@@ -502,6 +514,47 @@ static void dot(bool canAssign) {
 
 static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
 
+
+static OpCode getCompoundOpcode(OpCode setOp, CompoundOp op) {
+	switch (setOp) {
+		case OP_SET_LOCAL:
+			switch (op) {
+				case COMPOUND_OP_PLUS:
+					return OP_SET_LOCAL_PLUS;
+				case COMPOUND_OP_MINUS:
+					return OP_SET_LOCAL_MINUS;
+				case COMPOUND_OP_STAR:
+					return OP_SET_LOCAL_STAR;
+				case COMPOUND_OP_SLASH:
+					return OP_SET_LOCAL_SLASH;
+			}
+		case OP_SET_UPVALUE:
+			switch (op) {
+				case COMPOUND_OP_PLUS:
+					return OP_SET_UPVALUE_PLUS;
+				case COMPOUND_OP_MINUS:
+					return OP_SET_UPVALUE_MINUS;
+				case COMPOUND_OP_STAR:
+					return OP_SET_UPVALUE_STAR;
+				case COMPOUND_OP_SLASH:
+					return OP_SET_UPVALUE_SLASH;
+			}
+		case OP_SET_GLOBAL:
+			switch (op) {
+				case COMPOUND_OP_PLUS:
+					return OP_SET_GLOBAL_PLUS;
+				case COMPOUND_OP_MINUS:
+					return OP_SET_GLOBAL_MINUS;
+				case COMPOUND_OP_STAR:
+					return OP_SET_GLOBAL_STAR;
+				case COMPOUND_OP_SLASH:
+					return OP_SET_GLOBAL_SLASH;
+			}
+		default:
+			return setOp; // Should never happen
+	}
+}
+
 static void namedVariable(Token name, bool canAssign) {
 	uint8_t getOp, setOp;
 	int arg = resolveLocal(current, &name);
@@ -518,12 +571,34 @@ static void namedVariable(Token name, bool canAssign) {
 		setOp = OP_SET_GLOBAL;
 	}
 
-	if (canAssign && match(TOKEN_EQUAL)) {
-		expression();
-		emitBytes(setOp, (uint8_t) arg);
-	} else {
-		emitBytes(getOp, (uint8_t) arg);
+	if (canAssign) {
+		if (match(TOKEN_EQUAL)) {
+			expression();
+			emitBytes(setOp, arg);
+			return;
+		}
+		CompoundOp op;
+		bool isCompoundAssignment = true;
+
+		if (match(TOKEN_PLUS_EQUAL)) {
+			op = COMPOUND_OP_PLUS;
+		} else if (match(TOKEN_MINUS_EQUAL)) {
+			op = COMPOUND_OP_MINUS;
+		} else if (match(TOKEN_STAR_EQUAL)) {
+			op = COMPOUND_OP_STAR;
+		} else if (match(TOKEN_SLASH_EQUAL)) {
+			op = COMPOUND_OP_SLASH;
+		} else {
+			isCompoundAssignment = false;
+		}
+
+		if (isCompoundAssignment) {
+			expression();
+			emitBytes(getCompoundOpcode(setOp, op), arg);
+			return;
+		}
 	}
+	emitBytes(getOp, arg);
 }
 
 static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
@@ -681,10 +756,10 @@ static void arrayLiteral(bool canAssign) {
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
-	    consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
+		consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
 	}
 	emitByte(OP_ARRAY);
-  emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
 static void arrayIndex(bool canAssign) {
@@ -963,6 +1038,9 @@ ParseRule rules[] = {
 		[TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
 		[TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
+		[TOKEN_PERCENT] = {NULL, binary, PREC_FACTOR},
+		[TOKEN_LEFT_SHIFT] = {NULL, binary, PREC_SHIFT},
+		[TOKEN_RIGHT_SHIFT] = {NULL, binary, PREC_SHIFT},
 		[TOKEN_NOT] = {unary, NULL, PREC_NONE},
 		[TOKEN_BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
 		[TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
