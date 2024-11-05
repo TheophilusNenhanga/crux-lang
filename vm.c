@@ -769,6 +769,15 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_TABLE: {
+			    uint16_t elementCount = READ_SHORT();
+				for (int i = elementCount - 1; i >= 0; i--){
+				    printf("value: %s\n", AS_CSTRING(pop()));
+				    printf("key: %f\n\n", AS_NUMBER(pop()));
+				}
+				break;
+			}
+
 			case OP_GET_ARRAY: {
 				int index = AS_NUMBER(pop());
 				ObjectArray *array = AS_ARRAY(pop());

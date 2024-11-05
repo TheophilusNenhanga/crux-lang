@@ -1,5 +1,6 @@
 #include "compiler.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -762,7 +763,26 @@ static void arrayLiteral(bool canAssign) {
 	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void arrayIndex(bool canAssign) {
+static void tableLiteral(bool canAssign) {
+    uint16_t elementCount = 0;
+
+    if (!match(TOKEN_RIGHT_BRACE)) {
+        do {
+            expression();
+            consume(TOKEN_COLON, "Expected ':' after <table> key");
+            expression();
+            if (elementCount >= UINT16_MAX) {
+                error("Too many elements in table literal");
+            }
+            elementCount++;
+        }while (match(TOKEN_COMMA));
+        consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
+    }
+    emitByte(OP_TABLE);
+    emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+}
+
+static void collectionIndex(bool canAssign) {
 	expression(); // array index
 	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
 
@@ -996,7 +1016,7 @@ static void string(bool canAssign) {
 }
 
 
-static void self() {
+static void self(bool canAssign) {
 	if (currentClass == NULL) {
 		error("'self' cannot be used outside of a class.");
 		return;
@@ -1027,9 +1047,9 @@ static void unary(bool canAssign) {
 ParseRule rules[] = {
 		[TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
 		[TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
-		[TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
+		[TOKEN_LEFT_BRACE] = {tableLiteral, NULL, PREC_NONE},
 		[TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
-		[TOKEN_LEFT_SQUARE] = {arrayLiteral, arrayIndex, PREC_CALL},
+		[TOKEN_LEFT_SQUARE] = {arrayLiteral, collectionIndex, PREC_CALL},
 		[TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_COMMA] = {NULL, NULL, PREC_NONE},
 		[TOKEN_DOT] = {NULL, dot, PREC_CALL},

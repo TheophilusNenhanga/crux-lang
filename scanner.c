@@ -230,6 +230,8 @@ Token scanToken() {
 		return identifier();
 
 	switch (c) {
+	    case ':':
+			return makeToken(TOKEN_COLON);
 		case '(':
 			return makeToken(TOKEN_LEFT_PAREN);
 		case ')':
