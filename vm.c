@@ -245,6 +245,7 @@ void initVM() {
 	defineNative("time_s", currentTimeSeconds, 0);
 	defineNative("time_ms", currentTimeMillis, 0);
 	defineNative("print", printNative, 1);
+	defineNative("println", printlnNative, 1);
 	defineNative("len", length, 1);
 	defineNative("array_add", arrayAdd, 2);
 	defineNative("array_rem", arrayRemove, 1);
@@ -770,11 +771,22 @@ static InterpretResult run() {
 			}
 
 			case OP_TABLE: {
-			    uint16_t elementCount = READ_SHORT();
+				uint16_t elementCount = READ_SHORT();
+				ObjectTable *table = newTable(elementCount);
 				for (int i = elementCount - 1; i >= 0; i--){
-				    printf("value: %s\n", AS_CSTRING(pop()));
-				    printf("key: %f\n\n", AS_NUMBER(pop()));
+					Value value = pop();
+					Value key = pop();
+					if (IS_NUMBER(key) || IS_STRING(key)) {
+						if (!objectTableSet(table, key, value)) {
+							runtimeError("Failed to set value in table");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+					}else {
+						runtimeError("Key cannot be hashed.", READ_STRING());
+						return INTERPRET_RUNTIME_ERROR;
+					}
 				}
+				push(OBJECT_VAL(table));
 				break;
 			}
 

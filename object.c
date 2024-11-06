@@ -114,7 +114,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_STRING: {
-			printf("\"%s\"", AS_CSTRING(value));
+			printf("%s", AS_CSTRING(value));
 			break;
 		}
 		case OBJECT_FUNCTION: {
@@ -143,6 +143,10 @@ void printObject(Value value) {
 		}
 		case OBJECT_ARRAY: {
 			printf("<array>\n");
+			break;
+		}
+		case OBJECT_TABLE: {
+			printf("<table>\n");
 			break;
 		}
 	}
@@ -210,8 +214,129 @@ ObjectArray *newArray(int elementCount) {
 	return array;
 }
 
+ObjectTable *newTable(int elementCount) {
+	ObjectTable *table = ALLOCATE_OBJECT(ObjectTable, OBJECT_TABLE);
+	table->capacity = elementCount < 16 ? 16 : calculateArrayCapacity(elementCount);
+	table->size = 0;
+	table->entries = ALLOCATE(ObjectTableEntry, table->capacity);
+	for (int i = 0; i < table->capacity; i++) {
+		table->entries[i].value = NIL_VAL;
+		table->entries[i].key = NIL_VAL;
+		table->entries[i].isOccupied = false;
+	}
+	return table;
+}
+
 ObjectArray *growArray(ObjectArray *array) {
 	array->array = GROW_ARRAY(Value, array->array, array->capacity, array->capacity * 2);
 	array->capacity *= 2;
 	return array;
+}
+
+void freeObjectTable(ObjectTable *table) {
+	FREE_ARRAY(ObjectTableEntry, table->entries, table->capacity);
+	table->entries = NULL;
+	table->capacity = 0;
+	table->size = 0;
+}
+
+static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity, Value key) {
+		uint32_t index;
+		if (IS_STRING(key)) {
+			index = AS_STRING(key)->hash & (capacity - 1);
+		}else if (IS_NUMBER(key)) {
+			index  = ((int) AS_NUMBER(key)) & (capacity - 1);
+		}else {
+			return NULL;
+		}
+
+		ObjectTableEntry *tombstone = NULL;
+
+		while(1) {
+			ObjectTableEntry* entry = &entries[index];
+			if (!entry->isOccupied) {
+				if (IS_NIL(entry->value)) {
+					return tombstone != NULL ? tombstone : entry;
+				} else if (tombstone == NULL) {
+					tombstone = entry;
+				}
+			} else if (valuesEqual(entry->key, key)) {
+				return entry;
+			}
+			index = (index + 1) & (capacity - 1);
+		}
+}
+
+static bool adjustCapacity(ObjectTable *table, int capacity) {
+	ObjectTableEntry *entries = ALLOCATE(ObjectTableEntry, capacity);
+	for (int i = 0; i < capacity; i++) {
+		entries[i].key = NIL_VAL;
+		entries[i].value = NIL_VAL;
+		entries[i].isOccupied = false;
+	}
+
+	table->size = 0;
+
+	for (int i = 0; i < table->capacity; i++) {
+		ObjectTableEntry *entry = &table->entries[i];
+		if (!entry->isOccupied) {
+			continue;
+		}
+
+		ObjectTableEntry *dest = findEntry(entries, capacity, entry->key);
+		if (dest == NULL) {
+
+			FREE_ARRAY(ObjectTableEntry, entries, capacity);
+			return false;
+		}
+
+		dest->key = entry->key;
+		dest->value = entry->value;
+		dest->isOccupied = true;
+		table->size++;
+	}
+
+	FREE_ARRAY(ObjectTableEntry, table->entries, table->capacity);
+	table->entries = entries;
+	table->capacity = capacity;
+	return true;
+}
+
+bool objectTableSet(ObjectTable *table, Value key, Value value) {
+	if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
+		int capacity = GROW_CAPACITY(table->capacity);
+		adjustCapacity(table, capacity);
+	}
+
+	ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+
+	if (entry == NULL) {
+		return false;
+	}
+
+	bool isNewKey = !entry->isOccupied;
+	if (isNewKey) {
+		table->size++;
+	}
+	entry->key = key;
+	entry->value = value;
+	entry->isOccupied = true;
+
+	return isNewKey;
+}
+
+bool objectTableGet(ObjectTable *table, Value key, Value *value) {
+	if (table->size == 0) {
+		return false;
+	}
+
+	ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+	if (entry == NULL) {
+		return false;
+	}
+	if (!entry->isOccupied) {
+		return false;
+	}
+	*value = entry->value;
+	return true;
 }

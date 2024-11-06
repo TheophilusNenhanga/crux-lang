@@ -16,6 +16,7 @@
 #define IS_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
 #define IS_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
 #define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
+#define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
 
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
@@ -27,6 +28,8 @@
 #define AS_INSTANCE(value) ((ObjectInstance *) AS_OBJECT(value))
 #define AS_BOUND_METHOD(value) ((ObjectBoundMethod *) AS_OBJECT(value))
 #define AS_ARRAY(value) ((ObjectArray *) AS_OBJECT(value))
+#define AS_TABLE(value) ((ObjectTable *) AS_OBJECT(value))
+
 
 typedef enum {
 	OBJECT_STRING,
@@ -38,6 +41,7 @@ typedef enum {
 	OBJECT_INSTANCE,
 	OBJECT_BOUND_METHOD,
 	OBJECT_ARRAY,
+	OBJECT_TABLE,
 } ObjectType;
 
 struct Object {
@@ -108,7 +112,21 @@ typedef struct {
 	int arity;
 } ObjectNative;
 
+typedef struct {
+	Value key;
+	Value value;
+	bool isOccupied;
+} ObjectTableEntry;
+
+typedef struct {
+	Object object;
+	ObjectTableEntry* entries;
+	uint16_t capacity;
+	uint16_t size;
+} ObjectTable;
+
 ObjectArray *newArray(int elementCount);
+ObjectTable *newTable(int elementCount);
 ObjectArray *growArray(ObjectArray *array);
 ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(Value *slot);
@@ -122,6 +140,11 @@ ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
 
 static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
+
+void freeObjectTable(ObjectTable *table);
+bool objectTableSet(ObjectTable *table, Value key, Value value);
+bool objectTableGet(ObjectTable *table, Value key, Value *value);
+void markObjectTable(ObjectTable *table);
 
 #endif
 

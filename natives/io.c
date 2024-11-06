@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 
+void valuePrint(Value value);
+
 void printNumber(Value value) {
 	double number = AS_NUMBER(value);
 	if (number == (int) number) {
@@ -25,6 +27,23 @@ void printArray(ObjectArray *array) {
 	printf("]");
 }
 
+void printTable(ObjectTable *table) {
+	uint16_t printed = 0;
+	printf("{");
+	for (int i = 0; i < table->capacity; i++) {
+		if (table->entries[i].isOccupied) {
+			valuePrint(table->entries[i].key);
+			printf(":");
+			valuePrint(table->entries[i].value);
+			if (printed != table->size - 1) {
+				printf(", ");
+			}
+			printed++;
+		}
+	}
+	printf("}");
+}
+
 
 void valuePrint(Value value) {
 	if (IS_BOOL(value)) {
@@ -35,12 +54,19 @@ void valuePrint(Value value) {
 		printNumber(value);
 	} else if (IS_ARRAY(value)) {
 		printArray(AS_ARRAY(value));
-	} else if (IS_OBJECT(value)) {
+	}else if (IS_TABLE(value)) {
+		printTable(AS_TABLE(value));
+	}else if (IS_OBJECT(value)) {
 		printObject(value);
 	}
 }
 
 Value printNative(int argCount, Value *args) {
+	valuePrint(args[0]);
+	return NIL_VAL;
+}
+
+Value printlnNative(int argCount, Value *args) {
 	valuePrint(args[0]);
 	printf("\n");
 	return NIL_VAL;

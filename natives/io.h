@@ -5,5 +5,6 @@
 #include "../value.h"
 
 Value printNative(int argCount, Value *args);
+Value printlnNative(int argCount, Value *args);
 
 #endif // IO_H

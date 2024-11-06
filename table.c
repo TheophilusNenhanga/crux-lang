@@ -9,8 +9,6 @@
 
 #include "value.h"
 
-#define TABLE_MAX_LOAD 0.6
-
 void initTable(Table *table) {
 	table->count = 0;
 	table->capacity = 0;
