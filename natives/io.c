@@ -19,7 +19,7 @@ void printNumber(Value value) {
 void printArray(ObjectArray *array) {
 	printf("[");
 	for (int i = 0; i < array->size; i++) {
-		printValue(array->array[i]);
+		valuePrint(array->array[i]);
 		if (i != array->size - 1) {
 			printf(", ");
 		}
@@ -54,9 +54,9 @@ void valuePrint(Value value) {
 		printNumber(value);
 	} else if (IS_ARRAY(value)) {
 		printArray(AS_ARRAY(value));
-	}else if (IS_TABLE(value)) {
+	} else if (IS_TABLE(value)) {
 		printTable(AS_TABLE(value));
-	}else if (IS_OBJECT(value)) {
+	} else if (IS_OBJECT(value)) {
 		printObject(value);
 	}
 }

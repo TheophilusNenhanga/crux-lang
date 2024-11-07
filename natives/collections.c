@@ -4,7 +4,7 @@
 #include "../object.h"
 
 
-Value length(int argCount, Value *args) {
+Value lengthNative(int argCount, Value *args) {
 	Value value = args[0];
 	if (IS_ARRAY(value)) {
 		return NUMBER_VAL(AS_ARRAY(value)->size);
@@ -16,7 +16,7 @@ Value length(int argCount, Value *args) {
 	return NIL_VAL;
 }
 
-Value arrayAdd(int argCount, Value *args) {
+Value arrayAddNative(int argCount, Value *args) {
 	Value value = args[0];
 	Value toAdd = args[1];
 
@@ -24,30 +24,15 @@ Value arrayAdd(int argCount, Value *args) {
 		// TODO: RUNTIME_ERROR
 		return NIL_VAL;
 	}
-
 	ObjectArray *array = AS_ARRAY(value);
-
-	if (array->size >= array->capacity) {
-		int newCapacity = array->capacity < 8 ? 8 : array->capacity * 2;
-
-		if (newCapacity > MAX_ARRAY_SIZE) {
-			newCapacity = MAX_ARRAY_SIZE;
-			if (array->size >= MAX_ARRAY_SIZE) {
-				// TODO: RUNTIME ERROR
-				return NIL_VAL;
-			}
-		}
-
-		array->array = GROW_ARRAY(Value, array->array, array->capacity, newCapacity);
-		array->capacity = newCapacity;
+	if (!arrayAdd(array, toAdd, array->size)) {
+		// TODO: RUNTIME ERROR
+		return NIL_VAL;
 	}
-
-	array->size++;
-	array->array[array->size] = toAdd;
 	return NIL_VAL;
 }
 
-Value arrayRemove(int argCount, Value *args) {
+Value arrayRemoveNative(int argCount, Value *args) {
 	Value value = args[0];
 	if (IS_ARRAY(value)) {
 		ObjectArray *array = AS_ARRAY(value);

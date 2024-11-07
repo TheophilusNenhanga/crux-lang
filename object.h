@@ -3,8 +3,11 @@
 
 #include "chunk.h"
 #include "common.h"
+#include "memory.h"
 #include "table.h"
 #include "value.h"
+#include "vm.h"
+
 
 #define OBJECT_TYPE(value) (AS_OBJECT(value)->type)
 
@@ -72,7 +75,7 @@ typedef struct ObjectUpvalue {
 	struct ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct {
+typedef struct ObjectClosure {
 	Object object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
@@ -120,14 +123,13 @@ typedef struct {
 
 typedef struct {
 	Object object;
-	ObjectTableEntry* entries;
+	ObjectTableEntry *entries;
 	uint16_t capacity;
 	uint16_t size;
 } ObjectTable;
 
-ObjectArray *newArray(int elementCount);
-ObjectTable *newTable(int elementCount);
-ObjectArray *growArray(ObjectArray *array);
+static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
+
 ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(Value *slot);
 ObjectClosure *newClosure(ObjectFunction *function);
@@ -135,16 +137,22 @@ ObjectNative *newNative(NativeFn function, int arity);
 ObjectFunction *newFunction();
 ObjectClass *newClass(ObjectString *name);
 ObjectInstance *newInstance(ObjectClass *klass);
-ObjectString *takeString(const char *chars, int length);
+ObjectString *takeString(char *chars, int length);
 ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
 
-static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
-
+ObjectTable *newTable(int elementCount);
 void freeObjectTable(ObjectTable *table);
 bool objectTableSet(ObjectTable *table, Value key, Value value);
 bool objectTableGet(ObjectTable *table, Value key, Value *value);
 void markObjectTable(ObjectTable *table);
+
+ObjectArray *newArray(int elementCount);
+bool ensureCapacity(ObjectArray *array, int capacityNeeded);
+bool arraySet(ObjectArray *array, int index, Value value);
+bool arrayGet(ObjectArray *array, int index, Value *value);
+bool arrayAdd(ObjectArray *array, Value value, int index);
+
 
 #endif
 

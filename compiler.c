@@ -764,22 +764,22 @@ static void arrayLiteral(bool canAssign) {
 }
 
 static void tableLiteral(bool canAssign) {
-    uint16_t elementCount = 0;
+	uint16_t elementCount = 0;
 
-    if (!match(TOKEN_RIGHT_BRACE)) {
-        do {
-            expression();
-            consume(TOKEN_COLON, "Expected ':' after <table> key");
-            expression();
-            if (elementCount >= UINT16_MAX) {
-                error("Too many elements in table literal");
-            }
-            elementCount++;
-        }while (match(TOKEN_COMMA));
-        consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
-    }
-    emitByte(OP_TABLE);
-    emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+	if (!match(TOKEN_RIGHT_BRACE)) {
+		do {
+			expression();
+			consume(TOKEN_COLON, "Expected ':' after <table> key");
+			expression();
+			if (elementCount >= UINT16_MAX) {
+				error("Too many elements in table literal");
+			}
+			elementCount++;
+		} while (match(TOKEN_COMMA));
+		consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
+	}
+	emitByte(OP_TABLE);
+	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
 static void collectionIndex(bool canAssign) {
@@ -788,9 +788,9 @@ static void collectionIndex(bool canAssign) {
 
 	if (match(TOKEN_EQUAL)) {
 		expression();
-		emitByte(OP_SET_ARRAY);
+		emitByte(OP_SET_COLLECTION);
 	} else {
-		emitByte(OP_GET_ARRAY);
+		emitByte(OP_GET_COLLECTION);
 	}
 }
 
@@ -877,16 +877,16 @@ static void forStatement() {
 	}
 
 	// check for right paren here
-	if (!match(TOKEN_RIGHT_PAREN)) {
-		int bodyJump = emitJump(OP_JUMP);
-		int incrementStart = currentChunk()->count;
-		expression();
-		emitByte(OP_POP);
 
-		emitLoop(loopStart); // main loop that takes us bak to the top of the for loop
-		loopStart = incrementStart;
-		patchJump(bodyJump);
-	}
+	int bodyJump = emitJump(OP_JUMP);
+	int incrementStart = currentChunk()->count;
+	expression();
+	emitByte(OP_POP);
+
+	emitLoop(loopStart); // main loop that takes us back to the top of the for loop
+	loopStart = incrementStart;
+	patchJump(bodyJump);
+
 
 	loopStack[current->loopDepth].loopStart = loopStart;
 	loopStack[current->loopDepth].exitJump = exitJump;

@@ -1,0 +1,41 @@
+let list1 = [0, 1];
+let last_index = 1;
+let max_index = 65535-1;
+
+let duration = 10;
+let time_start = time_s();
+while time_s() - time_start < duration {
+    array_add(list1, list1[last_index-1] + list1[last_index]);
+    last_index = last_index + 1;
+    if last_index >= max_index {
+        break;
+    }
+}
+let time_end = time_s();
+print(list1);
+print("time taken = ");
+print(time_end - time_start);
+
+let arr = [];
+println(arr);  // []
+
+// Test basic adding
+array_add(arr, 1);
+array_add(arr, 2);
+println(arr);  // [1, 2]
+
+// Test adding in a loop
+for let i = 0; i < 5; i += 1 {
+    array_add(arr, i * 10);
+}
+println(arr);  // [1, 2, 0, 10, 20, 30, 40]
+
+// Test adding different types
+array_add(arr, "hello");
+array_add(arr, true);
+println(arr);  // [1, 2, 0, 10, 20, 30, 40, "hello", true]
+
+// Test nested arrays
+let nested = [[1, 2], [3, 4], [5, 6]];
+println(nested);  // Should print: [[1, 2], [3, 4], [5, 6]]
+println(nested[0][1]); // Should print: 2

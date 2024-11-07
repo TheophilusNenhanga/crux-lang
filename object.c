@@ -1,12 +1,10 @@
 #include "object.h"
+
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#include "memory.h"
 #include "table.h"
 #include "value.h"
-#include "vm.h"
-
-#define ALLOCATE_OBJECT(type, objectType) (type *) allocateObject(sizeof(type), objectType)
 
 static Object *allocateObject(size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(NULL, 0, size);
@@ -27,6 +25,45 @@ static Object *allocateObject(size_t size, ObjectType type) {
 #endif
 
 	return object;
+}
+#define ALLOCATE_OBJECT(type, objectType) (type *) allocateObject(sizeof(type), objectType)
+
+static int calculateCollectionCapacity(int n) {
+	if (n >= UINT16_MAX - 1) {
+		return UINT16_MAX - 1;
+	}
+
+	if (n < 1)
+		return 1;
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	return n + 1;
+}
+
+static uint32_t hashValue(Value value) {
+	if (IS_STRING(value)) {
+		return AS_STRING(value)->hash;
+	}
+	if (IS_NUMBER(value)) {
+		double num = AS_NUMBER(value);
+		if (num == (int64_t) num) {
+			return (uint32_t) ((int64_t) num ^ ((int64_t) num >> 32));
+		}
+		uint64_t bits;
+		memcpy(&bits, &num, sizeof(bits));
+		return (uint32_t) (bits ^ (bits >> 32));
+	}
+	if (IS_BOOL(value)) {
+		return AS_BOOL(value) ? 1u : 0u;
+	}
+	if (IS_NIL(value)) {
+		return 4321u;
+	}
+	return 0u;
 }
 
 ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method) {
@@ -110,7 +147,7 @@ static void printFunction(ObjectFunction *function) {
 void printObject(Value value) {
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_CLASS: {
-			printf("'%s' <class>\n", AS_CLASS(value)->name->chars);
+			printf("'%s' <class>", AS_CLASS(value)->name->chars);
 			break;
 		}
 		case OBJECT_STRING: {
@@ -122,7 +159,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_NATIVE: {
-			printf("<native fn>\n");
+			printf("<native fn>");
 			break;
 		}
 		case OBJECT_CLOSURE: {
@@ -130,11 +167,11 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_UPVALUE: {
-			printf("<upvalue>\n");
+			printf("<upvalue>");
 			break;
 		}
 		case OBJECT_INSTANCE: {
-			printf("'%s' <instance>\n", AS_INSTANCE(value)->klass->name->chars);
+			printf("'%s' <instance>", AS_INSTANCE(value)->klass->name->chars);
 			break;
 		}
 		case OBJECT_BOUND_METHOD: {
@@ -142,17 +179,17 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_ARRAY: {
-			printf("<array>\n");
+			printf("<array>");
 			break;
 		}
 		case OBJECT_TABLE: {
-			printf("<table>\n");
+			printf("<table>");
 			break;
 		}
 	}
 }
 
-ObjectString *takeString(const char *chars, int length) {
+ObjectString *takeString(char *chars, int length) {
 	// claims ownership of the string that you give it
 	uint32_t hash = hashString(chars, length);
 
@@ -189,34 +226,9 @@ ObjectNative *newNative(NativeFn function, int arity) {
 	return native;
 }
 
-static int calculateArrayCapacity(int n) {
-	if (n >= UINT16_MAX - 1) {
-		return UINT16_MAX - 1;
-	}
-
-	if (n < 1)
-		return 1;
-	n--;
-	n |= n >> 1;
-	n |= n >> 2;
-	n |= n >> 4;
-	n |= n >> 8;
-	n |= n >> 16;
-
-	return n + 1;
-}
-
-ObjectArray *newArray(int elementCount) {
-	ObjectArray *array = ALLOCATE_OBJECT(ObjectArray, OBJECT_ARRAY);
-	array->capacity = calculateArrayCapacity(elementCount);
-	array->size = 0;
-	array->array = ALLOCATE(Value, array->capacity);
-	return array;
-}
-
 ObjectTable *newTable(int elementCount) {
 	ObjectTable *table = ALLOCATE_OBJECT(ObjectTable, OBJECT_TABLE);
-	table->capacity = elementCount < 16 ? 16 : calculateArrayCapacity(elementCount);
+	table->capacity = elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
 	table->size = 0;
 	table->entries = ALLOCATE(ObjectTableEntry, table->capacity);
 	for (int i = 0; i < table->capacity; i++) {
@@ -227,12 +239,6 @@ ObjectTable *newTable(int elementCount) {
 	return table;
 }
 
-ObjectArray *growArray(ObjectArray *array) {
-	array->array = GROW_ARRAY(Value, array->array, array->capacity, array->capacity * 2);
-	array->capacity *= 2;
-	return array;
-}
-
 void freeObjectTable(ObjectTable *table) {
 	FREE_ARRAY(ObjectTableEntry, table->entries, table->capacity);
 	table->entries = NULL;
@@ -241,34 +247,32 @@ void freeObjectTable(ObjectTable *table) {
 }
 
 static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity, Value key) {
-		uint32_t index;
-		if (IS_STRING(key)) {
-			index = AS_STRING(key)->hash & (capacity - 1);
-		}else if (IS_NUMBER(key)) {
-			index  = ((int) AS_NUMBER(key)) & (capacity - 1);
-		}else {
-			return NULL;
-		}
+	uint32_t hash = hashValue(key);
+	uint32_t index = hash & (capacity - 1);
+	ObjectTableEntry *tombstone = NULL;
 
-		ObjectTableEntry *tombstone = NULL;
-
-		while(1) {
-			ObjectTableEntry* entry = &entries[index];
-			if (!entry->isOccupied) {
-				if (IS_NIL(entry->value)) {
-					return tombstone != NULL ? tombstone : entry;
-				} else if (tombstone == NULL) {
-					tombstone = entry;
-				}
-			} else if (valuesEqual(entry->key, key)) {
-				return entry;
+	while (1) {
+		ObjectTableEntry *entry = &entries[index];
+		if (!entry->isOccupied) {
+			if (IS_NIL(entry->value)) {
+				return tombstone != NULL ? tombstone : entry;
+			} else if (tombstone == NULL) {
+				tombstone = entry;
 			}
-			index = (index + 1) & (capacity - 1);
+		} else if (valuesEqual(entry->key, key)) {
+			return entry;
 		}
+		// index = (index + 1) & (capacity - 1); // old probe
+		index = (index * 5 + 1) & (capacity - 1); // new probe
+	}
 }
 
 static bool adjustCapacity(ObjectTable *table, int capacity) {
 	ObjectTableEntry *entries = ALLOCATE(ObjectTableEntry, capacity);
+	if (entries == NULL) {
+		return false;
+	}
+
 	for (int i = 0; i < capacity; i++) {
 		entries[i].key = NIL_VAL;
 		entries[i].value = NIL_VAL;
@@ -285,7 +289,6 @@ static bool adjustCapacity(ObjectTable *table, int capacity) {
 
 		ObjectTableEntry *dest = findEntry(entries, capacity, entry->key);
 		if (dest == NULL) {
-
 			FREE_ARRAY(ObjectTableEntry, entries, capacity);
 			return false;
 		}
@@ -305,7 +308,8 @@ static bool adjustCapacity(ObjectTable *table, int capacity) {
 bool objectTableSet(ObjectTable *table, Value key, Value value) {
 	if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
-		adjustCapacity(table, capacity);
+		if (!adjustCapacity(table, capacity))
+			return false;
 	}
 
 	ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
@@ -315,14 +319,20 @@ bool objectTableSet(ObjectTable *table, Value key, Value value) {
 	}
 
 	bool isNewKey = !entry->isOccupied;
-	if (isNewKey) {
+	if (isNewKey && IS_NIL(entry->value)) {
 		table->size++;
 	}
+
+	if (IS_OBJECT(key))
+		markValue(key);
+	if (IS_OBJECT(value))
+		markValue(value);
+
 	entry->key = key;
 	entry->value = value;
 	entry->isOccupied = true;
 
-	return isNewKey;
+	return true;
 }
 
 bool objectTableGet(ObjectTable *table, Value key, Value *value) {
@@ -338,5 +348,70 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 		return false;
 	}
 	*value = entry->value;
+	return true;
+}
+
+ObjectArray *newArray(int elementCount) {
+	ObjectArray *array = ALLOCATE_OBJECT(ObjectArray, OBJECT_ARRAY);
+	array->capacity = calculateCollectionCapacity(elementCount);
+	array->size = 0;
+	array->array = ALLOCATE(Value, array->capacity);
+	for (int i = 0; i < array->capacity; i++) {
+		array->array[i] = NIL_VAL;
+	}
+	return array;
+}
+
+bool ensureCapacity(ObjectArray *array, int capacityNeeded) {
+	if (capacityNeeded <= array->capacity) {
+		return true;
+	}
+	int newCapacity = array->capacity;
+	while (newCapacity < capacityNeeded) {
+		if (newCapacity > INT_MAX / 2) {
+			return false;
+		}
+		newCapacity *= 2;
+	}
+	Value *newArray = GROW_ARRAY(Value, array->array, array->capacity, newCapacity);
+	if (newArray == NULL) {
+		return false;
+	}
+	for (int i = array->capacity; i < newCapacity; i++) {
+		newArray[i] = NIL_VAL;
+	}
+	array->array = newArray;
+	array->capacity = newCapacity;
+	return true;
+}
+
+bool arraySet(ObjectArray *array, int index, Value value) {
+	if (index < 0 || index >= array->size) {
+		return false;
+	}
+	if (IS_OBJECT(value)) {
+		markValue(value);
+	}
+	array->array[index] = value;
+	return true;
+}
+
+bool arrayGet(ObjectArray *array, int index, Value *value) {
+	if (index < 0 || index >= array->size) {
+		return false;
+	}
+	*value = array->array[index];
+	return true;
+}
+
+bool arrayAdd(ObjectArray *array, Value value, int index) {
+	if (!ensureCapacity(array, array->size + 1)) {
+		return false;
+	}
+	if (IS_OBJECT(value)) {
+		markValue(value);
+	}
+	array->array[index] = value;
+	array->size++;
 	return true;
 }
