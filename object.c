@@ -288,10 +288,6 @@ static bool adjustCapacity(ObjectTable *table, int capacity) {
 		}
 
 		ObjectTableEntry *dest = findEntry(entries, capacity, entry->key);
-		if (dest == NULL) {
-			FREE_ARRAY(ObjectTableEntry, entries, capacity);
-			return false;
-		}
 
 		dest->key = entry->key;
 		dest->value = entry->value;
@@ -313,12 +309,8 @@ bool objectTableSet(ObjectTable *table, Value key, Value value) {
 	}
 
 	ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
-
-	if (entry == NULL) {
-		return false;
-	}
-
 	bool isNewKey = !entry->isOccupied;
+
 	if (isNewKey && IS_NIL(entry->value)) {
 		table->size++;
 	}
@@ -341,9 +333,6 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 	}
 
 	ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
-	if (entry == NULL) {
-		return false;
-	}
 	if (!entry->isOccupied) {
 		return false;
 	}

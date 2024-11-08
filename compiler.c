@@ -876,8 +876,6 @@ static void forStatement() {
 		emitByte(OP_POP); // condition
 	}
 
-	// check for right paren here
-
 	int bodyJump = emitJump(OP_JUMP);
 	int incrementStart = currentChunk()->count;
 	expression();

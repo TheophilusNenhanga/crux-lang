@@ -574,7 +574,6 @@ static InterpretResult run() {
 			}
 
 			case OP_DEFINE_GLOBAL: {
-				// TODO: Check what happens when you try define a value that already exists
 				ObjectString *name = READ_STRING();
 				if (tableSet(&vm.globals, name, peek(0))) {
 					pop();
@@ -882,15 +881,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_LOCAL_PLUS: {
@@ -901,15 +892,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '+=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_LOCAL_MINUS: {
@@ -920,15 +903,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '-=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_UPVALUE_SLASH: {
@@ -956,9 +931,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
 				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
-
 				break;
 			}
 			case OP_SET_UPVALUE_PLUS: {
@@ -1015,6 +988,8 @@ static InterpretResult run() {
 			}
 
 			default: {
+				runtimeError("BYTECODE INSTRUCTION NOT IMPLEMENTED");
+				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
 	}
