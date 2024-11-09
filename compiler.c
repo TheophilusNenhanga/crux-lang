@@ -73,7 +73,6 @@ typedef struct {
 	Local locals[UINT8_COUNT];
 	int localCount;
 	int scopeDepth; // 0 is global scope
-	int loopDepth;
 	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
@@ -81,13 +80,6 @@ typedef struct ClassCompiler {
 	struct ClassCompiler *enclosing;
 	bool hasSuperclass;
 } ClassCompiler;
-
-typedef struct {
-	int loopStart;
-	int exitJump;
-} LoopContext;
-
-LoopContext loopStack[UINT16_MAX];
 
 // Make these two non globals
 Parser parser;
@@ -230,7 +222,6 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
-	compiler->loopDepth = 0;
 	compiler->function = newFunction();
 	current = compiler;
 
@@ -812,33 +803,13 @@ static void expressionStatement() {
 	emitByte(OP_POP);
 }
 
-static void breakStatement() {
-	if (current->scopeDepth == 0) {
-		error("'break' cannot be used outside of a loop.");
-		return;
-	}
-	consume(TOKEN_SEMICOLON, "Expected ';' after break statement.");
-	loopStack[current->loopDepth - 1].exitJump = emitJump(OP_JUMP);
-}
-
-static void continueStatement() {
-	if (current->loopDepth == 0) {
-		error("'continue' cannot be used outside of a loop.");
-		return;
-	}
-	consume(TOKEN_SEMICOLON, "Expected ';' after continue statement.");
-	emitLoop(loopStack[current->loopDepth - 1].loopStart);
-}
 
 static void whileStatement() {
+	beginScope();
 	int loopStart = currentChunk()->count;
 	expression();
 	int exitJump = emitJump(OP_JUMP_IF_FALSE);
 	emitByte(OP_POP);
-
-	loopStack[current->loopDepth].loopStart = loopStart;
-	loopStack[current->loopDepth].exitJump = -1;
-	current->loopDepth++;
 
 	statement();
 
@@ -847,12 +818,7 @@ static void whileStatement() {
 	patchJump(exitJump);
 	emitByte(OP_POP);
 
-	// patching breaks
-	if (loopStack[current->loopDepth - 1].exitJump != -1) {
-		patchJump(loopStack[current->loopDepth - 1].exitJump);
-	}
-
-	current->loopDepth--;
+	endScope();
 }
 
 static void forStatement() {
@@ -865,8 +831,10 @@ static void forStatement() {
 	} else {
 		expressionStatement();
 	}
+
 	int loopStart = currentChunk()->count;
 	int exitJump = -1;
+
 	if (!match(TOKEN_SEMICOLON)) {
 		expression();
 		consume(TOKEN_SEMICOLON, "Expected ';' after loop condition");
@@ -885,11 +853,6 @@ static void forStatement() {
 	loopStart = incrementStart;
 	patchJump(bodyJump);
 
-
-	loopStack[current->loopDepth].loopStart = loopStart;
-	loopStack[current->loopDepth].exitJump = exitJump;
-	current->loopDepth++;
-
 	statement();
 	emitLoop(loopStart);
 
@@ -898,12 +861,6 @@ static void forStatement() {
 		emitByte(OP_POP);
 	}
 
-	// patching breaks
-	if (loopStack[current->loopDepth - 1].exitJump != -1) {
-		patchJump(loopStack[current->loopDepth - 1].exitJump);
-	}
-
-	current->loopDepth--;
 	endScope();
 }
 
@@ -986,10 +943,6 @@ static void statement() {
 		whileStatement();
 	} else if (match(TOKEN_FOR)) {
 		forStatement();
-	} else if (match(TOKEN_BREAK)) {
-		breakStatement();
-	} else if (match(TOKEN_CONTINUE)) {
-		continueStatement();
 	} else if (match(TOKEN_RETURN)) {
 		returnStatement();
 	} else {
