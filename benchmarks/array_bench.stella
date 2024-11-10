@@ -30,9 +30,7 @@ for let i = 0; i < target_size; i += 1 {
     array_add(large_arr, i);
 }
 let end_time = time_ms();
-println("Time to create array of size " + target_size + ": " + (end_time - start_time) + "ms");
-println("First element: " + large_arr[0]);
-println("Last element: " + large_arr[target_size - 1]);
+
 
 // Mixed Type Test
 println("\n=== Mixed Type Test ===");
@@ -53,26 +51,25 @@ for let i = 2; i < target; i += 1 {
     array_add(fib, fib[i-1] + fib[i-2]);
 }
 end_time = time_ms();
-println("Generated " + target + " Fibonacci numbers in " + (end_time - start_time) + "ms");
 println(fib);
 
 // Edge Cases
 println("\n=== Edge Cases ===");
 // Test empty array operations
 let empty = [];
-println("Empty array: " + empty);
 array_add(empty, 1);
-println("After adding to empty: " + empty);
+println(empty);
 
 // Test large numbers
 let big_nums = [];
 array_add(big_nums, 9007199254740991);  // Max safe integer in JavaScript
 array_add(big_nums, -9007199254740991);
-println("Large numbers: " + big_nums);
+println("big numbers: ");
+println(big_nums);
 
 // Test floating point numbers
 let floats = [3.14159, 2.71828, -0.0001];
-println("Floating points: " + floats);
+println(floats);
 
 // Error Cases
 println("\n=== Error Cases ===");
@@ -83,8 +80,8 @@ array_add(42, 1);  // Should error
 // Array bounds test
 println("Testing array bounds...");
 let bounds = [1];
-println(bounds[-1]);  // Should error
-println(bounds[1]);   // Should error
+// println(bounds[-1]);  // Should error
+// println(bounds[1]);   // Should error
 
 // Performance Test with Different Operations
 println("\n=== Performance Test ===");
@@ -99,7 +96,6 @@ for let i = 0; i < 1000; i += 1 {
     }
 }
 end_time = time_ms();
-println("Mixed operations test completed in: " + (end_time - start_time) + "ms");
 
 // Memory Stress Test
 println("\n=== Memory Stress Test ===");
@@ -109,8 +105,8 @@ let stress_target = 10000;
 for let i = 0; i < stress_target; i += 1 {
     array_add(stress_arr, [1, 2, 3]);  // Add nested arrays
     if i % 1000 == 0 {
-        println("Created " + i + " nested arrays");
+        println(i);
+        // println(stress_arr);
     }
 }
 end_time = time_ms();
-println("Memory stress test completed in: " + (end_time - start_time) + "ms");

@@ -1,0 +1,59 @@
+// Basic table creation and access
+let t1 = {};
+println(t1);
+
+let t2 = {"a":1, "b":2, "c":3};
+println(t2);
+
+// Nested structures
+let nested = {
+    "a":[1, {"d":2}],
+    "b":[3, {"e":4}],
+    "c":[5, {"f":6}]
+};
+println(nested);
+
+// Basic key access
+print("t2[a] = "); println(t2["a"]);
+print("t2[c] = "); println(t2["c"]);
+
+// Nested access
+print("nested[b][1] = "); println(nested["b"][1]);
+print("nested[b][1][e] = "); println(nested["b"][1]["e"]);
+
+// Modification
+t2["a"] = 100;
+print("Modified t2[a] = "); println(t2["a"]);
+
+// Number keys
+let numKeys = {1: "one", 2: "two", 3: "three"};
+print("numKeys[2] = "); println(numKeys[2]);
+
+// Mixed key types
+let mixed = {
+    1: "number key",
+    "str": "string key",
+    3: [1,2,3]
+};
+println(mixed);
+print("mixed[1] = "); println(mixed[1]);
+print("mixed[str] = "); println(mixed["str"]);
+print("mixed[3][1] = "); println(mixed[3][1]);
+
+// Update nested value
+nested["b"][1]["e"] = 400;
+print("Updated nested value: "); println(nested["b"][1]["e"]);
+
+// Table as value in array
+let arr = [1, {"x": 10, "y": 20}, 3];
+print("Array with table: "); println(arr[1]["y"]);
+
+// table in a for loop
+let table = {};
+for let a = 0; a < 100; a = a + 1 {
+    table[a] = a*a;
+    println(table);
+    println(a);
+}
+
+println("End of Test");

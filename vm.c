@@ -826,10 +826,10 @@ static InterpretResult run() {
 
 			case OP_SET_COLLECTION: {
 				Value value = pop();
-				Value indexValue = pop();
+				Value indexValue = peek(0);
 
-				if (IS_TABLE(peek(0))) {
-					ObjectTable *table = AS_TABLE(peek(0));
+				if (IS_TABLE(peek(1))) {
+					ObjectTable *table = AS_TABLE(peek(1));
 					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
 						if (!objectTableSet(table, indexValue, value)) {
 							runtimeError("Failed to set value in table");
@@ -839,8 +839,8 @@ static InterpretResult run() {
 						runtimeError("Key cannot be hashed.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_ARRAY(peek(0))) {
-					ObjectArray *array = AS_ARRAY(peek(0));
+				} else if (IS_ARRAY(peek(1))) {
+					ObjectArray *array = AS_ARRAY(peek(1));
 					int index = AS_NUMBER(indexValue);
 					if (!arraySet(array, index, value)) {
 						runtimeError("Failed to set value in array");
@@ -850,7 +850,9 @@ static InterpretResult run() {
 					runtimeError("{ Error: OP_SET_COLLECTION } Value is not a collection.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				pop();
+				pop(); // collection
+				pop(); // indexValue
+				push(indexValue);
 				break;
 			}
 

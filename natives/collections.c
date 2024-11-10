@@ -12,6 +12,9 @@ Value lengthNative(int argCount, Value *args) {
 	if (IS_STRING(value)) {
 		return NUMBER_VAL(AS_STRING(value)->length);
 	}
+	if (IS_TABLE(value)) {
+		return NUMBER_VAL(AS_TABLE(value)->size);
+	}
 	// TODO: Runtime error
 	return NIL_VAL;
 }
