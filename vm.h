@@ -5,6 +5,9 @@
 #include "table.h"
 #include "value.h"
 
+typedef struct ObjectClosure ObjectClosure;
+typedef struct ObjectUpvalue ObjectUpvalue;
+
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 

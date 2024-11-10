@@ -69,6 +69,15 @@ void markObjectArray(ObjectArray *array) {
 	}
 }
 
+void markObjectTable(ObjectTable *table) {
+	for (int i = 0; i < table->capacity; i++) {
+		if (table->entries[i].isOccupied) {
+			markValue(table->entries[i].value);
+			markValue(table->entries[i].key);
+		}
+	}
+}
+
 static void blackenObject(Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p blacken ", (void *) object);
@@ -116,6 +125,11 @@ static void blackenObject(Object *object) {
 		case OBJECT_ARRAY: {
 			ObjectArray *array = (ObjectArray *) object;
 			markObjectArray(array);
+			break;
+		}
+		case OBJECT_TABLE: {
+			ObjectTable *table = (ObjectTable *) object;
+			markObjectTable(table);
 			break;
 		}
 		case OBJECT_NATIVE:
@@ -176,6 +190,14 @@ static void freeObject(Object *object) {
 			ObjectArray *array = (ObjectArray *) object;
 			FREE_ARRAY(Value, array->array, array->capacity);
 			FREE(ObjectArray, object);
+			break;
+		}
+
+		case OBJECT_TABLE : {
+			ObjectTable *table = (ObjectTable *) object;
+			freeObjectTable(table);
+			FREE(ObjectTable, object);
+			break;
 		}
 	}
 }

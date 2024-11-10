@@ -138,7 +138,6 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 				int index = chunk->code[offset++];
 				printf("%04d        |                %s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
 			}
-
 			return offset;
 		}
 		case OP_CLOSE_UPVALUE:
@@ -152,6 +151,14 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return constantInstruction("OP_SET_PROPERTY", chunk, offset);
 		case OP_METHOD:
 			return constantInstruction("OP_METHOD", chunk, offset);
+		case OP_ARRAY:
+			return constantInstruction("OP_ARRAY", chunk, offset);
+		case OP_TABLE:
+			return constantInstruction("OP_TABLE", chunk, offset);
+		case OP_GET_COLLECTION:
+			return constantInstruction("OP_GET_COLLECTION", chunk, offset);
+		case OP_SET_COLLECTION:
+			return constantInstruction("OP_SET_COLLECTION", chunk, offset);
 		case OP_INVOKE:
 			return invokeInstruction("OP_INVOKE", chunk, offset);
 		case OP_INHERIT:
@@ -160,8 +167,67 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return constantInstruction("OP_GET_SUPER", chunk, offset);
 		case OP_SUPER_INVOKE:
 			return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
+		case OP_SET_LOCAL_SLASH: {
+			return simpleInstruction("OP_SET_LOCAL_SLASH", offset);
+		}
+		case OP_SET_LOCAL_STAR: {
+			return simpleInstruction("OP_SET_LOCAL_STAR", offset);
+		}
+		case OP_SET_LOCAL_PLUS: {
+			return simpleInstruction("OP_SET_LOCAL_PLUS", offset);
+		}
+		case OP_SET_LOCAL_MINUS: {
+			return simpleInstruction("OP_SET_LOCAL_MINUS", offset);
+		}
+		case OP_SET_UPVALUE_SLASH: {
+			return simpleInstruction("OP_SET_UPVALUE_SLASH", offset);
+		}
+		case OP_SET_UPVALUE_STAR: {
+			return simpleInstruction("OP_SET_UPVALUE_STAR", offset);
+		}
+		case OP_SET_UPVALUE_PLUS: {
+			return simpleInstruction("OP_SET_UPVALUE_PLUS", offset);
+		}
+		case OP_SET_UPVALUE_MINUS: {
+			return simpleInstruction("OP_SET_UPVALUE_MINUS", offset);
+		}
+		case OP_SET_GLOBAL_SLASH: {
+			return simpleInstruction("OP_SET_GLOBAL_SLASH", offset);
+		}
+		case OP_SET_GLOBAL_STAR: {
+			return simpleInstruction("OP_SET_GLOBAL_STAR", offset);
+		}
+		case OP_SET_GLOBAL_PLUS: {
+			return simpleInstruction("OP_SET_GLOBAL_PLUS", offset);
+		}
+		case OP_SET_GLOBAL_MINUS: {
+			return simpleInstruction("OP_SET_GLOBAL_MINUS", offset);
+		}
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;
 	}
+}
+
+bool verifyNumbers(Value a, Value b, const char *operation) {
+	if (!IS_NUMBER(a) || !IS_NUMBER(b)) {
+		printf("Arithmetic error in '%s':\n", operation);
+		printf("Left operand: ");
+		printValue(a);
+		printf(" (type: %s)\n", IS_NUMBER(a)	 ? "number"
+														: IS_NIL(a)		 ? "nil"
+														: IS_BOOL(a)	 ? "boolean"
+														: IS_STRING(a) ? "string"
+																					 : "other");
+
+		printf("Right operand: ");
+		printValue(b);
+		printf(" (type: %s)\n", IS_NUMBER(b)	 ? "number"
+														: IS_NIL(b)		 ? "nil"
+														: IS_BOOL(b)	 ? "boolean"
+														: IS_STRING(b) ? "string"
+																					 : "other");
+		return false;
+	}
+	return true;
 }

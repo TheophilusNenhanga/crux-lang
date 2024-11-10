@@ -245,9 +245,10 @@ void initVM() {
 	defineNative("time_s", currentTimeSeconds, 0);
 	defineNative("time_ms", currentTimeMillis, 0);
 	defineNative("print", printNative, 1);
-	defineNative("len", length, 1);
-	defineNative("array_add", arrayAdd, 2);
-	defineNative("array_rem", arrayRemove, 1);
+	defineNative("println", printlnNative, 1);
+	defineNative("len", lengthNative, 1);
+	defineNative("array_add", arrayAddNative, 2);
+	defineNative("array_rem", arrayRemoveNative, 1);
 }
 
 void freeVM() {
@@ -261,6 +262,7 @@ static bool binaryOperation(OpCode operation) {
 
 	Value b = peek(0);
 	Value a = peek(1);
+
 
 	if (!(IS_NUMBER(a) || IS_NUMBER(b))) {
 		runtimeError("{ Error: Binary Operation } Operands must be of type <number>.");
@@ -572,7 +574,6 @@ static InterpretResult run() {
 			}
 
 			case OP_DEFINE_GLOBAL: {
-				// TODO: Check what happens when you try define a value that already exists
 				ObjectString *name = READ_STRING();
 				if (tableSet(&vm.globals, name, peek(0))) {
 					pop();
@@ -761,38 +762,100 @@ static InterpretResult run() {
 			case OP_ARRAY: {
 				uint16_t elementCount = READ_SHORT();
 				ObjectArray *array = newArray(elementCount);
-				array->size = elementCount;
 				for (int i = elementCount - 1; i >= 0; i--) {
-					array->array[i] = pop();
+					arrayAdd(array, pop(), i);
 				}
 				push(OBJECT_VAL(array));
 				break;
 			}
 
-			case OP_GET_ARRAY: {
-				int index = AS_NUMBER(pop());
-				ObjectArray *array = AS_ARRAY(pop());
-				if (index >= 0 && index < array->size) {
-					push(array->array[index]);
-					break;
-				} else {
-					runtimeError("{ Error: OP_GET_ARRAY } Array index out of bounds.");
-					return INTERPRET_RUNTIME_ERROR;
+			case OP_TABLE: {
+				uint16_t elementCount = READ_SHORT();
+				ObjectTable *table = newTable(elementCount);
+				for (int i = elementCount - 1; i >= 0; i--) {
+					Value value = pop();
+					Value key = pop();
+					if (IS_NUMBER(key) || IS_STRING(key)) {
+						if (!objectTableSet(table, key, value)) {
+							runtimeError("Failed to set value in table");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+					} else {
+						runtimeError("Key cannot be hashed.", READ_STRING());
+						return INTERPRET_RUNTIME_ERROR;
+					}
 				}
+				push(OBJECT_VAL(table));
+				break;
 			}
 
-			case OP_SET_ARRAY: {
-				Value value = pop();
-				int index = AS_NUMBER(pop());
-				ObjectArray *array = AS_ARRAY(pop());
-				if (index >= 0 && index < array->size) {
-					array->array[index] = value;
-				} else {
-					runtimeError("{ Error: OP_SET_ARRAY } Array index out of bounds.");
-					return INTERPRET_RUNTIME_ERROR;
+			case OP_GET_COLLECTION: {
+				Value indexValue = pop();
+				if (IS_TABLE(peek(0))) {
+					if (IS_STRING(indexValue) || IS_NUMBER(indexValue)) {
+						ObjectTable *table = AS_TABLE(peek(0));
+						Value value;
+						if (!objectTableGet(table, indexValue, &value)) {
+							runtimeError("Failed to get value from table");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						pop();
+						push(value);
+					} else {
+						runtimeError("Key cannot be hashed.", READ_STRING());
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				} else if (IS_ARRAY(peek(0))) {
+					if (!IS_NUMBER(indexValue)) {
+						runtimeError("Index must be a number.");
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					int index = AS_NUMBER(indexValue);
+					ObjectArray *array = AS_ARRAY(peek(0));
+					Value value;
+					if (!arrayGet(array, index, &value)) {
+						runtimeError("Failed to get value from array");
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					pop(); // pop the array off the stack
+					push(value); // push the value onto the stack
+					break;
 				}
 				break;
 			}
+
+			case OP_SET_COLLECTION: {
+				Value value = pop();
+				Value indexValue = peek(0);
+
+				if (IS_TABLE(peek(1))) {
+					ObjectTable *table = AS_TABLE(peek(1));
+					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
+						if (!objectTableSet(table, indexValue, value)) {
+							runtimeError("Failed to set value in table");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+					} else {
+						runtimeError("Key cannot be hashed.");
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				} else if (IS_ARRAY(peek(1))) {
+					ObjectArray *array = AS_ARRAY(peek(1));
+					int index = AS_NUMBER(indexValue);
+					if (!arraySet(array, index, value)) {
+						runtimeError("Failed to set value in array");
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				} else {
+					runtimeError("{ Error: OP_SET_COLLECTION } Value is not a collection.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				pop(); // collection
+				pop(); // indexValue
+				push(indexValue);
+				break;
+			}
+
 			case OP_SET_LOCAL_SLASH: {
 				uint8_t slot = READ_BYTE();
 				Value currentValue = frame->slots[slot];
@@ -820,15 +883,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_LOCAL_PLUS: {
@@ -839,15 +894,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '+=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_LOCAL_MINUS: {
@@ -858,15 +905,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '-=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
-				double divisor = AS_NUMBER(peek(0));
-
-				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - divisor);
+				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(0)));
 				break;
 			}
 			case OP_SET_UPVALUE_SLASH: {
@@ -894,9 +933,7 @@ static InterpretResult run() {
 					runtimeError("Both operands must be numbers for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-
 				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
-
 				break;
 			}
 			case OP_SET_UPVALUE_PLUS: {
@@ -953,6 +990,8 @@ static InterpretResult run() {
 			}
 
 			default: {
+				runtimeError("BYTECODE INSTRUCTION NOT IMPLEMENTED");
+				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
 	}
@@ -977,5 +1016,3 @@ InterpretResult interpret(const char *source) {
 
 	return run();
 }
-
-// Store ip in a local variable to improve performance

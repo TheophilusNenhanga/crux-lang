@@ -5,10 +5,10 @@
 
 #define MAX_ARRAY_SIZE UINT16_MAX - 1
 
-Value length(int argCount, Value *args);
+Value lengthNative(int argCount, Value *args);
 
-Value arrayAdd(int argCount, Value *args);
+Value arrayAddNative(int argCount, Value *args);
 
-Value arrayRemove(int argCount, Value *args);
+Value arrayRemoveNative(int argCount, Value *args);
 
 #endif
