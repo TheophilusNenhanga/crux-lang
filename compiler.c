@@ -64,6 +64,7 @@ typedef enum {
 	TYPE_SCRIPT,
 	TYPE_METHOD,
 	TYPE_INITIALIZER,
+	TYPE_ANONYMOUS
 } FunctionType;
 
 typedef struct {
@@ -225,7 +226,9 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 	compiler->function = newFunction();
 	current = compiler;
 
-	if (type != TYPE_SCRIPT) {
+	if (type == TYPE_ANONYMOUS) {
+		current->function->name = copyString("anonymous", 9);
+	} else if (type != TYPE_SCRIPT) {
 		current->function->name = copyString(parser.previous.start, parser.previous.length);
 	}
 
@@ -737,6 +740,33 @@ static void fnDeclaration() {
 	defineVariable(global);
 }
 
+static void anonymousFunction(bool canAssign) {
+	Compiler compiler;
+	initCompiler(&compiler, TYPE_ANONYMOUS);
+	beginScope();
+	consume(TOKEN_LEFT_PAREN, "Expected '(' to start argument list");
+	if (!check(TOKEN_RIGHT_PAREN)) {
+		do {
+			current->function->arity++;
+			if (current->function->arity > 255) {
+				errorAtCurrent("Functions cannot have more than 255 arguments");
+			}
+			uint8_t constant = parseVariable("Expected parameter name");
+			defineVariable(constant);
+		} while (match(TOKEN_COMMA));
+	}
+	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list");
+	consume(TOKEN_LEFT_BRACE, "Expected '{' before function body");
+	block();
+	ObjectFunction *function = endCompiler();
+	emitBytes(OP_ANON_FUNCTION, makeConstant(OBJECT_VAL(function)));
+
+	for (int i = 0; i < function->upvalueCount; i++) {
+		emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+		emitByte(compiler.upvalues[i].index);
+	}
+}
+
 static void arrayLiteral(bool canAssign) {
 	uint16_t elementCount = 0;
 
@@ -1031,7 +1061,7 @@ ParseRule rules[] = {
 		[TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_FALSE] = {literal, NULL, PREC_NONE},
 		[TOKEN_FOR] = {NULL, NULL, PREC_NONE},
-		[TOKEN_FN] = {NULL, NULL, PREC_NONE},
+		[TOKEN_FN] = {anonymousFunction, NULL, PREC_NONE},
 		[TOKEN_IF] = {NULL, NULL, PREC_NONE},
 		[TOKEN_NIL] = {literal, NULL, PREC_NONE},
 		[TOKEN_OR] = {NULL, or_, PREC_OR},
