@@ -59,13 +59,7 @@ typedef struct {
 	bool isLocal;
 } Upvalue;
 
-typedef enum {
-	TYPE_FUNCTION,
-	TYPE_SCRIPT,
-	TYPE_METHOD,
-	TYPE_INITIALIZER,
-	TYPE_ANONYMOUS
-} FunctionType;
+typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
 
 typedef struct {
 	struct Compiler *enclosing;
@@ -816,15 +810,45 @@ static void collectionIndex(bool canAssign) {
 }
 
 static void varDeclaration() {
-	uint8_t global = parseVariable("Expected Variable Name.");
+	uint8_t global = parseVariable("Expected variable name");
+	if (match(TOKEN_COMMA)) {
+		uint8_t variableCount = 1;
+		uint8_t variables[255];
+		variables[0] = global;
 
-	if (match(TOKEN_EQUAL)) {
+		markInitialized();
+		do {
+			if (variableCount >= 255) {
+				error("Cannot declare more than 255 variables.");
+				return;
+			}
+
+			variables[variableCount] = parseVariable("Expected variable name");
+			variableCount++;
+			markInitialized();
+		} while (match(TOKEN_COMMA));
+
+		consume(TOKEN_EQUAL, "Expected '=' after variable name list.");
+
 		expression();
+
+		emitBytes(OP_UNPACK_TUPLE, variableCount);
+
+		for (uint8_t i = 0; i < variableCount; i++) {
+			defineVariable(variables[i]);
+		}
+
+		consume(TOKEN_SEMICOLON, "Expected ';' after variable declarations.");
 	} else {
-		emitByte(OP_NIL);
+
+		if (match(TOKEN_EQUAL)) {
+			expression();
+		} else {
+			emitByte(OP_NIL);
+		}
+		consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
+		defineVariable(global);
 	}
-	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
-	defineVariable(global);
 }
 
 static void expressionStatement() {
@@ -920,10 +944,23 @@ static void returnStatement() {
 		if (current->type == TYPE_INITIALIZER) {
 			error("Cannot return a value from an 'init' function");
 		}
+
+		uint8_t valueCount = 0;
+		do {
+			if (valueCount >= 255) {
+				error("Cannot return more than 255 values.");
+			}
+			expression();
+			valueCount++;
+		} while (match(TOKEN_COMMA));
+
+		consume(TOKEN_SEMICOLON, "Expected ';' after return value");
+		if (valueCount == 1) {
+			emitByte(OP_RETURN);
+		} else {
+			emitBytes(OP_RETURN_MULTI, valueCount);
+		}
 	}
-	expression();
-	consume(TOKEN_SEMICOLON, "Expected ';' after return value");
-	emitByte(OP_RETURN);
 }
 
 static void synchronize() {

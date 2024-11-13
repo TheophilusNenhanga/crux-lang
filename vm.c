@@ -1007,6 +1007,49 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_UNPACK_TUPLE: {
+				uint8_t variableCount = READ_BYTE();
+
+				if (!IS_NUMBER(peek(0))) {
+					runtimeError("Invalid return value count");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				int actual = AS_NUMBER(pop());
+
+				if (variableCount != actual) {
+					runtimeError("Expected %d values to unpack but got %d.", variableCount, actual);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_RETURN_MULTI: {
+				uint8_t valueCount = READ_BYTE();
+				Value values[255];
+
+				for (int i = valueCount - 1; i >= 0; i--) {
+					values[i] = pop();
+				}
+
+				pop(); // pop the closure
+
+				closeUpvalues(frame->slots);
+				vm.frameCount--;
+				if (vm.frameCount == 0) {
+					pop();
+					return INTERPRET_OK;
+				}
+				vm.stackTop = frame->slots;
+
+				for (int i = 0; i < valueCount; i++) {
+					push(values[i]);
+				}
+				push(NUMBER_VAL(valueCount));
+				frame = &vm.frames[vm.frameCount - 1];
+				break;
+			}
+
 			default: {
 				runtimeError("BYTECODE INSTRUCTION NOT IMPLEMENTED");
 				return INTERPRET_RUNTIME_ERROR;
