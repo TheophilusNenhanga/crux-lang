@@ -64,11 +64,11 @@ typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_A
 typedef struct {
 	struct Compiler *enclosing;
 	ObjectFunction *function;
-	FunctionType type;
 	Local locals[UINT8_COUNT];
+	Upvalue upvalues[UINT8_COUNT];
+	FunctionType type;
 	int localCount;
 	int scopeDepth; // 0 is global scope
-	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
 typedef struct ClassCompiler {
@@ -811,6 +811,7 @@ static void collectionIndex(bool canAssign) {
 
 static void varDeclaration() {
 	uint8_t global = parseVariable("Expected variable name");
+
 	if (match(TOKEN_COMMA)) {
 		uint8_t variableCount = 1;
 		uint8_t variables[255];
@@ -822,33 +823,43 @@ static void varDeclaration() {
 				error("Cannot declare more than 255 variables.");
 				return;
 			}
-
 			variables[variableCount] = parseVariable("Expected variable name");
-			variableCount++;
 			markInitialized();
+			variableCount++;
 		} while (match(TOKEN_COMMA));
 
-		consume(TOKEN_EQUAL, "Expected '=' after variable name list.");
+		if (match(TOKEN_EQUAL)) {
+			int defined = 0;
+			do {
+				if (defined >= variableCount) {
+					error("Too many values given for variable declaration.");
+					return;
+				}
+				expression();
+				defined++;
+			} while (match(TOKEN_COMMA));
 
-		expression();
+		} else {
+			for (int i = 0; i < variableCount; i++) {
+				emitByte(OP_NIL);
+			}
+		}
 
 		emitBytes(OP_UNPACK_TUPLE, variableCount);
 
 		for (uint8_t i = 0; i < variableCount; i++) {
 			defineVariable(variables[i]);
 		}
-
-		consume(TOKEN_SEMICOLON, "Expected ';' after variable declarations.");
 	} else {
-
 		if (match(TOKEN_EQUAL)) {
 			expression();
 		} else {
 			emitByte(OP_NIL);
 		}
-		consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 		defineVariable(global);
 	}
+
+	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 }
 
 static void expressionStatement() {

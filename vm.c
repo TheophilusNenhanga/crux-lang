@@ -235,6 +235,7 @@ void initVM() {
 	vm.grayCount = 0;
 	vm.grayCapacity = 0;
 	vm.grayStack = NULL;
+	vm.previousInstruction = 0;
 
 	initTable(&vm.strings);
 	initTable(&vm.globals);
@@ -382,7 +383,7 @@ static InterpretResult run() {
 #define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
-
+uint8_t instruction;
 	for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
 		printf("        ");
@@ -396,9 +397,8 @@ static InterpretResult run() {
 		disassembleInstruction(&frame->closure->function->chunk, (int) (frame->ip - frame->closure->function->chunk.code));
 #endif
 
-		uint8_t instruction;
-		// decoding and dispatching
-		switch (instruction = READ_BYTE()) {
+		instruction = READ_BYTE();
+		switch (instruction) {
 			case OP_CONSTANT: {
 				Value constant = READ_CONSTANT();
 				push(constant);
@@ -1010,16 +1010,26 @@ static InterpretResult run() {
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
 
-				if (!IS_NUMBER(peek(0))) {
-					runtimeError("Invalid return value count");
-					return INTERPRET_RUNTIME_ERROR;
-				}
+				if (vm.previousInstruction == OP_RETURN_MULTI) {
+					if (!IS_NUMBER(peek(0))) {
+						runtimeError("Invalid return value count");
+						return INTERPRET_RUNTIME_ERROR;
+					}
 
-				int actual = AS_NUMBER(pop());
+					int actual = AS_NUMBER(pop());
 
-				if (variableCount != actual) {
-					runtimeError("Expected %d values to unpack but got %d.", variableCount, actual);
-					return INTERPRET_RUNTIME_ERROR;
+					if (variableCount != actual) {
+						runtimeError("Expected %d values to unpack but got %d.", variableCount, actual);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				}else {
+					int valuesOnStack = (int)(vm.stackTop - vm.stack-vm.frameCount);
+					if (valuesOnStack < variableCount) {
+						runtimeError("Not enough values to unpack. Expected %d but got %d.",
+												variableCount, valuesOnStack);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					// compiler makes sure that the number of values is not greater than the number of variables
 				}
 				break;
 			}
@@ -1055,6 +1065,7 @@ static InterpretResult run() {
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
+		vm.previousInstruction = instruction;
 	}
 #undef READ_BYTE
 #undef READ_CONSTANT
