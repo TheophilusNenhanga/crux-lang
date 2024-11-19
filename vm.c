@@ -11,6 +11,7 @@
 #include "compiler.h"
 #include "debug.h"
 #include "memory.h"
+#include "natives/error.h"
 #include "object.h"
 #include "value.h"
 
@@ -250,6 +251,8 @@ void initVM() {
 	defineNative("len", lengthNative, 1);
 	defineNative("array_add", arrayAddNative, 2);
 	defineNative("array_rem", arrayRemoveNative, 1);
+	defineNative("panic", panicNative, 1);
+	defineNative("error", errorNative, 1);
 }
 
 void freeVM() {

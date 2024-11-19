@@ -5,6 +5,7 @@
 #include <string.h>
 #include "table.h"
 #include "value.h"
+#include "memory.h"
 
 static Object *allocateObject(size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(NULL, 0, size);
@@ -185,6 +186,9 @@ void printObject(Value value) {
 		case OBJECT_TABLE: {
 			printf("<table>");
 			break;
+		}
+		case OBJECT_ERROR: {
+			printf("<error>");
 		}
 	}
 }
@@ -403,4 +407,12 @@ bool arrayAdd(ObjectArray *array, Value value, int index) {
 	array->array[index] = value;
 	array->size++;
 	return true;
+}
+
+ObjectError* newError(ObjectString* message, ErrorType type, ErrorCreator creator) {
+	ObjectError *error = ALLOCATE(ObjectError, OBJECT_ERROR);
+	error->message = message;
+	error->type = type;
+	error->creator = creator;
+	return error;
 }
