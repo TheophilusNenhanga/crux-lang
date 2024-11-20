@@ -134,6 +134,8 @@ typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
 	INDEX_OUT_OF_BOUNDS,
+	RUNTIME,
+	TYPE,
 } ErrorType;
 
 typedef enum {
