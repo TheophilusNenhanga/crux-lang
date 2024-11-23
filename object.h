@@ -136,23 +136,31 @@ typedef enum {
 	INDEX_OUT_OF_BOUNDS,
 	RUNTIME,
 	TYPE,
+	LOOP_EXTENT,
+	LIMIT,
+	BRANCH_EXTENT,
+	CLOSURE_EXTENT,
+	LOCAL_EXTENT,
+	ARGUMENT_EXTENT,
+	NAME,
+	COLLECTION_EXTENT,
+	VARIABLE_EXTENT,
+	VARIABLE_DECLARATION_MISMATCH,
+	RETURN_EXTENT,
 } ErrorType;
 
-typedef enum {
-	USER,
-	STELLA
-} ErrorCreator;
+typedef enum { USER, STELLA } ErrorCreator;
 
 typedef struct {
 	Object object;
-	ObjectString* message;
+	ObjectString *message;
 	ErrorType type;
 	ErrorCreator creator;
 } ObjectError;
 
 static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
 
-ObjectError *newError(ObjectString* message, ErrorType type, ErrorCreator creator);
+ObjectError *newError(ObjectString *message, ErrorType type, ErrorCreator creator);
 ObjectBoundMethod *newBoundMethod(Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(Value *slot);
 ObjectClosure *newClosure(ObjectFunction *function);

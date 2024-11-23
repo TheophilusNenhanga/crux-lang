@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #include "chunk.h"
 #include "memory.h"
 #include "object.h"
-#include "panic.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -19,7 +19,7 @@ Compiler *current = NULL;
 ClassCompiler *currentClass = NULL;
 Chunk *compilingChunk;
 
-
+#include "panic.h"
 static void expression();
 
 static void parsePrecedence(Precedence precedence);
@@ -46,7 +46,7 @@ static void advance() {
 		parser.current = scanToken();
 		if (parser.current.type != TOKEN_ERROR)
 			break;
-		errorAtCurrent(&parser, parser.current.start);
+		compilerPanic(&parser, parser.current.start, SYNTAX);
 	}
 }
 
@@ -59,7 +59,7 @@ static void consume(TokenType type, const char *message) {
 		advance();
 		return;
 	}
-	errorAtCurrent(&parser, message);
+	compilerPanic(&parser, message, SYNTAX);
 }
 
 static bool check(TokenType type) { return parser.current.type == type; }
@@ -82,7 +82,7 @@ static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
 	if (offset > UINT16_MAX) {
-		compilerPanic(&parser, "Loop body too large.");
+		compilerPanic(&parser, "Loop body too large.", LOOP_EXTENT);
 	}
 	emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
@@ -110,7 +110,7 @@ static uint8_t makeConstant(Value value) {
 		// Only 256 constants can be stored and loaded in a chunk.
 		// TODO: Add new instruction 'OP_CONSTANT_16' to store two byte operands
 		// that can handle more constants when needed
-		compilerPanic(&parser, "Too many constants in one chunk.");
+		compilerPanic(&parser, "Too many constants in one chunk.", LIMIT);
 		return 0;
 	}
 	return (uint8_t) constant;
@@ -122,7 +122,7 @@ static void patchJump(int offset) {
 	// -2 to adjust for the bytecode for the jump offset itself
 	int jump = currentChunk()->count - offset - 2;
 	if (jump > UINT16_MAX) {
-		compilerPanic(&parser, "Too much code to jump over.");
+		compilerPanic(&parser, "Too much code to jump over.", BRANCH_EXTENT);
 	}
 	currentChunk()->code[offset] = (jump >> 8) & 0xff;
 	currentChunk()->code[offset + 1] = jump & 0xff;
@@ -188,7 +188,7 @@ static int resolveLocal(Compiler *compiler, Token *name) {
 		Local *local = &compiler->locals[i];
 		if (identifiersEqual(name, &local->name)) {
 			if (local->depth == -1) {
-				compilerPanic(&parser, "Cannot read local variable in its own initializer");
+				compilerPanic(&parser, "Cannot read local variable in its own initializer", NAME);
 			}
 			return i;
 		}
@@ -207,7 +207,7 @@ static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
 	}
 
 	if (upvalueCount >= UINT8_COUNT) {
-		compilerPanic(&parser, "Too many closure variables in function.");
+		compilerPanic(&parser, "Too many closure variables in function.", CLOSURE_EXTENT);
 		return 0;
 	}
 
@@ -236,7 +236,7 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
 
 static void addLocal(Token name) {
 	if (current->localCount == UINT8_COUNT) {
-		compilerPanic(&parser, "Too many local variables in function.");
+		compilerPanic(&parser, "Too many local variables in function.", LOCAL_EXTENT);
 		return;
 	}
 
@@ -258,7 +258,7 @@ static void declareVariable() {
 			break;
 		}
 		if (identifiersEqual(name, &local->name)) {
-			compilerPanic(&parser, "Cannot redefine variable in the same scope");
+			compilerPanic(&parser, "Cannot redefine variable in the same scope", NAME);
 		}
 	}
 
@@ -293,7 +293,7 @@ static uint8_t argumentList() {
 		do {
 			expression();
 			if (argCount == 255) {
-				compilerPanic(&parser, "Cannot have more than 255 arguments.");
+				compilerPanic(&parser, "Cannot have more than 255 arguments.", ARGUMENT_EXTENT);
 			}
 			argCount++;
 		} while (match(TOKEN_COMMA));
@@ -518,9 +518,9 @@ static Token syntheticToken(const char *text) {
 
 static void super_(bool canAssign) {
 	if (currentClass == NULL) {
-		compilerPanic(&parser, "Cannot use 'super' outside of a class");
+		compilerPanic(&parser, "Cannot use 'super' outside of a class", NAME);
 	} else if (!currentClass->hasSuperclass) {
-		compilerPanic(&parser, "Cannot use 'super' in a class that does not have a superclass");
+		compilerPanic(&parser, "Cannot use 'super' in a class that does not have a superclass", NAME);
 	}
 
 	consume(TOKEN_DOT, "Expected '.' after 'super'.");
@@ -559,7 +559,7 @@ static void function(FunctionType type) {
 		do {
 			current->function->arity++;
 			if (current->function->arity > 255) {
-				errorAtCurrent(&parser, "Functions cannot have more than 255 arguments");
+				compilerPanic(&parser, "Functions cannot have more than 255 arguments", ARGUMENT_EXTENT);
 			}
 			uint8_t constant = parseVariable("Expected parameter name");
 			defineVariable(constant);
@@ -614,7 +614,7 @@ static void classDeclaration() {
 		variable(false);
 
 		if (identifiersEqual(&className, &parser.previous)) {
-			compilerPanic(&parser, "A class cannot inherit from itself");
+			compilerPanic(&parser, "A class cannot inherit from itself", NAME);
 		}
 
 		beginScope();
@@ -660,7 +660,7 @@ static void anonymousFunction(bool canAssign) {
 		do {
 			current->function->arity++;
 			if (current->function->arity > 255) {
-				errorAtCurrent(&parser, "Functions cannot have more than 255 arguments");
+				compilerPanic(&parser, "Functions cannot have more than 255 arguments", ARGUMENT_EXTENT);
 			}
 			uint8_t constant = parseVariable("Expected parameter name");
 			defineVariable(constant);
@@ -685,7 +685,7 @@ static void arrayLiteral(bool canAssign) {
 		do {
 			expression();
 			if (elementCount >= UINT16_MAX) {
-				compilerPanic(&parser, "Too many elements in array literal");
+				compilerPanic(&parser, "Too many elements in array literal", COLLECTION_EXTENT);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
@@ -704,7 +704,7 @@ static void tableLiteral(bool canAssign) {
 			consume(TOKEN_COLON, "Expected ':' after <table> key");
 			expression();
 			if (elementCount >= UINT16_MAX) {
-				compilerPanic(&parser, "Too many elements in table literal");
+				compilerPanic(&parser, "Too many elements in table literal", COLLECTION_EXTENT);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
@@ -737,7 +737,7 @@ static void varDeclaration() {
 		markInitialized();
 		do {
 			if (variableCount >= 255) {
-				compilerPanic(&parser, "Cannot declare more than 255 variables at one time.");
+				compilerPanic(&parser, "Cannot declare more than 255 variables at one time.", VARIABLE_EXTENT);
 				return;
 			}
 			variables[variableCount] = parseVariable("Expected variable name");
@@ -749,7 +749,7 @@ static void varDeclaration() {
 			int defined = 0;
 			do {
 				if (defined >= variableCount) {
-					compilerPanic(&parser, "Too many values given for variable declaration.");
+					compilerPanic(&parser, "Too many values given for variable declaration.", VARIABLE_DECLARATION_MISMATCH);
 					return;
 				}
 				expression();
@@ -863,20 +863,20 @@ static void ifStatement() {
 
 static void returnStatement() {
 	if (current->type == TYPE_SCRIPT) {
-		compilerPanic(&parser, "Cannot use <return> outside of a function");
+		compilerPanic(&parser, "Cannot use <return> outside of a function", SYNTAX);
 	}
 
 	if (match(TOKEN_SEMICOLON)) {
 		emitReturn();
 	} else {
 		if (current->type == TYPE_INITIALIZER) {
-			compilerPanic(&parser, "Cannot return a value from an 'init' function");
+			compilerPanic(&parser, "Cannot return a value from an 'init' function", SYNTAX);
 		}
 
 		uint8_t valueCount = 0;
 		do {
 			if (valueCount >= 255) {
-				compilerPanic(&parser, "Cannot return more than 255 values.");
+				compilerPanic(&parser, "Cannot return more than 255 values.", RETURN_EXTENT);
 			}
 			expression();
 			valueCount++;
@@ -964,7 +964,7 @@ static void string(bool canAssign) {
 
 static void self(bool canAssign) {
 	if (currentClass == NULL) {
-		compilerPanic(&parser, "'self' cannot be used outside of a class.");
+		compilerPanic(&parser, "'self' cannot be used outside of a class.", NAME);
 		return;
 	}
 
@@ -1048,7 +1048,7 @@ static void parsePrecedence(Precedence precedence) {
 	advance();
 	ParseFn prefixRule = getRule(parser.previous.type)->prefix;
 	if (prefixRule == NULL) {
-		compilerPanic(&parser, "Expected expression.");
+		compilerPanic(&parser, "Expected expression.", SYNTAX);
 		return;
 	}
 
@@ -1062,7 +1062,7 @@ static void parsePrecedence(Precedence precedence) {
 	}
 
 	if (canAssign && match(TOKEN_EQUAL)) {
-		compilerPanic(&parser, "Invalid Assignment Target");
+		compilerPanic(&parser, "Invalid Assignment Target", SYNTAX);
 	}
 }
 
@@ -1070,13 +1070,14 @@ static ParseRule *getRule(TokenType type) {
 	return &rules[type]; // Returns the rule at the given index
 }
 
-ObjectFunction *compile(const char *source) {
+ObjectFunction *compile(char *source) {
 	initScanner(source);
 	Compiler compiler;
 	initCompiler(&compiler, TYPE_SCRIPT);
 
 	parser.hadError = false;
 	parser.panicMode = false;
+	parser.source = source;
 
 	advance();
 

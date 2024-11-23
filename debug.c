@@ -207,7 +207,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return byteInstruction("OP_UNPACK_TUPLE", chunk, offset);
 		}
 		case OP_RETURN_MULTI: {
-			return simpleInstruction("OP_RETURN_MULTI", chunk);
+			return simpleInstruction("OP_RETURN_MULTI", offset);
 		}
 		case OP_ANON_FUNCTION: {
 			return constantInstruction("OP_ANON_FUNCTION", chunk, offset);

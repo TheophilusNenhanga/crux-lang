@@ -3,9 +3,11 @@
 #include "object.h"
 #include "scanner.h"
 
-ObjectFunction *compile(const char *source);
+
+ObjectFunction *compile(char *source);
 void markCompilerRoots();
 typedef struct {
+	char *source;
 	Token current;
 	Token previous;
 	bool hadError;
