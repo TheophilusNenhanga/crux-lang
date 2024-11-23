@@ -1,6 +1,5 @@
 #include "vm.h"
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,37 +12,15 @@
 #include "memory.h"
 #include "natives/error.h"
 #include "object.h"
+#include "panic.h"
 #include "value.h"
 
 VM vm;
 
-static void resetStack() {
+void resetStack() {
 	vm.stackTop = vm.stack;
 	vm.frameCount = 0;
 	vm.openUpvalues = NULL;
-}
-
-static void runtimeError(const char *format, ...) {
-	va_list args;
-	va_start(args, format);
-	fprintf(stderr, "-------RUNTIME ERROR-------\n");
-	vfprintf(stderr, format, args);
-	va_end(args);
-	fputs("\n", stderr);
-
-	for (int i = vm.frameCount - 1; i >= 0; i--) {
-		CallFrame *frame = &vm.frames[i];
-		ObjectFunction *function = frame->closure->function;
-		size_t instruction = frame->ip - function->chunk.code - 1;
-		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
-		if (function->name == NULL) {
-			fprintf(stderr, "script\n");
-		} else {
-			printf("%s()\n", function->name->chars);
-		}
-	}
-
-	resetStack();
 }
 
 static void defineNative(const char *name, NativeFn function, int arity) {
@@ -68,12 +45,12 @@ static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
 static bool call(ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
-		runtimeError("Expected %d arguments, got %d", closure->function->arity, argCount);
+		runtimePanic(ARGUMENT_MISMATCH,"Expected %d arguments, got %d", closure->function->arity, argCount);
 		return false;
 	}
 
 	if (vm.frameCount == FRAMES_MAX) {
-		runtimeError("Stack overflow");
+		runtimePanic(STACK_OVERFLOW, "Stack overflow");
 		return false;
 	}
 
@@ -92,7 +69,7 @@ static bool callValue(Value callee, int argCount) {
 			case OBJECT_NATIVE: {
 				ObjectNative *native = AS_NATIVE_FN(callee);
 				if (argCount != native->arity) {
-					runtimeError("Expected %d argument(s), got %d", native->arity, argCount);
+					runtimePanic(ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
 				}
 				Value result = native->function(argCount, vm.stackTop - argCount);
@@ -109,7 +86,7 @@ static bool callValue(Value callee, int argCount) {
 					return call(AS_CLOSURE(initializer), argCount);
 				}
 				if (argCount != 0) {
-					runtimeError("Expected 0 arguments but got %d arguments.", argCount);
+					runtimePanic(ARGUMENT_MISMATCH, "Expected 0 arguments but got %d arguments.", argCount);
 					return false;
 				}
 				return true;
@@ -123,7 +100,7 @@ static bool callValue(Value callee, int argCount) {
 				break;
 		}
 	}
-	runtimeError("Can only call functions and classes.");
+	runtimePanic(TYPE, "Can only call functions and classes.");
 	return false;
 }
 
@@ -132,7 +109,7 @@ static bool invokeFromClass(ObjectClass *klass, ObjectString *name, int argCount
 	if (tableGet(&klass->methods, name, &method)) {
 		return call(AS_CLOSURE(method), argCount);
 	}
-	runtimeError("Undefined property '%s'.", name->chars);
+	runtimePanic(NAME, "Undefined property '%s'.", name->chars);
 	return false;
 }
 
@@ -140,7 +117,7 @@ static bool invoke(ObjectString *name, int argCount) {
 	Value receiver = peek(argCount);
 
 	if (!IS_INSTANCE(receiver)) {
-		runtimeError("Only instances have methods.");
+		runtimePanic(TYPE, "Only instances have methods.");
 		return false;
 	}
 
@@ -158,7 +135,7 @@ static bool invoke(ObjectString *name, int argCount) {
 static bool bindMethod(ObjectClass *klass, ObjectString *name) {
 	Value method;
 	if (!tableGet(&klass->methods, name, &method)) {
-		runtimeError("Undefined property '%s'", name->chars);
+		runtimePanic(NAME, "Undefined property '%s'", name->chars);
 		return false;
 	}
 
@@ -269,7 +246,7 @@ static bool binaryOperation(OpCode operation) {
 
 
 	if (!(IS_NUMBER(a) || IS_NUMBER(b))) {
-		runtimeError("{ Error: Binary Operation } Operands must be of type <number>.");
+		runtimePanic(TYPE, "Operands must be of type 'number'.");
 		return false;
 	}
 
@@ -297,7 +274,7 @@ static bool binaryOperation(OpCode operation) {
 
 		case OP_DIVIDE: {
 			if (bNum == 0) {
-				runtimeError("{ Error: Division by Zero }");
+				runtimePanic(DIVISION_BY_ZERO, "Tried to divide by zero.");
 				return false;
 			}
 			push(NUMBER_VAL(aNum / bNum));
@@ -335,6 +312,7 @@ static bool binaryOperation(OpCode operation) {
 			push(NUMBER_VAL((int64_t) aNum >> (int64_t) bNum));
 			break;
 		}
+		default:{}
 	}
 	return true;
 }
@@ -342,11 +320,11 @@ static bool binaryOperation(OpCode operation) {
 InterpretResult globalCompoundOperation(ObjectString *name, OpCode opcode, char *operation) {
 	Value currentValue;
 	if (!tableGet(&vm.globals, name, &currentValue)) {
-		runtimeError("Undefined variable '%s'.", name->chars);
+		runtimePanic(NAME, "Undefined variable '%s'.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-		runtimeError("Operands must be numbers for '%s' operator.", operation);
+		runtimePanic(TYPE, "Operands must be ot type 'number' for '%s' operator.", operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	switch (opcode) {
@@ -356,7 +334,7 @@ InterpretResult globalCompoundOperation(ObjectString *name, OpCode opcode, char 
 				tableSet(&vm.globals, name, NUMBER_VAL(result));
 				break;
 			}
-			runtimeError("Division by zero error: '%s'.", name->chars);
+			runtimePanic(DIVISION_BY_ZERO,"Division by zero error: '%s'.", name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		case OP_SET_GLOBAL_STAR: {
@@ -503,7 +481,7 @@ uint8_t instruction;
 					push(NUMBER_VAL(-AS_NUMBER(pop())));
 					break;
 				}
-				runtimeError("Operand must be of type <number>.");
+				runtimePanic(TYPE, "Operand must be of type 'number'.");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 
@@ -582,7 +560,7 @@ uint8_t instruction;
 					pop();
 					break;
 				}
-				runtimeError("Cannot define '%s' because it is already defined.", name->chars);
+				runtimePanic(NAME, "Cannot define '%s' because it is already defined.", name->chars);
 				return INTERPRET_RUNTIME_ERROR;
 			}
 
@@ -593,14 +571,14 @@ uint8_t instruction;
 					push(value);
 					break;
 				}
-				runtimeError("Undefined variable '%s'.", name->chars);
+				runtimePanic(NAME, "Undefined variable '%s'.", name->chars);
 				return INTERPRET_RUNTIME_ERROR;
 			}
 
 			case OP_SET_GLOBAL: {
 				ObjectString *name = READ_STRING();
 				if (!tableSet(&vm.globals, name, peek(0))) {
-					runtimeError("Cannot give variable '%s' a value because it has not been defined", name->chars);
+					runtimePanic(NAME, "Cannot give variable '%s' a value because it has not been defined", name->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
@@ -673,7 +651,7 @@ uint8_t instruction;
 
 			case OP_GET_PROPERTY: {
 				if (!IS_INSTANCE(peek(0))) {
-					runtimeError("Only instances have properties.");
+					runtimePanic(TYPE, "Only instances have properties.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				ObjectInstance *instance = AS_INSTANCE(peek(0));
@@ -698,7 +676,7 @@ uint8_t instruction;
 
 			case OP_SET_PROPERTY: {
 				if (!IS_INSTANCE(peek(1))) {
-					runtimeError("Only instances have fields.");
+					runtimePanic(TYPE, "Only instances have fields.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -709,7 +687,7 @@ uint8_t instruction;
 					push(value);
 					break;
 				}
-				runtimeError("Undefined property '%s'.", READ_STRING());
+				runtimePanic(NAME, "Undefined property '%s'.", READ_STRING());
 				return INTERPRET_RUNTIME_ERROR;
 			}
 			case OP_METHOD: {
@@ -731,7 +709,7 @@ uint8_t instruction;
 				Value superClass = peek(1);
 
 				if (!IS_CLASS(superClass)) {
-					runtimeError("Cannot inherit from non class object.");
+					runtimePanic(TYPE ,"Cannot inherit from non class object.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -780,11 +758,11 @@ uint8_t instruction;
 					Value key = pop();
 					if (IS_NUMBER(key) || IS_STRING(key)) {
 						if (!objectTableSet(table, key, value)) {
-							runtimeError("Failed to set value in table");
+							runtimePanic(COLLECTION_SET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
 						}
 					} else {
-						runtimeError("Key cannot be hashed.", READ_STRING());
+						runtimePanic(TYPE, "Key cannot be hashed.", READ_STRING());
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
@@ -799,25 +777,25 @@ uint8_t instruction;
 						ObjectTable *table = AS_TABLE(peek(0));
 						Value value;
 						if (!objectTableGet(table, indexValue, &value)) {
-							runtimeError("Failed to get value from table");
+							runtimePanic(COLLECTION_GET, "Failed to get value from table");
 							return INTERPRET_RUNTIME_ERROR;
 						}
 						pop();
 						push(value);
 					} else {
-						runtimeError("Key cannot be hashed.", READ_STRING());
+						runtimePanic(TYPE, "Key cannot be hashed.", READ_STRING());
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else if (IS_ARRAY(peek(0))) {
 					if (!IS_NUMBER(indexValue)) {
-						runtimeError("Index must be a number.");
+						runtimePanic(TYPE, "Index must be of type 'number'.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 					int index = AS_NUMBER(indexValue);
 					ObjectArray *array = AS_ARRAY(peek(0));
 					Value value;
 					if (!arrayGet(array, index, &value)) {
-						runtimeError("Failed to get value from array");
+						runtimePanic(COLLECTION_GET, "Failed to get value from array");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 					pop(); // pop the array off the stack
@@ -835,22 +813,22 @@ uint8_t instruction;
 					ObjectTable *table = AS_TABLE(peek(1));
 					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
 						if (!objectTableSet(table, indexValue, value)) {
-							runtimeError("Failed to set value in table");
+							runtimePanic( COLLECTION_GET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
 						}
 					} else {
-						runtimeError("Key cannot be hashed.");
+						runtimePanic(TYPE, "Key cannot be hashed.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else if (IS_ARRAY(peek(1))) {
 					ObjectArray *array = AS_ARRAY(peek(1));
 					int index = AS_NUMBER(indexValue);
 					if (!arraySet(array, index, value)) {
-						runtimeError("Failed to set value in array");
+						runtimePanic(COLLECTION_SET,"Failed to set value in array");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else {
-					runtimeError("{ Error: OP_SET_COLLECTION } Value is not a collection.");
+					runtimePanic(TYPE, "Value is not a collection type.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				pop(); // collection
@@ -864,14 +842,14 @@ uint8_t instruction;
 				Value currentValue = frame->slots[slot];
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '/=' operator");
+					runtimePanic(TYPE,"Both operands must be of type 'number' for the '/=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
 				double divisor = AS_NUMBER(peek(0));
 
 				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_LOCAL_SLASH } Divisor must be non-zero.");
+					runtimePanic(DIVISION_BY_ZERO, "Divisor must be non-zero.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -883,7 +861,7 @@ uint8_t instruction;
 				Value currentValue = frame->slots[slot];
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '*=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
@@ -894,7 +872,7 @@ uint8_t instruction;
 				Value currentValue = frame->slots[slot];
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '+=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '+=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(0)));
@@ -905,7 +883,7 @@ uint8_t instruction;
 				Value currentValue = frame->slots[slot];
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '-=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '-=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(0)));
@@ -916,12 +894,12 @@ uint8_t instruction;
 				Value currentValue = *frame->closure->upvalues[slot]->location;
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '/=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '/=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				double divisor = AS_NUMBER(peek(0));
 				if (divisor == 0.0) {
-					runtimeError("{ Error: OP_SET_UPVALUE_SLASH } Divisor must be non-zero.");
+					runtimePanic(DIVISION_BY_ZERO, "Divisor must be non-zero.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) / divisor);
@@ -933,7 +911,7 @@ uint8_t instruction;
 				Value currentValue = *frame->closure->upvalues[slot]->location;
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '*=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(0)));
@@ -944,7 +922,7 @@ uint8_t instruction;
 				Value currentValue = *frame->closure->upvalues[slot]->location;
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '+=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '+=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(0)));
@@ -956,7 +934,7 @@ uint8_t instruction;
 				Value currentValue = *frame->closure->upvalues[slot]->location;
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimeError("Both operands must be numbers for the '-=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '-=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -1015,20 +993,20 @@ uint8_t instruction;
 
 				if (vm.previousInstruction == OP_RETURN_MULTI) {
 					if (!IS_NUMBER(peek(0))) {
-						runtimeError("Invalid return value count");
+						runtimePanic(RUNTIME, "Invalid return value count");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 
 					int actual = AS_NUMBER(pop());
 
 					if (variableCount != actual) {
-						runtimeError("Expected %d values to unpack but got %d.", variableCount, actual);
+						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}else {
 					int valuesOnStack = (int)(vm.stackTop - vm.stack-vm.frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimeError("Not enough values to unpack. Expected %d but got %d.",
+						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
 												variableCount, valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
@@ -1064,7 +1042,7 @@ uint8_t instruction;
 			}
 
 			default: {
-				runtimeError("BYTECODE INSTRUCTION NOT IMPLEMENTED");
+				runtimePanic(RUNTIME, "BYTECODE INSTRUCTION NOT IMPLEMENTED");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		}

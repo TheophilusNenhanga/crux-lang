@@ -1,7 +1,9 @@
 #include "panic.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 
+#include "vm.h"
 
 static ErrorDetails getErrorDetails(ErrorType type) {
 	switch (type) {
@@ -38,17 +40,17 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			return (ErrorDetails) {"Name Error", "The name you invoked caused an error"};
 		}
 		case CLOSURE_EXTENT: {
-			return (ErrorDetails) {"Closure Extent Error", "Functions cannot close over 255 variables"};
+			return (ErrorDetails) {"Closure Extent Error", "Functions cannot close over 255 variables."};
 		}
 		case LOCAL_EXTENT: {
-			return (ErrorDetails) {"Local Variable Extent Error", "Functions cannot have more than 255 local variables"};
+			return (ErrorDetails) {"Local Variable Extent Error", "Functions cannot have more than 255 local ."};
 		}
 		case ARGUMENT_EXTENT: {
-			return (ErrorDetails) {"Argument Extent Error", "Functions cannot have more than 255 arguments"};
+			return (ErrorDetails) {"Argument Extent Error", "Functions cannot have more than 255 arguments."};
 		}
 		case COLLECTION_EXTENT: {
 			return (ErrorDetails) {"Collection Extent Error",
-														 "Collections cannot have more than 65535 elements in their definition"};
+														 "Collections cannot have more than 65535 elements in their definition."};
 		}
 		case VARIABLE_EXTENT: {
 			return (ErrorDetails) {"Variable Extent Error", "Cannot declare more than 255 variables at a time."};
@@ -59,6 +61,21 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		}
 		case RETURN_EXTENT: {
 			return (ErrorDetails) {"Return Extent Error", "Cannot return more than 255 values at a time."};
+		}
+		case ARGUMENT_MISMATCH: {
+			return (ErrorDetails) {"Mismatch Error", "The number of arguments in the call must match the number of arguments in the declaration."};
+		}
+		case STACK_OVERFLOW: {
+			return (ErrorDetails) {"Stack Overflow Error", "Too many stacks created. There may be a unterminated recursive call."};
+		}
+		case COLLECTION_GET: {
+			return (ErrorDetails) {"Collection Get Error", ""};
+		}
+		case COLLECTION_SET: {
+			return (ErrorDetails) {"Collection Set Error", "Try adding a different value to the collection"};
+		}
+		case UNPACK_MISMATCH: {
+			return (ErrorDetails) {"Unpack Mismatch Error", "Ensure that you assign all unpacked values"};
 		}
 		case RUNTIME:
 		default:
@@ -86,22 +103,22 @@ void printErrorLine(int lineNumber, const char *source, int startCol, int length
 	// Calculate padding for line numbers (handles up to 9999 lines)
 	int lineNumWidth = snprintf(NULL, 0, "%d", lineNumber);
 
-	printf("%*d | ", lineNumWidth, lineNumber);
-	printf("%.*s\n", (int) (lineEnd - lineStart), lineStart);
+	fprintf(stderr, "%*d | ", lineNumWidth, lineNumber);
+	fprintf(stderr, "%.*s\n", (int) (lineEnd - lineStart), lineStart);
 
-	printf("%*s | ", lineNumWidth, "");
+	fprintf(stderr, "%*s | ", lineNumWidth, "");
 
 
 	for (int i = 0; i < startCol; i++) {
 		char c = lineStart[i];
-		printf("%c", (c == '\t') ? '\t' : ' ');
+		fprintf(stderr, "%c", (c == '\t') ? '\t' : ' ');
 	}
 
-	printf(RED "^");
+	fprintf(stderr, RED "^");
 	for (int i = 1; i < length; i++) {
 		printf("~");
 	}
-	printf(RESET "\n");
+	fprintf(stderr, RESET "\n");
 }
 
 void errorAt(Parser *parser, Token *token, const char *message, ErrorType errorType) {
@@ -111,14 +128,14 @@ void errorAt(Parser *parser, Token *token, const char *message, ErrorType errorT
 	parser->panicMode = true;
 
 	ErrorDetails details = getErrorDetails(errorType);
-	printf("%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA, message, token->line, RESET);
+	fprintf(stderr, "%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA, message, token->line, RESET);
 
 	if (token->type != TOKEN_EOF) {
-		printf("\n");
+		fprintf(stderr, "\n");
 		printErrorLine(token->line, parser->source, token->start - parser->source, token->length);
 	}
 
-	printf("\n%sHint:%s %s\n\n", MAGENTA, details.hint, RESET);
+	fprintf(stderr, "\n%sHint:%s %s\n", MAGENTA, details.hint, RESET);
 	parser->hadError = true;
 }
 
@@ -126,10 +143,29 @@ void compilerPanic(Parser *parser, const char *message, ErrorType errorType) {
 	errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(const char *message, ErrorType type) {
+void runtimePanic(ErrorType type, const char *format, ...) {
 	ErrorDetails details = getErrorDetails(type);
 
-	printf("%s%s %s\n", RED, details.name, RESET);
-	printf("%s%s %s", CYAN, message, RESET);
-	printf("\n%sHint: %s %s\n\n", MAGENTA, details.hint, RESET);
+	for (int i = vm.frameCount - 1; i >= 0; i--) {
+		CallFrame *frame = &vm.frames[i];
+		ObjectFunction *function = frame->closure->function;
+		size_t instruction = frame->ip - function->chunk.code - 1;
+		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+		if (function->name == NULL) {
+			fprintf(stderr, "script\n\n");
+		} else {
+			printf("%s()\n", function->name->chars);
+		}
+	}
+
+	va_list args;
+	va_start(args, format);
+
+	fprintf(stderr, "%s%s: %s", RED, details.name, MAGENTA);
+	vfprintf(stderr, format, args);
+	fprintf(stderr, "%s\n", RESET);
+	fprintf(stderr, "\n%sHint:%s %s\n", MAGENTA, details.hint, RESET);
+	va_end(args);
+
+	resetStack();
 }
