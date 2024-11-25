@@ -1,6 +1,7 @@
 #include "vm.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "./natives/collections.h"
@@ -75,6 +76,15 @@ static bool callValue(Value callee, int argCount) {
 				Value result = native->function(argCount, vm.stackTop - argCount);
 				vm.stackTop -= argCount + 1;
 				push(result);
+
+				if (IS_ERROR(result)) {
+					ObjectError* error = AS_ERROR(result);
+					if (error->creator == PANIC) {
+						runtimePanic(error->type, "%s", error->message->chars);
+						return false;
+					}
+				}
+
 				return true;
 			}
 			case OBJECT_CLASS: {
@@ -188,20 +198,51 @@ static void defineMethod(ObjectString *name) {
 
 static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
-static void concatenate() {
-	ObjectString *b = AS_STRING(peek(0));
-	ObjectString *a = AS_STRING(peek(1));
+static bool concatenate() {
+	Value b = peek(0);
+	Value a = peek(1);
 
-	int length = a->length + b->length;
-	char *chars = ALLOCATE(char, length + 1);
-	memcpy(chars, a->chars, a->length);
-	memcpy(chars + a->length, b->chars, b->length);
+	ObjectString *stringB;
+	ObjectString *stringA;
+
+	if (IS_STRING(b)) {
+		stringB = AS_STRING(b);
+	}else {
+		stringB = toString(b);
+		if (stringB == NULL) {
+			runtimePanic(TYPE, "Could not convert right operand to a string.");
+			return false;
+		}
+	}
+
+	if (IS_STRING(a)) {
+		stringA = AS_STRING(a);
+	}else {
+		stringA = toString(a);
+		if (stringA == NULL) {
+			runtimePanic(TYPE, "Could not convert left operand to a string.");
+			return false;
+		}
+	}
+
+	int length = stringA->length + stringB->length;
+	char *chars = ALLOCATE(char, length+1);
+
+	if (chars == NULL) {
+		runtimePanic(MEMORY, "Could not allocate memory for concatenation.");
+		return false;
+	}
+
+	memcpy(chars, stringA->chars, stringA->length);
+	memcpy(chars + stringA->length, stringB->chars, stringB->length);
 	chars[length] = '\0';
 
 	ObjectString *result = takeString(chars, length);
+
 	pop();
 	pop();
 	push(OBJECT_VAL(result));
+	return true;
 }
 
 void initVM() {
@@ -486,8 +527,10 @@ uint8_t instruction;
 			}
 
 			case OP_ADD: {
-				if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
-					concatenate();
+				if (IS_STRING(peek(0)) || IS_STRING(peek(1))) {
+					if (!concatenate()) {
+						return INTERPRET_RUNTIME_ERROR;
+					}
 					break;
 				}
 				if (!binaryOperation(OP_ADD)) {
@@ -1056,7 +1099,7 @@ uint8_t instruction;
 #undef READ_SHORT
 }
 
-InterpretResult interpret(const char *source) {
+InterpretResult interpret(char *source) {
 	ObjectFunction *function = compile(source);
 	if (function == NULL)
 		return INTERPRET_COMPILE_ERROR;

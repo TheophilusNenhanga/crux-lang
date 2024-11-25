@@ -46,7 +46,7 @@ void freeVM();
 
 void resetStack();
 
-InterpretResult interpret(const char *source);
+InterpretResult interpret(char *source);
 
 void push(Value value);
 

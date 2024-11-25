@@ -63,10 +63,13 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			return (ErrorDetails) {"Return Extent Error", "Cannot return more than 255 values at a time."};
 		}
 		case ARGUMENT_MISMATCH: {
-			return (ErrorDetails) {"Mismatch Error", "The number of arguments in the call must match the number of arguments in the declaration."};
+			return (ErrorDetails) {
+					"Mismatch Error",
+					"The number of arguments in the call must match the number of arguments in the declaration."};
 		}
 		case STACK_OVERFLOW: {
-			return (ErrorDetails) {"Stack Overflow Error", "Too many stacks created. There may be a unterminated recursive call."};
+			return (ErrorDetails) {"Stack Overflow Error",
+														 "Too many stacks created. There may be a unterminated recursive call."};
 		}
 		case COLLECTION_GET: {
 			return (ErrorDetails) {"Collection Get Error", ""};
@@ -76,6 +79,9 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		}
 		case UNPACK_MISMATCH: {
 			return (ErrorDetails) {"Unpack Mismatch Error", "Ensure that you assign all unpacked values"};
+		}
+		case MEMORY: {
+			return (ErrorDetails) {"Memory Error", "Cannot allocate more memory."};
 		}
 		case RUNTIME:
 		default:
@@ -135,7 +141,7 @@ void errorAt(Parser *parser, Token *token, const char *message, ErrorType errorT
 		printErrorLine(token->line, parser->source, token->start - parser->source, token->length);
 	}
 
-	fprintf(stderr, "\n%sHint:%s %s\n", MAGENTA, details.hint, RESET);
+	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	parser->hadError = true;
 }
 
@@ -146,25 +152,26 @@ void compilerPanic(Parser *parser, const char *message, ErrorType errorType) {
 void runtimePanic(ErrorType type, const char *format, ...) {
 	ErrorDetails details = getErrorDetails(type);
 
+	va_list args;
+	va_start(args, format);
+
+	fprintf(stderr, "\n%s%s: %s", RED, details.name, MAGENTA);
+	vfprintf(stderr, format, args);
+	fprintf(stderr, "%s", RESET);
+
 	for (int i = vm.frameCount - 1; i >= 0; i--) {
 		CallFrame *frame = &vm.frames[i];
 		ObjectFunction *function = frame->closure->function;
 		size_t instruction = frame->ip - function->chunk.code - 1;
-		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+		fprintf(stderr, "\n[line %d] in ", function->chunk.lines[instruction]);
 		if (function->name == NULL) {
-			fprintf(stderr, "script\n\n");
+			fprintf(stderr, "script");
 		} else {
-			printf("%s()\n", function->name->chars);
+			printf("%s()", function->name->chars);
 		}
 	}
 
-	va_list args;
-	va_start(args, format);
-
-	fprintf(stderr, "%s%s: %s", RED, details.name, MAGENTA);
-	vfprintf(stderr, format, args);
-	fprintf(stderr, "%s\n", RESET);
-	fprintf(stderr, "\n%sHint:%s %s\n", MAGENTA, details.hint, RESET);
+	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	va_end(args);
 
 	resetStack();

@@ -1,0 +1,79 @@
+// Test basic string concatenation
+println("=== Basic String Tests ===");
+println("hello" + " world");  // Should print: hello world
+println("" + "");  // Should print empty line
+println("a" + "b" + "c");  // Should print: abc
+
+// Test number concatenation
+println("\n=== Number Tests ===");
+let num = 42;
+let pi = 3.14159;
+println("Integer: " + num);  // Should print: Integer: 42
+println("Float: " + pi);  // Should print: Float: 3.14159
+println("Math: " + (2 + 2));  // Should print: Math: 4
+
+// Test boolean concatenation
+println("\n=== Boolean Tests ===");
+let isTrue = true;
+let isFalse = false;
+println("True is: " + isTrue);  // Should print: True is: true
+println("False is: " + isFalse);  // Should print: False is: false
+
+// Test nil concatenation
+println("\n=== Nil Tests ===");
+let nothing = nil;
+println("Nil value: " + nothing);  // Should print: Nil value: nil
+
+// Test array concatenation
+println("\n=== Array Tests ===");
+let arr = [1, 2, 3];
+println("Array: " + arr);  // Should print: Array: [1, 2, 3]
+let nested = [1, [2, 3], 4];
+println("Nested array: " + nested);  // Should print: Nested array: [1, [2, 3], 4]
+
+// Test table concatenation
+println("\n=== Table Tests ===");
+let person = {"name": "Bob", "age": 25};
+println("Person: " + person);  // Should print: Person: {name: Bob, age: 25}
+
+// Test multiple concatenations and mixed types
+println("\n=== Mixed Type Tests ===");
+println("Number " + 1 + " bool " + true + " array " + [1,2] + " nil " + nil);
+println(123 + " " + 456);  // Should print: 123 456
+println(true + " and " + false);  // Should print: true and false
+
+// Test function return values in concatenation
+println("\n=== Function Return Value Tests ===");
+let f = fn() { return 42; };
+println("Function returned: " + f());  // Should print: Function returned: 42
+
+// Test class instance concatenation
+println("\n=== Class Instance Tests ===");
+class Test {
+    fn init(name) {
+        self.name = name;
+    }
+}
+let test = Test("instance");
+println("Class instance: " + test);  // Should print: Class instance: Test <instance>
+
+// Test error handling (these should not crash the program)
+println("\n=== Error Handling Tests ===");
+println("Before error test");
+// Try some potentially problematic concatenations
+println("Long string: " + ("a" + "b" + "c" + "d" + "e") * 100);
+println("After error test");
+
+// Test multiple variable concatenation
+println("\n=== Multiple Variable Tests ===");
+let x = 10;
+let y = 20;
+let z = 30;
+println("X=" + x + " Y=" + y + " Z=" + z);  // Should print: X=10 Y=20 Z=30
+
+// Test concatenation with spacing
+println("\n=== Spacing Tests ===");
+println("Space:" + " " + "between");  // Should print: Space: between
+println("No" + "" + "Space");  // Should print: NoSpace
+
+println("\n=== Test Complete ===");

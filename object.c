@@ -2,10 +2,11 @@
 
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include "memory.h"
 #include "table.h"
 #include "value.h"
-#include "memory.h"
 
 static Object *allocateObject(size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(NULL, 0, size);
@@ -206,6 +207,156 @@ ObjectString *takeString(char *chars, int length) {
 
 	return allocateString(chars, length, hash);
 }
+
+ObjectString *toString(Value value) {
+	if (!IS_OBJECT(value)) {
+		char buffer[32];
+		if (IS_NUMBER(value)) {
+			double num = AS_NUMBER(value);
+			if (num == (int) num) {
+				snprintf(buffer, sizeof(buffer), "%.0f", num);
+			} else {
+				snprintf(buffer, sizeof(buffer), "%g", num);
+			}
+		} else if (IS_BOOL(value)) {
+			strcpy(buffer, AS_BOOL(value) ? "true" : "false");
+		} else if (IS_NIL(value)) {
+			strcpy(buffer, "nil");
+		}
+		return copyString(buffer, (int) strlen(buffer));
+	}
+
+	switch (OBJECT_TYPE(value)) {
+		case OBJECT_STRING:
+			return AS_STRING(value);
+
+		case OBJECT_FUNCTION: {
+			ObjectFunction *function = AS_FUNCTION(value);
+			if (function->name == NULL) {
+				return copyString("<script>", 8);
+			}
+			char buffer[64];
+			int length = snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
+			return copyString(buffer, length);
+		}
+
+		case OBJECT_NATIVE: {
+			return copyString("<native fn>", 11);
+		}
+		case OBJECT_CLOSURE: {
+			ObjectFunction *function = AS_CLOSURE(value)->function;
+			if (function->name == NULL) {
+				return copyString("<script>", 8);
+			}
+			char buffer[64];
+			int length = snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
+			return copyString(buffer, length);
+		}
+
+		case OBJECT_UPVALUE: {
+			return copyString("<upvalue>", 9);
+		}
+
+		case OBJECT_CLASS: {
+			ObjectClass *klass = AS_CLASS(value);
+			char buffer[64];
+			int length = snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
+			return copyString(buffer, length);
+		}
+
+		case OBJECT_INSTANCE: {
+			ObjectInstance *instance = AS_INSTANCE(value);
+			char buffer[64];
+			int length = snprintf(buffer, sizeof(buffer), "%s <instance>", instance->klass->name->chars);
+			return copyString(buffer, length);
+		}
+
+		case OBJECT_BOUND_METHOD: {
+			ObjectBoundMethod *bound = AS_BOUND_METHOD(value);
+			char buffer[64];
+			int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>", bound->method->function->name->chars);
+			return copyString(buffer, length);
+		}
+
+		case OBJECT_ARRAY: {
+			ObjectArray *array = AS_ARRAY(value);
+			size_t bufSize = 2; // [] minimum
+			for (int i = 0; i < array->size; i++) {
+				ObjectString *element = toString(array->array[i]);
+				bufSize += element->length + 2; // element + ", "
+			}
+
+			char *buffer = ALLOCATE(char, bufSize);
+			char *ptr = buffer;
+			*ptr++ = '[';
+
+			for (int i = 0; i < array->size; i++) {
+				if (i > 0) {
+					*ptr++ = ',';
+					*ptr++ = ' ';
+				}
+				ObjectString *element = toString(array->array[i]);
+				memcpy(ptr, element->chars, element->length);
+				ptr += element->length;
+			}
+			*ptr++ = ']';
+
+			ObjectString *result = takeString(buffer, ptr - buffer);
+			return result;
+		}
+
+		case OBJECT_TABLE: {
+			ObjectTable *table = AS_TABLE(value);
+			size_t bufSize = 2; // {} minimum
+			for (int i = 0; i < table->capacity; i++) {
+				if (table->entries[i].isOccupied) {
+					ObjectString *key = toString(table->entries[i].key);
+					ObjectString *value = toString(table->entries[i].value);
+					bufSize += key->length + value->length + 4; // key:value,
+				}
+			}
+
+			char *buffer = ALLOCATE(char, bufSize);
+			char *ptr = buffer;
+			*ptr++ = '{';
+
+			bool first = true;
+			for (int i = 0; i < table->capacity; i++) {
+				if (table->entries[i].isOccupied) {
+					if (!first) {
+						*ptr++ = ',';
+						*ptr++ = ' ';
+					}
+					first = false;
+
+					ObjectString *key = toString(table->entries[i].key);
+					ObjectString *val = toString(table->entries[i].value);
+
+					memcpy(ptr, key->chars, key->length);
+					ptr += key->length;
+					*ptr++ = ':';
+					memcpy(ptr, val->chars, val->length);
+					ptr += val->length;
+				}
+			}
+			*ptr++ = '}';
+
+			ObjectString *result = takeString(buffer, ptr - buffer);
+			return result;
+		}
+
+		case OBJECT_ERROR: {
+			ObjectError *error = AS_ERROR(value);
+			char buffer[128];
+			int length = snprintf(buffer, sizeof(buffer), "<error: %s>", error->message->chars);
+			return copyString(buffer, length);
+		}
+
+		default:
+			return copyString("<unknown>", 9);
+	}
+}
+
 
 ObjectFunction *newFunction() {
 	ObjectFunction *function = ALLOCATE_OBJECT(ObjectFunction, OBJECT_FUNCTION);
@@ -409,8 +560,9 @@ bool arrayAdd(ObjectArray *array, Value value, int index) {
 	return true;
 }
 
-ObjectError* newError(ObjectString* message, ErrorType type, ErrorCreator creator) {
+ObjectError *newError(ObjectString *message, ErrorType type, ErrorCreator creator) {
 	ObjectError *error = ALLOCATE(ObjectError, OBJECT_ERROR);
+	error->object.type = OBJECT_ERROR;
 	error->message = message;
 	error->type = type;
 	error->creator = creator;

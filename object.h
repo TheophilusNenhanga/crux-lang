@@ -152,9 +152,10 @@ typedef enum {
 	COLLECTION_GET,
 	COLLECTION_SET,
 	UNPACK_MISMATCH,
+	MEMORY,
 } ErrorType;
 
-typedef enum { USER, STELLA } ErrorCreator;
+typedef enum { USER, STELLA, PANIC } ErrorCreator;
 
 typedef struct {
 	Object object;
@@ -176,6 +177,8 @@ ObjectInstance *newInstance(ObjectClass *klass);
 ObjectString *takeString(char *chars, int length);
 ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
+
+ObjectString *toString(Value value);
 
 ObjectTable *newTable(int elementCount);
 void freeObjectTable(ObjectTable *table);
