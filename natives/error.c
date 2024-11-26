@@ -2,22 +2,29 @@
 
 #include "../memory.h"
 
-Value errorNative(int argCount, Value *args) {
+NativeReturn errorNative(int argCount, Value *args) {
+	NativeReturn nativeReturn = makeNativeReturn(1);
+
 	Value message = args[0];
 	ObjectString *errorMessage = toString(message);
 	ObjectError *error = newError(errorMessage, RUNTIME, USER);
-	return OBJECT_VAL(error);
+	nativeReturn.values[0] = OBJECT_VAL(error);
+	return nativeReturn;
 }
 
-Value panicNative(int argCount, Value *args) {
+NativeReturn panicNative(int argCount, Value *args) {
+	NativeReturn nativeReturn = makeNativeReturn(1);
+
 	Value value = args[0];
 
 	if (IS_ERROR(value)) {
 		ObjectError *error = AS_ERROR(value);
 		error->creator = PANIC;
-		return OBJECT_VAL(error);
+		nativeReturn.values[0] = OBJECT_VAL(error);
+		return nativeReturn;
 	}
 	ObjectString *errorMessage = toString(value);
 	ObjectError *error = newError(errorMessage, RUNTIME, PANIC);
-	return OBJECT_VAL(error);
+	nativeReturn.values[0] = OBJECT_VAL(error);
+	return nativeReturn;
 }

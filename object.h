@@ -109,7 +109,12 @@ typedef struct {
 	int capacity;
 } ObjectArray;
 
-typedef Value (*NativeFn)(int argCount, Value *args);
+typedef struct {
+	Value* values;
+	uint8_t size;
+} NativeReturn;
+
+typedef NativeReturn (*NativeFn)(int argCount, Value *args);
 
 typedef struct {
 	Object object;
@@ -177,6 +182,7 @@ ObjectInstance *newInstance(ObjectClass *klass);
 ObjectString *takeString(char *chars, int length);
 ObjectString *copyString(const char *chars, int length);
 void printObject(Value value);
+NativeReturn makeNativeReturn(uint8_t size);
 
 ObjectString *toString(Value value);
 

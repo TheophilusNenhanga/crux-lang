@@ -568,3 +568,10 @@ ObjectError *newError(ObjectString *message, ErrorType type, ErrorCreator creato
 	error->creator = creator;
 	return error;
 }
+
+NativeReturn makeNativeReturn(uint8_t size) {
+	NativeReturn nativeReturn;
+	nativeReturn.size = size;
+	nativeReturn.values = ALLOCATE(Value, nativeReturn.size);
+	return nativeReturn;
+}

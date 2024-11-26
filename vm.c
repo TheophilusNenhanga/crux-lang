@@ -6,7 +6,7 @@
 
 #include "./natives/collections.h"
 #include "./natives/io.h"
-#include "./natives/time.h"
+#include "./natives/stl_time.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -73,18 +73,27 @@ static bool callValue(Value callee, int argCount) {
 					runtimePanic(ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
 				}
-				Value result = native->function(argCount, vm.stackTop - argCount);
-				vm.stackTop -= argCount + 1;
-				push(result);
 
-				if (IS_ERROR(result)) {
-					ObjectError* error = AS_ERROR(result);
-					if (error->creator == PANIC) {
-						runtimePanic(error->type, "%s", error->message->chars);
+				NativeReturn result = native->function(argCount, vm.stackTop - argCount);
+				vm.stackTop -= argCount + 1;
+
+				if (result.size > 0) {
+					// The last Value returned from a native function must be the error if it has one
+					Value last = result.values[result.size - 1];
+					if (IS_ERROR(last)) {
+						ObjectError* error = AS_ERROR(last);
+						if (error->creator == PANIC) {
+							runtimePanic(error->type, "%s", error->message->chars);
 						return false;
+						}
 					}
 				}
 
+				for (int i = result.size - 1; i >= 0; i--) {
+					push(result.values[i]);
+				}
+
+				free(result.values);
 				return true;
 			}
 			case OBJECT_CLASS: {
