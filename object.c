@@ -541,7 +541,7 @@ bool arraySet(ObjectArray *array, int index, Value value) {
 }
 
 bool arrayGet(ObjectArray *array, int index, Value *value) {
-	if (index < 0 || index >= array->size) {
+	if (array == NULL) {
 		return false;
 	}
 	*value = array->array[index];

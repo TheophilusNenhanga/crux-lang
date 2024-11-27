@@ -19,7 +19,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			};
 		case INDEX_OUT_OF_BOUNDS:
 			return (ErrorDetails) {
-					"Index Error"
+					"Index Error",
 					"Array index must be within the array's size",
 			};
 		case LOOP_EXTENT: {

@@ -846,6 +846,10 @@ uint8_t instruction;
 					int index = AS_NUMBER(indexValue);
 					ObjectArray *array = AS_ARRAY(peek(0));
 					Value value;
+					if (index < 0 || index >= array->size) {
+						runtimePanic(INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+						return INTERPRET_RUNTIME_ERROR;
+					}
 					if (!arrayGet(array, index, &value)) {
 						runtimePanic(COLLECTION_GET, "Failed to get value from array");
 						return INTERPRET_RUNTIME_ERROR;
