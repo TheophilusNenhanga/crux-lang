@@ -1,8 +1,9 @@
 #include "io.h"
 
-#include "../object.h"
-
 #include <stdio.h>
+
+#include "../memory.h"
+#include "../object.h"
 
 void valuePrint(Value value);
 
@@ -61,13 +62,17 @@ void valuePrint(Value value) {
 	}
 }
 
-Value printNative(int argCount, Value *args) {
+NativeReturn printNative(int argCount, Value *args) {
 	valuePrint(args[0]);
-	return NIL_VAL;
+	NativeReturn nativeReturn = makeNativeReturn(1);
+	nativeReturn.values[0] = NIL_VAL;
+	return nativeReturn;
 }
 
-Value printlnNative(int argCount, Value *args) {
+NativeReturn printlnNative(int argCount, Value *args) {
 	valuePrint(args[0]);
 	printf("\n");
-	return NIL_VAL;
+	NativeReturn nativeReturn = makeNativeReturn(1);
+	nativeReturn.values[0] = NIL_VAL;
+	return nativeReturn;
 }

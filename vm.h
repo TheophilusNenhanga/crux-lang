@@ -28,13 +28,14 @@ typedef struct {
 	Table globals;
 	CallFrame frames[FRAMES_MAX];
 	int frameCount;
-	ObjectUpvalue *openUpvalues;
 	int grayCount;
-	int grayCapacity;
+	ObjectUpvalue *openUpvalues;
 	size_t bytesAllocated;
 	size_t nextGC;
 	Object **grayStack;
 	ObjectString *initString;
+	int grayCapacity;
+	uint8_t previousInstruction;
 } VM;
 
 extern VM vm;
@@ -43,7 +44,9 @@ void initVM();
 
 void freeVM();
 
-InterpretResult interpret(const char *source);
+void resetStack();
+
+InterpretResult interpret(char *source);
 
 void push(Value value);
 

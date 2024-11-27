@@ -106,6 +106,97 @@ fn makeCounter() {
 }
 ```
 
+### Multiple Return Values and Unpacking
+
+Stella supports returning multiple values from functions and unpacking them into variables. Note that values are returned in reverse order of how they are written in the return statement.
+
+#### Basic Multiple Returns
+```stella
+// Function returning multiple values (will return 3, 2, 1)
+let numbers = fn() {
+    return 1, 2, 3;
+};
+
+// Unpacking multiple values
+let a, b, c = numbers();
+println(a);  // 3
+println(b);  // 2
+println(c);  // 1
+
+// To get values in natural order, either:
+// 1. Return them in reverse:
+let naturalOrder = fn() {
+    return 3, 2, 1;  // Will be received as 1, 2, 3
+};
+
+// 2. Or unpack in reverse order:
+let c, b, a = numbers();  // a=1, b=2, c=3
+```
+
+#### Working with Multiple Returns in Nested Functions
+
+When working with nested function calls and multiple returns, keep in mind the reverse ordering:
+
+```stella
+// Example of nested function calls with multiple returns
+let nested = fn() {
+    let inner = fn() {
+        return 1, 2, 3;  // Will be returned as 3, 2, 1
+    };
+    let x, y, z = inner();  // x=3, y=2, z=1
+    return x + 1, y + 1, z + 1;  // Will return 2, 3, 4
+};
+
+// Values will be received in reverse order
+let a, b, c = nested();  // a=4, b=3, c=2
+```
+
+#### Using Multiple Returns with Expressions
+
+Multiple returns work with expressions and computations:
+
+```stella
+// Multiple returns with expressions
+let withExpr = fn() {
+    return 1 + 1, 2 * 2, 3 + 3;  // Returns 6, 4, 2
+};
+
+// Conditional returns
+let conditional = fn(x) {
+    if (x) {
+        return 1, 2;  // Returns 2, 1
+    }
+    return 3, 4, 5;  // Returns 5, 4, 3
+};
+```
+
+#### Best Practices
+
+1. When order matters, either:
+    - Write return values in reverse order
+    - Unpack variables in reverse order
+    - Document the expected order clearly in your code
+
+2. When working with nested functions, be mindful of the reverse ordering at each level
+
+3. When using multiple returns in computations, consider writing intermediate values to variables for clarity:
+```stella
+// Clear and maintainable
+let complex = fn() {
+    let x, y, z = someFunction();
+    let a = x + 1;
+    let b = y * 2;
+    let c = z - 3;
+    return a, b, c;
+};
+
+// Rather than
+let complex = fn() {
+    let x, y, z = someFunction();
+    return x + 1, y * 2, z - 3;  // Harder to predict ordering
+};
+```
+
 ### Data Structures
 
 ```stella

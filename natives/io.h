@@ -3,8 +3,9 @@
 #define IO_H
 
 #include "../value.h"
+#include "../object.h"
 
-Value printNative(int argCount, Value *args);
-Value printlnNative(int argCount, Value *args);
+NativeReturn printNative(int argCount, Value *args);
+NativeReturn printlnNative(int argCount, Value *args);
 
 #endif // IO_H

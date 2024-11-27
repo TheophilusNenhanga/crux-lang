@@ -38,8 +38,12 @@ add_executable(StellaC
         object.h
         natives/io.h
         natives/io.c
-        natives/time.h
-        natives/time.c
+        natives/stl_time.h
+        natives/stl_time.c
         natives/collections.h
         natives/collections.c
-        main.c)
+        main.c
+        panic.c
+        panic.h
+        natives/error.c
+        natives/error.h)

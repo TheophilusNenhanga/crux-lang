@@ -4,51 +4,75 @@
 #include "../object.h"
 
 
-Value lengthNative(int argCount, Value *args) {
+NativeReturn lengthNative(int argCount, Value *args) {
+	NativeReturn nativeReturn = makeNativeReturn(2);
+
 	Value value = args[0];
 	if (IS_ARRAY(value)) {
-		return NUMBER_VAL(AS_ARRAY(value)->size);
+		nativeReturn.values[0] = NUMBER_VAL(AS_ARRAY(value)->size);
+		nativeReturn.values[1] = NIL_VAL;
+		return nativeReturn;
 	}
 	if (IS_STRING(value)) {
-		return NUMBER_VAL(AS_STRING(value)->length);
+		nativeReturn.values[0] = NUMBER_VAL(AS_STRING(value)->length);
+		nativeReturn.values[1] = NIL_VAL;
+		return nativeReturn;
 	}
 	if (IS_TABLE(value)) {
-		return NUMBER_VAL(AS_TABLE(value)->size);
+		nativeReturn.values[0] = NUMBER_VAL(AS_TABLE(value)->size);
+		nativeReturn.values[1] = NIL_VAL;
+		return nativeReturn;
 	}
-	// TODO: Runtime error
-	return NIL_VAL;
+	ObjectError *error = newError(takeString("Expected either collection type.", 32), TYPE, STELLA);
+	nativeReturn.values[0] = NIL_VAL;
+	nativeReturn.values[1] = OBJECT_VAL(error);
+	return nativeReturn;
 }
 
-Value arrayAddNative(int argCount, Value *args) {
+NativeReturn arrayAddNative(int argCount, Value *args) {
 	Value value = args[0];
 	Value toAdd = args[1];
 
+	NativeReturn nativeReturn = makeNativeReturn(2);
+
 	if (!IS_ARRAY(value)) {
-		// TODO: RUNTIME_ERROR
-		return NIL_VAL;
+		ObjectError *error = newError(takeString("Expected type 'error'.", 22), TYPE, STELLA);
+		nativeReturn.values[0] = NIL_VAL;
+		nativeReturn.values[1] = OBJECT_VAL(error);
+		return nativeReturn;
 	}
 	ObjectArray *array = AS_ARRAY(value);
 	if (!arrayAdd(array, toAdd, array->size)) {
-		// TODO: RUNTIME ERROR
-		return NIL_VAL;
+		ObjectError *error = newError(takeString("Failed to add to array.", 23), RUNTIME, STELLA);
+		nativeReturn.values[0] = NIL_VAL;
+		nativeReturn.values[1] = OBJECT_VAL(error);
+		return nativeReturn;
 	}
-	return NIL_VAL;
+	nativeReturn.values[0] = NIL_VAL;
+	nativeReturn.values[1] = NIL_VAL;
+	return nativeReturn;
 }
 
-Value arrayRemoveNative(int argCount, Value *args) {
+NativeReturn arrayRemoveNative(int argCount, Value *args) {
+	NativeReturn nativeReturn = makeNativeReturn(2);
+
 	Value value = args[0];
 	if (IS_ARRAY(value)) {
 		ObjectArray *array = AS_ARRAY(value);
 		if (array->size < 1) {
-			// TODO: Runtime Error
-			return NIL_VAL;
-		} else {
-			array->array[array->size - 1] = NIL_VAL;
-			array->size--;
-			return NIL_VAL;
+			ObjectError *error = newError(takeString("Array must at least have 1 value.", 33), INDEX_OUT_OF_BOUNDS, STELLA);
+			nativeReturn.values[0] = NIL_VAL;
+			nativeReturn.values[1] = OBJECT_VAL(error);
+			return nativeReturn;
 		}
-	} else {
-		// TODO: RUNTIME_ERROR
-		return NIL_VAL;
+		array->array[array->size - 1] = NIL_VAL;
+		array->size--;
+		nativeReturn.values[0] = NIL_VAL;
+		nativeReturn.values[1] = NIL_VAL;
+		return nativeReturn;
 	}
+	ObjectError *error = newError(takeString("Expected type 'array'.", 22), TYPE, STELLA);
+	nativeReturn.values[0] = NIL_VAL;
+	nativeReturn.values[1] = OBJECT_VAL(error);
+	return nativeReturn;
 }

@@ -132,6 +132,12 @@ static void blackenObject(Object *object) {
 			markObjectTable(table);
 			break;
 		}
+		case OBJECT_ERROR: {
+			ObjectError *error = (ObjectError *) object;
+			markObject((Object*) error->message);
+			break;
+		}
+
 		case OBJECT_NATIVE:
 		case OBJECT_STRING:
 			break;
@@ -197,6 +203,11 @@ static void freeObject(Object *object) {
 			ObjectTable *table = (ObjectTable *) object;
 			freeObjectTable(table);
 			FREE(ObjectTable, object);
+			break;
+		}
+
+		case OBJECT_ERROR: {
+			FREE(ObjectError, object);
 			break;
 		}
 	}
