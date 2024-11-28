@@ -36,14 +36,18 @@ add_executable(StellaC
         table.c
         table.h
         object.h
-        natives/io.h
-        natives/io.c
-        natives/stl_time.h
-        natives/stl_time.c
-        natives/collections.h
-        natives/collections.c
+        NativeFunctions/io.h
+        NativeFunctions/io.c
+        NativeFunctions/stl_time.h
+        NativeFunctions/stl_time.c
+        NativeFunctions/collections.h
+        NativeFunctions/collections.c
         main.c
         panic.c
         panic.h
-        natives/error.c
-        natives/error.h)
+        NativeFunctions/error.c
+        NativeFunctions/error.h
+        NativeTypes/string.c
+        NativeTypes/string.h
+        NativeTypes/types.c
+        NativeTypes/types.h)

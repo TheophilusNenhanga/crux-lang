@@ -21,6 +21,10 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
+	Table methods;
+}NativeType;
+
+typedef struct {
 	Value stack[STACK_MAX]; // always points just past the last item
 	Value *stackTop;
 	Object *objects;
@@ -36,6 +40,7 @@ typedef struct {
 	ObjectString *initString;
 	int grayCapacity;
 	uint8_t previousInstruction;
+	NativeType stringType;
 } VM;
 
 extern VM vm;
