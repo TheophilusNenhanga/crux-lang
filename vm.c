@@ -137,10 +137,12 @@ static bool invoke(ObjectString *name, int argCount) {
 	Value receiver = peek(argCount);
 
 	if (!IS_INSTANCE(receiver)) {
+		argCount++; // for the value that the method will act upon
 		if (IS_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm.stringType.methods, name, &value)) {
 				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
 				return callValue(value, argCount);
 			} else {
 				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
@@ -1076,13 +1078,14 @@ static InterpretResult run() {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else {
-					int valuesOnStack = (int) (vm.stackTop - vm.stack - vm.frameCount);
+					int frames = vm.frameCount - 1; // double check
+					int valuesOnStack = (int) (vm.stackTop - vm.stack - frames);
 					if (valuesOnStack < variableCount) {
 						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
 												 valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-					// compiler makes sure that the number of values is not greater than the number of variables
+					// compiler ensures that the number of values is not greater than the number of variables
 				}
 				break;
 			}

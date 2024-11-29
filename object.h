@@ -158,6 +158,7 @@ typedef enum {
 	COLLECTION_SET,
 	UNPACK_MISMATCH,
 	MEMORY,
+	VALUE, // correct type, but incorrect value
 } ErrorType;
 
 typedef enum { USER, STELLA, PANIC } ErrorCreator;

@@ -3,7 +3,7 @@
 #include "string.h"
 
 Method stringMethods[] = {
-	{"first", stringFirstMethod, 0}
+	{"first", stringFirstMethod, 1}
 };
 
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
