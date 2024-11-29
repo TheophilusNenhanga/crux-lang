@@ -436,8 +436,20 @@ uint8_t instruction;
 				break;
 			}
 
-			case OP_RETURN: {
-				Value result = pop();
+			case OP_RETURN: { // if the previous instruction was a return instruction then we will have an extra number on the stack
+				uint8_t valueCount = READ_BYTE();
+				Value values[255];
+
+
+				for (int i = 0; i < valueCount; i++) {
+					values[i] = pop();
+				}
+
+				for (int i = 0; i < vm.frameCount-1; i++) { // double check this
+					pop();  // pop the closure
+				}
+
+
 				closeUpvalues(frame->slots);
 				vm.frameCount--;
 				if (vm.frameCount == 0) {
@@ -445,7 +457,14 @@ uint8_t instruction;
 					return INTERPRET_OK;
 				}
 				vm.stackTop = frame->slots;
-				push(result);
+
+				for (int i = 0; i < valueCount; i++) {
+					push(values[i]);
+				}
+				if (valueCount > 1) {
+					push(NUMBER_VAL(valueCount));
+				}
+
 				frame = &vm.frames[vm.frameCount - 1];
 				break;
 			}
@@ -1046,60 +1065,27 @@ uint8_t instruction;
 
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
+				Value countValue = peek(0);
 
-				if (vm.previousInstruction == OP_RETURN_MULTI) {
-					if (!IS_NUMBER(peek(0))) {
-						runtimePanic(RUNTIME, "Invalid return value count");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-
+				// Check if we have multiple return values (marked by a number on top of stack)
+				if (IS_NUMBER(countValue)) {
 					int actual = AS_NUMBER(pop());
-
 					if (variableCount != actual) {
-						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
+						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.",
+												variableCount, actual);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				}else {
-					int valuesOnStack = (int)(vm.stackTop - vm.stack-vm.frameCount);
+				} else {
+					// Direct values on stack
+					int valuesOnStack = (int)(vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
+						runtimePanic(UNPACK_MISMATCH,
+												"Not enough values to unpack. Expected %d but got %d.",
 												variableCount, valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-					// compiler makes sure that the number of values is not greater than the number of variables
 				}
 				break;
-			}
-
-			case OP_RETURN_MULTI: {
-				uint8_t valueCount = READ_BYTE();
-				Value values[255];
-
-				for (int i = valueCount - 1; i >= 0; i--) {
-					values[i] = pop();
-				}
-
-				pop(); // pop the closure
-
-				closeUpvalues(frame->slots);
-				vm.frameCount--;
-				if (vm.frameCount == 0) {
-					pop();
-					return INTERPRET_OK;
-				}
-				vm.stackTop = frame->slots;
-
-				for (int i = 0; i < valueCount; i++) {
-					push(values[i]);
-				}
-				push(NUMBER_VAL(valueCount));
-				frame = &vm.frames[vm.frameCount - 1];
-				break;
-			}
-
-			default: {
-				runtimePanic(RUNTIME, "BYTECODE INSTRUCTION NOT IMPLEMENTED");
-				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
 		vm.previousInstruction = instruction;
