@@ -46,7 +46,7 @@ static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
 static bool call(ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
-		runtimePanic(ARGUMENT_MISMATCH,"Expected %d arguments, got %d", closure->function->arity, argCount);
+		runtimePanic(ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity, argCount);
 		return false;
 	}
 
@@ -81,10 +81,10 @@ static bool callValue(Value callee, int argCount) {
 					// The last Value returned from a native function must be the error if it has one
 					Value last = result.values[result.size - 1];
 					if (IS_ERROR(last)) {
-						ObjectError* error = AS_ERROR(last);
+						ObjectError *error = AS_ERROR(last);
 						if (error->creator == PANIC) {
 							runtimePanic(error->type, "%s", error->message->chars);
-						return false;
+							return false;
 						}
 					}
 				}
@@ -216,7 +216,7 @@ static bool concatenate() {
 
 	if (IS_STRING(b)) {
 		stringB = AS_STRING(b);
-	}else {
+	} else {
 		stringB = toString(b);
 		if (stringB == NULL) {
 			runtimePanic(TYPE, "Could not convert right operand to a string.");
@@ -226,7 +226,7 @@ static bool concatenate() {
 
 	if (IS_STRING(a)) {
 		stringA = AS_STRING(a);
-	}else {
+	} else {
 		stringA = toString(a);
 		if (stringA == NULL) {
 			runtimePanic(TYPE, "Could not convert left operand to a string.");
@@ -235,7 +235,7 @@ static bool concatenate() {
 	}
 
 	int length = stringA->length + stringB->length;
-	char *chars = ALLOCATE(char, length+1);
+	char *chars = ALLOCATE(char, length + 1);
 
 	if (chars == NULL) {
 		runtimePanic(MEMORY, "Could not allocate memory for concatenation.");
@@ -362,7 +362,8 @@ static bool binaryOperation(OpCode operation) {
 			push(NUMBER_VAL((int64_t) aNum >> (int64_t) bNum));
 			break;
 		}
-		default:{}
+		default: {
+		}
 	}
 	return true;
 }
@@ -384,7 +385,7 @@ InterpretResult globalCompoundOperation(ObjectString *name, OpCode opcode, char 
 				tableSet(&vm.globals, name, NUMBER_VAL(result));
 				break;
 			}
-			runtimePanic(DIVISION_BY_ZERO,"Division by zero error: '%s'.", name->chars);
+			runtimePanic(DIVISION_BY_ZERO, "Division by zero error: '%s'.", name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		case OP_SET_GLOBAL_STAR: {
@@ -414,7 +415,7 @@ static InterpretResult run() {
 #define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
-uint8_t instruction;
+	uint8_t instruction;
 	for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
 		printf("        ");
@@ -436,19 +437,19 @@ uint8_t instruction;
 				break;
 			}
 
-			case OP_RETURN: { // if the previous instruction was a return instruction then we will have an extra number on the stack
+			case OP_RETURN: {
 				uint8_t valueCount = READ_BYTE();
 				Value values[255];
 
+				if (vm.previousInstruction == OP_RETURN) {
+					valueCount = (uint8_t) AS_NUMBER(pop());
+				}
 
 				for (int i = 0; i < valueCount; i++) {
 					values[i] = pop();
 				}
 
-				for (int i = 0; i < vm.frameCount-1; i++) { // double check this
-					pop();  // pop the closure
-				}
-
+				pop(); // pop the closure
 
 				closeUpvalues(frame->slots);
 				vm.frameCount--;
@@ -458,7 +459,7 @@ uint8_t instruction;
 				}
 				vm.stackTop = frame->slots;
 
-				for (int i = 0; i < valueCount; i++) {
+				for (int i = valueCount - 1; i >= 0; i--) {
 					push(values[i]);
 				}
 				if (valueCount > 1) {
@@ -780,7 +781,7 @@ uint8_t instruction;
 				Value superClass = peek(1);
 
 				if (!IS_CLASS(superClass)) {
-					runtimePanic(TYPE ,"Cannot inherit from non class object.");
+					runtimePanic(TYPE, "Cannot inherit from non class object.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -888,7 +889,7 @@ uint8_t instruction;
 					ObjectTable *table = AS_TABLE(peek(1));
 					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
 						if (!objectTableSet(table, indexValue, value)) {
-							runtimePanic( COLLECTION_GET, "Failed to set value in table");
+							runtimePanic(COLLECTION_GET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
 						}
 					} else {
@@ -899,7 +900,7 @@ uint8_t instruction;
 					ObjectArray *array = AS_ARRAY(peek(1));
 					int index = AS_NUMBER(indexValue);
 					if (!arraySet(array, index, value)) {
-						runtimePanic(COLLECTION_SET,"Failed to set value in array");
+						runtimePanic(COLLECTION_SET, "Failed to set value in array");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else {
@@ -917,7 +918,7 @@ uint8_t instruction;
 				Value currentValue = frame->slots[slot];
 
 				if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(0)))) {
-					runtimePanic(TYPE,"Both operands must be of type 'number' for the '/=' operator");
+					runtimePanic(TYPE, "Both operands must be of type 'number' for the '/=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -1066,24 +1067,29 @@ uint8_t instruction;
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
 				Value countValue = peek(0);
+				int actual = variableCount;
 
 				// Check if we have multiple return values (marked by a number on top of stack)
 				if (IS_NUMBER(countValue)) {
 					int actual = AS_NUMBER(pop());
 					if (variableCount != actual) {
-						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.",
-												variableCount, actual);
+						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else {
 					// Direct values on stack
-					int valuesOnStack = (int)(vm.stackTop - vm.stack - vm.frameCount);
+					int valuesOnStack = (int) (vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimePanic(UNPACK_MISMATCH,
-												"Not enough values to unpack. Expected %d but got %d.",
-												variableCount, valuesOnStack);
+						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
+												 valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
+				}
+				Value* start = vm.stackTop - actual;
+				for (int i = 0; i < actual / 2; i++) {
+					Value temp = start[i];
+					start[i] = start[actual - 1 - i];
+					start[actual - 1 - i] = temp;
 				}
 				break;
 			}
