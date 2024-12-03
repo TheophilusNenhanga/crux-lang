@@ -441,8 +441,11 @@ static InterpretResult run() {
 				uint8_t valueCount = READ_BYTE();
 				Value values[255];
 
-				if (vm.previousInstruction == OP_RETURN) {
-					valueCount = (uint8_t) AS_NUMBER(pop());
+				if (valueCount == 1 && vm.previousInstruction == OP_RETURN) {
+					Value lastValue = peek(0);
+					if (IS_NUMBER(lastValue)) {
+						valueCount = (uint8_t) AS_NUMBER(pop());
+					}
 				}
 
 				for (int i = 0; i < valueCount; i++) {
@@ -462,6 +465,7 @@ static InterpretResult run() {
 				for (int i = valueCount - 1; i >= 0; i--) {
 					push(values[i]);
 				}
+
 				if (valueCount > 1) {
 					push(NUMBER_VAL(valueCount));
 				}
@@ -1066,18 +1070,26 @@ static InterpretResult run() {
 
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
-				Value countValue = peek(0);
 				int actual = variableCount;
 
-				// Check if we have multiple return values (marked by a number on top of stack)
-				if (IS_NUMBER(countValue)) {
-					int actual = AS_NUMBER(pop());
-					if (variableCount != actual) {
-						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
-						return INTERPRET_RUNTIME_ERROR;
+				if (vm.previousInstruction == OP_RETURN) {
+					Value countValue = peek(0);
+					// multiple return values
+					if (IS_NUMBER(countValue)) {
+						int actual = AS_NUMBER(pop());
+						if (variableCount != actual) {
+							runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+					}
+					// only reverse when returning from a function
+					Value *start = vm.stackTop - actual;
+					for (int i = 0; i < actual / 2; i++) {
+						Value temp = start[i];
+						start[i] = start[actual - 1 - i];
+						start[actual - 1 - i] = temp;
 					}
 				} else {
-					// Direct values on stack
 					int valuesOnStack = (int) (vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
 						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
@@ -1085,12 +1097,7 @@ static InterpretResult run() {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
-				Value* start = vm.stackTop - actual;
-				for (int i = 0; i < actual / 2; i++) {
-					Value temp = start[i];
-					start[i] = start[actual - 1 - i];
-					start[actual - 1 - i] = temp;
-				}
+
 				break;
 			}
 		}
