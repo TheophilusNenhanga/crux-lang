@@ -763,6 +763,7 @@ static void varDeclaration() {
 		}
 
 		emitBytes(OP_UNPACK_TUPLE, variableCount);
+		emitByte(current->scopeDepth);
 
 		for (uint8_t i = 0; i < variableCount; i++) {
 			defineVariable(variables[i]);

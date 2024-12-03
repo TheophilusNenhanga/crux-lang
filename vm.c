@@ -408,6 +408,15 @@ InterpretResult globalCompoundOperation(ObjectString *name, OpCode opcode, char 
 	return INTERPRET_OK;
 }
 
+static void reverse_stack(int actual) {
+	Value *start = vm.stackTop - actual;
+	for (int i = 0; i < actual / 2; i++) {
+		Value temp = start[i];
+		start[i] = start[actual - 1 - i];
+		start[actual - 1 - i] = temp;
+	}
+}
+
 static InterpretResult run() {
 	CallFrame *frame = &vm.frames[vm.frameCount - 1];
 
@@ -1070,34 +1079,30 @@ static InterpretResult run() {
 
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
+				uint8_t scopeDepth = READ_BYTE();
 				int actual = variableCount;
 
 				if (vm.previousInstruction == OP_RETURN) {
 					Value countValue = peek(0);
-					// multiple return values
 					if (IS_NUMBER(countValue)) {
-						int actual = AS_NUMBER(pop());
+						actual = AS_NUMBER(pop());
 						if (variableCount != actual) {
 							runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
 							return INTERPRET_RUNTIME_ERROR;
 						}
 					}
-					// only reverse when returning from a function
-					Value *start = vm.stackTop - actual;
-					for (int i = 0; i < actual / 2; i++) {
-						Value temp = start[i];
-						start[i] = start[actual - 1 - i];
-						start[actual - 1 - i] = temp;
-					}
 				} else {
-					int valuesOnStack = (int) (vm.stackTop - vm.stack - vm.frameCount);
+					int valuesOnStack = (int)(vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
-												 valuesOnStack);
+						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
+												variableCount, valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				}
 
+				}
+				if (scopeDepth == 0) {
+					reverse_stack(actual);
+				}
 				break;
 			}
 		}
