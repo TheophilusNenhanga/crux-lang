@@ -1,9 +1,12 @@
 name: Create Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.2.1)'
+        required: true
+        type: string
 
 permissions:
   contents: write
