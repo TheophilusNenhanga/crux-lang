@@ -41,25 +41,29 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: amd64
-            artifact_name: stella
+            artifact_name: StellaC
+            binary_path: build/StellaC
             cmake_flags: ""
 
           - os: windows-latest
             platform: windows
             arch: amd64
-            artifact_name: stella.exe
+            artifact_name: StellaC.exe
+            binary_path: build/Release/StellaC.exe
             cmake_flags: ""
 
           - os: macos-latest
             platform: macos
             arch: amd64
-            artifact_name: stella
+            artifact_name: StellaC
+            binary_path: build/StellaC
             cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
 
           - os: macos-latest
             platform: macos
             arch: arm64
-            artifact_name: stella
+            artifact_name: StellaC
+            binary_path: build/StellaC
             cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
 
     steps:
@@ -75,12 +79,17 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
           cmake --build . --config Release
 
+      - name: List build directory contents (debug)
+        run: |
+          echo "Build directory contents:"
+          ls -R build/
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./build/${{ matrix.artifact_name }}
-          asset_name: stella-${{ matrix.platform }}-${{ matrix.arch }}${{ endsWith(matrix.artifact_name, '.exe') && '.exe' || '' }}
+          asset_path: ${{ matrix.binary_path }}
+          asset_name: stellac-${{ matrix.platform }}-${{ matrix.arch }}${{ endsWith(matrix.artifact_name, '.exe') && '.exe' || '' }}
           asset_content_type: application/octet-stream
