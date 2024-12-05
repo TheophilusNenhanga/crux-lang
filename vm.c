@@ -496,7 +496,15 @@ static InterpretResult run() {
 					push(NUMBER_VAL(valueCount));
 				}
 
-				frame = &vm.frames[vm.frameCount - 1];
+				CallFrame* callerFrame = &vm.frames[vm.frameCount - 1];
+				uint8_t nextInstr = *callerFrame->ip;
+
+				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE) {
+					runtimePanic(UNPACK_MISMATCH, "Expected to unpack %d values.", valueCount);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				frame = callerFrame;
 				break;
 			}
 
