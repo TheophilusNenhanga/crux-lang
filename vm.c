@@ -47,7 +47,7 @@ static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
 static bool call(ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
-		runtimePanic(ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity, argCount);
+		runtimePanic(ARGUMENT_MISMATCH,  "Expected %d arguments, got %d", closure->function->arity, argCount);
 		return false;
 	}
 
@@ -425,6 +425,15 @@ InterpretResult globalCompoundOperation(ObjectString *name, OpCode opcode, char 
 	return INTERPRET_OK;
 }
 
+static void reverse_stack(int actual) {
+	Value *start = vm.stackTop - actual;
+	for (int i = 0; i < actual / 2; i++) {
+		Value temp = start[i];
+		start[i] = start[actual - 1 - i];
+		start[actual - 1 - i] = temp;
+	}
+}
+
 static InterpretResult run() {
 	CallFrame *frame = &vm.frames[vm.frameCount - 1];
 
@@ -455,7 +464,22 @@ static InterpretResult run() {
 			}
 
 			case OP_RETURN: {
-				Value result = pop();
+				uint8_t valueCount = READ_BYTE();
+				Value values[255];
+
+				if (valueCount == 1 && vm.previousInstruction == OP_RETURN) {
+					Value lastValue = peek(0);
+					if (IS_NUMBER(lastValue)) {
+						valueCount = (uint8_t) AS_NUMBER(pop());
+					}
+				}
+
+				for (int i = 0; i < valueCount; i++) {
+					values[i] = pop();
+				}
+
+				pop(); // pop the closure
+
 				closeUpvalues(frame->slots);
 				vm.frameCount--;
 				if (vm.frameCount == 0) {
@@ -463,7 +487,15 @@ static InterpretResult run() {
 					return INTERPRET_OK;
 				}
 				vm.stackTop = frame->slots;
-				push(result);
+
+				for (int i = valueCount - 1; i >= 0; i--) {
+					push(values[i]);
+				}
+
+				if (valueCount > 1) {
+					push(NUMBER_VAL(valueCount));
+				}
+
 				frame = &vm.frames[vm.frameCount - 1];
 				break;
 			}
@@ -1064,61 +1096,31 @@ static InterpretResult run() {
 
 			case OP_UNPACK_TUPLE: {
 				uint8_t variableCount = READ_BYTE();
+				uint8_t scopeDepth = READ_BYTE();
+				int actual = variableCount;
 
-				if (vm.previousInstruction == OP_RETURN_MULTI) {
-					if (!IS_NUMBER(peek(0))) {
-						runtimePanic(RUNTIME, "Invalid return value count");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-
-					int actual = AS_NUMBER(pop());
-
-					if (variableCount != actual) {
-						runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
-						return INTERPRET_RUNTIME_ERROR;
+				if (vm.previousInstruction == OP_RETURN) {
+					Value countValue = peek(0);
+					if (IS_NUMBER(countValue)) {
+						actual = AS_NUMBER(pop());
+						if (variableCount != actual) {
+							runtimePanic(UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
+							return INTERPRET_RUNTIME_ERROR;
+						}
 					}
 				} else {
-					int frames = vm.frameCount - 1; // double check
-					int valuesOnStack = (int) (vm.stackTop - vm.stack - frames);
+					int valuesOnStack = (int)(vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
 						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
 												 valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-					// compiler ensures that the number of values is not greater than the number of variables
+
+				}
+				if (scopeDepth == 0) {
+					reverse_stack(actual);
 				}
 				break;
-			}
-
-			case OP_RETURN_MULTI: {
-				uint8_t valueCount = READ_BYTE();
-				Value values[255];
-
-				for (int i = valueCount - 1; i >= 0; i--) {
-					values[i] = pop();
-				}
-
-				pop(); // pop the closure
-
-				closeUpvalues(frame->slots);
-				vm.frameCount--;
-				if (vm.frameCount == 0) {
-					pop();
-					return INTERPRET_OK;
-				}
-				vm.stackTop = frame->slots;
-
-				for (int i = 0; i < valueCount; i++) {
-					push(values[i]);
-				}
-				push(NUMBER_VAL(valueCount));
-				frame = &vm.frames[vm.frameCount - 1];
-				break;
-			}
-
-			default: {
-				runtimePanic(RUNTIME, "BYTECODE INSTRUCTION NOT IMPLEMENTED");
-				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
 		vm.previousInstruction = instruction;

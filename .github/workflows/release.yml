@@ -1,0 +1,92 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.2.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate version
+        id: version
+        run: |
+          echo "version=$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: Release v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+
+  build-and-release:
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: amd64
+            artifact_name: StellaC
+            binary_path: build/StellaC
+            cmake_flags: ""
+
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+            artifact_name: StellaC.exe
+            binary_path: build/Release/StellaC.exe
+            cmake_flags: ""
+
+          - os: macos-latest
+            platform: macos
+            arch: amd64
+            artifact_name: StellaC
+            binary_path: build/StellaC
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            artifact_name: StellaC
+            binary_path: build/StellaC
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
+          cmake --build . --config Release
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.binary_path }}
+          tag_name: v${{ inputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release v${{ inputs.version }}

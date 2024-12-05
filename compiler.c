@@ -99,7 +99,7 @@ static void emitReturn() {
 	} else {
 		emitByte(OP_NIL);
 	}
-	emitByte(OP_RETURN);
+	emitBytes(OP_RETURN, 0);
 }
 
 static uint8_t makeConstant(Value value) {
@@ -763,6 +763,7 @@ static void varDeclaration() {
 		}
 
 		emitBytes(OP_UNPACK_TUPLE, variableCount);
+		emitByte(current->scopeDepth);
 
 		for (uint8_t i = 0; i < variableCount; i++) {
 			defineVariable(variables[i]);
@@ -883,11 +884,7 @@ static void returnStatement() {
 		} while (match(TOKEN_COMMA));
 
 		consume(TOKEN_SEMICOLON, "Expected ';' after return value");
-		if (valueCount == 1) {
-			emitByte(OP_RETURN);
-		} else {
-			emitBytes(OP_RETURN_MULTI, valueCount);
-		}
+		emitBytes(OP_RETURN, valueCount);
 	}
 }
 

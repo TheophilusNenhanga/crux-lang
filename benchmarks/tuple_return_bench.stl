@@ -76,9 +76,9 @@ let test2 = fn() {
 };
 let a2, b2, c2 = test2();
 println("Test 2 - Two levels of nesting:");
-println(a2);  // Should be 7
-println(b2);  // Should be 6
-println(c2);  // Should be 5
+println(a2);
+println(b2);
+println(c2);
 
 // Three levels of nesting
 let test3 = fn() {
@@ -92,9 +92,9 @@ let test3 = fn() {
 };
 let a3, b3, c3 = test3();
 println("Test 3 - Three levels of nesting:");
-println(a3);  // Should be 7
-println(b3);  // Should be 5
-println(c3);  // Should be 3
+println(a3);
+println(b3);
+println(c3);
 
 // Multiple nested calls in one expression
 let test4 = fn() {
@@ -141,9 +141,9 @@ let test6 = fn() {
 };
 let a6, b6, c6 = test6();
 println("Test 6 - Deep nesting with computation:");
-println(a6);  // Should be 42 ((3 + 3) * 2 + 30)
-println(b6);  // Should be 28 ((2 + 2) * 2 + 20)
-println(c6);  // Should be 14 ((1 + 1) * 2 + 10)
+println(a6);
+println(b6);
+println(c6);
 
 // Test with mixed return counts at different nesting levels
 let test7 = fn() {
@@ -161,6 +161,6 @@ let test7 = fn() {
 };
 let a7, b7 = test7();
 println("Test 7 - Mixed return counts:");
-println(a7);  // Should be 9 (6 + 3)
-println(b7);  // Should be 3 (1 + 2)
+println(a7);
+println(b7);
 
