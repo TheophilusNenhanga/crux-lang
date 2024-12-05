@@ -66,7 +66,6 @@ typedef enum {
 	OP_TABLE,
 	OP_ANON_FUNCTION,
 	OP_UNPACK_TUPLE,
-	OP_RETURN_MULTI,
 } OpCode;
 
 typedef struct {
