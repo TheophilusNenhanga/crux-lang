@@ -87,6 +87,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ matrix.binary_path }}
-          tag_name: v${{ needs.create-release.outputs.version }}
+          tag_name: v${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release v${{ needs.create-release.outputs.version }}
+          name: Release v${{ inputs.version }}
