@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./NativeFunctions/collections.h"
-#include "./NativeFunctions/io.h"
-#include "./NativeFunctions/stl_time.h"
-#include "NativeFunctions/error.h"
-#include "NativeTypes/types.h"
+#include "./std/collections.h"
+#include "./std/io.h"
+#include "./std/stl_time.h"
+#include "std/error.h"
+#include "std/types.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -76,7 +76,7 @@ static bool callValue(Value callee, int argCount) {
 				}
 
 				NativeReturn result = native->function(argCount, vm.stackTop - argCount);
-				vm.stackTop -= argCount + 1;
+				vm.stackTop -= argCount;
 
 				if (result.size > 0) {
 					// The last Value returned from a native function must be the error if it has one
@@ -90,7 +90,7 @@ static bool callValue(Value callee, int argCount) {
 					}
 				}
 
-				for (int i = result.size - 1; i >= 0; i--) {
+				for (int i = 0; i < result.size; i++) {
 					push(result.values[i]);
 				}
 
