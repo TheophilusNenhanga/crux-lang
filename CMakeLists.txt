@@ -50,4 +50,6 @@ add_executable(StellaC
         std/string.c
         std/string.h
         std/types.c
-        std/types.h)
+        std/types.h
+        std/array.c
+        std/array.h)

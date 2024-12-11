@@ -3,7 +3,15 @@
 #include "string.h"
 
 Method stringMethods[] = {
-	{"first", stringFirstMethod, 1}
+	{"first", stringFirstMethod, 1},
+	{"last", stringLastMethod, 1},
+	{"get", stringGetMethod, 2},
+	{"upper", stringUpperMethod, 1},
+	{"lower", stringLowerMethod, 1},
+	{"strip", stringStripMethod, 1},
+	{"starts_with", stringStartsWithMethod, 2},
+	{"ends_with", stringEndsWithMethod, 2},
+	{"contains", stringContainsMethod, 2},
 };
 
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
