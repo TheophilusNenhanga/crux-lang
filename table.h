@@ -27,7 +27,7 @@ bool tableDelete(Table *table, ObjectString *key);
 
 void tableAddAll(Table *from, Table *to);
 
-ObjectString *tableFindString(Table *table, const char *chars, int length, uint32_t hash);
+ObjectString *tableFindString(Table *table, const char *chars, uint64_t length, uint32_t hash);
 
 void tableRemoveWhite(Table *table);
 

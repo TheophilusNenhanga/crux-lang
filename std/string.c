@@ -1,20 +1,30 @@
-#include "string.h"
-
 #include <stdlib.h>
 
 #include "../memory.h"
-
-#define ALPHABET_SIZE 256
-
+#include "string.h"
 
 static bool isUpper(char c) { return (c >= 'A' && c <= 'Z'); }
 static bool isLower(char c) { return (c >= 'a' && c <= 'z'); }
-static bool isDigit(char c) { return (c >= '0' && c <= '9'); }
 static bool isSpace(char c) { return (c == ' ' || c == '\n' || c == '\t'); }
 
 static char toUpper(char c) { return c + ('A' - 'a'); }
 
 static char toLower(char c) { return c + ('a' - 'A'); }
+
+void buildPrefixTable(const char *pattern, uint64_t patternLength, uint64_t *prefixTable) {
+	uint64_t j = 0;
+	prefixTable[0] = 0;
+
+	for (int i = 1; i < patternLength; i++) {
+		while (j > 0 && pattern[i] != pattern[j]) {
+			j = prefixTable[j - 1];
+		}
+		if (pattern[i] == pattern[j]) {
+			j++;
+		}
+		prefixTable[i] = j;
+	}
+}
 
 NativeReturn stringFirstMethod(int argCount, Value *args) {
 	Value value = args[0];
@@ -23,8 +33,8 @@ NativeReturn stringFirstMethod(int argCount, Value *args) {
 
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("'string' must have at least one character to get the first character.", 69), VALUE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(
+				takeString("'string' must have at least one character to get the first character.", 69), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -39,8 +49,8 @@ NativeReturn stringLastMethod(int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(2);
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("'string' must have at least one character to get the last character.", 68), VALUE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(
+				takeString("'string' must have at least one character to get the last character.", 68), VALUE, STELLA));
 		return returnValue;
 	}
 	returnValue.values[0] = OBJECT_VAL(copyString(&string->chars[string->length - 1], 1));
@@ -60,15 +70,16 @@ NativeReturn stringGetMethod(int argCount, Value *args) {
 	ObjectString *string = AS_STRING(value);
 	if (AS_NUMBER(index) < 0 || AS_NUMBER(index) > string->length) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-				takeString("Index must be a non negative number that is less than the length of the string.", 79), INDEX_OUT_OF_BOUNDS, STELLA));
+		returnValue.values[1] = OBJECT_VAL(
+				newError(takeString("Index must be a non negative number that is less than the length of the string.", 79),
+								 INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("'string' must have at least one character to get a character.", 61), VALUE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(
+				newError(takeString("'string' must have at least one character to get a character.", 61), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -125,7 +136,8 @@ NativeReturn stringStripMethod(int argCount, Value *args) {
 
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("Cannot strip whitespace from an empty string.", 45), VALUE, STELLA));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(takeString("Cannot strip whitespace from an empty string.", 45), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -154,54 +166,169 @@ NativeReturn stringSubstringMethod(int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(2);
 	ObjectString *string = AS_STRING(args[0]);
 
-	return returnValue;
-}
+	if (string->length == 0) {
+		returnValue.values[0] = NIL_VAL;
+		returnValue.values[1] = OBJECT_VAL(newError(takeString("Cannot get substring of empty string.", 37), VALUE, STELLA));
+		return returnValue;
+	}
 
-NativeReturn stringReplaceMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
-	ObjectString *string = AS_STRING(args[0]);
+	if (!IS_NUMBER(args[1])) {
+		returnValue.values[0] = NIL_VAL;
+		returnValue.values[1] = OBJECT_VAL(newError(takeString("Cannot get substring of empty string.", 37), VALUE, STELLA));
+		return returnValue;
+	}
+	if (!IS_NUMBER(args[2])) {
+		returnValue.values[0] = NIL_VAL;
+		returnValue.values[1] = OBJECT_VAL(newError(takeString("<end> index should be of type 'number'.", 39), VALUE, STELLA));
+		return returnValue;
+	}
 
+	uint64_t startIndex = AS_NUMBER(args[1]);
+	uint64_t endIndex = AS_NUMBER(args[2]);
+	if (startIndex > string->length || endIndex > string->length || startIndex > endIndex) {
+		returnValue.values[0] = NIL_VAL;
+		returnValue.values[1] = OBJECT_VAL(newError(takeString("Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, STELLA));
+		return returnValue;
+	}
+
+	char *substring = string->chars + startIndex;
+	ObjectString* newSubstring = copyString(substring, endIndex - startIndex);
+
+	returnValue.values[0] = OBJECT_VAL(newSubstring);
+	returnValue.values[1] = NIL_VAL;
 	return returnValue;
 }
 
 NativeReturn stringSplitMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
-	ObjectString *string = AS_STRING(args[0]);
+    NativeReturn returnValue = makeNativeReturn(2);
 
-	return returnValue;
+    if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("Both arguments must be strings.", 32), TYPE, STELLA));
+        return returnValue;
+    }
+
+    ObjectString *string = AS_STRING(args[0]);
+    ObjectString *delimiter = AS_STRING(args[1]);
+
+    if (string->length == 0 || delimiter->length == 0) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(string->length == 0 ?
+                takeString("Source string cannot be empty.", 30) :
+                takeString("Delimiter cannot be empty.", 26),
+                VALUE, STELLA));
+        return returnValue;
+    }
+
+    if (delimiter->length > string->length) {
+        ObjectArray *resultArray = newArray(1);
+        arrayAdd(resultArray, OBJECT_VAL(string), 0);
+        returnValue.values[0] = OBJECT_VAL(resultArray);
+        returnValue.values[1] = NIL_VAL;
+        return returnValue;
+    }
+
+    uint64_t stringLength = string->length;
+    uint64_t delimiterLength = delimiter->length;
+
+    uint64_t *prefixTable = ALLOCATE(uint64_t, delimiterLength * sizeof(uint64_t));
+    if (prefixTable == NULL) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+        return returnValue;
+    }
+
+    buildPrefixTable(delimiter->chars, delimiterLength, prefixTable);
+
+    // initial guess of splits size
+    ObjectArray *resultArray = newArray(stringLength / (delimiterLength + 1) + 1);
+
+    uint64_t lastSplitIndex = 0;
+    uint64_t j = 0;
+	uint64_t lastAddIndex = 0;
+
+    for (uint64_t i = 0; i < stringLength; i++) {
+        while (j > 0 && string->chars[i] != delimiter->chars[j]) {
+            j = prefixTable[j - 1];
+        }
+
+        if (string->chars[i] == delimiter->chars[j]) {
+            j++;
+        }
+
+        if (j == delimiterLength) {
+            uint64_t substringLength = i - lastSplitIndex - delimiterLength + 1;
+
+            char *substringChars = ALLOCATE(char, substringLength + 1);
+            if (substringChars == NULL) {
+                free(prefixTable);
+                returnValue.values[0] = NIL_VAL;
+                returnValue.values[1] =
+                    OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+                return returnValue;
+            }
+
+            memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
+            substringChars[substringLength] = '\0';
+
+            ObjectString *substring = takeString(substringChars, substringLength);
+        	arrayAdd(resultArray, OBJECT_VAL(substring), lastAddIndex);
+        	lastAddIndex++;
+
+            lastSplitIndex = i + 1;
+
+            j = 0;
+        }
+    }
+
+    if (lastSplitIndex < stringLength) {
+        uint64_t substringLength = stringLength - lastSplitIndex;
+        char *substringChars = ALLOCATE(char, substringLength + 1);
+
+        if (substringChars == NULL) {
+            free(prefixTable);
+            returnValue.values[0] = NIL_VAL;
+            returnValue.values[1] =
+                OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+            return returnValue;
+        }
+
+        memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
+        substringChars[substringLength] = '\0';
+
+        ObjectString *substring = takeString(substringChars, substringLength);
+        arrayAdd(resultArray, OBJECT_VAL(substring), lastAddIndex);
+    }
+
+    free(prefixTable);
+
+    returnValue.values[0] = OBJECT_VAL(resultArray);
+    returnValue.values[1] = NIL_VAL;
+    return returnValue;
 }
 
-void prepareBadCharacterHeuristic(ObjectString *goal, uint64_t* badCharacter) {
-	for (int i = 0; i <ALPHABET_SIZE; i++) {
-		badCharacter[i] = goal->length;
-	}
-
-	for (uint64_t i = 0; i < goal->length; i++) {
-		badCharacter[(unsigned char) goal->chars[i]] = goal->length - 1 - i;
-	}
-}
-
-// Two-way string-matching algorithm
+// KMP string-matching algorithm
 NativeReturn stringContainsMethod(int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(2);
 	ObjectString *string = AS_STRING(args[0]);
 
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-			string->length == 0
-				? takeString("String must have at least one character.", 40)
-				: takeString("<goal> string must have at least one character.", 47),
-			VALUE,
-			STELLA
-		));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(string->length == 0 ? takeString("String must have at least one character.", 40)
+																								: takeString("<goal> string must have at least one character.", 47),
+														VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -211,37 +338,158 @@ NativeReturn stringContainsMethod(int argCount, Value *args) {
 		return returnValue;
 	}
 
-	uint64_t* badCharacter = ALLOCATE(uint64_t, ALPHABET_SIZE * sizeof(uint64_t));
+	uint64_t stringLength = string->length;
+	uint64_t goalLength = goal->length;
 
-	if (badCharacter == NULL) {
+	uint64_t *prefixTable = ALLOCATE(uint64_t, goalLength * sizeof(uint64_t));
+
+	if (prefixTable == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("Failed to allocate memory for string.contains().", 48), MEMORY, STELLA));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(takeString("Failed to allocate memory for string.contains().", 48), MEMORY, STELLA));
 		return returnValue;
 	}
 
-	prepareBadCharacterHeuristic(goal, badCharacter);
+	buildPrefixTable(goal->chars, goalLength, prefixTable);
 
-	uint64_t i = 0;
-	while (i<= string->length - goal->length) {
-		uint64_t j = goal->length - 1;
-		while (j<goal->length &&string->chars[i+j] == goal->chars[j]) {
-			if (j==0) {
-				free(badCharacter);
-				returnValue.values[0] = BOOL_VAL(true);
-				returnValue.values[1] = NIL_VAL;
-				return returnValue;
-			}
-			j--;
+	uint64_t j = 0;
+	for (uint64_t i = 0; i < stringLength; i++) {
+		while (j > 0 && string->chars[i] != goal->chars[j]) {
+			j = prefixTable[j - 1];
 		}
-		uint64_t shift = badCharacter[(unsigned char)string->chars[i + goal->length - 1]];
-		i += (shift == goal->length) ? 1 : shift;
+		if (string->chars[i] == goal->chars[j]) {
+			j++;
+		}
+		if (j == goalLength) {
+			free(prefixTable);
+			returnValue.values[0] = BOOL_VAL(true);
+			returnValue.values[1] = NIL_VAL;
+			return returnValue;
+		}
 	}
 
-	free(badCharacter);
-
+	free(prefixTable);
 	returnValue.values[0] = BOOL_VAL(false);
 	returnValue.values[1] = NIL_VAL;
 	return returnValue;
+}
+
+NativeReturn stringReplaceMethod(int argCount, Value *args) {
+    NativeReturn returnValue = makeNativeReturn(2);
+
+    if (!IS_STRING(args[0]) || !IS_STRING(args[1]) || !IS_STRING(args[2])) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("All arguments must be strings.", 31), TYPE, STELLA));
+        return returnValue;
+    }
+
+    ObjectString *string = AS_STRING(args[0]);
+    ObjectString *goal = AS_STRING(args[1]);
+    ObjectString *replacement = AS_STRING(args[2]);
+
+    if (string->length == 0 || goal->length == 0) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(string->length == 0 ?
+                takeString("Source string must have at least one character.", 47) :
+                takeString("Target substring must have at least one character.", 50),
+                VALUE, STELLA));
+        return returnValue;
+    }
+
+    if (goal->length > string->length) {
+        returnValue.values[0] = OBJECT_VAL(string);
+        returnValue.values[1] = NIL_VAL;
+        return returnValue;
+    }
+
+    uint64_t stringLength = string->length;
+    uint64_t goalLength = goal->length;
+    uint64_t replacementLength = replacement->length;
+
+    uint64_t *prefixTable = ALLOCATE(uint64_t, goalLength * sizeof(uint64_t));
+    if (prefixTable == NULL) {
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+        return returnValue;
+    }
+
+    buildPrefixTable(goal->chars, goalLength, prefixTable);
+
+    uint64_t matchCount = 0;
+    uint64_t *matchIndices = ALLOCATE(uint64_t, stringLength * sizeof(uint64_t));
+    if (matchIndices == NULL) {
+        free(prefixTable);
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+        return returnValue;
+    }
+
+    uint64_t j = 0;
+    for (uint64_t i = 0; i < stringLength; i++) {
+        while (j > 0 && string->chars[i] != goal->chars[j]) {
+            j = prefixTable[j - 1];
+        }
+        if (string->chars[i] == goal->chars[j]) {
+            j++;
+        }
+        if (j == goalLength) {
+            matchIndices[matchCount++] = i - goalLength + 1;
+            j = 0;
+        }
+    }
+
+    if (matchCount == 0) {
+        free(prefixTable);
+        free(matchIndices);
+        returnValue.values[0] = OBJECT_VAL(string);
+        returnValue.values[1] = NIL_VAL;
+        return returnValue;
+    }
+
+    uint64_t newStringLength = stringLength +
+        (replacementLength - goalLength) * matchCount;
+
+    char *newStringChars = ALLOCATE(char, newStringLength + 1);
+    if (newStringChars == NULL) {
+        free(prefixTable);
+        free(matchIndices);
+        returnValue.values[0] = NIL_VAL;
+        returnValue.values[1] =
+            OBJECT_VAL(newError(takeString("Memory allocation failed.", 25), MEMORY, STELLA));
+        return returnValue;
+    }
+
+    uint64_t writeIndex = 0;
+    uint64_t lastCopyIndex = 0;
+    for (uint64_t i = 0; i < matchCount; i++) {
+        uint64_t copyLength = matchIndices[i] - lastCopyIndex;
+        memcpy(newStringChars + writeIndex, string->chars + lastCopyIndex, copyLength);
+        writeIndex += copyLength;
+
+        memcpy(newStringChars + writeIndex, replacement->chars, replacementLength);
+        writeIndex += replacementLength;
+
+        lastCopyIndex = matchIndices[i] + goalLength;
+    }
+
+    uint64_t remainingLength = stringLength - lastCopyIndex;
+    memcpy(newStringChars + writeIndex, string->chars + lastCopyIndex, remainingLength);
+    writeIndex += remainingLength;
+
+    newStringChars[newStringLength] = '\0';
+
+    ObjectString *newString = takeString(newStringChars, newStringLength);
+
+    free(prefixTable);
+    free(matchIndices);
+
+    returnValue.values[0] = OBJECT_VAL(newString);
+    returnValue.values[1] = NIL_VAL;
+    return returnValue;
 }
 
 NativeReturn stringStartsWithMethod(int argCount, Value *args) {
@@ -249,20 +497,18 @@ NativeReturn stringStartsWithMethod(int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-			string->length == 0
-				? takeString("String must have at least one character.", 40)
-				: takeString("<goal> string must have at least one character.", 47),
-			VALUE,
-			STELLA
-		));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(string->length == 0 ? takeString("String must have at least one character.", 40)
+																								: takeString("<goal> string must have at least one character.", 47),
+														VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -272,7 +518,7 @@ NativeReturn stringStartsWithMethod(int argCount, Value *args) {
 		return returnValue;
 	}
 
-	for (uint64_t i= 0; i < goal->length; i++) {
+	for (uint64_t i = 0; i < goal->length; i++) {
 		if (string->chars[i] != goal->chars[i]) {
 			returnValue.values[0] = BOOL_VAL(false);
 			returnValue.values[1] = NIL_VAL;
@@ -284,7 +530,6 @@ NativeReturn stringStartsWithMethod(int argCount, Value *args) {
 	returnValue.values[0] = BOOL_VAL(true);
 	returnValue.values[1] = NIL_VAL;
 	return returnValue;
-
 }
 
 NativeReturn stringEndsWithMethod(int argCount, Value *args) {
@@ -292,20 +537,18 @@ NativeReturn stringEndsWithMethod(int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(takeString("First argument must be of type 'string'.", 40), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-			string->length == 0
-				? takeString("String must have at least one character.", 40)
-				: takeString("<goal> string must have at least one character.", 47),
-			VALUE,
-			STELLA
-		));
+		returnValue.values[1] =
+				OBJECT_VAL(newError(string->length == 0 ? takeString("String must have at least one character.", 40)
+																								: takeString("<goal> string must have at least one character.", 47),
+														VALUE, STELLA));
 		return returnValue;
 	}
 

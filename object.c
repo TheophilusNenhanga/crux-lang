@@ -30,7 +30,7 @@ static Object *allocateObject(size_t size, ObjectType type) {
 }
 #define ALLOCATE_OBJECT(type, objectType) (type *) allocateObject(sizeof(type), objectType)
 
-static int calculateCollectionCapacity(int n) {
+static uint64_t calculateCollectionCapacity(uint64_t n) {
 	if (n >= UINT16_MAX - 1) {
 		return UINT16_MAX - 1;
 	}
@@ -103,7 +103,7 @@ ObjectClosure *newClosure(ObjectFunction *function) {
 	return closure;
 }
 
-static ObjectString *allocateString(char *chars, int length, uint32_t hash) {
+static ObjectString *allocateString(char *chars, uint64_t length, uint32_t hash) {
 	// creates a copy of the characters on the heap
 	// that the ObjectString can own
 	ObjectString *string = ALLOCATE_OBJECT(ObjectString, OBJECT_STRING);
@@ -116,7 +116,7 @@ static ObjectString *allocateString(char *chars, int length, uint32_t hash) {
 	return string;
 }
 
-uint32_t hashString(const char *key, int length) {
+uint32_t hashString(const char *key, uint64_t length) {
 	uint32_t hash = 2166136261u;
 	for (int i = 0; i < length; i++) {
 		hash ^= (uint8_t) key[i];
@@ -125,7 +125,7 @@ uint32_t hashString(const char *key, int length) {
 	return hash;
 }
 
-ObjectString *copyString(const char *chars, int length) {
+ObjectString *copyString(const char *chars, uint64_t length) {
 	uint32_t hash = hashString(chars, length);
 
 	ObjectString *interned = tableFindString(&vm.strings, chars, length, hash);
@@ -194,7 +194,7 @@ void printObject(Value value) {
 	}
 }
 
-ObjectString *takeString(char *chars, int length) {
+ObjectString *takeString(char *chars, uint64_t length) {
 	// claims ownership of the string that you give it
 	uint32_t hash = hashString(chars, length);
 
@@ -310,9 +310,9 @@ ObjectString *toString(Value value) {
 			size_t bufSize = 2; // {} minimum
 			for (int i = 0; i < table->capacity; i++) {
 				if (table->entries[i].isOccupied) {
-					ObjectString *key = toString(table->entries[i].key);
-					ObjectString *value = toString(table->entries[i].value);
-					bufSize += key->length + value->length + 4; // key:value,
+					ObjectString *k = toString(table->entries[i].key);
+					ObjectString *v = toString(table->entries[i].value);
+					bufSize += k->length + v->length + 4; // key:value,
 				}
 			}
 
@@ -495,7 +495,7 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 	return true;
 }
 
-ObjectArray *newArray(int elementCount) {
+ObjectArray *newArray(uint64_t elementCount) {
 	ObjectArray *array = ALLOCATE_OBJECT(ObjectArray, OBJECT_ARRAY);
 	array->capacity = calculateCollectionCapacity(elementCount);
 	array->size = 0;
@@ -506,11 +506,11 @@ ObjectArray *newArray(int elementCount) {
 	return array;
 }
 
-bool ensureCapacity(ObjectArray *array, int capacityNeeded) {
+bool ensureCapacity(ObjectArray *array, uint64_t capacityNeeded) {
 	if (capacityNeeded <= array->capacity) {
 		return true;
 	}
-	int newCapacity = array->capacity;
+	uint64_t newCapacity = array->capacity;
 	while (newCapacity < capacityNeeded) {
 		if (newCapacity > INT_MAX / 2) {
 			return false;
@@ -521,7 +521,7 @@ bool ensureCapacity(ObjectArray *array, int capacityNeeded) {
 	if (newArray == NULL) {
 		return false;
 	}
-	for (int i = array->capacity; i < newCapacity; i++) {
+	for (uint64_t i = array->capacity; i < newCapacity; i++) {
 		newArray[i] = NIL_VAL;
 	}
 	array->array = newArray;
@@ -529,8 +529,8 @@ bool ensureCapacity(ObjectArray *array, int capacityNeeded) {
 	return true;
 }
 
-bool arraySet(ObjectArray *array, int index, Value value) {
-	if (index < 0 || index >= array->size) {
+bool arraySet(ObjectArray *array, uint64_t index, Value value) {
+	if (index >= array->size) {
 		return false;
 	}
 	if (IS_OBJECT(value)) {
@@ -540,7 +540,7 @@ bool arraySet(ObjectArray *array, int index, Value value) {
 	return true;
 }
 
-bool arrayGet(ObjectArray *array, int index, Value *value) {
+bool arrayGet(ObjectArray *array, uint64_t index, Value *value) {
 	if (array == NULL) {
 		return false;
 	}
@@ -548,7 +548,7 @@ bool arrayGet(ObjectArray *array, int index, Value *value) {
 	return true;
 }
 
-bool arrayAdd(ObjectArray *array, Value value, int index) {
+bool arrayAdd(ObjectArray *array, Value value, uint64_t index) {
 	if (!ensureCapacity(array, array->size + 1)) {
 		return false;
 	}

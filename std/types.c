@@ -12,6 +12,9 @@ Method stringMethods[] = {
 	{"starts_with", stringStartsWithMethod, 2},
 	{"ends_with", stringEndsWithMethod, 2},
 	{"contains", stringContainsMethod, 2},
+	{"replace", stringReplaceMethod, 3},
+	{"split", stringSplitMethod, 2},
+	{"substring", stringSubstringMethod, 3}
 };
 
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {

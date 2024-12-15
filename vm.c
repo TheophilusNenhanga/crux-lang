@@ -248,7 +248,7 @@ static bool concatenate() {
 		}
 	}
 
-	int length = stringA->length + stringB->length;
+	uint64_t length = stringA->length + stringB->length;
 	char *chars = ALLOCATE(char, length + 1);
 
 	if (chars == NULL) {
