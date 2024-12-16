@@ -1,6 +1,6 @@
 #include "types.h"
-
 #include "string.h"
+#include "array.h"
 
 Method stringMethods[] = {
 	{"first", stringFirstMethod, 1},
@@ -17,6 +17,19 @@ Method stringMethods[] = {
 	{"substring", stringSubstringMethod, 3}
 };
 
+Method arrayMethods[] = {
+	{"pop", arrayPopMethod, 1},
+	{"push", arrayPushMethod, 2},
+	{"insert", arrayInsertMethod, 3}, 
+	{"remove_at", arrayRemoveAtMethod, 2},
+	{"concat", arrayConcatMethod, 3}, 
+	{"slice", arraySliceMethod, 3}, 
+	{"revserse", arrayReverseMethod, 1}, 
+	{"index", arrayIndexOfMethod, 2}, 
+	{"contains", arrayContainsMethod, 2}, 
+	{"clear", arrayClearMethod, 1}
+};
+
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
 	ObjectString* name = copyString(methodName, (int)strlen(methodName));
 	if (!tableSet(methodTable, name, OBJECT_VAL(newNative(methodFunction, arity)))) {
@@ -25,10 +38,10 @@ bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn me
 	return true;
 }
 
-bool defineStringMethods(Table* methodTable) {
-	int size = sizeof(stringMethods) / sizeof(stringMethods[0]);
+bool defineMethods(Table *methodTable, Method* methods) {
+	int size = sizeof(*methods) / sizeof(methods[0]);
 	for (int i = 0; i < size; i++) {
-		Method method = stringMethods[i];
+		Method method = methods[i];
 		bool result = defineNativeMethod(methodTable, method.name, method.function, method.arity);
 		if (!result) {
 			return false;

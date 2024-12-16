@@ -148,6 +148,16 @@ static bool invoke(ObjectString *name, int argCount) {
 				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
 				return false;
 			}
+		} else if (IS_ARRAY(receiver)) {
+			Value value;
+			if (tableGet(&vm.arrayType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
 		}
 
 		runtimePanic(TYPE, "Only instances have methods.");
@@ -280,20 +290,21 @@ void initVM() {
 	vm.previousInstruction = 0;
 
 	initTable(&vm.stringType.methods);
+	initTable(&vm.arrayType.methods);
 	initTable(&vm.strings);
 	initTable(&vm.globals);
 
 	vm.initString = NULL;
 	vm.initString = copyString("init", 4);
 
-	defineStringMethods(&vm.stringType.methods);
+	defineMethods(&vm.stringType.methods, stringMethods);
+	defineMethods(&vm.arrayType.methods, arrayMethods);
 
 	defineNative("time_s", currentTimeSeconds, 0);
 	defineNative("time_ms", currentTimeMillis, 0);
 	defineNative("print", printNative, 1);
 	defineNative("println", printlnNative, 1);
 	defineNative("len", lengthNative, 1);
-	defineNative("array_add", arrayAddNative, 2);
 	defineNative("array_rem", arrayRemoveNative, 1);
 	defineNative("panic", panicNative, 1);
 	defineNative("error", errorNative, 1);

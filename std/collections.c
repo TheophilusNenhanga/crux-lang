@@ -29,29 +29,6 @@ NativeReturn lengthNative(int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn arrayAddNative(int argCount, Value *args) {
-	Value value = args[0];
-	Value toAdd = args[1];
-
-	NativeReturn nativeReturn = makeNativeReturn(2);
-
-	if (!IS_ARRAY(value)) {
-		ObjectError *error = newError(takeString("Expected type 'error'.", 22), TYPE, STELLA);
-		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(error);
-		return nativeReturn;
-	}
-	ObjectArray *array = AS_ARRAY(value);
-	if (!arrayAdd(array, toAdd, array->size)) {
-		ObjectError *error = newError(takeString("Failed to add to array.", 23), RUNTIME, STELLA);
-		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(error);
-		return nativeReturn;
-	}
-	nativeReturn.values[0] = NIL_VAL;
-	nativeReturn.values[1] = NIL_VAL;
-	return nativeReturn;
-}
 
 NativeReturn arrayRemoveNative(int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(2);

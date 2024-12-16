@@ -8,8 +8,6 @@
 
 NativeReturn lengthNative(int argCount, Value *args);
 
-NativeReturn arrayAddNative(int argCount, Value *args);
-
 NativeReturn arrayRemoveNative(int argCount, Value *args);
 
 #endif

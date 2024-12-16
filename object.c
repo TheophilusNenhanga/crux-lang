@@ -190,6 +190,7 @@ void printObject(Value value) {
 		}
 		case OBJECT_ERROR: {
 			printf("<error>");
+			break;
 		}
 	}
 }

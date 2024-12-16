@@ -10,8 +10,11 @@ typedef struct {
 	int arity;
 } Method;
 
+extern Method stringMethods[];
+extern Method arrayMethods[];
+
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity);
 
-bool defineStringMethods(Table* methodTable);
+bool defineMethods(Table* methodTable, Method* methods);
 
 #endif //TYPES_H

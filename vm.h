@@ -41,6 +41,7 @@ typedef struct {
 	int grayCapacity;
 	uint8_t previousInstruction;
 	NativeType stringType;
+	NativeType arrayType;
 } VM;
 
 extern VM vm;
