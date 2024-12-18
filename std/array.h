@@ -4,6 +4,8 @@
 #include "../object.h"
 #include "../value.h"
 
+#define MAX_ARRAY_SIZE UINT16_MAX - 1
+
 NativeReturn arrayPushMethod(int argCount, Value *args);         // [1,2].push( 3) -> [1,2,3]
 NativeReturn arrayPopMethod(int argCount, Value *args);          // [1,2,3].pop([1,2,3]) -> 3, [1,2]
 NativeReturn arrayInsertMethod(int argCount, Value *args);       // [1,3].insert(1, 2) -> [1,2,3]

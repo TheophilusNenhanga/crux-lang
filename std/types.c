@@ -14,20 +14,22 @@ Method stringMethods[] = {
 	{"contains", stringContainsMethod, 2},
 	{"replace", stringReplaceMethod, 3},
 	{"split", stringSplitMethod, 2},
-	{"substring", stringSubstringMethod, 3}
+	{"substring", stringSubstringMethod, 3},
+	{NULL, NULL, 0},
 };
 
 Method arrayMethods[] = {
 	{"pop", arrayPopMethod, 1},
 	{"push", arrayPushMethod, 2},
 	{"insert", arrayInsertMethod, 3}, 
-	{"remove_at", arrayRemoveAtMethod, 2},
-	{"concat", arrayConcatMethod, 3}, 
+	{"remove", arrayRemoveAtMethod, 2},
+	{"concat", arrayConcatMethod, 2}, 
 	{"slice", arraySliceMethod, 3}, 
-	{"revserse", arrayReverseMethod, 1}, 
+	{"reverse", arrayReverseMethod, 1}, 
 	{"index", arrayIndexOfMethod, 2}, 
 	{"contains", arrayContainsMethod, 2}, 
-	{"clear", arrayClearMethod, 1}
+	{"clear", arrayClearMethod, 1}, 
+	{NULL, NULL, 0},
 };
 
 bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
@@ -39,8 +41,7 @@ bool defineNativeMethod(Table* methodTable, const char * methodName, NativeFn me
 }
 
 bool defineMethods(Table *methodTable, Method* methods) {
-	int size = sizeof(*methods) / sizeof(methods[0]);
-	for (int i = 0; i < size; i++) {
+	for (int i = 0; methods[i].name != NULL; i++) {
 		Method method = methods[i];
 		bool result = defineNativeMethod(methodTable, method.name, method.function, method.arity);
 		if (!result) {
