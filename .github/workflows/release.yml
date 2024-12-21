@@ -15,15 +15,10 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.create_release.outputs.version }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Generate version
-        id: version
-        run: |
-          echo "version=$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
@@ -31,8 +26,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          release_name: Release v${{ steps.version.outputs.version }}
+          tag_name: v${{ github.event.inputs.version }}
+          release_name: Release v${{ github.event.inputs.version }}
           draft: false
           prerelease: false
 
@@ -87,6 +82,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ matrix.binary_path }}
-          tag_name: v${{ inputs.version }}
+          tag_name: v${{ github.event.inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ matrix.artifact_name }}-${{ matrix.platform }}-${{ matrix.arch }}
