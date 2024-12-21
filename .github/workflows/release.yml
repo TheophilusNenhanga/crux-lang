@@ -89,4 +89,4 @@ jobs:
           files: ${{ matrix.binary_path }}
           tag_name: v${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release v${{ inputs.version }}
+          name: ${{ matrix.artifact_name }}-${{ matrix.platform }}-${{ matrix.arch }}
