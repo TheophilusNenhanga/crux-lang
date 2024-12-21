@@ -4,11 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./std/collections.h"
-#include "./std/io.h"
-#include "./std/stl_time.h"
-#include "std/error.h"
-#include "std/types.h"
+#include "std/std.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -23,14 +19,6 @@ void resetStack() {
 	vm.stackTop = vm.stack;
 	vm.frameCount = 0;
 	vm.openUpvalues = NULL;
-}
-
-static void defineNative(const char *name, NativeFn function, int arity) {
-	push(OBJECT_VAL(copyString(name, (int) strlen(name))));
-	push(OBJECT_VAL(newNative(function, arity)));
-	tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
-	pop();
-	pop();
 }
 
 void push(Value value) {
@@ -151,6 +139,26 @@ static bool invoke(ObjectString *name, int argCount) {
 		} else if (IS_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm.arrayType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		} else if (IS_ERROR(receiver)) {
+			Value value;
+			if (tableGet(&vm.errorType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		} else if (IS_TABLE(receiver)) {
+			Value value;
+			if (tableGet(&vm.tableType.methods, name, &value)) {
 				vm.stackTop[-argCount - 1] = value;
 				vm.stackTop[-argCount] = receiver;
 				return callValue(value, argCount);
@@ -299,15 +307,11 @@ void initVM() {
 
 	defineMethods(&vm.stringType.methods, stringMethods);
 	defineMethods(&vm.arrayType.methods, arrayMethods);
+	defineMethods(&vm.tableType.methods, tableMethods);
+	defineMethods(&vm.errorType.methods, errorMethods);
 
-	defineNative("time_s", currentTimeSeconds, 0);
-	defineNative("time_ms", currentTimeMillis, 0);
-	defineNative("print", printNative, 1);
-	defineNative("println", printlnNative, 1);
-	defineNative("len", lengthNative, 1);
-	defineNative("array_rem", arrayRemoveNative, 1);
-	defineNative("panic", panicNative, 1);
-	defineNative("error", errorNative, 1);
+	defineNativeFunctions(&vm.globals);
+
 }
 
 void freeVM() {

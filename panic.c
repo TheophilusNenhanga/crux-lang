@@ -83,6 +83,9 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		case MEMORY: {
 			return (ErrorDetails) {"Memory Error", "Cannot allocate more memory."};
 		}
+		case ASSERT: {
+			return (ErrorDetails){"Assert Error", "The state of your program does not match your expectations"};
+		}
 		case RUNTIME:
 		default:
 			return (ErrorDetails) {

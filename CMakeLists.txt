@@ -49,7 +49,10 @@ add_executable(StellaC
         std/error.h
         std/string.c
         std/string.h
-        std/types.c
-        std/types.h
+        std/std.c
+        std/std.h
         std/array.c
-        std/array.h)
+        std/array.h
+        std/tables.c
+        std/tables.h
+)

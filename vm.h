@@ -42,6 +42,8 @@ typedef struct {
 	uint8_t previousInstruction;
 	NativeType stringType;
 	NativeType arrayType;
+	NativeType tableType;
+	NativeType errorType;
 } VM;
 
 extern VM vm;
