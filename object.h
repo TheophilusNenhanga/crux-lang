@@ -57,7 +57,7 @@ struct Object {
 
 struct ObjectString {
 	Object Object;
-	int length;
+	uint64_t length;
 	char *chars;
 	uint32_t hash;
 };
@@ -105,8 +105,8 @@ typedef struct {
 typedef struct {
 	Object object;
 	Value *array;
-	int size;
-	int capacity;
+	uint64_t size;
+	uint64_t capacity;
 } ObjectArray;
 
 typedef struct {
@@ -158,6 +158,8 @@ typedef enum {
 	COLLECTION_SET,
 	UNPACK_MISMATCH,
 	MEMORY,
+	VALUE, // correct type, but incorrect value
+	ASSERT
 } ErrorType;
 
 typedef enum { USER, STELLA, PANIC } ErrorCreator;
@@ -179,8 +181,8 @@ ObjectNative *newNative(NativeFn function, int arity);
 ObjectFunction *newFunction();
 ObjectClass *newClass(ObjectString *name);
 ObjectInstance *newInstance(ObjectClass *klass);
-ObjectString *takeString(char *chars, int length);
-ObjectString *copyString(const char *chars, int length);
+ObjectString *takeString(char *chars, uint64_t length);
+ObjectString *copyString(const char *chars, uint64_t length);
 void printObject(Value value);
 NativeReturn makeNativeReturn(uint8_t size);
 
@@ -192,11 +194,11 @@ bool objectTableSet(ObjectTable *table, Value key, Value value);
 bool objectTableGet(ObjectTable *table, Value key, Value *value);
 void markObjectTable(ObjectTable *table);
 
-ObjectArray *newArray(int elementCount);
-bool ensureCapacity(ObjectArray *array, int capacityNeeded);
-bool arraySet(ObjectArray *array, int index, Value value);
-bool arrayGet(ObjectArray *array, int index, Value *value);
-bool arrayAdd(ObjectArray *array, Value value, int index);
+ObjectArray *newArray(uint64_t elementCount);
+bool ensureCapacity(ObjectArray *array, uint64_t capacityNeeded);
+bool arraySet(ObjectArray *array, uint64_t index, Value value);
+bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
+bool arrayAdd(ObjectArray *array, Value value, uint64_t index);
 
 
 #endif

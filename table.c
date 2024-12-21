@@ -4,9 +4,6 @@
 #include "memory.h"
 #include "object.h"
 #include "table.h"
-
-#include <stdio.h>
-
 #include "value.h"
 
 void initTable(Table *table) {
@@ -118,7 +115,7 @@ void tableAddAll(Table *from, Table *to) {
 	}
 }
 
-ObjectString *tableFindString(Table *table, const char *chars, int length, uint32_t hash) {
+ObjectString *tableFindString(Table *table, const char *chars, uint64_t length, uint32_t hash) {
 	if (table->count == 0)
 		return NULL;
 

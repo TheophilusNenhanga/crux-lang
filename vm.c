@@ -4,14 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./natives/collections.h"
-#include "./natives/io.h"
-#include "./natives/stl_time.h"
+#include "std/std.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
 #include "memory.h"
-#include "natives/error.h"
 #include "object.h"
 #include "panic.h"
 #include "value.h"
@@ -22,14 +19,6 @@ void resetStack() {
 	vm.stackTop = vm.stack;
 	vm.frameCount = 0;
 	vm.openUpvalues = NULL;
-}
-
-static void defineNative(const char *name, NativeFn function, int arity) {
-	push(OBJECT_VAL(copyString(name, (int) strlen(name))));
-	push(OBJECT_VAL(newNative(function, arity)));
-	tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
-	pop();
-	pop();
 }
 
 void push(Value value) {
@@ -46,7 +35,7 @@ static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
 static bool call(ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
-		runtimePanic(ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity, argCount);
+		runtimePanic(ARGUMENT_MISMATCH,  "Expected %d arguments, got %d", closure->function->arity, argCount);
 		return false;
 	}
 
@@ -75,7 +64,7 @@ static bool callValue(Value callee, int argCount) {
 				}
 
 				NativeReturn result = native->function(argCount, vm.stackTop - argCount);
-				vm.stackTop -= argCount + 1;
+				vm.stackTop -= argCount;
 
 				if (result.size > 0) {
 					// The last Value returned from a native function must be the error if it has one
@@ -89,7 +78,7 @@ static bool callValue(Value callee, int argCount) {
 					}
 				}
 
-				for (int i = result.size - 1; i >= 0; i--) {
+				for (int i = 0; i < result.size; i++) {
 					push(result.values[i]);
 				}
 
@@ -136,6 +125,49 @@ static bool invoke(ObjectString *name, int argCount) {
 	Value receiver = peek(argCount);
 
 	if (!IS_INSTANCE(receiver)) {
+		argCount++; // for the value that the method will act upon
+		if (IS_STRING(receiver)) {
+			Value value;
+			if (tableGet(&vm.stringType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		} else if (IS_ARRAY(receiver)) {
+			Value value;
+			if (tableGet(&vm.arrayType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		} else if (IS_ERROR(receiver)) {
+			Value value;
+			if (tableGet(&vm.errorType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		} else if (IS_TABLE(receiver)) {
+			Value value;
+			if (tableGet(&vm.tableType.methods, name, &value)) {
+				vm.stackTop[-argCount - 1] = value;
+				vm.stackTop[-argCount] = receiver;
+				return callValue(value, argCount);
+			} else {
+				runtimePanic(NAME, "Undefined method '%s'.", name->chars);
+				return false;
+			}
+		}
+
 		runtimePanic(TYPE, "Only instances have methods.");
 		return false;
 	}
@@ -234,7 +266,7 @@ static bool concatenate() {
 		}
 	}
 
-	int length = stringA->length + stringB->length;
+	uint64_t length = stringA->length + stringB->length;
 	char *chars = ALLOCATE(char, length + 1);
 
 	if (chars == NULL) {
@@ -265,21 +297,21 @@ void initVM() {
 	vm.grayStack = NULL;
 	vm.previousInstruction = 0;
 
+	initTable(&vm.stringType.methods);
+	initTable(&vm.arrayType.methods);
 	initTable(&vm.strings);
 	initTable(&vm.globals);
 
 	vm.initString = NULL;
 	vm.initString = copyString("init", 4);
 
-	defineNative("time_s", currentTimeSeconds, 0);
-	defineNative("time_ms", currentTimeMillis, 0);
-	defineNative("print", printNative, 1);
-	defineNative("println", printlnNative, 1);
-	defineNative("len", lengthNative, 1);
-	defineNative("array_add", arrayAddNative, 2);
-	defineNative("array_rem", arrayRemoveNative, 1);
-	defineNative("panic", panicNative, 1);
-	defineNative("error", errorNative, 1);
+	defineMethods(&vm.stringType.methods, stringMethods);
+	defineMethods(&vm.arrayType.methods, arrayMethods);
+	defineMethods(&vm.tableType.methods, tableMethods);
+	defineMethods(&vm.errorType.methods, errorMethods);
+
+	defineNativeFunctions(&vm.globals);
+
 }
 
 void freeVM() {
@@ -479,7 +511,15 @@ static InterpretResult run() {
 					push(NUMBER_VAL(valueCount));
 				}
 
-				frame = &vm.frames[vm.frameCount - 1];
+				CallFrame* callerFrame = &vm.frames[vm.frameCount - 1];
+				uint8_t nextInstr = *callerFrame->ip;
+
+				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE) {
+					runtimePanic(UNPACK_MISMATCH, "Expected to unpack %d values.", valueCount);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				frame = callerFrame;
 				break;
 			}
 
@@ -1094,8 +1134,8 @@ static InterpretResult run() {
 				} else {
 					int valuesOnStack = (int)(vm.stackTop - vm.stack - vm.frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
-												variableCount, valuesOnStack);
+						runtimePanic(UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
+												 valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
 

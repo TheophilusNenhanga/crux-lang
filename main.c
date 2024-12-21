@@ -11,19 +11,17 @@ static char *readFile(const char *path) {
 	FILE *file = fopen(path, "rb");
 
 	if (file == NULL) {
-		// If the file does not exist of the user does not have access to it
 		fprintf(stderr, "Could not open file \"%s\".\n", path);
 		exit(74);
 	}
 
-	fseek(file, 0L, SEEK_END); // go to the end of the file
-	const size_t fileSize = ftell(file); // Tell us how far away the end is
-	rewind(file); // bring us back to the beginning
+	fseek(file, 0L, SEEK_END);
+	const size_t fileSize = ftell(file);
+	rewind(file);
 
 	char *buffer = (char *) malloc(fileSize + 1);
 
 	if (buffer == NULL) {
-		// If the file does not exist of the user does not have access to it
 		fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
 		exit(74);
 	}

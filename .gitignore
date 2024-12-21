@@ -3,3 +3,5 @@
 /build
 /.vscode
 /.cache
+/out
+/.vs
