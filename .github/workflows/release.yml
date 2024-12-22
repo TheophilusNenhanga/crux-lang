@@ -81,11 +81,16 @@ jobs:
       - name: Rename Executable
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            cmd /c "ren ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}"
+            echo "::set-output name=rename_command::ren build\\Release\\StellaC.exe StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe"
           else
-            mv ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}
+            mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           fi
         shell: bash
+
+      - name: Execute Rename on Windows
+        if: runner.os == 'Windows'
+        run: ${{ steps.rename.outputs.rename_command }}
+        shell: cmd
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
