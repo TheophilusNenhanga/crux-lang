@@ -92,3 +92,4 @@ jobs:
           asset_path: |
             StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}*
           asset_name: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
+          content_type: application/octet-stream
