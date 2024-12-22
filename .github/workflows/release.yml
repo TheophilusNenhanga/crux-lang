@@ -14,9 +14,6 @@ permissions:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.create_release.outputs.version }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -81,21 +78,18 @@ jobs:
       - name: Rename Executable
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            echo "::set-output name=rename_command::ren build\\Release\\StellaC.exe StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe"
+            mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe
           else
             mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           fi
-        shell: bash
-
-      - name: Execute Rename on Windows
-        if: runner.os == 'Windows'
-        run: ${{ steps.rename.outputs.rename_command }}
-        shell: cmd
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ matrix.binary_path }}
-          tag_name: v${{ github.event.inputs.version }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: ${{ matrix.artifact_name }}-${{ matrix.platform }}-${{ matrix.arch }}
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: |
+            StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}*
+          asset_name: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
+          content_type: application/octet-stream
