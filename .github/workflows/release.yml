@@ -12,26 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.event.inputs.version }}
-          release_name: Release v${{ github.event.inputs.version }}
-          draft: false
-          prerelease: false
-
   build-and-release:
-    needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -42,21 +23,21 @@ jobs:
             artifact_name: StellaC
             binary_path: build/StellaC
             cmake_flags: ""
-
+            
           - os: windows-latest
             platform: windows
             arch: amd64
             artifact_name: StellaC.exe
             binary_path: build/Release/StellaC.exe
             cmake_flags: ""
-
+            
           - os: macos-latest
             platform: macos
             arch: amd64
             artifact_name: StellaC
             binary_path: build/StellaC
             cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
-
+            
           - os: macos-latest
             platform: macos
             arch: arm64
@@ -66,30 +47,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up CMake
         uses: lukka/get-cmake@latest
-
+      
       - name: Build
         run: |
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
           cmake --build . --config Release
-      - name: Rename Executable
+          
+      - name: Rename binary
         run: |
-          cd build
           if [ "${{ matrix.platform }}" = "windows" ]; then
             mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}.exe
           else
             mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}
           fi
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
-          asset_name: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
-          asset_content_type: application/octet-stream
+          tag_name: v${{ inputs.version }}
+          name: Release v${{ inputs.version }}
+          files: |
+            stellac-${{ matrix.platform }}-${{ matrix.arch }}*
+          token: ${{ secrets.GITHUB_TOKEN }}
