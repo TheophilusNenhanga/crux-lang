@@ -78,6 +78,15 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
           cmake --build . --config Release
 
+      - name: Rename Executable
+        run: |
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            ren ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}
+          else
+            mv ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}
+          fi
+        shell: bash
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
