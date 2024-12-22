@@ -9,7 +9,6 @@
 typedef struct Object Object;
 typedef struct ObjectString ObjectString;
 
-#ifdef NAN_BOXING
 #define QNAN ((uint64_t) 0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t) 0x8000000000000000)
 #define TAG_NIL 1 // 01.
@@ -44,37 +43,6 @@ static inline Value numToValue(double num) {
 	memcpy(&value, &num, sizeof(double));
 	return value;
 }
-
-#else
-
-typedef enum { VAL_BOOL, VAL_NIL, VAL_NUMBER, VAL_OBJECT } ValueType;
-
-typedef struct {
-	ValueType type;
-	union {
-		bool _bool;
-		double _number;
-		Object *_object;
-	} as;
-} Value;
-
-// Check a given value's type
-#define IS_BOOL(value) ((value).type == VAL_BOOL)
-#define IS_NIL(value) ((value).type == VAL_NIL)
-#define IS_NUMBER(value) ((value).type == VAL_NUMBER)
-#define IS_OBJECT(value) ((value).type == VAL_OBJECT)
-
-// Make a StellaC type a value
-#define AS_BOOL(value) ((value).as._bool)
-#define AS_NUMBER(value) ((value).as._number)
-#define AS_OBJECT(value) ((value).as._object)
-
-// Make a value a StellaC type
-#define BOOL_VAL(value) ((Value){VAL_BOOL, {._bool = value}})
-#define NIL_VAL ((Value){VAL_NIL, {._number = 0}})
-#define NUMBER_VAL(value) ((Value){VAL_NUMBER, {._number = value}})
-#define OBJECT_VAL(value) ((Value){VAL_OBJECT, {._object = value}})
-#endif
 
 typedef struct {
 	int capacity;

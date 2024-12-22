@@ -84,10 +84,10 @@ bool defineMethods(Table *methodTable, Callable* methods) {
 }
 
 
-bool defineNativeFunctions(Table* functionTable) {
+bool defineNativeFunctions(Table* callableTable) {
 	for (int i = 0; nativeCallables[i].name != NULL; i++) {
 		Callable function = nativeCallables[i];
-		bool result = defineNativeCallable(functionTable, function.name, function.function, function.arity);
+		bool result = defineNativeCallable(callableTable, function.name, function.function, function.arity);
 		if (!result) {
 			return false;
 		}

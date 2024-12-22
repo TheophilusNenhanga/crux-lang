@@ -111,8 +111,6 @@ NativeReturn arrayRemoveAtMethod(int argCount, Value *args) {
 	returnValue.values[0] = removedElement;
 	returnValue.values[1] = NIL_VAL;
 	return returnValue;
-
-	return returnValue;
 }
 
 NativeReturn arrayConcatMethod(int argCount, Value *args) {

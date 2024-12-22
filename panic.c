@@ -95,9 +95,9 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 	}
 }
 
-void printErrorLine(int lineNumber, const char *source, int startCol, int length) {
+void printErrorLine(int line, const char *source, int startCol, int length) {
 	const char *lineStart = source;
-	for (int currentLine = 1; currentLine < lineNumber && *lineStart; currentLine++) {
+	for (int currentLine = 1; currentLine < line && *lineStart; currentLine++) {
 		lineStart = strchr(lineStart, '\n');
 		if (!lineStart)
 			return;
@@ -110,9 +110,9 @@ void printErrorLine(int lineNumber, const char *source, int startCol, int length
 		lineEnd = lineStart + strlen(lineStart);
 
 	// Calculate padding for line numbers (handles up to 9999 lines)
-	int lineNumWidth = snprintf(NULL, 0, "%d", lineNumber);
+	int lineNumWidth = snprintf(NULL, 0, "%d", line);
 
-	fprintf(stderr, "%*d | ", lineNumWidth, lineNumber);
+	fprintf(stderr, "%*d | ", lineNumWidth, line);
 	fprintf(stderr, "%.*s\n", (int) (lineEnd - lineStart), lineStart);
 
 	fprintf(stderr, "%*s | ", lineNumWidth, "");
