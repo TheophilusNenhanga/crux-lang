@@ -80,9 +80,9 @@ jobs:
         run: |
           cd build
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            mv ${{ matrix.binary_path }} ../StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe
+            mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}.exe
           else
-            mv ${{ matrix.binary_path }} ../StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
+            mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}
           fi
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
