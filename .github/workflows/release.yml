@@ -81,7 +81,7 @@ jobs:
       - name: Rename Executable
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            ren ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}
+            cmd /c "ren ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}"
           else
             mv ${{ matrix.binary_path }} ${{ matrix.binary_path }}-${{ github.event.inputs.version }}-${{ matrix.arch }}
           fi
