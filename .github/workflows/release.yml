@@ -78,10 +78,11 @@ jobs:
           cmake --build . --config Release
       - name: Rename Executable
         run: |
+          cd build
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe
+            mv ${{ matrix.binary_path }} ../StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}.exe
           else
-            mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
+            mv ${{ matrix.binary_path }} ../StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           fi
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -89,7 +90,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: |
-            StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}*
+          asset_path: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           asset_name: StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           asset_content_type: application/octet-stream
