@@ -957,7 +957,7 @@ static InterpretResult run() {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				} else {
-					runtimePanic(TYPE, "Value is not a collection type.");
+					runtimePanic(TYPE, "Value is not a mutable collection type.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				pop(); // collection
