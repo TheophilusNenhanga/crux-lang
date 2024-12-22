@@ -14,6 +14,8 @@ permissions:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -74,7 +76,6 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
           cmake --build . --config Release
-
       - name: Rename Executable
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
@@ -82,7 +83,6 @@ jobs:
           else
             mv ${{ matrix.binary_path }} StellaC-${{ github.event.inputs.version }}-${{ matrix.arch }}
           fi
-
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
