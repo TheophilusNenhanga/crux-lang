@@ -133,12 +133,16 @@ static TokenType identifierType() {
 						return checkKeyword(2, 1, "r", TOKEN_FOR);
 					case 'n':
 						return TOKEN_FN;
+					case 'r':
+						return checkKeyword(2, 3, "om", TOKEN_FROM);
 					default:
 						return TOKEN_IDENTIFIER;
 				}
 			}
 		case 't':
 			return checkKeyword(1, 3, "rue", TOKEN_TRUE);
+		case 'u':
+			return checkKeyword(1, 2, "se", TOKEN_USE);
 		default:;
 	}
 
