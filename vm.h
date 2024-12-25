@@ -44,6 +44,7 @@ typedef struct {
 	NativeType arrayType;
 	NativeType tableType;
 	NativeType errorType;
+	ObjectString *currentScriptName;
 } VM;
 
 extern VM vm;
@@ -54,7 +55,7 @@ void freeVM();
 
 void resetStack();
 
-InterpretResult interpret(char *source);
+InterpretResult interpret(char *source, char* path);
 
 void push(Value value);
 

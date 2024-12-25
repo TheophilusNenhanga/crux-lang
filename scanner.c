@@ -143,6 +143,8 @@ static TokenType identifierType() {
 			return checkKeyword(1, 3, "rue", TOKEN_TRUE);
 		case 'u':
 			return checkKeyword(1, 2, "se", TOKEN_USE);
+		case 'p':
+			return checkKeyword(1, 2, "ub", TOKEN_PUB);
 		default:;
 	}
 

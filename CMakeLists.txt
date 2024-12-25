@@ -55,4 +55,6 @@ add_executable(StellaC
         std/array.h
         std/tables.c
         std/tables.h
+        file_handler.c
+        file_handler.h
 )

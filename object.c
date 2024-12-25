@@ -576,3 +576,20 @@ NativeReturn makeNativeReturn(uint8_t size) {
 	nativeReturn.values = ALLOCATE(Value, nativeReturn.size);
 	return nativeReturn;
 }
+
+ObjectModule *newModule(ObjectString *path) {
+	ObjectModule *module = ALLOCATE_OBJECT(ObjectModule, OBJECT_MODULE);
+	module->path = path;
+	initTable(&module->publicNames);
+	initTable(&module->importedModules);
+	return module;
+}
+
+void addPublicName(ObjectModule *module, ObjectString *name, Value value) {
+	tableSet(&module->publicNames, name, value);
+};
+
+bool isNamePublic(ObjectModule *module, ObjectString *name) {
+	Value value;
+	return tableGet(&module->publicNames, name, &value);
+}

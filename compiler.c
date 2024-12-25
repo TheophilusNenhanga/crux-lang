@@ -128,12 +128,30 @@ static void patchJump(int offset) {
 	currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
+static void markPublic(Compiler* compiler, ObjectString* name) { 
+	if (compiler->module != NULL) {
+		// actual name value will be set when compiling the declaration
+		addPublicName(compiler->module, name, NIL_VAL);
+	}
+}
+
 static void initCompiler(Compiler *compiler, FunctionType type) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+
+	if (compiler->enclosing == NULL) {
+		if (vm.currentScriptName == NULL) {
+			vm.currentScriptName = copyString("<script>", strlen("<script>"));
+		}
+		compiler->module = newModule(vm.currentScriptName);
+	}else {
+		compiler->module = ((Compiler*)(compiler->enclosing))->module;
+	}
+
+
 	compiler->function = newFunction();
 	current = compiler;
 
@@ -969,6 +987,24 @@ static void statement() {
 	}
 }
 
+static void publicDeclaration() {
+	if (match(TOKEN_FN)) {
+		Token functionName = parser.current;
+		fnDeclaration();
+		markPublic(current, copyString(functionName.start, functionName.length));
+	} else if (match(TOKEN_LET)) {
+		Token variableName = parser.current;
+		varDeclaration();
+		markPublic(current, copyString(variableName.start, variableName.length));
+	} else if (match(TOKEN_CLASS)) {
+		Token className = parser.current;
+		classDeclaration();
+		markPublic(current, copyString(className.start, className.length));
+	} else {
+		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
+	}
+}
+
 static void grouping(bool canAssign) {
 	expression();
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
@@ -1061,6 +1097,7 @@ ParseRule rules[] = {
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
 		[TOKEN_USE] = {NULL, NULL, PREC_NONE}, 
 		[TOKEN_FROM] = {NULL, NULL, PREC_NONE},
+		[TOKEN_PUB] = {publicDeclaration, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},

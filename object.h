@@ -20,6 +20,7 @@
 #define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
 #define IS_ERROR(value) isObjectType(value, OBJECT_ERROR)
+#define IS_MODULE(value) isObjectType(value, OBJECT_MODULE)
 
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
@@ -33,6 +34,7 @@
 #define AS_ARRAY(value) ((ObjectArray *) AS_OBJECT(value))
 #define AS_TABLE(value) ((ObjectTable *) AS_OBJECT(value))
 #define AS_ERROR(value) ((ObjectError *) AS_OBJECT(value))
+#define AS_MODULE(value) ((ObjectModule *) AS_OBJECT(value))
 
 
 typedef enum {
@@ -47,6 +49,7 @@ typedef enum {
 	OBJECT_ARRAY,
 	OBJECT_TABLE,
 	OBJECT_ERROR,
+	OBJECT_MODULE,
 } ObjectType;
 
 struct Object {
@@ -135,6 +138,13 @@ typedef struct {
 	uint16_t size;
 } ObjectTable;
 
+typedef struct {
+	Object object;
+	ObjectString* path;
+	Table publicNames;
+	Table importedModules;
+} ObjectModule;
+
 typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
@@ -182,6 +192,7 @@ ObjectNative *newNative(NativeFn function, int arity);
 ObjectFunction *newFunction();
 ObjectClass *newClass(ObjectString *name);
 ObjectInstance *newInstance(ObjectClass *klass);
+
 ObjectString *takeString(char *chars, uint64_t length);
 ObjectString *copyString(const char *chars, uint64_t length);
 void printObject(Value value);
@@ -201,6 +212,9 @@ bool arraySet(ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(ObjectArray *array, Value value, uint64_t index);
 
+ObjectModule *newModule(ObjectString *path);
+void addPublicName(ObjectModule *module, ObjectString *name, Value value);
+bool isNamePublic(ObjectModule *module, ObjectString *name);
 
 #endif
 

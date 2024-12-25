@@ -59,6 +59,7 @@ typedef enum {
 	TOKEN_CONTINUE,
 	TOKEN_USE, 
 	TOKEN_FROM,
+	TOKEN_PUB,
 	TOKEN_EOF
 } TokenType;
 

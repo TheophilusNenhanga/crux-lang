@@ -138,6 +138,13 @@ static void blackenObject(Object *object) {
 			break;
 		}
 
+		case OBJECT_MODULE: {
+			ObjectModule *module = (ObjectModule *) object;
+			markTable(&module->importedModules);
+			markTable(&module->publicNames);
+			markObject((Object *) module->path);
+			break;
+		}
 		case OBJECT_NATIVE:
 		case OBJECT_STRING:
 			break;
@@ -208,6 +215,14 @@ static void freeObject(Object *object) {
 
 		case OBJECT_ERROR: {
 			FREE(ObjectError, object);
+			break;
+		}
+		case OBJECT_MODULE: {
+			ObjectModule *module = (ObjectModule *) object;
+			freeTable(&module->importedModules);
+			freeTable(&module->publicNames);
+			freeObject((Object *) module->path);
+			FREE(ObjectModule, object);
 			break;
 		}
 	}

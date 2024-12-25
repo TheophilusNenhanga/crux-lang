@@ -57,6 +57,7 @@ typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_A
 typedef struct {
 	struct Compiler *enclosing;
 	ObjectFunction *function;
+	ObjectModule *module;
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 	FunctionType type;

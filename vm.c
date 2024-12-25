@@ -291,7 +291,7 @@ void initVM() {
 	vm.objects = NULL;
 	vm.bytesAllocated = 0;
 	vm.nextGC = 1024 * 1024;
-
+	vm.currentScriptName = NULL;
 	vm.grayCount = 0;
 	vm.grayCapacity = 0;
 	vm.grayStack = NULL;
@@ -318,6 +318,7 @@ void freeVM() {
 	freeTable(&vm.strings);
 	freeTable(&vm.globals);
 	vm.initString = NULL;
+	vm.currentScriptName = NULL;
 	freeObjects();
 }
 
@@ -1166,7 +1167,13 @@ static InterpretResult run() {
 #undef READ_SHORT
 }
 
-InterpretResult interpret(char *source) {
+InterpretResult interpret(char *source, char* path) {
+	if (path != NULL) {
+		vm.currentScriptName = copyString(path, strlen(path));
+	}else {
+		vm.currentScriptName = copyString("<script>", strlen("<script>"));
+	}
+
 	ObjectFunction *function = compile(source);
 	if (function == NULL)
 		return INTERPRET_COMPILE_ERROR;
