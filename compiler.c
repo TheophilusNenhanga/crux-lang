@@ -888,6 +888,31 @@ static void returnStatement() {
 	}
 }
 
+static void useStatement() {
+	
+	uint8_t nameCount = 0;
+	uint8_t names[UINT8_MAX];
+	do {
+		if (nameCount >= UINT8_MAX) {
+			compilerPanic(&parser, "Cannot import more than 255 names from another module.", IMPORT_EXTENT);
+		}
+		consume(TOKEN_IDENTIFIER, "Expected name to import from external module");
+		uint8_t name = identifierConstant(&parser.previous);
+		names[nameCount] = name;
+		nameCount++;
+	} while (match(TOKEN_COMMA));
+
+	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
+	consume(TOKEN_STRING, "Expected string literal for module name");
+	uint8_t module = makeConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	emitBytes(OP_USE, nameCount);
+	for (uint8_t i = 0; i < nameCount; i++) {
+		emitByte(names[i]);
+	}
+	emitByte(module);
+	consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
+}
+
 static void synchronize() {
 	parser.panicMode = false;
 
@@ -937,6 +962,8 @@ static void statement() {
 		forStatement();
 	} else if (match(TOKEN_RETURN)) {
 		returnStatement();
+	} else if (match(TOKEN_USE)) {
+		useStatement();
 	} else {
 		expressionStatement();
 	}
@@ -1032,6 +1059,8 @@ ParseRule rules[] = {
 		[TOKEN_SELF] = {self, NULL, PREC_NONE},
 		[TOKEN_TRUE] = {literal, NULL, PREC_NONE},
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
+		[TOKEN_USE] = {NULL, NULL, PREC_NONE}, 
+		[TOKEN_FROM] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},

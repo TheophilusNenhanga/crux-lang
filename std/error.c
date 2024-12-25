@@ -227,6 +227,12 @@ NativeReturn errorTypeMethod(int argCount, Value *args) {
 			break;
 		}
 
+		case IMPORT_EXTENT: {
+			ObjectString *type = takeString("<import extent error>", 22);
+			returnValue.values[0] = OBJECT_VAL(type);
+			break;
+		}
+
 		default: {
 			ObjectString *type = takeString("<stella error>", 8);
 			returnValue.values[0] = OBJECT_VAL(type);

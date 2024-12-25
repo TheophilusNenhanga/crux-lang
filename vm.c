@@ -1145,6 +1145,16 @@ static InterpretResult run() {
 				}
 				break;
 			}
+
+			case OP_USE: {
+				uint8_t nameCount = READ_BYTE();
+				ObjectString *names[UINT8_MAX];
+				for (int i = 0; i < nameCount; i++) {
+					names[i] = READ_STRING();
+				}
+				ObjectString *module = READ_STRING();
+				
+			}
 		}
 		vm.previousInstruction = instruction;
 	}

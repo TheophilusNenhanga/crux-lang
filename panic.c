@@ -86,6 +86,9 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		case ASSERT: {
 			return (ErrorDetails){"Assert Error", "The state of your program does not match your expectations"};
 		}
+		case IMPORT_EXTENT: {
+			return (ErrorDetails){"Import Extent Error", "Cannot import any more names."};
+		}
 		case RUNTIME:
 		default:
 			return (ErrorDetails) {

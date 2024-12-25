@@ -134,7 +134,7 @@ static TokenType identifierType() {
 					case 'n':
 						return TOKEN_FN;
 					case 'r':
-						return checkKeyword(2, 3, "om", TOKEN_FROM);
+						return checkKeyword(2, 2, "om", TOKEN_FROM);
 					default:
 						return TOKEN_IDENTIFIER;
 				}
