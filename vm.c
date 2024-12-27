@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "std/std.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "file_handler.h"
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
+#include "std/std.h"
 #include "value.h"
 
 VM vm;
@@ -450,6 +451,14 @@ static void reverse_stack(int actual) {
 	}
 }
 
+static bool chceckPreviousInstruction(CallFrame* frame, int instructionsAgo, OpCode instruction) {
+	uint8_t *current = frame->ip;
+	if (current - instructionsAgo < frame->closure->function->chunk.code) {
+		return false;
+	}
+	return *(current - (instructionsAgo+2)) == instruction; // +2 to account for offset
+}
+
 static InterpretResult run() {
 	CallFrame *frame = &vm.frames[vm.frameCount - 1];
 
@@ -683,6 +692,12 @@ static InterpretResult run() {
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
 				if (tableSet(&vm.globals, name, peek(0))) {
+					if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
+						ObjectModule *currentModule = frame->closure->function->module;
+						if (currentModule != NULL) {
+							tableSet(&currentModule->publicNames, name, peek(0));
+						}
+					}
 					pop();
 					break;
 				}
@@ -1147,6 +1162,10 @@ static InterpretResult run() {
 				break;
 			}
 
+			case OP_PUB: {
+				break;
+			}
+
 			case OP_USE: {
 				uint8_t nameCount = READ_BYTE();
 				ObjectString *names[UINT8_MAX];
@@ -1154,8 +1173,95 @@ static InterpretResult run() {
 					names[i] = READ_STRING();
 				}
 				ObjectString *module = READ_STRING();
-				
+
+				char* resolvedPath = resolveRelativePath(vm.currentScriptName->chars, module->chars);
+				if (resolvedPath == NULL) {
+					runtimePanic(IO, "Could not resolve path to module.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				ObjectModule *currentModule = frame->closure->function->module;
+
+				if (currentModule == NULL) {
+					runtimePanic(RUNTIME, "No module context available.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				Value alreadyImportedModule;
+				if (tableGet(&currentModule->importedModules, module, &alreadyImportedModule)) {
+					ObjectModule *importedModule = AS_MODULE(alreadyImportedModule);
+					for (int i = 0; i < nameCount; i++) {
+						Value value;
+						if (!isNamePublic(importedModule, names[i])) {
+							runtimePanic(NAME, "Name '%s' is not public in module '%s'.", names[i]->chars, module->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						if (!tableGet(&importedModule->publicNames, names[i], &value)) {
+							runtimePanic(NAME, "Name '%s' is not defined in module '%s'.", names[i]->chars, module->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						tableSet(&vm.globals, names[i], value);
+					}
+				} else {
+					FileResult result = readFile(resolvedPath);
+					free(resolvedPath);
+
+					if (result.error != NULL) {
+						runtimePanic(IO, "Could not read module file: %s", result.error);
+						freeFileResult(result);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+					ObjectString *previousScriptName = vm.currentScriptName;
+
+					vm.currentScriptName = module;
+
+					ObjectFunction *moduleFunction = compile(result.content);
+					freeFileResult(result);
+
+					if (moduleFunction == NULL) {
+						vm.currentScriptName = previousScriptName;
+						runtimePanic(RUNTIME, "Could not compile module: \"%s\"", vm.currentScriptName->chars);
+						return INTERPRET_COMPILE_ERROR;
+					}
+
+					push(OBJECT_VAL(moduleFunction));
+					ObjectClosure *moduleClosure = newClosure(moduleFunction);
+					pop();
+					push(OBJECT_VAL(moduleClosure));
+
+					if (!call(moduleClosure, 0)) {
+						vm.currentScriptName = previousScriptName;
+						return INTERPRET_RUNTIME_ERROR;
+					}
+
+					InterpretResult moduleResult = run();
+					if (moduleResult != INTERPRET_OK) {
+						vm.currentScriptName = previousScriptName;
+						return moduleResult;
+					}
+
+					if (!tableSet(&currentModule->importedModules, module, OBJECT_VAL(moduleFunction->module))) {
+						runtimePanic(IMPORT, "Could not import module '%s'.", module->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+
+					for (int i = 0; i < nameCount; i++) {
+						Value value;
+						if (!isNamePublic(moduleFunction->module, names[i])) {
+							runtimePanic(NAME, "Name '%s' is not public in module '%s'.", names[i]->chars, module->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						if (!tableGet(&moduleFunction->module->publicNames, names[i], &value)) {
+							runtimePanic(NAME, "Name '%s' is not defined in module '%s'.", names[i]->chars, module->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						tableSet(&vm.globals, names[i], value);
+					}
+					vm.currentScriptName = previousScriptName;
+					break;
+				}
 			}
+					   
 		}
 		vm.previousInstruction = instruction;
 	}

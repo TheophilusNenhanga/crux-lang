@@ -67,10 +67,18 @@ struct ObjectString {
 
 typedef struct {
 	Object object;
+	ObjectString *path;
+	Table publicNames;
+	Table importedModules;
+} ObjectModule;
+
+typedef struct {
+	Object object;
 	int arity;
 	int upvalueCount;
 	Chunk chunk;
 	ObjectString *name;
+	ObjectModule *module;
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {
@@ -138,13 +146,6 @@ typedef struct {
 	uint16_t size;
 } ObjectTable;
 
-typedef struct {
-	Object object;
-	ObjectString* path;
-	Table publicNames;
-	Table importedModules;
-} ObjectModule;
-
 typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
@@ -171,6 +172,8 @@ typedef enum {
 	VALUE, // correct type, but incorrect value
 	ASSERT, 
 	IMPORT_EXTENT,
+	IO,
+	IMPORT,
 } ErrorType;
 
 typedef enum { USER, STELLA, PANIC } ErrorCreator;

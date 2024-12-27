@@ -364,6 +364,7 @@ ObjectFunction *newFunction() {
 	function->arity = 0;
 	function->name = NULL;
 	function->upvalueCount = 0;
+	function->module = NULL;
 	initChunk(&function->chunk);
 	return function;
 }
@@ -585,9 +586,6 @@ ObjectModule *newModule(ObjectString *path) {
 	return module;
 }
 
-void addPublicName(ObjectModule *module, ObjectString *name, Value value) {
-	tableSet(&module->publicNames, name, value);
-};
 
 bool isNamePublic(ObjectModule *module, ObjectString *name) {
 	Value value;

@@ -232,6 +232,11 @@ NativeReturn errorTypeMethod(int argCount, Value *args) {
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
+		case IO: {
+			ObjectString *type = takeString("<io error>", 10);
+			returnValue.values[0] = OBJECT_VAL(type);
+			break;
+		}
 
 		default: {
 			ObjectString *type = takeString("<stella error>", 8);

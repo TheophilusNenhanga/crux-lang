@@ -98,6 +98,7 @@ static void blackenObject(Object *object) {
 			ObjectFunction *function = (ObjectFunction *) object;
 			markObject((Object *) function->name);
 			markArray(&function->chunk.constants);
+			markObject((Object *) function->module);
 			break;
 		}
 		case OBJECT_UPVALUE: {

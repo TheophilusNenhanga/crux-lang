@@ -89,6 +89,13 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		case IMPORT_EXTENT: {
 			return (ErrorDetails){"Import Extent Error", "Cannot import any more names."};
 		}
+		case IO: {
+			return (ErrorDetails){"IO Error", "An error occurred while reading from or writing to a file. Check if the file "
+																				"exists at the specified location."};
+		}
+		case IMPORT: {
+			return (ErrorDetails){"Import Error", "An error occurred while importing a module."};
+		}
 		case RUNTIME:
 		default:
 			return (ErrorDetails) {

@@ -67,6 +67,7 @@ typedef enum {
 	OP_ANON_FUNCTION,
 	OP_UNPACK_TUPLE,
 	OP_USE,
+	OP_PUB,
 } OpCode;
 
 typedef struct {

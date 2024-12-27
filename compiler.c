@@ -130,8 +130,8 @@ static void patchJump(int offset) {
 
 static void markPublic(Compiler* compiler, ObjectString* name) { 
 	if (compiler->module != NULL) {
-		// actual name value will be set when compiling the declaration
-		addPublicName(compiler->module, name, NIL_VAL);
+		// actual name value will be set at runtime
+		tableSet(&compiler->module->publicNames, name, NIL_VAL);
 	}
 }
 
@@ -341,6 +341,7 @@ static void or_(bool canAssign) {
 static ObjectFunction *endCompiler() {
 	emitReturn();
 	ObjectFunction *function = current->function;
+	function->module = current->module;
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.hadError) {
 		disassembleChunk(currentChunk(), function->name != NULL ? function->name->chars : "<script>");
@@ -952,6 +953,29 @@ static void synchronize() {
 	}
 }
 
+static void publicDeclaration() {
+	if (current->scopeDepth > 0) {
+		compilerPanic(&parser, "Cannot declare public members in a local scope.", SYNTAX);
+	}
+	emitByte(OP_PUB);
+	if (match(TOKEN_FN)) {
+		Token functionName = parser.current;
+		fnDeclaration();
+		markPublic(current, copyString(functionName.start, functionName.length));
+	} else if (match(TOKEN_LET)) {
+		Token variableName = parser.current;
+		varDeclaration();
+		markPublic(current, copyString(variableName.start, variableName.length));
+	} else if (match(TOKEN_CLASS)) {
+		Token className = parser.current;
+		classDeclaration();
+		markPublic(current, copyString(className.start, className.length));
+	} else {
+		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
+	}
+}
+
+
 static void declaration() {
 	if (match(TOKEN_LET)) {
 		varDeclaration();
@@ -959,6 +983,8 @@ static void declaration() {
 		classDeclaration();
 	} else if (match(TOKEN_FN)) {
 		fnDeclaration();
+	} else if (match(TOKEN_PUB)) {
+		publicDeclaration();
 	} else {
 		statement();
 	}
@@ -984,24 +1010,6 @@ static void statement() {
 		useStatement();
 	} else {
 		expressionStatement();
-	}
-}
-
-static void publicDeclaration() {
-	if (match(TOKEN_FN)) {
-		Token functionName = parser.current;
-		fnDeclaration();
-		markPublic(current, copyString(functionName.start, functionName.length));
-	} else if (match(TOKEN_LET)) {
-		Token variableName = parser.current;
-		varDeclaration();
-		markPublic(current, copyString(variableName.start, variableName.length));
-	} else if (match(TOKEN_CLASS)) {
-		Token className = parser.current;
-		classDeclaration();
-		markPublic(current, copyString(className.start, className.length));
-	} else {
-		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
 	}
 }
 
@@ -1097,7 +1105,7 @@ ParseRule rules[] = {
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
 		[TOKEN_USE] = {NULL, NULL, PREC_NONE}, 
 		[TOKEN_FROM] = {NULL, NULL, PREC_NONE},
-		[TOKEN_PUB] = {publicDeclaration, NULL, PREC_NONE},
+		[TOKEN_PUB] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},
@@ -1156,6 +1164,7 @@ void markCompilerRoots() {
 	Compiler *compiler = current;
 	while (compiler != NULL) {
 		markObject((Object *) compiler->function);
+		markObject((Object *) compiler->module);
 		compiler = (Compiler *) compiler->enclosing;
 	}
 }

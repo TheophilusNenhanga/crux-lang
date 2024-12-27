@@ -216,6 +216,9 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			printf("\n");
 			return offset + nameCount + 3;
 		}
+		case OP_PUB: {
+			return simpleInstruction("OP_PUB", offset);
+		}
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;
