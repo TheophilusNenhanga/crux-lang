@@ -1174,7 +1174,7 @@ static InterpretResult run() {
 				}
 				ObjectString *module = READ_STRING();
 
-				char* resolvedPath = resolveRelativePath(vm.currentScriptName->chars, module->chars);
+				char* resolvedPath = resolvePath(module->chars);
 				if (resolvedPath == NULL) {
 					runtimePanic(IO, "Could not resolve path to module.");
 					return INTERPRET_RUNTIME_ERROR;
@@ -1207,7 +1207,7 @@ static InterpretResult run() {
 					free(resolvedPath);
 
 					if (result.error != NULL) {
-						runtimePanic(IO, "Could not read module file: %s", result.error);
+						runtimePanic(IO, "%s", result.error);
 						freeFileResult(result);
 						return INTERPRET_RUNTIME_ERROR;
 					}

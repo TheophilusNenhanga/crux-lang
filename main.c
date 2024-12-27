@@ -35,7 +35,6 @@ static void runFile(const char *path) {
 }
 
 int main(const int argc, const char *argv[]) {
-	initFileSystem();
 	initVM();
 
 	if (argc == 1) {
@@ -48,6 +47,5 @@ int main(const int argc, const char *argv[]) {
 	}
 
 	freeVM();
-	freeFileSystem();
 	return 0;
 }
