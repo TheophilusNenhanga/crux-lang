@@ -58,7 +58,6 @@ typedef struct {
 	VM* owner;
 	struct Compiler *enclosing;
 	ObjectFunction *function;
-	ObjectModule *module;
 	FunctionType type;
 	int localCount;
 	int scopeDepth; // 0 is global scope

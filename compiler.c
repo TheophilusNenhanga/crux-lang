@@ -127,12 +127,6 @@ static void patchJump(int offset) {
 	currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
-static void markPublic(Compiler* compiler, ObjectString* name) { 
-	if (compiler->module != NULL) {
-		// actual name value will be set at runtime
-		tableSet(compiler->owner, &compiler->module->publicNames, name, NIL_VAL);
-	}
-}
 
 static void initCompiler(Compiler *compiler, FunctionType type, VM* vm) {
 	compiler->enclosing = current;
@@ -146,9 +140,6 @@ static void initCompiler(Compiler *compiler, FunctionType type, VM* vm) {
 		if (compiler->owner->currentScriptName == NULL) {
 			compiler->owner->currentScriptName = copyString(current->owner, "<script>", strlen("<script>"));
 		}
-		compiler->module = newModule(compiler->owner, compiler->owner->currentScriptName);
-	}else {
-		compiler->module = ((Compiler*)(compiler->enclosing))->module;
 	}
 
 
@@ -341,7 +332,6 @@ static void or_(bool canAssign) {
 static ObjectFunction *endCompiler() {
 	emitReturn();
 	ObjectFunction *function = current->function;
-	function->module = current->module;
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.hadError) {
 		disassembleChunk(currentChunk(), function->name != NULL ? function->name->chars : "<script>");
@@ -959,17 +949,11 @@ static void publicDeclaration() {
 	}
 	emitByte(OP_PUB);
 	if (match(TOKEN_FN)) {
-		Token functionName = parser.current;
 		fnDeclaration();
-		markPublic(current, copyString(current->owner, functionName.start, functionName.length));
 	} else if (match(TOKEN_LET)) {
-		Token variableName = parser.current;
 		varDeclaration();
-		markPublic(current, copyString(current->owner, variableName.start, variableName.length));
 	} else if (match(TOKEN_CLASS)) {
-		Token className = parser.current;
 		classDeclaration();
-		markPublic(current, copyString(current->owner, className.start, className.length));
 	} else {
 		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
 	}
@@ -1164,7 +1148,6 @@ void markCompilerRoots(VM *vm) {
 	Compiler *compiler = current;
 	while (compiler != NULL) {
 		markObject(vm, (Object *) compiler->function);
-		markObject(vm, (Object *) compiler->module);
 		compiler = (Compiler *) compiler->enclosing;
 	}
 }

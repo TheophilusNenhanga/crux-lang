@@ -362,7 +362,6 @@ ObjectFunction *newFunction(VM* vm) {
 	function->arity = 0;
 	function->name = NULL;
 	function->upvalueCount = 0;
-	function->module = NULL;
 	initChunk(&function->chunk);
 	return function;
 }
@@ -574,17 +573,4 @@ NativeReturn makeNativeReturn(VM* vm, uint8_t size) {
 	nativeReturn.size = size;
 	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);
 	return nativeReturn;
-}
-
-ObjectModule *newModule(VM* vm, ObjectString *path) {
-	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
-	module->path = path;
-	initTable(&module->publicNames);
-	initTable(&module->importedModules);
-	return module;
-}
-
-bool isNamePublic(ObjectModule *module, ObjectString *name) {
-	Value value;
-	return tableGet(&module->publicNames, name, &value);
 }

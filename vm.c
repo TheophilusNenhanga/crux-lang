@@ -706,10 +706,7 @@ static InterpretResult run(VM* vm) {
 				ObjectString *name = READ_STRING();
 				if (tableSet(vm, &vm->globals, name, peek(vm, 0))) {
 					if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
-						ObjectModule *currentModule = frame->closure->function->module;
-						if (currentModule != NULL) {
-							tableSet(vm, &currentModule->publicNames, name, peek(vm, 0));
-						}
+						// TODO: Publicly defined globals
 					}
 					pop(vm);
 					break;

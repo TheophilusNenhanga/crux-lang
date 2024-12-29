@@ -96,7 +96,6 @@ static void blackenObject(VM* vm, Object *object) {
 			ObjectFunction *function = (ObjectFunction *) object;
 			markObject(vm, (Object *) function->name);
 			markArray(vm, &function->chunk.constants);
-			markObject(vm, (Object *) function->module);
 			break;
 		}
 		case OBJECT_UPVALUE: {
@@ -137,13 +136,6 @@ static void blackenObject(VM* vm, Object *object) {
 			break;
 		}
 
-		case OBJECT_MODULE: {
-			ObjectModule *module = (ObjectModule *) object;
-			markTable(vm, &module->importedModules);
-			markTable(vm, &module->publicNames);
-			markObject(vm, (Object *) module->path);
-			break;
-		}
 		case OBJECT_NATIVE:
 		case OBJECT_STRING:
 			break;
@@ -214,14 +206,6 @@ static void freeObject(VM* vm, Object *object) {
 
 		case OBJECT_ERROR: {
 			FREE(vm, ObjectError, object);
-			break;
-		}
-		case OBJECT_MODULE: {
-			ObjectModule *module = (ObjectModule *) object;
-			freeTable(vm, &module->importedModules);
-			freeTable(vm, &module->publicNames);
-			freeObject(vm, (Object *) module->path);
-			FREE(vm, ObjectModule, object);
 			break;
 		}
 	}

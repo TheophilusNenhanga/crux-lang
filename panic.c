@@ -178,10 +178,8 @@ void runtimePanic(VM* vm, ErrorType type, const char *format, ...) {
 		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "\n[line %d] in ", function->chunk.lines[instruction]);
 		if (function->name == NULL) {
-			fprintf(stderr, "%s\n", function->module->path->chars);
 			fprintf(stderr, "> script");
 		} else {
-			fprintf(stderr, "%s\n", function->module->path->chars);
 			fprintf(stderr, "> %s()", function->name->chars);
 		}
 	}
