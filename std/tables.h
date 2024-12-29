@@ -3,8 +3,8 @@
 
 #include "../object.h"
 
-NativeReturn tableValuesMethod(int argCount, Value *args);
-NativeReturn tableKeysMethod(int argCount, Value *args);
-NativeReturn tablePairsMethod(int argCount, Value *args);
+NativeReturn tableValuesMethod(VM* vm, int argCount, Value *args);
+NativeReturn tableKeysMethod(VM* vm, int argCount, Value *args);
+NativeReturn tablePairsMethod(VM* vm, int argCount, Value *args);
 
 #endif //TABLES_H

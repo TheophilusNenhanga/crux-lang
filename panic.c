@@ -162,7 +162,7 @@ void compilerPanic(Parser *parser, const char *message, ErrorType errorType) {
 	errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(ErrorType type, const char *format, ...) {
+void runtimePanic(VM* vm, ErrorType type, const char *format, ...) {
 	ErrorDetails details = getErrorDetails(type);
 
 	va_list args;
@@ -172,8 +172,8 @@ void runtimePanic(ErrorType type, const char *format, ...) {
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "%s", RESET);
 
-	for (int i = vm.frameCount - 1; i >= 0; i--) {
-		CallFrame *frame = &vm.frames[i];
+	for (int i = vm->frameCount - 1; i >= 0; i--) {
+		CallFrame *frame = &vm->frames[i];
 		ObjectFunction *function = frame->closure->function;
 		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "\n[line %d] in ", function->chunk.lines[instruction]);
@@ -189,5 +189,5 @@ void runtimePanic(ErrorType type, const char *format, ...) {
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	va_end(args);
 
-	resetStack();
+	resetStack(vm);
 }

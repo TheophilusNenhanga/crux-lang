@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "chunk.h"
 #include "file_handler.h"
 #include "vm.h"
 
-static void repl() {
+static void repl(VM* vm) {
 	while (true) {
 		char line[1024];
 		printf("> ");
@@ -14,18 +13,18 @@ static void repl() {
 			printf("\n");
 			break;
 		}
-		interpret(line, NULL);
+		interpret(vm, line, NULL);
 	}
 }
 
-static void runFile(const char *path) {
+static void runFile(VM* vm, const char *path) {
 	FileResult fileResult = readFile(path);
 	if (fileResult.error) {
 		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
 		exit(2);
 	}
 
-	const InterpretResult interpretResult = interpret(fileResult.content, path);
+	const InterpretResult interpretResult = interpret(vm, fileResult.content, path);
 	free(fileResult.content);
 
 	if (interpretResult == INTERPRET_COMPILE_ERROR)
@@ -35,17 +34,18 @@ static void runFile(const char *path) {
 }
 
 int main(const int argc, const char *argv[]) {
-	initVM();
+
+	VM* vm = newVM();
 
 	if (argc == 1) {
-		repl();
+		repl(vm);
 	} else if (argc == 2) {
-		runFile(argv[1]);
+		runFile(vm, argv[1]);
 	} else {
 		fprintf(stderr, "Usage: stella [path]\n");
 		exit(64);
 	}
 
-	freeVM();
+	freeVM(vm);
 	return 0;
 }

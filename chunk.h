@@ -2,6 +2,7 @@
 #define CHUNK_H
 
 #include "common.h"
+#include "vm.h"
 #include "value.h"
 
 typedef enum {
@@ -80,10 +81,10 @@ typedef struct {
 
 void initChunk(Chunk *chunk);
 
-void writeChunk(Chunk *chunk, uint8_t byte, int line);
+void writeChunk(VM *vm,Chunk *chunk, uint8_t byte, int line);
 
-void freeChunk(Chunk *chunk);
+void freeChunk(VM *vm,Chunk *chunk);
 
-int addConstant(Chunk *chunk, Value value);
+int addConstant(VM *vm,Chunk *chunk, Value value);
 
 #endif // CHUNK_H

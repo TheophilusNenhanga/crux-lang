@@ -6,6 +6,6 @@
 
 #define MAX_ARRAY_SIZE UINT16_MAX - 1
 
-NativeReturn lengthNative(int argCount, Value *args);
+NativeReturn lengthNative(VM* vm, int argCount, Value *args);
 
 #endif

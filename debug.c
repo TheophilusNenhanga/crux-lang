@@ -211,7 +211,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		}
 		case OP_USE: {
 			uint8_t nameCount = chunk->code[offset + 1];
-			printf("%-16s %4d names from ", "OP_USE", nameCount);
+			printf("%-16s %4d name(s) from ", "OP_USE", nameCount);
 			printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]]);
 			printf("\n");
 			return offset + nameCount + 3;

@@ -3,17 +3,17 @@
 
 #include "../object.h"
 
-NativeReturn stringFirstMethod(int argCount, Value *args);
-NativeReturn stringLastMethod(int argCount, Value *args);
-NativeReturn stringGetMethod(int argCount, Value *args);
-NativeReturn stringUpperMethod(int argCount, Value *args);
-NativeReturn stringLowerMethod(int argCount, Value *args);
-NativeReturn stringStripMethod(int argCount, Value *args);
-NativeReturn stringSubstringMethod(int argCount, Value *args);
-NativeReturn stringReplaceMethod(int argCount, Value *args);
-NativeReturn stringSplitMethod(int argCount, Value *args);
-NativeReturn stringContainsMethod(int argCount, Value *args);
-NativeReturn stringStartsWithMethod(int argCount, Value *args);
-NativeReturn stringEndsWithMethod(int argCount, Value *args);
+NativeReturn stringFirstMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringLastMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringGetMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringUpperMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringLowerMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringStripMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringSubstringMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringReplaceMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringSplitMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringContainsMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringStartsWithMethod(VM* vm,int argCount, Value *args);
+NativeReturn stringEndsWithMethod(VM* vm,int argCount, Value *args);
 
 #endif //STRING_H

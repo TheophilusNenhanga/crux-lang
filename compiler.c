@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "chunk.h"
 #include "memory.h"
 #include "object.h"
@@ -71,24 +70,24 @@ static bool match(TokenType type) {
 	return true;
 }
 
-static void emitByte(uint8_t byte) { writeChunk(currentChunk(), byte, parser.previous.line); }
+static void emitByte( uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
-	emitByte(byte1);
-	emitByte(byte2);
+	emitByte( byte1);
+	emitByte( byte2);
 }
 
 static void emitLoop(int loopStart) {
-	emitByte(OP_LOOP);
+	emitByte( OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
 	if (offset > UINT16_MAX) {
 		compilerPanic(&parser, "Loop body too large.", LOOP_EXTENT);
 	}
-	emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
+	emitBytes( ((offset >> 8) & 0xff), (offset & 0xff));
 }
 
 static int emitJump(uint8_t instruction) {
-	emitByte(instruction);
+	emitByte( instruction);
 	emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
@@ -103,7 +102,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant(Value value) {
-	int constant = addConstant(currentChunk(), value);
+	int constant = addConstant(current->owner, currentChunk(), value);
 	// Add constant adds the given value to the end of the constant table and
 	// returns the index.
 	if (constant > UINT8_MAX) {
@@ -131,34 +130,35 @@ static void patchJump(int offset) {
 static void markPublic(Compiler* compiler, ObjectString* name) { 
 	if (compiler->module != NULL) {
 		// actual name value will be set at runtime
-		tableSet(&compiler->module->publicNames, name, NIL_VAL);
+		tableSet(compiler->owner, &compiler->module->publicNames, name, NIL_VAL);
 	}
 }
 
-static void initCompiler(Compiler *compiler, FunctionType type) {
+static void initCompiler(Compiler *compiler, FunctionType type, VM* vm) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+	compiler->owner = vm;
 
 	if (compiler->enclosing == NULL) {
-		if (vm.currentScriptName == NULL) {
-			vm.currentScriptName = copyString("<script>", strlen("<script>"));
+		if (compiler->owner->currentScriptName == NULL) {
+			compiler->owner->currentScriptName = copyString(current->owner, "<script>", strlen("<script>"));
 		}
-		compiler->module = newModule(vm.currentScriptName);
+		compiler->module = newModule(compiler->owner, compiler->owner->currentScriptName);
 	}else {
 		compiler->module = ((Compiler*)(compiler->enclosing))->module;
 	}
 
 
-	compiler->function = newFunction();
+	compiler->function = newFunction(compiler->owner);
 	current = compiler;
 
 	if (type == TYPE_ANONYMOUS) {
-		current->function->name = copyString("anonymous", 9);
+		current->function->name = copyString(current->owner, "anonymous", 9);
 	} else if (type != TYPE_SCRIPT) {
-		current->function->name = copyString(parser.previous.start, parser.previous.length);
+		current->function->name = copyString(current->owner, parser.previous.start, parser.previous.length);
 	}
 
 	Local *local = &current->locals[current->localCount++];
@@ -177,7 +177,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 }
 
 static uint8_t identifierConstant(Token *name) {
-	return makeConstant(OBJECT_VAL(copyString(name->start, name->length)));
+	return makeConstant(OBJECT_VAL(copyString(current->owner, name->start, name->length)));
 }
 
 static void beginScope() { current->scopeDepth++; }
@@ -569,7 +569,7 @@ static void block() {
 
 static void function(FunctionType type) {
 	Compiler compiler;
-	initCompiler(&compiler, type);
+	initCompiler(&compiler, type, current->owner);
 	beginScope();
 
 	consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
@@ -672,7 +672,7 @@ static void fnDeclaration() {
 
 static void anonymousFunction(bool canAssign) {
 	Compiler compiler;
-	initCompiler(&compiler, TYPE_ANONYMOUS);
+	initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
 	beginScope();
 	consume(TOKEN_LEFT_PAREN, "Expected '(' to start argument list");
 	if (!check(TOKEN_RIGHT_PAREN)) {
@@ -923,7 +923,7 @@ static void useStatement() {
 
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
 	consume(TOKEN_STRING, "Expected string literal for module name");
-	uint8_t module = makeConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	uint8_t module = makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
 	emitBytes(OP_USE, nameCount);
 	for (uint8_t i = 0; i < nameCount; i++) {
 		emitByte(names[i]);
@@ -961,15 +961,15 @@ static void publicDeclaration() {
 	if (match(TOKEN_FN)) {
 		Token functionName = parser.current;
 		fnDeclaration();
-		markPublic(current, copyString(functionName.start, functionName.length));
+		markPublic(current, copyString(current->owner, functionName.start, functionName.length));
 	} else if (match(TOKEN_LET)) {
 		Token variableName = parser.current;
 		varDeclaration();
-		markPublic(current, copyString(variableName.start, variableName.length));
+		markPublic(current, copyString(current->owner, variableName.start, variableName.length));
 	} else if (match(TOKEN_CLASS)) {
 		Token className = parser.current;
 		classDeclaration();
-		markPublic(current, copyString(className.start, className.length));
+		markPublic(current, copyString(current->owner, className.start, className.length));
 	} else {
 		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
 	}
@@ -1025,7 +1025,7 @@ static void number(bool canAssign) {
 
 static void string(bool canAssign) {
 	// +1 -2 trims the leading and trailing quotation marks
-	emitConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	emitConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
 	// TODO: translate string escape sequences
 }
 
@@ -1141,10 +1141,10 @@ static ParseRule *getRule(TokenType type) {
 	return &rules[type]; // Returns the rule at the given index
 }
 
-ObjectFunction *compile(char *source) {
+ObjectFunction *compile(VM *vm, char *source) {
 	initScanner(source);
 	Compiler compiler;
-	initCompiler(&compiler, TYPE_SCRIPT);
+	initCompiler(&compiler, TYPE_SCRIPT, vm);
 
 	parser.hadError = false;
 	parser.panicMode = false;
@@ -1160,11 +1160,11 @@ ObjectFunction *compile(char *source) {
 	return parser.hadError ? NULL : function;
 }
 
-void markCompilerRoots() {
+void markCompilerRoots(VM *vm) {
 	Compiler *compiler = current;
 	while (compiler != NULL) {
-		markObject((Object *) compiler->function);
-		markObject((Object *) compiler->module);
+		markObject(vm, (Object *) compiler->function);
+		markObject(vm, (Object *) compiler->module);
 		compiler = (Compiler *) compiler->enclosing;
 	}
 }

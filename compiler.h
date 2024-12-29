@@ -2,9 +2,10 @@
 #define COMPILER_H
 #include "object.h"
 #include "scanner.h"
+#include "vm.h"
 
 
-ObjectFunction *compile(char *source);
+ObjectFunction *compile(VM *vm,char *source);
 void markCompilerRoots();
 typedef struct {
 	char *source;
@@ -34,7 +35,6 @@ typedef enum { COMPOUND_OP_PLUS, COMPOUND_OP_MINUS, COMPOUND_OP_STAR, COMPOUND_O
 
 typedef void (*ParseFn)(bool canAssign);
 
-
 typedef struct {
 	ParseFn prefix;
 	ParseFn infix;
@@ -55,14 +55,15 @@ typedef struct {
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
 
 typedef struct {
+	VM* owner;
 	struct Compiler *enclosing;
 	ObjectFunction *function;
 	ObjectModule *module;
-	Local locals[UINT8_COUNT];
-	Upvalue upvalues[UINT8_COUNT];
 	FunctionType type;
 	int localCount;
 	int scopeDepth; // 0 is global scope
+	Local locals[UINT8_COUNT];
+	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
 typedef struct ClassCompiler {

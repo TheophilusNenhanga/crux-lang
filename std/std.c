@@ -64,18 +64,18 @@ Callable errorMethods[] = {
 	{NULL, NULL, 0}
 };
 
-bool defineNativeCallable(Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
-	ObjectString* name = copyString(methodName, (int)strlen(methodName));
-	if (!tableSet(methodTable, name, OBJECT_VAL(newNative(methodFunction, arity)))) {
+bool defineNativeCallable(VM* vm, Table* methodTable, const char * methodName, NativeFn methodFunction, int arity) {
+	ObjectString* name = copyString(vm, methodName, (int)strlen(methodName));
+	if (!tableSet(vm, methodTable, name, OBJECT_VAL(newNative(vm, methodFunction, arity)))) {
 		return false;
 	}
 	return true;
 }
 
-bool defineMethods(Table *methodTable, Callable* methods) {
+bool defineMethods(VM* vm, Table *methodTable, Callable* methods) {
 	for (int i = 0; methods[i].name != NULL; i++) {
 		Callable method = methods[i];
-		bool result = defineNativeCallable(methodTable, method.name, method.function, method.arity);
+		bool result = defineNativeCallable(vm, methodTable, method.name, method.function, method.arity);
 		if (!result) {
 			return false;
 		}
@@ -84,10 +84,10 @@ bool defineMethods(Table *methodTable, Callable* methods) {
 }
 
 
-bool defineNativeFunctions(Table* callableTable) {
+bool defineNativeFunctions(VM* vm, Table* callableTable) {
 	for (int i = 0; nativeCallables[i].name != NULL; i++) {
 		Callable function = nativeCallables[i];
-		bool result = defineNativeCallable(callableTable, function.name, function.function, function.arity);
+		bool result = defineNativeCallable(vm, callableTable, function.name, function.function, function.arity);
 		if (!result) {
 			return false;
 		}

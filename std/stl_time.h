@@ -4,7 +4,7 @@
 #include "../value.h"
 #include "../object.h"
 
-NativeReturn currentTimeSeconds(int argCount, Value *args);
-NativeReturn currentTimeMillis(int argCount, Value *args);
+NativeReturn currentTimeSeconds(VM* vm,int argCount, Value *args);
+NativeReturn currentTimeMillis(VM* vm,int argCount, Value *args);
 
 #endif // TIME_H

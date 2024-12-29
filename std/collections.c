@@ -4,8 +4,8 @@
 #include "../object.h"
 
 
-NativeReturn lengthNative(int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(2);
+NativeReturn lengthNative(VM* vm,int argCount, Value *args) {
+	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
 
 	Value value = args[0];
 	if (IS_ARRAY(value)) {
@@ -23,7 +23,7 @@ NativeReturn lengthNative(int argCount, Value *args) {
 		nativeReturn.values[1] = NIL_VAL;
 		return nativeReturn;
 	}
-	ObjectError *error = newError(takeString("Expected either collection type.", 32), TYPE, STELLA);
+	ObjectError *error = newError(vm, takeString(vm, "Expected either collection type.", 32), TYPE, STELLA);
 	nativeReturn.values[0] = NIL_VAL;
 	nativeReturn.values[1] = OBJECT_VAL(error);
 	return nativeReturn;

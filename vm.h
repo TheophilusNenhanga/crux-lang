@@ -1,9 +1,8 @@
 #ifndef VM_H
 #define VM_H
 
-#include "object.h"
-#include "table.h"
 #include "value.h"
+#include "table.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -24,7 +23,7 @@ typedef struct {
 	Table methods;
 }NativeType;
 
-typedef struct {
+struct VM{
 	Value stack[STACK_MAX]; // always points just past the last item
 	Value *stackTop;
 	Object *objects;
@@ -38,27 +37,28 @@ typedef struct {
 	size_t nextGC;
 	Object **grayStack;
 	ObjectString *initString;
-	int grayCapacity;
-	uint8_t previousInstruction;
 	NativeType stringType;
 	NativeType arrayType;
 	NativeType tableType;
 	NativeType errorType;
 	ObjectString *currentScriptName;
-} VM;
+	struct VM* enclosing;
+	int grayCapacity;
+	uint8_t previousInstruction;
+};
 
-extern VM vm;
+VM* newVM();
 
-void initVM();
+void initVM(VM* vm);
 
-void freeVM();
+void freeVM(VM* vm);
 
-void resetStack();
+void resetStack(VM* vm);
 
-InterpretResult interpret(char *source, char* path);
+InterpretResult interpret(VM* vm, char *source, char* path);
 
-void push(Value value);
+void push(VM* vm, Value value);
 
-Value pop();
+Value pop(VM* vm);
 
 #endif // VM_H

@@ -5,7 +5,7 @@
 #include "../value.h"
 #include "../object.h"
 
-NativeReturn printNative(int argCount, Value *args);
-NativeReturn printlnNative(int argCount, Value *args);
+NativeReturn printNative(VM* vm,int argCount, Value *args);
+NativeReturn printlnNative(VM* vm,int argCount, Value *args);
 
 #endif // IO_H

@@ -5,15 +5,15 @@
 
 
 
-NativeReturn arrayPushMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayPushMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	Value toAdd = args[1];
 
-	if (!arrayAdd(array, toAdd, array->size)) {
+	if (!arrayAdd(vm, array, toAdd, array->size)) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("Failed to add to array.", 24), RUNTIME, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Failed to add to array.", 24), RUNTIME, STELLA));
 		return returnValue;
 	}
 
@@ -22,14 +22,14 @@ NativeReturn arrayPushMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayPopMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayPopMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	if (array->size == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Cannot remove a value from an empty array.", 43), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "Cannot remove a value from an empty array.", 43), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
@@ -42,13 +42,13 @@ NativeReturn arrayPopMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayInsertMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayInsertMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 	
 	if (!IS_NUMBER(args[2])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("<index> must be of type 'number'.", 34), TYPE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "<index> must be of type 'number'.", 34), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -58,11 +58,11 @@ NativeReturn arrayInsertMethod(int argCount, Value *args) {
 	if (insertAt < 0 || insertAt > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("<index> is out of bounds.", 26), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "<index> is out of bounds.", 26), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
-	if (ensureCapacity(array, array->size + 1)) {
+	if (ensureCapacity(vm, array, array->size + 1)) {
 		for (uint64_t i = array->size; i > insertAt; i--) {
 			array->array[i] = array->array[i - 1];
 		}
@@ -72,7 +72,7 @@ NativeReturn arrayInsertMethod(int argCount, Value *args) {
 	}
 	else {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("Failed to allocate enough memory for new array.", 48), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Failed to allocate enough memory for new array.", 48), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -81,13 +81,13 @@ NativeReturn arrayInsertMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayRemoveAtMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayRemoveAtMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	if (!IS_NUMBER(args[1])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("<index> must be of type 'number'.", 34), TYPE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "<index> must be of type 'number'.", 34), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -96,7 +96,7 @@ NativeReturn arrayRemoveAtMethod(int argCount, Value *args) {
 	if (removeAt < 0 || removeAt >= array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("<index> is out of bounds.", 26), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "<index> is out of bounds.", 26), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
@@ -113,13 +113,13 @@ NativeReturn arrayRemoveAtMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayConcatMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayConcatMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	if (!IS_ARRAY(args[1])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("<target> must be of type 'array'.", 34), TYPE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "<target> must be of type 'array'.", 34), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -129,11 +129,11 @@ NativeReturn arrayConcatMethod(int argCount, Value *args) {
 	if (combinedSize > MAX_ARRAY_SIZE) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Size of resultant array out of bounds.", 39), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "Size of resultant array out of bounds.", 39), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
-	ObjectArray *resultArray = newArray(combinedSize);
+	ObjectArray *resultArray = newArray(vm, combinedSize);
 	
     for (uint64_t i = 0; i < combinedSize; i++) {
 		resultArray->array[i] = (i < array->size) ? array->array[i] : targetArray->array[i - array->size];
@@ -147,20 +147,20 @@ NativeReturn arrayConcatMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arraySliceMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arraySliceMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	if (!IS_NUMBER(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("<start_index> must be of type 'number'.", 40), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "<start_index> must be of type 'number'.", 40), TYPE, STELLA));
 		return returnValue;
 	}
 
 	if (!IS_NUMBER(args[2])) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(takeString("<end_index> must be of type 'number'.", 38), TYPE, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "<end_index> must be of type 'number'.", 38), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -170,26 +170,26 @@ NativeReturn arraySliceMethod(int argCount, Value *args) {
 	if (startIndex > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("<start_index> out of bounds.", 29), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "<start_index> out of bounds.", 29), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
 	if (endIndex > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("<end_index> out of bounds.", 27), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "<end_index> out of bounds.", 27), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
 	if (endIndex < startIndex) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("indexes out of bounds.", 23), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "indexes out of bounds.", 23), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
 	size_t sliceSize = endIndex - startIndex;
-	ObjectArray *slicedArray = newArray(sliceSize);
+	ObjectArray *slicedArray = newArray(vm, sliceSize);
 
 	for (size_t i = 0; i < sliceSize; i++) {
 		slicedArray->array[i] = array->array[startIndex + i];
@@ -201,16 +201,16 @@ NativeReturn arraySliceMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayReverseMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayReverseMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
-	Value *values = ALLOCATE(Value, array->size);
+	Value *values = ALLOCATE(vm, Value, array->size);
 
 	if (values == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Failed to allocate memory when reversing array.", 48), MEMORY, STELLA));
+				OBJECT_VAL(newError(vm, takeString(vm, "Failed to allocate memory when reversing array.", 48), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -230,8 +230,8 @@ NativeReturn arrayReverseMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayIndexOfMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayIndexOfMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 	Value target = args[1];
 
@@ -243,12 +243,12 @@ NativeReturn arrayIndexOfMethod(int argCount, Value *args) {
 		}
 	}
 	returnValue.values[0] = NIL_VAL;
-	returnValue.values[1] = OBJECT_VAL(newError(takeString("Value could not be found in the array.", 39), VALUE, STELLA));
+	returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Value could not be found in the array.", 39), VALUE, STELLA));
 	return returnValue;
 }
 
-NativeReturn arrayContainsMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayContainsMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	Value target = args[1];
@@ -265,8 +265,8 @@ NativeReturn arrayContainsMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn arrayClearMethod(int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(2);
+NativeReturn arrayClearMethod(VM* vm,int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	ObjectArray *array = AS_ARRAY(args[0]);
 
 	for (uint64_t i = 0; i < array->size; i++) {
