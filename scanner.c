@@ -236,7 +236,7 @@ Token scanToken() {
 		return identifier();
 
 	switch (c) {
-	    case ':':
+		case ':':
 			return makeToken(TOKEN_COLON);
 		case '(':
 			return makeToken(TOKEN_LEFT_PAREN);

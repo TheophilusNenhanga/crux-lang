@@ -70,24 +70,24 @@ static bool match(TokenType type) {
 	return true;
 }
 
-static void emitByte( uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
+static void emitByte(uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
-	emitByte( byte1);
-	emitByte( byte2);
+	emitByte(byte1);
+	emitByte(byte2);
 }
 
 static void emitLoop(int loopStart) {
-	emitByte( OP_LOOP);
+	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
 	if (offset > UINT16_MAX) {
 		compilerPanic(&parser, "Loop body too large.", LOOP_EXTENT);
 	}
-	emitBytes( ((offset >> 8) & 0xff), (offset & 0xff));
+	emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
 
 static int emitJump(uint8_t instruction) {
-	emitByte( instruction);
+	emitByte(instruction);
 	emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
@@ -128,7 +128,7 @@ static void patchJump(int offset) {
 }
 
 
-static void initCompiler(Compiler *compiler, FunctionType type, VM* vm) {
+static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
@@ -898,7 +898,7 @@ static void returnStatement() {
 }
 
 static void useStatement() {
-	
+
 	uint8_t nameCount = 0;
 	uint8_t names[UINT8_MAX];
 	do {
@@ -913,7 +913,8 @@ static void useStatement() {
 
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
 	consume(TOKEN_STRING, "Expected string literal for module name");
-	uint8_t module = makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
+	uint8_t module =
+			makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
 	emitBytes(OP_USE, nameCount);
 	for (uint8_t i = 0; i < nameCount; i++) {
 		emitByte(names[i]);
@@ -1087,7 +1088,7 @@ ParseRule rules[] = {
 		[TOKEN_SELF] = {self, NULL, PREC_NONE},
 		[TOKEN_TRUE] = {literal, NULL, PREC_NONE},
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
-		[TOKEN_USE] = {NULL, NULL, PREC_NONE}, 
+		[TOKEN_USE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_FROM] = {NULL, NULL, PREC_NONE},
 		[TOKEN_PUB] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},

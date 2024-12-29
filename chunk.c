@@ -31,7 +31,7 @@ void freeChunk(VM *vm, Chunk *chunk) {
 	initChunk(chunk);
 }
 
-int addConstant(VM *vm,Chunk *chunk, Value value) {
+int addConstant(VM *vm, Chunk *chunk, Value value) {
 	push(vm, value);
 	writeValueArray(vm, &chunk->constants, value);
 	pop(vm);

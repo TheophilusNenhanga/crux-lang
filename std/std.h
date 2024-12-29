@@ -15,10 +15,10 @@ extern Callable arrayMethods[];
 extern Callable tableMethods[];
 extern Callable errorMethods[];
 
-bool defineNativeCallable(VM* vm, Table* methodTable, const char * methodName, NativeFn methodFunction, int arity);
+bool defineNativeCallable(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity);
 
-bool defineMethods(VM* vm, Table* methodTable, Callable* methods);
+bool defineMethods(VM *vm, Table *methodTable, Callable *methods);
 
-bool defineNativeFunctions(VM* vm, Table *callableTable);
+bool defineNativeFunctions(VM *vm, Table *callableTable);
 
-#endif //TYPES_H
+#endif // TYPES_H

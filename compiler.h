@@ -5,7 +5,7 @@
 #include "vm.h"
 
 
-ObjectFunction *compile(VM *vm,char *source);
+ObjectFunction *compile(VM *vm, char *source);
 void markCompilerRoots();
 typedef struct {
 	char *source;
@@ -55,7 +55,7 @@ typedef struct {
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
 
 typedef struct {
-	VM* owner;
+	VM *owner;
 	struct Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;

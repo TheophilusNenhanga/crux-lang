@@ -6,7 +6,7 @@
 #include "memory.h"
 #include "object.h"
 
-static Object *allocateObject(VM* vm, size_t size, ObjectType type) {
+static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(vm, NULL, 0, size);
 
 #ifdef DEBUG_LOG_GC
@@ -66,21 +66,21 @@ static uint32_t hashValue(Value value) {
 	return 0u;
 }
 
-ObjectBoundMethod *newBoundMethod(VM* vm, Value receiver, ObjectClosure *method) {
+ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method) {
 	ObjectBoundMethod *bound = ALLOCATE_OBJECT(vm, ObjectBoundMethod, OBJECT_BOUND_METHOD);
 	bound->receiver = receiver;
 	bound->method = method;
 	return bound;
 }
 
-ObjectClass *newClass(VM* vm, ObjectString *name) {
+ObjectClass *newClass(VM *vm, ObjectString *name) {
 	ObjectClass *klass = ALLOCATE_OBJECT(vm, ObjectClass, OBJECT_CLASS);
 	initTable(&klass->methods);
 	klass->name = name;
 	return klass;
 }
 
-ObjectUpvalue *newUpvalue(VM* vm, Value *slot) {
+ObjectUpvalue *newUpvalue(VM *vm, Value *slot) {
 	ObjectUpvalue *upvalue = ALLOCATE_OBJECT(vm, ObjectUpvalue, OBJECT_UPVALUE);
 	upvalue->location = slot;
 	upvalue->next = NULL;
@@ -88,7 +88,7 @@ ObjectUpvalue *newUpvalue(VM* vm, Value *slot) {
 	return upvalue;
 }
 
-ObjectClosure *newClosure(VM* vm, ObjectFunction *function) {
+ObjectClosure *newClosure(VM *vm, ObjectFunction *function) {
 	ObjectUpvalue **upvalues = ALLOCATE(vm, ObjectUpvalue *, function->upvalueCount);
 	for (int i = 0; i < function->upvalueCount; i++) {
 		upvalues[i] = NULL;
@@ -101,7 +101,7 @@ ObjectClosure *newClosure(VM* vm, ObjectFunction *function) {
 	return closure;
 }
 
-static ObjectString *allocateString(VM* vm, char *chars, uint64_t length, uint32_t hash) {
+static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32_t hash) {
 	// creates a copy of the characters on the heap
 	// that the ObjectString can own
 	ObjectString *string = ALLOCATE_OBJECT(vm, ObjectString, OBJECT_STRING);
@@ -123,7 +123,7 @@ uint32_t hashString(const char *key, uint64_t length) {
 	return hash;
 }
 
-ObjectString *copyString(VM* vm, const char *chars, uint64_t length) {
+ObjectString *copyString(VM *vm, const char *chars, uint64_t length) {
 	uint32_t hash = hashString(chars, length);
 
 	ObjectString *interned = tableFindString(&vm->strings, chars, length, hash);
@@ -193,7 +193,7 @@ void printObject(Value value) {
 	}
 }
 
-ObjectString *takeString(VM* vm, char *chars, uint64_t length) {
+ObjectString *takeString(VM *vm, char *chars, uint64_t length) {
 	// claims ownership of the string that you give it
 	uint32_t hash = hashString(chars, length);
 
@@ -207,7 +207,7 @@ ObjectString *takeString(VM* vm, char *chars, uint64_t length) {
 	return allocateString(vm, chars, length, hash);
 }
 
-ObjectString *toString(VM* vm, Value value) {
+ObjectString *toString(VM *vm, Value value) {
 	if (!IS_OBJECT(value)) {
 		char buffer[32];
 		if (IS_NUMBER(value)) {
@@ -357,7 +357,7 @@ ObjectString *toString(VM* vm, Value value) {
 }
 
 
-ObjectFunction *newFunction(VM* vm) {
+ObjectFunction *newFunction(VM *vm) {
 	ObjectFunction *function = ALLOCATE_OBJECT(vm, ObjectFunction, OBJECT_FUNCTION);
 	function->arity = 0;
 	function->name = NULL;
@@ -366,21 +366,21 @@ ObjectFunction *newFunction(VM* vm) {
 	return function;
 }
 
-ObjectInstance *newInstance(VM* vm, ObjectClass *klass) {
+ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	ObjectInstance *instance = ALLOCATE_OBJECT(vm, ObjectInstance, OBJECT_INSTANCE);
 	instance->klass = klass;
 	initTable(&instance->fields);
 	return instance;
 }
 
-ObjectNative *newNative(VM* vm, NativeFn function, int arity) {
+ObjectNative *newNative(VM *vm, NativeFn function, int arity) {
 	ObjectNative *native = ALLOCATE_OBJECT(vm, ObjectNative, OBJECT_NATIVE);
 	native->function = function;
 	native->arity = arity;
 	return native;
 }
 
-ObjectTable *newTable(VM* vm, int elementCount) {
+ObjectTable *newTable(VM *vm, int elementCount) {
 	ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
 	table->capacity = elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
 	table->size = 0;
@@ -393,7 +393,7 @@ ObjectTable *newTable(VM* vm, int elementCount) {
 	return table;
 }
 
-void freeObjectTable(VM* vm, ObjectTable *table) {
+void freeObjectTable(VM *vm, ObjectTable *table) {
 	FREE_ARRAY(vm, ObjectTableEntry, table->entries, table->capacity);
 	table->entries = NULL;
 	table->capacity = 0;
@@ -421,7 +421,7 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity,
 	}
 }
 
-static bool adjustCapacity(VM* vm, ObjectTable *table, int capacity) {
+static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
 	ObjectTableEntry *entries = ALLOCATE(vm, ObjectTableEntry, capacity);
 	if (entries == NULL) {
 		return false;
@@ -455,7 +455,7 @@ static bool adjustCapacity(VM* vm, ObjectTable *table, int capacity) {
 	return true;
 }
 
-bool objectTableSet(VM* vm, ObjectTable *table, Value key, Value value) {
+bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
 	if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
 		if (!adjustCapacity(vm, table, capacity))
@@ -494,18 +494,18 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 	return true;
 }
 
-ObjectArray *newArray(VM* vm, uint64_t elementCount) {
+ObjectArray *newArray(VM *vm, uint64_t elementCount) {
 	ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
 	array->capacity = calculateCollectionCapacity(elementCount);
 	array->size = 0;
-	array->array = ALLOCATE(vm,Value, array->capacity);
+	array->array = ALLOCATE(vm, Value, array->capacity);
 	for (int i = 0; i < array->capacity; i++) {
 		array->array[i] = NIL_VAL;
 	}
 	return array;
 }
 
-bool ensureCapacity(VM* vm, ObjectArray *array, uint64_t capacityNeeded) {
+bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded) {
 	if (capacityNeeded <= array->capacity) {
 		return true;
 	}
@@ -528,7 +528,7 @@ bool ensureCapacity(VM* vm, ObjectArray *array, uint64_t capacityNeeded) {
 	return true;
 }
 
-bool arraySet(VM* vm, ObjectArray *array, uint64_t index, Value value) {
+bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value) {
 	if (index >= array->size) {
 		return false;
 	}
@@ -547,7 +547,7 @@ bool arrayGet(ObjectArray *array, uint64_t index, Value *value) {
 	return true;
 }
 
-bool arrayAdd(VM* vm, ObjectArray *array, Value value, uint64_t index) {
+bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	if (!ensureCapacity(vm, array, array->size + 1)) {
 		return false;
 	}
@@ -559,7 +559,7 @@ bool arrayAdd(VM* vm, ObjectArray *array, Value value, uint64_t index) {
 	return true;
 }
 
-ObjectError *newError(VM* vm, ObjectString *message, ErrorType type, ErrorCreator creator) {
+ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreator creator) {
 	ObjectError *error = ALLOCATE(vm, ObjectError, OBJECT_ERROR);
 	error->object.type = OBJECT_ERROR;
 	error->message = message;
@@ -568,7 +568,7 @@ ObjectError *newError(VM* vm, ObjectString *message, ErrorType type, ErrorCreato
 	return error;
 }
 
-NativeReturn makeNativeReturn(VM* vm, uint8_t size) {
+NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
 	NativeReturn nativeReturn;
 	nativeReturn.size = size;
 	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);

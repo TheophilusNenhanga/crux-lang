@@ -62,14 +62,14 @@ void valuePrint(Value value) {
 	}
 }
 
-NativeReturn printNative(VM* vm, int argCount, Value *args) {
+NativeReturn printNative(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 	nativeReturn.values[0] = NIL_VAL;
 	return nativeReturn;
 }
 
-NativeReturn printlnNative(VM* vm,int argCount, Value *args) {
+NativeReturn printlnNative(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
 	printf("\n");
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);

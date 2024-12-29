@@ -4,7 +4,7 @@
 #include "file_handler.h"
 #include "vm.h"
 
-static void repl(VM* vm) {
+static void repl(VM *vm) {
 	while (true) {
 		char line[1024];
 		printf("> ");
@@ -17,7 +17,7 @@ static void repl(VM* vm) {
 	}
 }
 
-static void runFile(VM* vm, const char *path) {
+static void runFile(VM *vm, const char *path) {
 	FileResult fileResult = readFile(path);
 	if (fileResult.error) {
 		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
@@ -35,7 +35,7 @@ static void runFile(VM* vm, const char *path) {
 
 int main(const int argc, const char *argv[]) {
 
-	VM* vm = newVM();
+	VM *vm = newVM();
 
 	if (argc == 1) {
 		repl(vm);

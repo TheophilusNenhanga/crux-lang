@@ -84,17 +84,17 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			return (ErrorDetails) {"Memory Error", "Cannot allocate more memory."};
 		}
 		case ASSERT: {
-			return (ErrorDetails){"Assert Error", "The state of your program does not match your expectations"};
+			return (ErrorDetails) {"Assert Error", "The state of your program does not match your expectations"};
 		}
 		case IMPORT_EXTENT: {
-			return (ErrorDetails){"Import Extent Error", "Cannot import any more names."};
+			return (ErrorDetails) {"Import Extent Error", "Cannot import any more names."};
 		}
 		case IO: {
-			return (ErrorDetails){"IO Error", "An error occurred while reading from or writing to a file. Check if the file "
-																				"exists at the specified location."};
+			return (ErrorDetails) {"IO Error", "An error occurred while reading from or writing to a file. Check if the file "
+																				 "exists at the specified location."};
 		}
 		case IMPORT: {
-			return (ErrorDetails){"Import Error", "An error occurred while importing a module."};
+			return (ErrorDetails) {"Import Error", "An error occurred while importing a module."};
 		}
 		case RUNTIME:
 		default:
@@ -162,7 +162,7 @@ void compilerPanic(Parser *parser, const char *message, ErrorType errorType) {
 	errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(VM* vm, ErrorType type, const char *format, ...) {
+void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 	ErrorDetails details = getErrorDetails(type);
 
 	va_list args;

@@ -2,7 +2,7 @@
 
 #include "../memory.h"
 
-NativeReturn errorNative(VM* vm,int argCount, Value *args) {
+NativeReturn errorNative(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 
 	Value message = args[0];
@@ -12,7 +12,7 @@ NativeReturn errorNative(VM* vm,int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn panicNative(VM* vm,int argCount, Value *args) {
+NativeReturn panicNative(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 
 	Value value = args[0];
@@ -29,15 +29,17 @@ NativeReturn panicNative(VM* vm,int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn assertNative(VM* vm,int argCount, Value *args) {
+NativeReturn assertNative(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 	if (!IS_BOOL(args[0])) {
-		ObjectError *error = newError(vm, takeString(vm, "Failed to assert: <condition> must be of type 'bool'.", 36), TYPE, PANIC);
+		ObjectError *error =
+				newError(vm, takeString(vm, "Failed to assert: <condition> must be of type 'bool'.", 36), TYPE, PANIC);
 		nativeReturn.values[0] = OBJECT_VAL(error);
 		return nativeReturn;
 	}
 	if (!IS_STRING(args[1])) {
-		ObjectError *error = newError(vm, takeString(vm, "Failed to assert: <message> must be of type 'string'.", 54), TYPE, PANIC);
+		ObjectError *error =
+				newError(vm, takeString(vm, "Failed to assert: <message> must be of type 'string'.", 54), TYPE, PANIC);
 		nativeReturn.values[0] = OBJECT_VAL(error);
 		return nativeReturn;
 	}
@@ -55,7 +57,7 @@ NativeReturn assertNative(VM* vm,int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn errorMessageMethod(VM* vm,int argCount, Value *args) {
+NativeReturn errorMessageMethod(VM *vm, int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(vm, 1);
 	ObjectError *error = AS_ERROR(args[0]);
 
@@ -63,7 +65,7 @@ NativeReturn errorMessageMethod(VM* vm,int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn errorCreatorMethod(VM* vm,int argCount, Value *args) {
+NativeReturn errorCreatorMethod(VM *vm, int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(vm, 1);
 	ObjectError *error = AS_ERROR(args[0]);
 
@@ -84,7 +86,7 @@ NativeReturn errorCreatorMethod(VM* vm,int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn errorTypeMethod(VM* vm,int argCount, Value *args) {
+NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args) {
 	NativeReturn returnValue = makeNativeReturn(vm, 1);
 	ObjectError *error = AS_ERROR(args[0]);
 

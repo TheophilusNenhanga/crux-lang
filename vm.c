@@ -24,27 +24,27 @@ VM *newVM() {
 	return vm;
 }
 
-void resetStack(VM* vm) {
+void resetStack(VM *vm) {
 	vm->stackTop = vm->stack;
 	vm->frameCount = 0;
 	vm->openUpvalues = NULL;
 }
 
-void push(VM* vm, Value value) {
+void push(VM *vm, Value value) {
 	*vm->stackTop = value; // stores value in the array element at the top of the stack
 	vm->stackTop++; // stack top points just past the last used element, at the next available one
 }
 
-Value pop(VM* vm) {
+Value pop(VM *vm) {
 	vm->stackTop--; // Move the stack pointer back to get the most recent slot in the array
 	return *vm->stackTop;
 }
 
-static Value peek(VM* vm, int distance) { return vm->stackTop[-1 - distance]; }
+static Value peek(VM *vm, int distance) { return vm->stackTop[-1 - distance]; }
 
-static bool call(VM* vm, ObjectClosure *closure, int argCount) {
+static bool call(VM *vm, ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
-		runtimePanic(vm, ARGUMENT_MISMATCH,  "Expected %d arguments, got %d", closure->function->arity, argCount);
+		runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity, argCount);
 		return false;
 	}
 
@@ -60,11 +60,11 @@ static bool call(VM* vm, ObjectClosure *closure, int argCount) {
 	return true;
 }
 
-static bool callValue(VM* vm, Value callee, int argCount) {
+static bool callValue(VM *vm, Value callee, int argCount) {
 	if (IS_OBJECT(callee)) {
 		switch (OBJECT_TYPE(callee)) {
 			case OBJECT_CLOSURE:
-				return call(vm,AS_CLOSURE(callee), argCount);
+				return call(vm, AS_CLOSURE(callee), argCount);
 			case OBJECT_NATIVE: {
 				ObjectNative *native = AS_NATIVE_FN(callee);
 				if (argCount != native->arity) {
@@ -121,7 +121,7 @@ static bool callValue(VM* vm, Value callee, int argCount) {
 	return false;
 }
 
-static bool invokeFromClass(VM* vm,ObjectClass *klass, ObjectString *name, int argCount) {
+static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
 	Value method;
 	if (tableGet(&klass->methods, name, &method)) {
 		return call(vm, AS_CLOSURE(method), argCount);
@@ -130,7 +130,7 @@ static bool invokeFromClass(VM* vm,ObjectClass *klass, ObjectString *name, int a
 	return false;
 }
 
-static bool invoke(VM* vm, ObjectString *name, int argCount) {
+static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	Value receiver = peek(vm, argCount);
 
 	if (!IS_INSTANCE(receiver)) {
@@ -192,7 +192,7 @@ static bool invoke(VM* vm, ObjectString *name, int argCount) {
 	return invokeFromClass(vm, instance->klass, name, argCount);
 }
 
-static bool bindMethod(VM* vm, ObjectClass *klass, ObjectString *name) {
+static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
 	Value method;
 	if (!tableGet(&klass->methods, name, &method)) {
 		runtimePanic(vm, NAME, "Undefined property '%s'", name->chars);
@@ -205,7 +205,7 @@ static bool bindMethod(VM* vm, ObjectClass *klass, ObjectString *name) {
 	return true;
 }
 
-static ObjectUpvalue *captureUpvalue(VM* vm, Value *local) {
+static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 	ObjectUpvalue *prevUpvalue = NULL;
 	ObjectUpvalue *upvalue = vm->openUpvalues;
 
@@ -229,7 +229,7 @@ static ObjectUpvalue *captureUpvalue(VM* vm, Value *local) {
 	return createdUpvalue;
 }
 
-static void closeUpvalues(VM* vm, Value *last) {
+static void closeUpvalues(VM *vm, Value *last) {
 	while (vm->openUpvalues != NULL && vm->openUpvalues->location >= last) {
 		ObjectUpvalue *upvalue = vm->openUpvalues;
 		upvalue->closed = *upvalue->location;
@@ -238,7 +238,7 @@ static void closeUpvalues(VM* vm, Value *last) {
 	}
 }
 
-static void defineMethod(VM* vm, ObjectString *name) {
+static void defineMethod(VM *vm, ObjectString *name) {
 	Value method = peek(vm, 0);
 	ObjectClass *klass = AS_CLASS(peek(vm, 1));
 	if (tableSet(vm, &klass->methods, name, method)) {
@@ -248,7 +248,7 @@ static void defineMethod(VM* vm, ObjectString *name) {
 
 static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
-static bool concatenate(VM* vm) {
+static bool concatenate(VM *vm) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
@@ -295,7 +295,7 @@ static bool concatenate(VM* vm) {
 	return true;
 }
 
-void initVM(VM* vm) {
+void initVM(VM *vm) {
 	resetStack(vm);
 	vm->objects = NULL;
 	vm->bytesAllocated = 0;
@@ -325,7 +325,7 @@ void initVM(VM* vm) {
 	defineNativeFunctions(vm, &vm->globals);
 }
 
-void freeVM(VM* vm) {
+void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
 	vm->initString = NULL;
@@ -336,9 +336,9 @@ void freeVM(VM* vm) {
 	}
 }
 
-static bool binaryOperation(VM* vm, OpCode operation) {
+static bool binaryOperation(VM *vm, OpCode operation) {
 
-	Value b = peek(vm ,0);
+	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
 
@@ -415,7 +415,7 @@ static bool binaryOperation(VM* vm, OpCode operation) {
 	return true;
 }
 
-InterpretResult globalCompoundOperation(VM* vm, ObjectString *name, OpCode opcode, char *operation) {
+InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcode, char *operation) {
 	Value currentValue;
 	if (!tableGet(&vm->globals, name, &currentValue)) {
 		runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
@@ -455,7 +455,7 @@ InterpretResult globalCompoundOperation(VM* vm, ObjectString *name, OpCode opcod
 	return INTERPRET_OK;
 }
 
-static void reverse_stack(VM* vm, int actual) {
+static void reverse_stack(VM *vm, int actual) {
 	Value *start = vm->stackTop - actual;
 	for (int i = 0; i < actual / 2; i++) {
 		Value temp = start[i];
@@ -464,15 +464,15 @@ static void reverse_stack(VM* vm, int actual) {
 	}
 }
 
-static bool chceckPreviousInstruction(CallFrame* frame, int instructionsAgo, OpCode instruction) {
+static bool chceckPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
 	uint8_t *current = frame->ip;
 	if (current - instructionsAgo < frame->closure->function->chunk.code) {
 		return false;
 	}
-	return *(current - (instructionsAgo+2)) == instruction; // +2 to account for offset
+	return *(current - (instructionsAgo + 2)) == instruction; // +2 to account for offset
 }
 
-static InterpretResult run(VM* vm) {
+static InterpretResult run(VM *vm) {
 	CallFrame *frame = &vm->frames[vm->frameCount - 1];
 
 #define READ_BYTE() (*frame->ip++)
@@ -534,7 +534,7 @@ static InterpretResult run(VM* vm) {
 					push(vm, NUMBER_VAL(valueCount));
 				}
 
-				CallFrame* callerFrame = &vm->frames[vm->frameCount - 1];
+				CallFrame *callerFrame = &vm->frames[vm->frameCount - 1];
 				uint8_t nextInstr = *callerFrame->ip;
 
 				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE && valueCount > 0) {
@@ -1158,13 +1158,12 @@ static InterpretResult run(VM* vm) {
 						}
 					}
 				} else {
-					int valuesOnStack = (int)(vm->stackTop - vm->stack - vm->frameCount);
+					int valuesOnStack = (int) (vm->stackTop - vm->stack - vm->frameCount);
 					if (valuesOnStack < variableCount) {
 						runtimePanic(vm, UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
 												 valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
-
 				}
 				if (scopeDepth == 0) {
 					reverse_stack(vm, actual);
@@ -1184,14 +1183,13 @@ static InterpretResult run(VM* vm) {
 				}
 				ObjectString *module = READ_STRING();
 
-				char* resolvedPath = resolvePath(module->chars);
+				char *resolvedPath = resolvePath(module->chars);
 				if (resolvedPath == NULL) {
 					runtimePanic(vm, IO, "Could not resolve path to module.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
 			}
-					   
 		}
 		vm->previousInstruction = instruction;
 	}
@@ -1203,10 +1201,10 @@ static InterpretResult run(VM* vm) {
 #undef READ_SHORT
 }
 
-InterpretResult interpret(VM* vm, char *source, char* path) {
+InterpretResult interpret(VM *vm, char *source, char *path) {
 	if (path != NULL) {
 		vm->currentScriptName = copyString(vm, path, strlen(path));
-	}else {
+	} else {
 		vm->currentScriptName = copyString(vm, "<script>", strlen("<script>"));
 	}
 
@@ -1218,7 +1216,7 @@ InterpretResult interpret(VM* vm, char *source, char* path) {
 	ObjectClosure *closure = newClosure(vm, function);
 	pop(vm);
 	push(vm, OBJECT_VAL(closure));
-	call(vm , closure, 0);
+	call(vm, closure, 0);
 
 	return run(vm);
 }

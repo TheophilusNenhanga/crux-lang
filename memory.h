@@ -13,19 +13,19 @@
 
 #define GROW_CAPACITY(capacity) ((capacity) < 16 ? 16 : (capacity) * 2)
 
-#define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                                                                  \
+#define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                                                              \
 	(type *) reallocate(vm, pointer, sizeof(type) * (oldCount), sizeof(type) * (newCount))
 
 #define FREE_ARRAY(vm, type, pointer, oldCount) reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
 
-void *reallocate(VM* vm, void *pointer, size_t oldSize, size_t newSize);
+void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
 
-void markObject(VM* vm, Object *object);
+void markObject(VM *vm, Object *object);
 
-void markValue(VM* vm, Value value);
+void markValue(VM *vm, Value value);
 
-void collectGarbage(VM* vm);
+void collectGarbage(VM *vm);
 
-void freeObjects(VM* vm);
+void freeObjects(VM *vm);
 
 #endif // MEMORY_H

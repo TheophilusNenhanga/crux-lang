@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "table.h"
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -13,7 +13,7 @@ void initTable(Table *table) {
 	table->entries = NULL;
 }
 
-void freeTable(VM* vm, Table *table) {
+void freeTable(VM *vm, Table *table) {
 	FREE_ARRAY(vm, Entry, table->entries, table->capacity);
 	initTable(table);
 }
@@ -39,7 +39,7 @@ static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
 	}
 }
 
-static void adjustCapacity(VM* vm, Table *table, int capacity) {
+static void adjustCapacity(VM *vm, Table *table, int capacity) {
 	Entry *entries = ALLOCATE(vm, Entry, capacity);
 	for (int i = 0; i < capacity; i++) {
 		entries[i].key = NULL;
@@ -61,7 +61,7 @@ static void adjustCapacity(VM* vm, Table *table, int capacity) {
 	table->capacity = capacity;
 }
 
-bool tableSet(VM* vm, Table *table, ObjectString *key, Value value) {
+bool tableSet(VM *vm, Table *table, ObjectString *key, Value value) {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
 		adjustCapacity(vm, table, capacity);
@@ -136,7 +136,7 @@ ObjectString *tableFindString(Table *table, const char *chars, uint64_t length, 
 	}
 }
 
-void markTable(VM* vm, Table *table) {
+void markTable(VM *vm, Table *table) {
 	for (int i = 0; i < table->capacity; i++) {
 		Entry *entry = &table->entries[i];
 		markObject(vm, (Object *) entry->key);

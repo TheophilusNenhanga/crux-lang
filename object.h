@@ -108,11 +108,11 @@ typedef struct {
 } ObjectArray;
 
 typedef struct {
-	Value* values;
+	Value *values;
 	uint8_t size;
 } NativeReturn;
 
-typedef NativeReturn (*NativeFn)(VM* vm, int argCount, Value *args);
+typedef NativeReturn (*NativeFn)(VM *vm, int argCount, Value *args);
 
 typedef struct {
 	Object object;
@@ -157,7 +157,7 @@ typedef enum {
 	UNPACK_MISMATCH,
 	MEMORY,
 	VALUE, // correct type, but incorrect value
-	ASSERT, 
+	ASSERT,
 	IMPORT_EXTENT,
 	IO,
 	IMPORT,
@@ -174,32 +174,32 @@ typedef struct {
 
 static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
 
-ObjectError *newError(VM* vm, ObjectString *message, ErrorType type, ErrorCreator creator);
-ObjectBoundMethod *newBoundMethod(VM* vm, Value receiver, ObjectClosure *method);
-ObjectUpvalue *newUpvalue(VM* vm, Value *slot);
-ObjectClosure *newClosure(VM* vm, ObjectFunction *function);
-ObjectNative *newNative(VM* vm, NativeFn function, int arity);
-ObjectFunction *newFunction(VM* vm);
-ObjectClass *newClass(VM* vm, ObjectString *name);
-ObjectInstance *newInstance(VM* vm, ObjectClass *klass);
+ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreator creator);
+ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method);
+ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
+ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
+ObjectNative *newNative(VM *vm, NativeFn function, int arity);
+ObjectFunction *newFunction(VM *vm);
+ObjectClass *newClass(VM *vm, ObjectString *name);
+ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
 
-ObjectString *takeString(VM* vm, char *chars, uint64_t length);
-ObjectString *copyString(VM* vm, const char *chars, uint64_t length);
+ObjectString *takeString(VM *vm, char *chars, uint64_t length);
+ObjectString *copyString(VM *vm, const char *chars, uint64_t length);
 void printObject(Value value);
-NativeReturn makeNativeReturn(VM* vm, uint8_t size);
+NativeReturn makeNativeReturn(VM *vm, uint8_t size);
 
-ObjectString *toString(VM* vm, Value value);
+ObjectString *toString(VM *vm, Value value);
 
-ObjectTable *newTable(VM* vm, int elementCount);
-void freeObjectTable(VM* vm, ObjectTable *table);
-bool objectTableSet(VM* vm, ObjectTable *table, Value key, Value value);
+ObjectTable *newTable(VM *vm, int elementCount);
+void freeObjectTable(VM *vm, ObjectTable *table);
+bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
 bool objectTableGet(ObjectTable *table, Value key, Value *value);
-void markObjectTable(VM* vm, ObjectTable *table);
+void markObjectTable(VM *vm, ObjectTable *table);
 
-ObjectArray *newArray(VM* vm, uint64_t elementCount);
-bool ensureCapacity(VM* vm, ObjectArray *array, uint64_t capacityNeeded);
-bool arraySet(VM* vm, ObjectArray *array, uint64_t index, Value value);
+ObjectArray *newArray(VM *vm, uint64_t elementCount);
+bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded);
+bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
-bool arrayAdd(VM* vm, ObjectArray *array, Value value, uint64_t index);
+bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
 #endif

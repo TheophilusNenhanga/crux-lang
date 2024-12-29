@@ -2,8 +2,8 @@
 #define CHUNK_H
 
 #include "common.h"
-#include "vm.h"
 #include "value.h"
+#include "vm.h"
 
 typedef enum {
 	OP_RETURN,
@@ -81,10 +81,10 @@ typedef struct {
 
 void initChunk(Chunk *chunk);
 
-void writeChunk(VM *vm,Chunk *chunk, uint8_t byte, int line);
+void writeChunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
 
-void freeChunk(VM *vm,Chunk *chunk);
+void freeChunk(VM *vm, Chunk *chunk);
 
-int addConstant(VM *vm,Chunk *chunk, Value value);
+int addConstant(VM *vm, Chunk *chunk, Value value);
 
 #endif // CHUNK_H

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
-#include "memory.h"
 #include "compiler.h"
+#include "memory.h"
 
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
@@ -10,7 +10,7 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
-void *reallocate(VM* vm, void *pointer, size_t oldSize, size_t newSize) {
+void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize) {
 	vm->bytesAllocated += newSize - oldSize;
 	if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
@@ -32,7 +32,7 @@ void *reallocate(VM* vm, void *pointer, size_t oldSize, size_t newSize) {
 	return result;
 }
 
-void markObject(VM* vm, Object *object) {
+void markObject(VM *vm, Object *object) {
 	if (object == NULL)
 		return;
 	if (object->isMarked)
@@ -49,25 +49,25 @@ void markObject(VM* vm, Object *object) {
 	vm->grayStack[vm->grayCount++] = object;
 }
 
-void markValue(VM* vm, Value value) {
+void markValue(VM *vm, Value value) {
 	if (IS_OBJECT(value)) {
 		markObject(vm, AS_OBJECT(value));
 	}
 }
 
-void markArray(VM* vm, ValueArray *array) {
+void markArray(VM *vm, ValueArray *array) {
 	for (int i = 0; i < array->count; i++) {
 		markValue(vm, array->values[i]);
 	}
 }
 
-void markObjectArray(VM* vm, ObjectArray *array) {
+void markObjectArray(VM *vm, ObjectArray *array) {
 	for (int i = 0; i < array->size; i++) {
 		markValue(vm, array->array[i]);
 	}
 }
 
-void markObjectTable(VM* vm, ObjectTable *table) {
+void markObjectTable(VM *vm, ObjectTable *table) {
 	for (int i = 0; i < table->capacity; i++) {
 		if (table->entries[i].isOccupied) {
 			markValue(vm, table->entries[i].value);
@@ -76,7 +76,7 @@ void markObjectTable(VM* vm, ObjectTable *table) {
 	}
 }
 
-static void blackenObject(VM* vm, Object *object) {
+static void blackenObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p blacken ", (void *) object);
 	printValue(OBJECT_VAL(object));
@@ -132,7 +132,7 @@ static void blackenObject(VM* vm, Object *object) {
 		}
 		case OBJECT_ERROR: {
 			ObjectError *error = (ObjectError *) object;
-			markObject(vm, (Object*) error->message);
+			markObject(vm, (Object *) error->message);
 			break;
 		}
 
@@ -142,7 +142,7 @@ static void blackenObject(VM* vm, Object *object) {
 	}
 }
 
-static void freeObject(VM* vm, Object *object) {
+static void freeObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p free type %d\n", (void *) object, object->type);
 #endif
@@ -175,7 +175,7 @@ static void freeObject(VM* vm, Object *object) {
 		}
 		case OBJECT_CLASS: {
 			ObjectClass *klass = (ObjectClass *) object;
-			freeTable(vm ,&klass->methods);
+			freeTable(vm, &klass->methods);
 			FREE(vm, ObjectClass, object);
 			break;
 		}
@@ -197,7 +197,7 @@ static void freeObject(VM* vm, Object *object) {
 			break;
 		}
 
-		case OBJECT_TABLE : {
+		case OBJECT_TABLE: {
 			ObjectTable *table = (ObjectTable *) object;
 			freeObjectTable(vm, table);
 			FREE(vm, ObjectTable, object);
@@ -211,7 +211,7 @@ static void freeObject(VM* vm, Object *object) {
 	}
 }
 
-void markRoots(VM* vm) {
+void markRoots(VM *vm) {
 	for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
 		markValue(vm, *slot);
 	}
@@ -229,14 +229,14 @@ void markRoots(VM* vm) {
 	markObject(vm, (Object *) vm->initString);
 }
 
-static void traceReferences(VM* vm) {
+static void traceReferences(VM *vm) {
 	while (vm->grayCount > 0) {
 		Object *object = vm->grayStack[--vm->grayCount];
 		blackenObject(vm, object);
 	}
 }
 
-static void sweep(VM* vm) {
+static void sweep(VM *vm) {
 	Object *previous = NULL;
 	Object *object = vm->objects;
 	while (object != NULL) {
@@ -257,7 +257,7 @@ static void sweep(VM* vm) {
 	}
 }
 
-void collectGarbage(VM* vm) {
+void collectGarbage(VM *vm) {
 #ifdef DEBUG_LOG_GC
 	printf("-- gc begin\n");
 	size_t before = vm->bytesAllocated;
@@ -276,7 +276,7 @@ void collectGarbage(VM* vm) {
 #endif
 }
 
-void freeObjects(VM* vm) {
+void freeObjects(VM *vm) {
 	Object *object = vm->objects;
 	while (object != NULL) {
 		Object *next = object->next;

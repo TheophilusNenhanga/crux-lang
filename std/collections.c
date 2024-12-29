@@ -4,7 +4,7 @@
 #include "../object.h"
 
 
-NativeReturn lengthNative(VM* vm,int argCount, Value *args) {
+NativeReturn lengthNative(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
 
 	Value value = args[0];
