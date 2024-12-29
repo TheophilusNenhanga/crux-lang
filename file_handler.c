@@ -15,7 +15,7 @@ char *resolvePath(const char *path) {
 		return NULL;
 	}
 #else
-	char *resolvedPath[PATH_MAX];
+	char *resolvedPath[MAX_PATH_LENGTH];
 	if (realpath(path, resolvedPath) == NULL) {
 		return strdup(path);
 	}
