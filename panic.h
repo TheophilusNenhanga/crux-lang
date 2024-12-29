@@ -14,7 +14,7 @@ typedef struct {
 	const char *hint;
 } ErrorDetails;
 
-void runtimePanic(ErrorType type, const char *format, ...);
+void runtimePanic(VM *vm, ErrorType type, const char *format, ...);
 
 void printErrorLine(int line, const char *source, int startCol, int length);
 void compilerPanic(Parser *parser, const char *message, ErrorType errorType);

@@ -84,7 +84,17 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			return (ErrorDetails) {"Memory Error", "Cannot allocate more memory."};
 		}
 		case ASSERT: {
-			return (ErrorDetails){"Assert Error", "The state of your program does not match your expectations"};
+			return (ErrorDetails) {"Assert Error", "The state of your program does not match your expectations"};
+		}
+		case IMPORT_EXTENT: {
+			return (ErrorDetails) {"Import Extent Error", "Cannot import any more names."};
+		}
+		case IO: {
+			return (ErrorDetails) {"IO Error", "An error occurred while reading from or writing to a file. Check if the file "
+																				 "exists at the specified location."};
+		}
+		case IMPORT: {
+			return (ErrorDetails) {"Import Error", "An error occurred while importing a module."};
 		}
 		case RUNTIME:
 		default:
@@ -152,7 +162,7 @@ void compilerPanic(Parser *parser, const char *message, ErrorType errorType) {
 	errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(ErrorType type, const char *format, ...) {
+void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 	ErrorDetails details = getErrorDetails(type);
 
 	va_list args;
@@ -162,20 +172,20 @@ void runtimePanic(ErrorType type, const char *format, ...) {
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "%s", RESET);
 
-	for (int i = vm.frameCount - 1; i >= 0; i--) {
-		CallFrame *frame = &vm.frames[i];
+	for (int i = vm->frameCount - 1; i >= 0; i--) {
+		CallFrame *frame = &vm->frames[i];
 		ObjectFunction *function = frame->closure->function;
 		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "\n[line %d] in ", function->chunk.lines[instruction]);
 		if (function->name == NULL) {
-			fprintf(stderr, "script");
+			fprintf(stderr, "> script");
 		} else {
-			printf("%s()", function->name->chars);
+			fprintf(stderr, "> %s()", function->name->chars);
 		}
 	}
 
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	va_end(args);
 
-	resetStack();
+	resetStack(vm);
 }

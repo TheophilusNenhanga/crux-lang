@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "chunk.h"
 #include "memory.h"
 #include "object.h"
@@ -71,7 +70,7 @@ static bool match(TokenType type) {
 	return true;
 }
 
-static void emitByte(uint8_t byte) { writeChunk(currentChunk(), byte, parser.previous.line); }
+static void emitByte(uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
 	emitByte(byte1);
@@ -103,7 +102,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant(Value value) {
-	int constant = addConstant(currentChunk(), value);
+	int constant = addConstant(current->owner, currentChunk(), value);
 	// Add constant adds the given value to the end of the constant table and
 	// returns the index.
 	if (constant > UINT8_MAX) {
@@ -128,19 +127,29 @@ static void patchJump(int offset) {
 	currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
-static void initCompiler(Compiler *compiler, FunctionType type) {
+
+static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
-	compiler->function = newFunction();
+	compiler->owner = vm;
+
+	if (compiler->enclosing == NULL) {
+		if (compiler->owner->currentScriptName == NULL) {
+			compiler->owner->currentScriptName = copyString(current->owner, "<script>", strlen("<script>"));
+		}
+	}
+
+
+	compiler->function = newFunction(compiler->owner);
 	current = compiler;
 
 	if (type == TYPE_ANONYMOUS) {
-		current->function->name = copyString("anonymous", 9);
+		current->function->name = copyString(current->owner, "anonymous", 9);
 	} else if (type != TYPE_SCRIPT) {
-		current->function->name = copyString(parser.previous.start, parser.previous.length);
+		current->function->name = copyString(current->owner, parser.previous.start, parser.previous.length);
 	}
 
 	Local *local = &current->locals[current->localCount++];
@@ -159,7 +168,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 }
 
 static uint8_t identifierConstant(Token *name) {
-	return makeConstant(OBJECT_VAL(copyString(name->start, name->length)));
+	return makeConstant(OBJECT_VAL(copyString(current->owner, name->start, name->length)));
 }
 
 static void beginScope() { current->scopeDepth++; }
@@ -550,7 +559,7 @@ static void block() {
 
 static void function(FunctionType type) {
 	Compiler compiler;
-	initCompiler(&compiler, type);
+	initCompiler(&compiler, type, current->owner);
 	beginScope();
 
 	consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
@@ -653,7 +662,7 @@ static void fnDeclaration() {
 
 static void anonymousFunction(bool canAssign) {
 	Compiler compiler;
-	initCompiler(&compiler, TYPE_ANONYMOUS);
+	initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
 	beginScope();
 	consume(TOKEN_LEFT_PAREN, "Expected '(' to start argument list");
 	if (!check(TOKEN_RIGHT_PAREN)) {
@@ -888,6 +897,32 @@ static void returnStatement() {
 	}
 }
 
+static void useStatement() {
+
+	uint8_t nameCount = 0;
+	uint8_t names[UINT8_MAX];
+	do {
+		if (nameCount >= UINT8_MAX) {
+			compilerPanic(&parser, "Cannot import more than 255 names from another module.", IMPORT_EXTENT);
+		}
+		consume(TOKEN_IDENTIFIER, "Expected name to import from external module");
+		uint8_t name = identifierConstant(&parser.previous);
+		names[nameCount] = name;
+		nameCount++;
+	} while (match(TOKEN_COMMA));
+
+	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
+	consume(TOKEN_STRING, "Expected string literal for module name");
+	uint8_t module =
+			makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
+	emitBytes(OP_USE, nameCount);
+	for (uint8_t i = 0; i < nameCount; i++) {
+		emitByte(names[i]);
+	}
+	emitByte(module);
+	consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
+}
+
 static void synchronize() {
 	parser.panicMode = false;
 
@@ -909,6 +944,23 @@ static void synchronize() {
 	}
 }
 
+static void publicDeclaration() {
+	if (current->scopeDepth > 0) {
+		compilerPanic(&parser, "Cannot declare public members in a local scope.", SYNTAX);
+	}
+	emitByte(OP_PUB);
+	if (match(TOKEN_FN)) {
+		fnDeclaration();
+	} else if (match(TOKEN_LET)) {
+		varDeclaration();
+	} else if (match(TOKEN_CLASS)) {
+		classDeclaration();
+	} else {
+		compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.", SYNTAX);
+	}
+}
+
+
 static void declaration() {
 	if (match(TOKEN_LET)) {
 		varDeclaration();
@@ -916,6 +968,8 @@ static void declaration() {
 		classDeclaration();
 	} else if (match(TOKEN_FN)) {
 		fnDeclaration();
+	} else if (match(TOKEN_PUB)) {
+		publicDeclaration();
 	} else {
 		statement();
 	}
@@ -937,6 +991,8 @@ static void statement() {
 		forStatement();
 	} else if (match(TOKEN_RETURN)) {
 		returnStatement();
+	} else if (match(TOKEN_USE)) {
+		useStatement();
 	} else {
 		expressionStatement();
 	}
@@ -954,7 +1010,7 @@ static void number(bool canAssign) {
 
 static void string(bool canAssign) {
 	// +1 -2 trims the leading and trailing quotation marks
-	emitConstant(OBJECT_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+	emitConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
 	// TODO: translate string escape sequences
 }
 
@@ -1032,6 +1088,9 @@ ParseRule rules[] = {
 		[TOKEN_SELF] = {self, NULL, PREC_NONE},
 		[TOKEN_TRUE] = {literal, NULL, PREC_NONE},
 		[TOKEN_LET] = {NULL, NULL, PREC_NONE},
+		[TOKEN_USE] = {NULL, NULL, PREC_NONE},
+		[TOKEN_FROM] = {NULL, NULL, PREC_NONE},
+		[TOKEN_PUB] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},
@@ -1067,10 +1126,10 @@ static ParseRule *getRule(TokenType type) {
 	return &rules[type]; // Returns the rule at the given index
 }
 
-ObjectFunction *compile(char *source) {
+ObjectFunction *compile(VM *vm, char *source) {
 	initScanner(source);
 	Compiler compiler;
-	initCompiler(&compiler, TYPE_SCRIPT);
+	initCompiler(&compiler, TYPE_SCRIPT, vm);
 
 	parser.hadError = false;
 	parser.panicMode = false;
@@ -1086,10 +1145,10 @@ ObjectFunction *compile(char *source) {
 	return parser.hadError ? NULL : function;
 }
 
-void markCompilerRoots() {
+void markCompilerRoots(VM *vm) {
 	Compiler *compiler = current;
 	while (compiler != NULL) {
-		markObject((Object *) compiler->function);
+		markObject(vm, (Object *) compiler->function);
 		compiler = (Compiler *) compiler->enclosing;
 	}
 }

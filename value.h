@@ -2,10 +2,9 @@
 #define VALUE_H
 
 #include <string.h>
-
-
 #include "common.h"
 
+typedef struct VM VM;
 typedef struct Object Object;
 typedef struct ObjectString ObjectString;
 
@@ -54,9 +53,9 @@ bool valuesEqual(Value a, Value b);
 
 void initValueArray(ValueArray *array);
 
-void writeValueArray(ValueArray *array, Value value);
+void writeValueArray(VM *vm, ValueArray *array, Value value);
 
-void freeValueArray(ValueArray *array);
+void freeValueArray(VM *vm, ValueArray *array);
 
 void printValue(Value value);
 

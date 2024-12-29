@@ -1,7 +1,3 @@
-//
-// Created by theon on 08/09/2024.
-//
-
 #ifndef DEBUG_H
 #define DEBUG_H
 

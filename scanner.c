@@ -133,12 +133,18 @@ static TokenType identifierType() {
 						return checkKeyword(2, 1, "r", TOKEN_FOR);
 					case 'n':
 						return TOKEN_FN;
+					case 'r':
+						return checkKeyword(2, 2, "om", TOKEN_FROM);
 					default:
 						return TOKEN_IDENTIFIER;
 				}
 			}
 		case 't':
 			return checkKeyword(1, 3, "rue", TOKEN_TRUE);
+		case 'u':
+			return checkKeyword(1, 2, "se", TOKEN_USE);
+		case 'p':
+			return checkKeyword(1, 2, "ub", TOKEN_PUB);
 		default:;
 	}
 
@@ -230,7 +236,7 @@ Token scanToken() {
 		return identifier();
 
 	switch (c) {
-	    case ':':
+		case ':':
 			return makeToken(TOKEN_COLON);
 		case '(':
 			return makeToken(TOKEN_LEFT_PAREN);

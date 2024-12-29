@@ -1,15 +1,15 @@
 #include "tables.h"
 
-NativeReturn tableValuesMethod(int argCount, Value *args) {
+NativeReturn tableValuesMethod(VM *vm, int argCount, Value *args) {
 	ObjectTable *table = AS_TABLE(args[0]);
-	NativeReturn returnValue = makeNativeReturn(2);
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 
-	ObjectArray *values = newArray(table->size);
+	ObjectArray *values = newArray(vm, table->size);
 
 	if (values == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Failed to allocate enough memory for <values> array.", 53), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(
+				newError(vm, takeString(vm, "Failed to allocate enough memory for <values> array.", 53), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -30,16 +30,16 @@ NativeReturn tableValuesMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn tableKeysMethod(int argCount, Value *args) {
+NativeReturn tableKeysMethod(VM *vm, int argCount, Value *args) {
 	ObjectTable *table = AS_TABLE(args[0]);
-	NativeReturn returnValue = makeNativeReturn(2);
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 
-	ObjectArray *keys = newArray(table->size);
+	ObjectArray *keys = newArray(vm, table->size);
 
 	if (keys == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Failed to allocate enough memory for <keys> array.", 51), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(
+				newError(vm, takeString(vm, "Failed to allocate enough memory for <keys> array.", 51), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -60,16 +60,16 @@ NativeReturn tableKeysMethod(int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn tablePairsMethod(int argCount, Value *args) {
+NativeReturn tablePairsMethod(VM *vm, int argCount, Value *args) {
 	ObjectTable *table = AS_TABLE(args[0]);
-	NativeReturn returnValue = makeNativeReturn(2);
+	NativeReturn returnValue = makeNativeReturn(vm, 2);
 
-	ObjectArray *pairs = newArray(table->size);
+	ObjectArray *pairs = newArray(vm, table->size);
 
 	if (pairs == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(takeString("Failed to allocate enough memory for <pairs> array.", 51), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(
+				newError(vm, takeString(vm, "Failed to allocate enough memory for <pairs> array.", 51), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -78,12 +78,12 @@ NativeReturn tablePairsMethod(int argCount, Value *args) {
 	for (uint16_t i = 0; i < table->capacity; i++) {
 		ObjectTableEntry entry = table->entries[i];
 		if (entry.isOccupied) {
-			ObjectArray *pair = newArray(2);
+			ObjectArray *pair = newArray(vm, 2);
 
 			if (pair == NULL) {
 				returnValue.values[0] = NIL_VAL;
-				returnValue.values[1] =
-						OBJECT_VAL(newError(takeString("Failed to allocate enough memory for pair array.", 49), MEMORY, STELLA));
+				returnValue.values[1] = OBJECT_VAL(
+						newError(vm, takeString(vm, "Failed to allocate enough memory for pair array.", 49), MEMORY, STELLA));
 				return returnValue;
 			}
 

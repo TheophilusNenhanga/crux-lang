@@ -3,28 +3,29 @@
 
 #include "common.h"
 #include "object.h"
+#include "vm.h"
 
 #define TABLE_MAX_LOAD 0.6
 
-void *reallocate(void *pointer, size_t oldSize, size_t newSize);
+#define ALLOCATE(vm, type, count) (type *) reallocate(vm, NULL, 0, sizeof(type) * count)
 
-#define ALLOCATE(type, count) (type *) reallocate(NULL, 0, sizeof(type) * count)
-
-#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
+#define FREE(vm, type, pointer) reallocate(vm, pointer, sizeof(type), 0)
 
 #define GROW_CAPACITY(capacity) ((capacity) < 16 ? 16 : (capacity) * 2)
 
-#define GROW_ARRAY(type, pointer, oldCount, newCount)                                                                  \
-	(type *) reallocate(pointer, sizeof(type) * (oldCount), sizeof(type) * (newCount))
+#define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                                                              \
+	(type *) reallocate(vm, pointer, sizeof(type) * (oldCount), sizeof(type) * (newCount))
 
-#define FREE_ARRAY(type, pointer, oldCount) reallocate(pointer, sizeof(type) * (oldCount), 0)
+#define FREE_ARRAY(vm, type, pointer, oldCount) reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
 
-void markObject(Object *object);
+void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
 
-void markValue(Value value);
+void markObject(VM *vm, Object *object);
 
-void collectGarbage();
+void markValue(VM *vm, Value value);
 
-void freeObjects();
+void collectGarbage(VM *vm);
+
+void freeObjects(VM *vm);
 
 #endif // MEMORY_H

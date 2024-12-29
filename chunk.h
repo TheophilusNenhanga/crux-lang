@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "vm.h"
 
 typedef enum {
 	OP_RETURN,
@@ -66,6 +67,8 @@ typedef enum {
 	OP_TABLE,
 	OP_ANON_FUNCTION,
 	OP_UNPACK_TUPLE,
+	OP_USE,
+	OP_PUB,
 } OpCode;
 
 typedef struct {
@@ -78,10 +81,10 @@ typedef struct {
 
 void initChunk(Chunk *chunk);
 
-void writeChunk(Chunk *chunk, uint8_t byte, int line);
+void writeChunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
 
-void freeChunk(Chunk *chunk);
+void freeChunk(VM *vm, Chunk *chunk);
 
-int addConstant(Chunk *chunk, Value value);
+int addConstant(VM *vm, Chunk *chunk, Value value);
 
 #endif // CHUNK_H
