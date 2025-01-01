@@ -158,8 +158,22 @@ void printObject(Value value) {
 			printFunction(AS_FUNCTION(value));
 			break;
 		}
-		case OBJECT_NATIVE: {
-			printf("<native fn>");
+		case OBJECT_NATIVE_FUNCTION: {
+			ObjectNativeFunction *native = AS_NATIVE_FUNCTION(value);
+			if (native->name != NULL) {
+				printf("<native fn %s>", native->name->chars);
+			} else {
+				printf("<native fn>");
+			}
+			break;
+		}
+		case OBJECT_NATIVE_METHOD: {
+			ObjectNativeMethod *native = AS_NATIVE_METHOD(value);
+			if (native->name != NULL) {
+				printf("<native method %s>", native->name->chars);
+			} else {
+				printf("<native method>");
+			}
 			break;
 		}
 		case OBJECT_CLOSURE: {
@@ -239,9 +253,38 @@ ObjectString *toString(VM *vm, Value value) {
 			return copyString(vm, buffer, length);
 		}
 
-		case OBJECT_NATIVE: {
+		case OBJECT_NATIVE_FUNCTION: {
+			ObjectNativeFunction *native = AS_NATIVE_FUNCTION(value);
+			if (native->name != NULL) {
+				char *start = "<native fn ";
+				char *end = ">";
+				char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
+				strcpy(buffer, start);
+				strcat(buffer, native->name->chars);
+				strcat(buffer, end);
+				ObjectString *result = takeString(vm, buffer, strlen(buffer));
+				FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
+				return result;
+			}
 			return copyString(vm, "<native fn>", 11);
 		}
+
+		case OBJECT_NATIVE_METHOD: {
+			ObjectNativeMethod *native = AS_NATIVE_METHOD(value);
+			if (native->name != NULL) {
+				char *start = "<native method ";
+				char *end = ">";
+				char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
+				strcpy(buffer, start);
+				strcat(buffer, native->name->chars);
+				strcat(buffer, end);
+				ObjectString *result = takeString(vm, buffer, strlen(buffer));
+				FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
+				return result;
+			}
+			return copyString(vm, "<native method>", 15);
+		}
+
 		case OBJECT_CLOSURE: {
 			ObjectFunction *function = AS_CLOSURE(value)->function;
 			if (function->name == NULL) {
@@ -373,10 +416,19 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	return instance;
 }
 
-ObjectNative *newNative(VM *vm, NativeFn function, int arity) {
-	ObjectNative *native = ALLOCATE_OBJECT(vm, ObjectNative, OBJECT_NATIVE);
+ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, ObjectString *name) {
+	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
+	native->name = name;
+	return native;
+}
+
+ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, ObjectString *name) {
+	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
+	native->function = function;
+	native->arity = arity;
+	native->name = name;
 	return native;
 }
 
