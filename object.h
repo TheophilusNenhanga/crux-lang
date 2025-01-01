@@ -10,7 +10,8 @@
 
 #define IS_STRING(value) isObjectType(value, OBJECT_STRING)
 #define IS_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
-#define IS_NATIVE(value) isObjectType(value, OBJECT_NATIVE)
+#define IS_NATIVE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_FUNCTION)
+#define IS_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
 #define IS_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
 #define IS_CLASS(value) isObjectType(value, OBJECT_CLASS)
 #define IS_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
@@ -22,8 +23,9 @@
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
 #define AS_FUNCTION(value) ((ObjectFunction *) AS_OBJECT(value))
-#define AS_NATIVE(value) (((ObjectNative *) AS_OBJECT(value))->function)
-#define AS_NATIVE_FN(value) ((ObjectNative *) AS_OBJECT(value))
+#define AS_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_OBJECT(value))
+#define AS_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_OBJECT(value))
+
 #define AS_CLOSURE(value) ((ObjectClosure *) AS_OBJECT(value))
 #define AS_CLASS(value) ((ObjectClass *) AS_OBJECT(value))
 #define AS_INSTANCE(value) ((ObjectInstance *) AS_OBJECT(value))
@@ -36,7 +38,8 @@
 typedef enum {
 	OBJECT_STRING,
 	OBJECT_FUNCTION,
-	OBJECT_NATIVE,
+	OBJECT_NATIVE_FUNCTION,
+	OBJECT_NATIVE_METHOD,
 	OBJECT_CLOSURE,
 	OBJECT_UPVALUE,
 	OBJECT_CLASS,
@@ -117,8 +120,16 @@ typedef NativeReturn (*NativeFn)(VM *vm, int argCount, Value *args);
 typedef struct {
 	Object object;
 	NativeFn function;
+	ObjectString *name;
 	int arity;
-} ObjectNative;
+} ObjectNativeFunction;
+
+typedef struct {
+	Object object;
+	NativeFn function;
+	ObjectString *name;
+	int arity;
+} ObjectNativeMethod;
 
 typedef struct {
 	Value key;
@@ -178,7 +189,8 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreato
 ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
 ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
-ObjectNative *newNative(VM *vm, NativeFn function, int arity);
+ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, ObjectString *name);
+ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, ObjectString *name);
 ObjectFunction *newFunction(VM *vm);
 ObjectClass *newClass(VM *vm, ObjectString *name);
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);

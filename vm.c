@@ -65,8 +65,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 		switch (OBJECT_TYPE(callee)) {
 			case OBJECT_CLOSURE:
 				return call(vm, AS_CLOSURE(callee), argCount);
-			case OBJECT_NATIVE: {
-				ObjectNative *native = AS_NATIVE_FN(callee);
+			case OBJECT_NATIVE_METHOD: {
+				ObjectNativeMethod *native = AS_NATIVE_METHOD(callee);
 				if (argCount != native->arity) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
@@ -91,6 +91,33 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					push(vm, result.values[i]);
 				}
 
+				free(result.values);
+				return true;
+			}
+			case OBJECT_NATIVE_FUNCTION: {
+				ObjectNativeFunction *native = AS_NATIVE_FUNCTION(callee);
+				if (argCount != native->arity) {
+					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+
+				NativeReturn result = native->function(vm, argCount, vm->stackTop - argCount);
+				vm->stackTop -= argCount + 1;
+				if (result.size > 0) {
+					// The last Value returned from a native function must be the error if it has one
+					Value last = result.values[result.size - 1];
+					if (IS_ERROR(last)) {
+						ObjectError *error = AS_ERROR(last);
+						if (error->creator == PANIC) {
+							runtimePanic(vm, error->type, "%s", error->message->chars);
+							return false;
+						}
+					}
+				}
+
+				for (int i = 0; i < result.size; i++) {
+					push(vm, result.values[i]);
+				}
 				free(result.values);
 				return true;
 			}
@@ -537,7 +564,7 @@ static InterpretResult run(VM *vm) {
 				CallFrame *callerFrame = &vm->frames[vm->frameCount - 1];
 				uint8_t nextInstr = *callerFrame->ip;
 
-				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE && valueCount > 0) {
+				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE && valueCount > 1) {
 					runtimePanic(vm, UNPACK_MISMATCH, "Expected to unpack %d values.", valueCount);
 					return INTERPRET_RUNTIME_ERROR;
 				}
@@ -801,6 +828,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
+				// TODO: adding properties to native types?
 				if (!IS_INSTANCE(peek(vm, 0))) {
 					runtimePanic(vm, TYPE, "Only instances have properties.");
 					return INTERPRET_RUNTIME_ERROR;

@@ -136,7 +136,16 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
-		case OBJECT_NATIVE:
+		case OBJECT_NATIVE_FUNCTION: {
+			ObjectNativeFunction *native = (ObjectNativeFunction *) object;
+			markObject(vm, (Object *) native->name);
+			break;
+		}
+		case OBJECT_NATIVE_METHOD: {
+			ObjectNativeMethod *native = (ObjectNativeMethod *) object;
+			markObject(vm, (Object *) native->name);
+			break;
+		}
 		case OBJECT_STRING:
 			break;
 	}
@@ -159,8 +168,14 @@ static void freeObject(VM *vm, Object *object) {
 			FREE(vm, ObjectFunction, object);
 			break;
 		}
-		case OBJECT_NATIVE: {
-			FREE(vm, ObjectNative, object);
+		case OBJECT_NATIVE_FUNCTION: {
+			ObjectNativeFunction *native = (ObjectNativeFunction *) object;
+			FREE(vm, ObjectNativeFunction, object);
+			break;
+		}
+		case OBJECT_NATIVE_METHOD: {
+			ObjectNativeMethod *native = (ObjectNativeMethod *) object;
+			FREE(vm, ObjectNativeMethod, object);
 			break;
 		}
 		case OBJECT_CLOSURE: {
