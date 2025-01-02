@@ -109,7 +109,7 @@ static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32
 	string->chars = chars;
 	string->hash = hash;
 	push(vm, OBJECT_VAL(string));
-	tableSet(vm, &vm->strings, string, NIL_VAL);
+	tableSet(vm, &vm->strings, string, NIL_VAL, false);
 	pop(vm);
 	return string;
 }

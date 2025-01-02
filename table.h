@@ -9,6 +9,7 @@ typedef struct VM VM;
 typedef struct {
 	ObjectString *key;
 	Value value;
+	bool isPublic;
 } Entry;
 
 typedef struct {
@@ -21,9 +22,11 @@ void initTable(Table *table);
 
 void freeTable(VM *vm, Table *table);
 
-bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
+bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPublic);
 
 bool tableGet(Table *table, ObjectString *key, Value *value);
+
+bool tablePublicGet(Table *table, ObjectString *key, Value *value);
 
 bool tableDelete(Table *table, ObjectString *key);
 

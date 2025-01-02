@@ -268,7 +268,7 @@ static void closeUpvalues(VM *vm, Value *last) {
 static void defineMethod(VM *vm, ObjectString *name) {
 	Value method = peek(vm, 0);
 	ObjectClass *klass = AS_CLASS(peek(vm, 1));
-	if (tableSet(vm, &klass->methods, name, method)) {
+	if (tableSet(vm, &klass->methods, name, method, false)) {
 		pop(vm);
 	}
 }
@@ -456,7 +456,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 		case OP_SET_GLOBAL_SLASH: {
 			if (AS_NUMBER(peek(vm, 0)) != 0.0) {
 				double result = AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0));
-				tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+				tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 				break;
 			}
 			runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero error: '%s'.", name->chars);
@@ -464,17 +464,17 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 		}
 		case OP_SET_GLOBAL_STAR: {
 			double result = AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		case OP_SET_GLOBAL_PLUS: {
 			double result = AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		case OP_SET_GLOBAL_MINUS: {
 			double result = AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		default:;
@@ -731,10 +731,13 @@ static InterpretResult run(VM *vm) {
 
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (tableSet(vm, &vm->globals, name, peek(vm, 0))) {
-					if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
-						// TODO: Publicly defined globals
+				if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
+					if (tableSet(vm, &vm->globals, name, peek(vm, 0), true)) {
+						pop(vm);
+						break;
 					}
+				}
+				if (tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
 					pop(vm);
 					break;
 				}
@@ -755,7 +758,7 @@ static InterpretResult run(VM *vm) {
 
 			case OP_SET_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (!tableSet(vm, &vm->globals, name, peek(vm, 0))) {
+				if (!tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
 					runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined", name->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
@@ -860,7 +863,7 @@ static InterpretResult run(VM *vm) {
 				}
 
 				ObjectInstance *instance = AS_INSTANCE(peek(vm, 1));
-				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0))) {
+				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
 					push(vm, value);

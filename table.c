@@ -61,7 +61,7 @@ static void adjustCapacity(VM *vm, Table *table, int capacity) {
 	table->capacity = capacity;
 }
 
-bool tableSet(VM *vm, Table *table, ObjectString *key, Value value) {
+bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPublic) {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		int capacity = GROW_CAPACITY(table->capacity);
 		adjustCapacity(vm, table, capacity);
@@ -76,6 +76,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value) {
 		table->count++;
 	}
 
+	entry->isPublic = isPublic;
 	entry->key = key;
 	entry->value = value;
 	return isNewKey || !isNilValue ? true : false;
@@ -107,11 +108,23 @@ bool tableGet(Table *table, ObjectString *key, Value *value) {
 	return true;
 }
 
+bool tablePublicGet(Table *table, ObjectString *key, Value *value) {
+	if (table->count == 0)
+		return false;
+	Entry *entry = findEntry(table->entries, table->capacity, key);
+	if (entry->key == NULL)
+		return false;
+	if (!entry->isPublic)
+		return false;
+	*value = entry->value;
+	return true;
+}
+
 void tableAddAll(VM *vm, Table *from, Table *to) {
 	for (int i = 0; i < from->capacity; i++) {
 		Entry *entry = &from->entries[i];
 		if (entry->key != NULL) {
-			tableSet(vm, to, entry->key, entry->value);
+			tableSet(vm, to, entry->key, entry->value, entry->isPublic);
 		}
 	}
 }
