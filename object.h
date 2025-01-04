@@ -48,6 +48,7 @@ typedef enum {
 	OBJECT_ARRAY,
 	OBJECT_TABLE,
 	OBJECT_ERROR,
+	OBJECT_MODULE,
 } ObjectType;
 
 struct Object {
@@ -145,6 +146,22 @@ typedef struct {
 } ObjectTable;
 
 typedef enum {
+	IMPORTED, 
+	IN_PROGRESS,
+	INITIAL,
+} ModuleState;
+;
+
+struct ObjectModule{
+	Object object;
+	ObjectString *path;
+	ObjectString *name;
+	Table importedModules;
+	ModuleState state;
+	int vmDepth;
+};
+
+typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
 	INDEX_OUT_OF_BOUNDS,
@@ -214,4 +231,5 @@ bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
+ObjectModule *newModule(VM *vm, const char* path, const char* name);
 #endif

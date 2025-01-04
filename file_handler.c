@@ -20,7 +20,7 @@ char *resolvePath(const char *path) {
 		return strdup(path);
 	}
 #endif
-	char *newPath = strdup(resolvedPath);
+	char *newPath = strdup(resolvedPath); // TODO: check this again!
 	free(resolvedPath);
 	return newPath;
 }
@@ -66,4 +66,19 @@ FileResult readFile(const char *path) {
 void freeFileResult(FileResult result) {
 	free(result.content);
 	free(result.error);
+}
+
+char *getFileName(char *path) {
+	if (path == NULL) {
+		return NULL;
+	}
+#ifdef _WIN32
+	char *fileName = strrchr(path, '\\');
+#else
+	char *fileName = strrchr(path, '/');
+#endif
+	if (fileName == NULL) {
+		return path;
+	}
+	return fileName + 1;
 }

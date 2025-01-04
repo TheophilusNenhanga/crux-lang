@@ -626,3 +626,13 @@ NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
 	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);
 	return nativeReturn;
 }
+
+ObjectModule *newModule(VM *vm, const char *path, const char* name) {
+	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
+	module->path = copyString(vm, path, strlen(path));
+	module->name = copyString(vm, name, strlen(name));
+	module->state = INITIAL;
+	module->vmDepth = 0;
+	initTable(&module->importedModules);
+	return module;
+}

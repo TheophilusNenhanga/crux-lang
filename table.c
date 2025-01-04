@@ -165,3 +165,22 @@ void tableRemoveWhite(Table *table) {
 		}
 	}
 }
+
+bool tableDeepCopy(VM* vm, Table* from, Table* to, ObjectString* key) {
+	if (from->count == 0) {
+		return false;
+	}
+
+	if (key == NULL){
+		return false;
+	}
+
+	Entry *entry = findEntry(from->entries, from->capacity, key);
+	if (entry->key == NULL) {
+		return false;
+	}
+		
+	if (!entry->isPublic) {
+		return false;
+	}
+}
