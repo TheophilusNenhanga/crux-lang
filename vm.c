@@ -357,6 +357,7 @@ void freeVM(VM *vm) {
 	freeTable(vm, &vm->globals);
 	vm->initString = NULL;
 	freeObjects(vm);
+	freeImportSet(vm, &vm->module->importedModules);
 	if (vm->enclosing != NULL) {
 		freeVM(vm);
 	}
@@ -490,7 +491,7 @@ static void reverse_stack(VM *vm, int actual) {
 	}
 }
 
-static bool chceckPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
+static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
 	uint8_t *current = frame->ip;
 	if (current - instructionsAgo < frame->closure->function->chunk.code) {
 		return false;
@@ -730,7 +731,7 @@ static InterpretResult run(VM *vm) {
 
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
+				if (checkPreviousInstruction(frame, 3, OP_PUB)) {
 					if (tableSet(vm, &vm->globals, name, peek(vm, 0), true)) {
 						pop(vm);
 						break;
@@ -1215,6 +1216,11 @@ static InterpretResult run(VM *vm) {
 				}
 				ObjectString *modulePath = READ_STRING();
 
+				if (importSetContains(vm, modulePath)) {
+					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
 				char *resolvedPath = resolvePath(modulePath->chars);
 				if (resolvedPath == NULL) {
 					runtimePanic(vm, IO, "Could not resolve path to module.");
@@ -1225,33 +1231,6 @@ static InterpretResult run(VM *vm) {
 				if (source.error != NULL) {
 					runtimePanic(vm, IO, source.error);
 					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				// check if the module has already been imported
-				Value cachedModule;
-				if (tableGet(&vm->module->importedModules, modulePath, &cachedModule)) {
-					freeFileResult(source);
-					free(resolvedPath);
-
-					// we have already imported this module
-					// move the names from imported modules to the global table
-
-					ObjectTable *cache = AS_TABLE(cachedModule);
-					if (cache == NULL) {
-						runtimePanic(vm, IO, "Could not find cached module.");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					Value value;
-					bool success = true;
-					for (int i = 0; i < nameCount; i++) {
-						success = objectTableGet(cache, OBJECT_VAL(names[i]), &value);
-						if (!success) {
-							runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars, modulePath->chars);
-							return INTERPRET_RUNTIME_ERROR;
-						}
-						// deep copy the value to the global table
-					}
-					break;
 				}
 
 				if (vm->module->state == IN_PROGRESS) {
@@ -1289,7 +1268,7 @@ static InterpretResult run(VM *vm) {
 				// add the imported names to the current module (deep copy)
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
-					success = tableDeepCopy(vm, &vm->globals, &newModuleVM->globals, names[i]);
+					success = tableDeepCopy(vm, &newModuleVM->globals, &vm->globals, names[i]);
 					if (!success) {
 						for (int j = 0; j < i; j++) {
 							tableDelete(&vm->globals, names[j]);
@@ -1299,25 +1278,7 @@ static InterpretResult run(VM *vm) {
 					}
 				}
 
-				// add the rest of the newModule's names to the importedModules table so we can access them later if needed
-
-				int unusedNameCount = newModuleVM->globals.count - nameCount;
-				ObjectTable *unusedNames = newTable(vm, unusedNameCount);
-				if (unusedNameCount) {
-					for (int i = 0; i < newModuleVM->globals.count; i++) {
-						Entry *entry = &newModuleVM->globals.entries[i];
-						if (entry->key != NULL && entry->isPublic) {
-							// deep copy the entry
-						}
-					}
-
-					// add the table to the importedModules table
-					if (!tableSet(vm, &vm->module->importedModules, modulePath, OBJECT_VAL(unusedNames), false)) {
-						runtimePanic(vm, IMPORT, "Failed to import module '%s'.", modulePath->chars);
-						return INTERPRET_RUNTIME_ERROR;
-					}
-				}
-
+				importSetAdd(vm, &vm->module->importedModules, modulePath);
 				freeVM(newModuleVM);
 				break;
 			}

@@ -18,6 +18,15 @@ typedef struct {
 	Entry *entries;
 } Table;
 
+typedef struct {
+	Object **objects;
+	Object **copies;
+	int count;
+	int capacity;
+	VM *fromVM;
+	VM *toVM;
+} CopyContext;
+
 void initTable(Table *table);
 
 void freeTable(VM *vm, Table *table);

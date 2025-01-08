@@ -25,7 +25,6 @@
 #define AS_FUNCTION(value) ((ObjectFunction *) AS_OBJECT(value))
 #define AS_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_OBJECT(value))
 #define AS_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_OBJECT(value))
-
 #define AS_CLOSURE(value) ((ObjectClosure *) AS_OBJECT(value))
 #define AS_CLASS(value) ((ObjectClass *) AS_OBJECT(value))
 #define AS_INSTANCE(value) ((ObjectInstance *) AS_OBJECT(value))
@@ -139,6 +138,12 @@ typedef struct {
 } ObjectTableEntry;
 
 typedef struct {
+	ObjectString **paths; // module paths
+	int count;
+	int capacity;
+} ImportSet;
+
+typedef struct {
 	Object object;
 	ObjectTableEntry *entries;
 	uint16_t capacity;
@@ -156,7 +161,7 @@ struct ObjectModule{
 	Object object;
 	ObjectString *path;
 	ObjectString *name;
-	Table importedModules;
+	ImportSet importedModules;
 	ModuleState state;
 	int vmDepth;
 };
@@ -232,4 +237,10 @@ bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
 ObjectModule *newModule(VM *vm, const char* path, const char* name);
+
+bool importSetContains(ImportSet *set, ObjectString *path);
+bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);
+void initImportSet(ImportSet *set);
+void freeImportSet(VM *vm, ImportSet *set);
+
 #endif
