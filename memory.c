@@ -150,7 +150,6 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		case OBJECT_MODULE: {
 			ObjectModule *module = (ObjectModule *) object;
-			markObject(vm, (Object *) module->name);
 			markObject(vm, (Object *) module->path);
 		}
 			break;
@@ -232,7 +231,7 @@ static void freeObject(VM *vm, Object *object) {
 
 		case OBJECT_MODULE: {
 			ObjectModule *module = (ObjectModule *) object;
-			freeTable(vm, &module->importedModules);
+			freeImportSet(vm, &module->importedModules);
 			FREE(vm, ObjectModule, object);
 			break;
 		}

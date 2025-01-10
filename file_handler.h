@@ -12,8 +12,6 @@ FileResult readFile(const char* path);
 
 char* resolvePath(const char* path);
 
-char *getFileName(char *path);
-
 void freeFileResult(FileResult result);
 
 #endif //FILE_HANDLER_H

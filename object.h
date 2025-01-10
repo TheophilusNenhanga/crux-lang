@@ -160,7 +160,6 @@ typedef enum {
 struct ObjectModule{
 	Object object;
 	ObjectString *path;
-	ObjectString *name;
 	ImportSet importedModules;
 	ModuleState state;
 	int vmDepth;
@@ -236,7 +235,7 @@ bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
-ObjectModule *newModule(VM *vm, const char* path, const char* name);
+ObjectModule *newModule(VM *vm, const char* path);
 
 bool importSetContains(ImportSet *set, ObjectString *path);
 bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);

@@ -38,11 +38,10 @@ int main(const int argc, const char *argv[]) {
 	VM *vm = newVM();
 	
 	if (argc == 1) {
-		vm->module = newModule(vm, "<repl>", "<repl>");
+		vm->module = newModule(vm, "<repl>");
 		repl(vm);
 	} else if (argc == 2) {
-		char *name = getFileName((char *) argv[1]);
-		vm->module = newModule(vm, argv[1], name != NULL ? name : argv[1]);
+		vm->module = newModule(vm, argv[1]);
 		runFile(vm, argv[1]);
 	} else {
 		fprintf(stderr, "Usage: stella [path]\n");

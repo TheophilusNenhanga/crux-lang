@@ -627,10 +627,9 @@ NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
 	return nativeReturn;
 }
 
-ObjectModule *newModule(VM *vm, const char *path, const char* name) {
+ObjectModule *newModule(VM *vm, const char *path) {
 	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
 	module->path = copyString(vm, path, strlen(path));
-	module->name = copyString(vm, name, strlen(name));
 	module->state = INITIAL;
 	module->vmDepth = 0;
 	initImportSet(&module->importedModules);

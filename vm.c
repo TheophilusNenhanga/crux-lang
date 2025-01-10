@@ -357,7 +357,6 @@ void freeVM(VM *vm) {
 	freeTable(vm, &vm->globals);
 	vm->initString = NULL;
 	freeObjects(vm);
-	freeImportSet(vm, &vm->module->importedModules);
 	if (vm->enclosing != NULL) {
 		freeVM(vm);
 	}
@@ -731,15 +730,11 @@ static InterpretResult run(VM *vm) {
 
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
+				bool isPublic = false;
 				if (checkPreviousInstruction(frame, 3, OP_PUB)) {
-					if (tableSet(vm, &vm->globals, name, peek(vm, 0), true)) {
-						pop(vm);
-						break;
-					}
-					runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.", name->chars);
-					return INTERPRET_RUNTIME_ERROR;
+					isPublic = true;
 				}
-				if (tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
+				if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 					pop(vm);
 					break;
 				}
@@ -1250,8 +1245,7 @@ static InterpretResult run(VM *vm) {
 				VM *newModuleVM = newVM();
 				newModuleVM->enclosing = vm;
 
-				char *moduleName = getFileName(modulePath->chars);
-				newModuleVM->module = newModule(newModuleVM, modulePath->chars, moduleName);
+				newModuleVM->module = newModule(newModuleVM, modulePath->chars);
 				newModuleVM->module->state = IN_PROGRESS;
 				newModuleVM->module->vmDepth = vm->module->vmDepth + 1;
 
@@ -1268,7 +1262,7 @@ static InterpretResult run(VM *vm) {
 				// add the imported names to the current module (deep copy)
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
-					success = tableDeepCopy(vm, &newModuleVM->globals, &vm->globals, names[i]);
+					success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i]);
 					if (!success) {
 						for (int j = 0; j < i; j++) {
 							tableDelete(&vm->globals, names[j]);

@@ -20,6 +20,12 @@ void freeTable(VM *vm, Table *table) {
 	initTable(table);
 }
 
+static bool compareStrings(ObjectString *a, ObjectString *b) {
+	if (a->length != b->length)
+		return false;
+	return memcmp(a->chars, b->chars, a->length) == 0;
+}
+
 static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
 	uint32_t index = key->hash & (capacity - 1);
 	Entry *tombstone = NULL;
@@ -32,7 +38,7 @@ static Entry *findEntry(Entry *entries, int capacity, ObjectString *key) {
 			}
 			if (tombstone == NULL)
 				tombstone = entry;
-		} else if (entry->key == key) {
+		} else if (entry->key == key || compareStrings(entry->key, key)) {
 			return entry;
 		}
 
@@ -339,8 +345,8 @@ static Value deepCopyValue(CopyContext *ctx, Value value) {
 	return NIL_VAL;
 }
 
-bool tableDeepCopy(VM *fromVM, Table *from, Table *to, ObjectString *key) {
-	if (from->count == 0 || key == NULL) {
+bool tableDeepCopy(VM*toVM, VM *fromVM, Table *from, Table *to, ObjectString *key) {
+	if (from->count == 0 || key == NULL || fromVM == NULL || toVM == NULL || fromVM == toVM) {
 		return false;
 	}
 
@@ -355,9 +361,9 @@ bool tableDeepCopy(VM *fromVM, Table *from, Table *to, ObjectString *key) {
 	context.objects = ALLOCATE(fromVM, Object *, context.capacity);
 	context.copies = ALLOCATE(fromVM, Object *, context.capacity);
 	context.fromVM = fromVM;
-	if (fromVM->enclosing != NULL) {
-		context.toVM = fromVM->enclosing;
-	} else {
+	context.toVM = toVM;
+
+	if (context.copies == NULL || context.objects == NULL) {
 		return false;
 	}
 
@@ -369,7 +375,7 @@ bool tableDeepCopy(VM *fromVM, Table *from, Table *to, ObjectString *key) {
 	bool success = !IS_NIL(copiedValue);
 
 	if (success) {
-		success = tableSet(context.toVM, to, key, copiedValue, true);
+		success = tableSet(context.toVM, to, key, copiedValue, false);
 	}
 
 	FREE_ARRAY(fromVM, Object *, context.objects, context.capacity);
