@@ -643,6 +643,9 @@ void initImportSet(ImportSet* set) {
 }
 
 bool importSetContains(ImportSet* set, ObjectString* path) {
+	if (set->count == 0) {
+		return false;
+	}
 	for (int i = 0; i < set->count; i++) {
 		if (path == set->paths[i]) {
 			return true;

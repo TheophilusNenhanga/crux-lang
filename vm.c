@@ -358,7 +358,7 @@ void freeVM(VM *vm) {
 	vm->initString = NULL;
 	freeObjects(vm);
 	if (vm->enclosing != NULL) {
-		freeVM(vm);
+		free(vm);
 	}
 }
 
@@ -1211,7 +1211,7 @@ static InterpretResult run(VM *vm) {
 				}
 				ObjectString *modulePath = READ_STRING();
 
-				if (importSetContains(vm, modulePath)) {
+				if (importSetContains(&vm->module->importedModules, modulePath)) {
 					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}

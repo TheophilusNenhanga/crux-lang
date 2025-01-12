@@ -62,6 +62,7 @@ static void adjustCapacity(VM *vm, Table *table, int capacity) {
 		Entry *dest = findEntry(entries, capacity, entry->key);
 		dest->key = entry->key;
 		dest->value = entry->value;
+		dest->isPublic = entry->isPublic;
 		table->count++;
 	}
 	FREE_ARRAY(vm, Entry, table->entries, table->capacity);
@@ -345,12 +346,12 @@ static Value deepCopyValue(CopyContext *ctx, Value value) {
 	return NIL_VAL;
 }
 
-bool tableDeepCopy(VM*toVM, VM *fromVM, Table *from, Table *to, ObjectString *key) {
-	if (from->count == 0 || key == NULL || fromVM == NULL || toVM == NULL || fromVM == toVM) {
+bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key) {
+	if (fromTable->count == 0 || key == NULL || fromVM == NULL || toVM == NULL || fromVM == toVM) {
 		return false;
 	}
 
-	Entry *entry = findEntry(from->entries, from->capacity, key);
+	Entry *entry = findEntry(fromTable->entries, fromTable->capacity, key);
 	if (entry->key == NULL || !entry->isPublic) {
 		return false;
 	}
@@ -368,14 +369,14 @@ bool tableDeepCopy(VM*toVM, VM *fromVM, Table *from, Table *to, ObjectString *ke
 	}
 
 	if (IS_NIL(entry->value)) {
-		tableSet(context.toVM, to, key, NIL_VAL, true);
+		tableSet(toVM, toTable, key, NIL_VAL, false);
 		return true;
 	}
 	Value copiedValue = deepCopyValue(&context, entry->value);
 	bool success = !IS_NIL(copiedValue);
 
 	if (success) {
-		success = tableSet(context.toVM, to, key, copiedValue, false);
+		success = tableSet(context.toVM, toTable, key, copiedValue, false);
 	}
 
 	FREE_ARRAY(fromVM, Object *, context.objects, context.capacity);
