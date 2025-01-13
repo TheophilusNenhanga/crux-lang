@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "file_handler.h"
+#include "object.h"
 #include "vm.h"
 
 static void repl(VM *vm) {
@@ -13,7 +14,7 @@ static void repl(VM *vm) {
 			printf("\n");
 			break;
 		}
-		interpret(vm, line, NULL);
+		interpret(vm, line);
 	}
 }
 
@@ -23,8 +24,7 @@ static void runFile(VM *vm, const char *path) {
 		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
 		exit(2);
 	}
-
-	const InterpretResult interpretResult = interpret(vm, fileResult.content, path);
+	const InterpretResult interpretResult = interpret(vm, fileResult.content);
 	free(fileResult.content);
 
 	if (interpretResult == INTERPRET_COMPILE_ERROR)
@@ -36,10 +36,12 @@ static void runFile(VM *vm, const char *path) {
 int main(const int argc, const char *argv[]) {
 
 	VM *vm = newVM();
-
+	
 	if (argc == 1) {
+		vm->module = newModule(vm, "<repl>");
 		repl(vm);
 	} else if (argc == 2) {
+		vm->module = newModule(vm, argv[1]);
 		runFile(vm, argv[1]);
 	} else {
 		fprintf(stderr, "Usage: stella [path]\n");

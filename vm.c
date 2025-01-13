@@ -268,7 +268,7 @@ static void closeUpvalues(VM *vm, Value *last) {
 static void defineMethod(VM *vm, ObjectString *name) {
 	Value method = peek(vm, 0);
 	ObjectClass *klass = AS_CLASS(peek(vm, 1));
-	if (tableSet(vm, &klass->methods, name, method)) {
+	if (tableSet(vm, &klass->methods, name, method, false)) {
 		pop(vm);
 	}
 }
@@ -327,12 +327,12 @@ void initVM(VM *vm) {
 	vm->objects = NULL;
 	vm->bytesAllocated = 0;
 	vm->nextGC = 1024 * 1024;
-	vm->currentScriptName = NULL;
 	vm->grayCount = 0;
 	vm->grayCapacity = 0;
 	vm->grayStack = NULL;
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
+	vm->module = NULL;
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -356,10 +356,9 @@ void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
 	vm->initString = NULL;
-	vm->currentScriptName = NULL;
 	freeObjects(vm);
 	if (vm->enclosing != NULL) {
-		freeVM(vm);
+		free(vm);
 	}
 }
 
@@ -456,7 +455,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 		case OP_SET_GLOBAL_SLASH: {
 			if (AS_NUMBER(peek(vm, 0)) != 0.0) {
 				double result = AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0));
-				tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+				tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 				break;
 			}
 			runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero error: '%s'.", name->chars);
@@ -464,17 +463,17 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 		}
 		case OP_SET_GLOBAL_STAR: {
 			double result = AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		case OP_SET_GLOBAL_PLUS: {
 			double result = AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		case OP_SET_GLOBAL_MINUS: {
 			double result = AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result));
+			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
 		default:;
@@ -491,7 +490,7 @@ static void reverse_stack(VM *vm, int actual) {
 	}
 }
 
-static bool chceckPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
+static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
 	uint8_t *current = frame->ip;
 	if (current - instructionsAgo < frame->closure->function->chunk.code) {
 		return false;
@@ -731,10 +730,11 @@ static InterpretResult run(VM *vm) {
 
 			case OP_DEFINE_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (tableSet(vm, &vm->globals, name, peek(vm, 0))) {
-					if (chceckPreviousInstruction(frame, 2, OP_PUB)) {
-						// TODO: Publicly defined globals
-					}
+				bool isPublic = false;
+				if (checkPreviousInstruction(frame, 3, OP_PUB)) {
+					isPublic = true;
+				}
+				if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 					pop(vm);
 					break;
 				}
@@ -755,7 +755,7 @@ static InterpretResult run(VM *vm) {
 
 			case OP_SET_GLOBAL: {
 				ObjectString *name = READ_STRING();
-				if (!tableSet(vm, &vm->globals, name, peek(vm, 0))) {
+				if (!tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
 					runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined", name->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
@@ -860,7 +860,7 @@ static InterpretResult run(VM *vm) {
 				}
 
 				ObjectInstance *instance = AS_INSTANCE(peek(vm, 1));
-				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0))) {
+				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
 					push(vm, value);
@@ -1209,13 +1209,71 @@ static InterpretResult run(VM *vm) {
 				for (int i = 0; i < nameCount; i++) {
 					names[i] = READ_STRING();
 				}
-				ObjectString *module = READ_STRING();
+				ObjectString *modulePath = READ_STRING();
 
-				char *resolvedPath = resolvePath(module->chars);
+				if (importSetContains(&vm->module->importedModules, modulePath)) {
+					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
 				if (resolvedPath == NULL) {
 					runtimePanic(vm, IO, "Could not resolve path to module.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
+
+				FileResult source = readFile(resolvedPath);
+				if (source.error != NULL) {
+					runtimePanic(vm, IO, source.error);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				if (vm->module->state == IN_PROGRESS) {
+					freeFileResult(source);
+					free(resolvedPath);
+					runtimePanic(vm, IMPORT, "Circular import detected in \"%s\".", modulePath->chars);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				if (vm->module->vmDepth > MAX_VM_DEPTH) {
+					freeFileResult(source);
+					free(resolvedPath);
+					runtimePanic(vm, IMPORT, "Maximum import depth exceeded.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				VM *newModuleVM = newVM();
+				newModuleVM->enclosing = vm;
+
+				newModuleVM->module = newModule(newModuleVM, modulePath->chars);
+				newModuleVM->module->state = IN_PROGRESS;
+				newModuleVM->module->vmDepth = vm->module->vmDepth + 1;
+
+				InterpretResult result = interpret(newModuleVM, source.content);
+				freeFileResult(source);
+				free(resolvedPath);
+				if (result != INTERPRET_OK) {
+					freeVM(newModuleVM);
+					return result;
+				}
+
+				newModuleVM->module->state = IMPORTED;
+
+				// add the imported names to the current module (deep copy)
+				bool success = true;
+				for (int i = 0; i < nameCount; i++) {
+					success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i]);
+					if (!success) {
+						for (int j = 0; j < i; j++) {
+							tableDelete(&vm->globals, names[j]);
+						}
+						runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars, modulePath->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+				}
+
+				importSetAdd(vm, &vm->module->importedModules, modulePath);
+				freeVM(newModuleVM);
 				break;
 			}
 		}
@@ -1229,13 +1287,7 @@ static InterpretResult run(VM *vm) {
 #undef READ_SHORT
 }
 
-InterpretResult interpret(VM *vm, char *source, char *path) {
-	if (path != NULL) {
-		vm->currentScriptName = copyString(vm, path, strlen(path));
-	} else {
-		vm->currentScriptName = copyString(vm, "<script>", strlen("<script>"));
-	}
-
+InterpretResult interpret(VM *vm, char *source) {
 	ObjectFunction *function = compile(vm, source);
 	if (function == NULL)
 		return INTERPRET_COMPILE_ERROR;

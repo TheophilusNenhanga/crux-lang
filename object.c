@@ -109,7 +109,7 @@ static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32
 	string->chars = chars;
 	string->hash = hash;
 	push(vm, OBJECT_VAL(string));
-	tableSet(vm, &vm->strings, string, NIL_VAL);
+	tableSet(vm, &vm->strings, string, NIL_VAL, false);
 	pop(vm);
 	return string;
 }
@@ -625,4 +625,46 @@ NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
 	nativeReturn.size = size;
 	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);
 	return nativeReturn;
+}
+
+ObjectModule *newModule(VM *vm, const char *path) {
+	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
+	module->path = copyString(vm, path, strlen(path));
+	module->state = INITIAL;
+	module->vmDepth = 0;
+	initImportSet(&module->importedModules);
+	return module;
+}
+
+void initImportSet(ImportSet* set) {
+	set->paths = NULL;
+	set->count = 0;
+	set->capacity = 0;
+}
+
+bool importSetContains(ImportSet* set, ObjectString* path) {
+	if (set->count == 0) {
+		return false;
+	}
+	for (int i = 0; i < set->count; i++) {
+		if (path == set->paths[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool importSetAdd(VM* vm, ImportSet* set, ObjectString* path) {
+	if (set->count + 1 > set->capacity) {
+		int oldCapacity = set->capacity;
+		set->capacity = GROW_CAPACITY(oldCapacity);
+		set->paths = GROW_ARRAY(vm, ObjectString*, set->paths, oldCapacity, set->capacity);
+	}
+	set->paths[set->count++] = path;
+	return true;
+}
+
+void freeImportSet(VM* vm, ImportSet* set) {
+	FREE_ARRAY(vm, ObjectString*, set->paths, set->capacity);
+	initImportSet(set);
 }

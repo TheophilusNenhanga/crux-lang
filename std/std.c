@@ -49,7 +49,7 @@ Callable errorMethods[] = {{"message", errorMessageMethod, 1},
 
 bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int) strlen(methodName));
-	if (!tableSet(vm, methodTable, name, OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)))) {
+	if (!tableSet(vm, methodTable, name, OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
 		return false;
 	}
 	return true;
@@ -57,7 +57,7 @@ bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, Nati
 
 bool defineNativeFunction(VM *vm, Table *functionTable, const char *functionName, NativeFn function, int arity) {
 	ObjectString *name = copyString(vm, functionName, (int) strlen(functionName));
-	if (!tableSet(vm, functionTable, name, OBJECT_VAL(newNativeFunction(vm, function, arity, name)))) {
+	if (!tableSet(vm, functionTable, name, OBJECT_VAL(newNativeFunction(vm, function, arity, name)), false)) {
 		return false;
 	}
 	return true;

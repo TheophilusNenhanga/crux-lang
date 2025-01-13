@@ -9,6 +9,7 @@ typedef struct VM VM;
 typedef struct {
 	ObjectString *key;
 	Value value;
+	bool isPublic;
 } Entry;
 
 typedef struct {
@@ -17,13 +18,24 @@ typedef struct {
 	Entry *entries;
 } Table;
 
+typedef struct {
+	Object **objects;
+	Object **copies;
+	int count;
+	int capacity;
+	VM *fromVM;
+	VM *toVM;
+} CopyContext;
+
 void initTable(Table *table);
 
 void freeTable(VM *vm, Table *table);
 
-bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
+bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPublic);
 
 bool tableGet(Table *table, ObjectString *key, Value *value);
+
+bool tablePublicGet(Table *table, ObjectString *key, Value *value);
 
 bool tableDelete(Table *table, ObjectString *key);
 
@@ -34,5 +46,7 @@ ObjectString *tableFindString(Table *table, const char *chars, uint64_t length, 
 void tableRemoveWhite(Table *table);
 
 void markTable(VM *vm, Table *table);
+
+bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key);
 
 #endif

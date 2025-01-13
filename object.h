@@ -25,7 +25,6 @@
 #define AS_FUNCTION(value) ((ObjectFunction *) AS_OBJECT(value))
 #define AS_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_OBJECT(value))
 #define AS_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_OBJECT(value))
-
 #define AS_CLOSURE(value) ((ObjectClosure *) AS_OBJECT(value))
 #define AS_CLASS(value) ((ObjectClass *) AS_OBJECT(value))
 #define AS_INSTANCE(value) ((ObjectInstance *) AS_OBJECT(value))
@@ -48,6 +47,7 @@ typedef enum {
 	OBJECT_ARRAY,
 	OBJECT_TABLE,
 	OBJECT_ERROR,
+	OBJECT_MODULE,
 } ObjectType;
 
 struct Object {
@@ -138,11 +138,32 @@ typedef struct {
 } ObjectTableEntry;
 
 typedef struct {
+	ObjectString **paths; // module paths
+	int count;
+	int capacity;
+} ImportSet;
+
+typedef struct {
 	Object object;
 	ObjectTableEntry *entries;
 	uint16_t capacity;
 	uint16_t size;
 } ObjectTable;
+
+typedef enum {
+	IMPORTED, 
+	IN_PROGRESS,
+	INITIAL,
+} ModuleState;
+;
+
+struct ObjectModule{
+	Object object;
+	ObjectString *path;
+	ImportSet importedModules;
+	ModuleState state;
+	int vmDepth;
+};
 
 typedef enum {
 	SYNTAX,
@@ -213,5 +234,12 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded);
 bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
+
+ObjectModule *newModule(VM *vm, const char* path);
+
+bool importSetContains(ImportSet *set, ObjectString *path);
+bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);
+void initImportSet(ImportSet *set);
+void freeImportSet(VM *vm, ImportSet *set);
 
 #endif

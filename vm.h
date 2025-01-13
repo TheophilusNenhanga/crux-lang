@@ -6,7 +6,9 @@
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
+typedef struct ObjectModule ObjectModule;
 
+#define MAX_VM_DEPTH 64
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
@@ -41,10 +43,10 @@ struct VM {
 	NativeType arrayType;
 	NativeType tableType;
 	NativeType errorType;
-	ObjectString *currentScriptName;
 	struct VM *enclosing;
 	int grayCapacity;
-	uint8_t previousInstruction;
+	uint8_t previousInstruction; 
+	ObjectModule *module;
 };
 
 VM *newVM();
@@ -55,7 +57,7 @@ void freeVM(VM *vm);
 
 void resetStack(VM *vm);
 
-InterpretResult interpret(VM *vm, char *source, char *path);
+InterpretResult interpret(VM *vm, char *source);
 
 void push(VM *vm, Value value);
 

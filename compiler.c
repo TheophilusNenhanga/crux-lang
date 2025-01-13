@@ -136,13 +136,6 @@ static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	compiler->scopeDepth = 0;
 	compiler->owner = vm;
 
-	if (compiler->enclosing == NULL) {
-		if (compiler->owner->currentScriptName == NULL) {
-			compiler->owner->currentScriptName = copyString(current->owner, "<script>", strlen("<script>"));
-		}
-	}
-
-
 	compiler->function = newFunction(compiler->owner);
 	current = compiler;
 
