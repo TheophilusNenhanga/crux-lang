@@ -10,7 +10,7 @@ typedef struct {
 
 FileResult readFile(const char* path);
 
-char* resolvePath(const char* path);
+char* resolvePath(const char* basePath, const char* importPath);
 
 void freeFileResult(FileResult result);
 

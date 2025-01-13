@@ -1216,7 +1216,7 @@ static InterpretResult run(VM *vm) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				char *resolvedPath = resolvePath(modulePath->chars);
+				char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
 				if (resolvedPath == NULL) {
 					runtimePanic(vm, IO, "Could not resolve path to module.");
 					return INTERPRET_RUNTIME_ERROR;

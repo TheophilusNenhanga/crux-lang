@@ -4,25 +4,183 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *resolvePath(const char *path) {
+// caller must free the returned char*
+static char *dirName(char *path) {
 	if (path == NULL) {
 		return NULL;
 	}
+
+	char *pathCopy = strdup(path);
+	if (pathCopy == NULL) {
+		return NULL;
+	}
+
+	size_t pathLen = strlen(pathCopy);
+	if (pathLen == 0) {
+		free(pathCopy);
+		return strdup(".");
+	}
+
+	while (pathLen > 1 && (pathCopy[pathLen - 1] == '/' || pathCopy[pathLen - 1] == '\\')) {
+		pathCopy[pathLen--] = '\0';
+	}
+
+	char *lastSlash = strrchr(pathCopy, '/');
+#ifdef _WIN32
+	char *lastBackslash = strrchr(pathCopy, '\\');
+	if (lastBackslash > lastSlash) {
+		lastSlash = lastBackslash;
+	}
+#endif
+	if (lastSlash == NULL) {
+		free(pathCopy);
+		return strdup(".");
+	}
+
+	if (lastSlash == pathCopy) {
+#ifdef _WIN32
+		char *result;
+		if (pathCopy[1] == ':') {
+			result = strdup(pathCopy);
+		} else {
+			result = strdup("\\");
+		}
+#else
+		char *result = strdup("/");
+#endif
+		free(pathCopy);
+		return result;
+	}
+#ifdef _WIN32
+	if (lastSlash == pathCopy + 2 && pathCopy[1] == ':') {
+		char *result = (char *) malloc(4);
+		if (result == NULL) {
+			free(pathCopy);
+			return NULL;
+		}
+		result[0] = pathCopy[0];
+		result[1] = ':';
+		result[2] = '\\';
+		result[3] = '\0';
+		free(pathCopy);
+		return result;
+	}
+#endif
+	*lastSlash = '\0';
+	char *result = strdup(pathCopy);
+	free(pathCopy);
+	return result;
+}
+
+static char *getDirectoryFromPath(const char *path) {
+	if (path == NULL) {
+		return NULL;
+	}
+
+	char *pathCopy = strdup(path);
+	if (pathCopy == NULL) {
+		return NULL;
+	}
+
+	char *dir = dirName(pathCopy);
+	if (dir == NULL) {
+		free(pathCopy);
+		return NULL;
+	}
+
+	char *result = strdup(dir);
+	free(pathCopy);
+	free(dir);
+	return result;
+}
+
+static char *combinePaths(const char *base, const char *relative) {
+	if (base == NULL || relative == NULL)
+		return NULL;
+
+	if (relative[0] == '/'
+#ifdef _WIN32
+			|| (strlen(relative) > 2 && relative[1] == ':')
+#endif
+	) {
+		return strdup(relative);
+	}
+
+	size_t baseLen = strlen(base);
+	size_t relativeLen = strlen(relative);
+	size_t totalLen = baseLen + 1 + relativeLen + 1; // +1 : '/' +1 '\0'
+
+	char *result = (char *) malloc(totalLen);
+	if (result == NULL)
+		return NULL;
+
+	strcpy(result, base);
+
+	if (baseLen > 0 && base[baseLen - 1] != '/' && base[baseLen - 1] != '\\') {
+#ifdef _WIN32
+		strcat(result, "\\");
+#else
+		strcat(result, "/");
+#endif
+	}
+
+	strcat(result, relative);
+	return result;
+}
+
+
+char *resolvePath(const char *basePath, const char *importPath) {
+	if (importPath == NULL)
+		return NULL;
+
+	if (basePath == NULL || importPath[0] == '/'
+#ifdef _WIN32
+			|| (strlen(importPath) > 2 && importPath[1] == ':')
+#endif
+	) {
+#ifdef _WIN32
+		char *resolvedPath = (char *) malloc(MAX_PATH_LENGTH);
+		if (_fullpath(resolvedPath, importPath, MAX_PATH_LENGTH) == NULL) {
+			free(resolvedPath);
+			return NULL;
+		}
+		return resolvedPath;
+#else
+		char resolvedPath[MAX_PATH_LENGTH];
+		if (realpath(importPath, resolvedPath) == NULL) {
+			return strdup(importPath);
+		}
+		return strdup(resolvedPath);
+#endif
+	}
+
+	char *baseDir = getDirectoryFromPath(basePath);
+	if (baseDir == NULL)
+		return NULL;
+
+	char *combinedPath = combinePaths(baseDir, importPath);
+	free(baseDir);
+	if (combinedPath == NULL)
+		return NULL;
+
 #ifdef _WIN32
 	char *resolvedPath = (char *) malloc(MAX_PATH_LENGTH);
-	if (_fullpath(resolvedPath, path, MAX_PATH_LENGTH) == NULL) {
+	if (_fullpath(resolvedPath, combinedPath, MAX_PATH_LENGTH) == NULL) {
+		free(combinedPath);
 		free(resolvedPath);
 		return NULL;
 	}
+	free(combinedPath);
+	return resolvedPath;
 #else
-	char *resolvedPath[MAX_PATH_LENGTH];
-	if (realpath(path, resolvedPath) == NULL) {
-		return strdup(path);
+	char resolvedPath[MAX_PATH_LENGTH];
+	if (realpath(combinedPath, resolvedPath) == NULL) {
+		free(combinedPath);
+		return strdup(combinedPath);
 	}
+	free(combinedPath);
+	return strdup(resolvedPath);
 #endif
-	char *newPath = strdup(resolvedPath); // TODO: check this again!
-	free(resolvedPath);
-	return newPath;
 }
 
 FileResult readFile(const char *path) {
