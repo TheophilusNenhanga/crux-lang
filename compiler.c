@@ -891,19 +891,33 @@ static void returnStatement() {
 }
 
 static void useStatement() {
-
+	consume(TOKEN_LEFT_PAREN, "Expected '(' after use statement");
 	uint8_t nameCount = 0;
 	uint8_t names[UINT8_MAX];
+	uint8_t aliases[UINT8_MAX];
+	bool aliasPresence[UINT8_MAX];
 	do {
 		if (nameCount >= UINT8_MAX) {
 			compilerPanic(&parser, "Cannot import more than 255 names from another module.", IMPORT_EXTENT);
 		}
 		consume(TOKEN_IDENTIFIER, "Expected name to import from external module");
-		uint8_t name = identifierConstant(&parser.previous);
+
+		uint8_t name;
+		if (parser.current.type == TOKEN_AS) {
+			name = identifierConstant(&parser.previous);
+			consume(TOKEN_AS, "");
+			consume(TOKEN_IDENTIFIER, "Expected name to alias import from external module.");
+			uint8_t alias = identifierConstant(&parser.previous);
+			aliases[nameCount] = alias;
+			aliasPresence[nameCount] = true;
+		}else {
+			name = identifierConstant(&parser.previous);
+		}
+
 		names[nameCount] = name;
 		nameCount++;
 	} while (match(TOKEN_COMMA));
-
+	consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
 	consume(TOKEN_STRING, "Expected string literal for module name");
 	uint8_t module =
@@ -911,6 +925,13 @@ static void useStatement() {
 	emitBytes(OP_USE, nameCount);
 	for (uint8_t i = 0; i < nameCount; i++) {
 		emitByte(names[i]);
+	}
+	for (uint8_t i = 0; i < nameCount; i++) {
+		if (aliasPresence[i]) {
+			emitByte(aliases[i]);
+		}else {
+			emitByte(names[i]);
+		}
 	}
 	emitByte(module);
 	consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
