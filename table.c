@@ -346,7 +346,7 @@ static Value deepCopyValue(CopyContext *ctx, Value value) {
 	return NIL_VAL;
 }
 
-bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key) {
+bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key, ObjectString *newKey) {
 	if (fromTable->count == 0 || key == NULL || fromVM == NULL || toVM == NULL || fromVM == toVM) {
 		return false;
 	}
@@ -369,14 +369,14 @@ bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  Obje
 	}
 
 	if (IS_NIL(entry->value)) {
-		tableSet(toVM, toTable, key, NIL_VAL, false);
+		tableSet(toVM, toTable, newKey, NIL_VAL, false);
 		return true;
 	}
 	Value copiedValue = deepCopyValue(&context, entry->value);
 	bool success = !IS_NIL(copiedValue);
 
 	if (success) {
-		success = tableSet(context.toVM, toTable, key, copiedValue, false);
+		success = tableSet(context.toVM, toTable, newKey, copiedValue, false);
 	}
 
 	FREE_ARRAY(fromVM, Object *, context.objects, context.capacity);

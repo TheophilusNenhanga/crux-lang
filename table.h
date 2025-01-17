@@ -47,6 +47,6 @@ void tableRemoveWhite(Table *table);
 
 void markTable(VM *vm, Table *table);
 
-bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key);
+bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key, ObjectString* newKey);
 
 #endif

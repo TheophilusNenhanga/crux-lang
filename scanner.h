@@ -60,6 +60,7 @@ typedef enum {
 	TOKEN_USE,
 	TOKEN_FROM,
 	TOKEN_PUB,
+	TOKEN_AS, 
 	TOKEN_EOF
 } TokenType;
 

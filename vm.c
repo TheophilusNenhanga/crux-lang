@@ -828,7 +828,6 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
-				// TODO: adding properties to native types?
 				if (!IS_INSTANCE(peek(vm, 0))) {
 					runtimePanic(vm, TYPE, "Only instances have properties.");
 					return INTERPRET_RUNTIME_ERROR;
@@ -1206,8 +1205,12 @@ static InterpretResult run(VM *vm) {
 			case OP_USE: {
 				uint8_t nameCount = READ_BYTE();
 				ObjectString *names[UINT8_MAX];
+				ObjectString *aliases[UINT8_MAX];
 				for (int i = 0; i < nameCount; i++) {
 					names[i] = READ_STRING();
+				}
+				for (int i = 0; i < nameCount; i++) {
+					aliases[i] = READ_STRING();
 				}
 				ObjectString *modulePath = READ_STRING();
 
@@ -1262,7 +1265,11 @@ static InterpretResult run(VM *vm) {
 				// add the imported names to the current module (deep copy)
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
-					success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i]);
+					if (aliases[i] != NULL && IS_STRING(OBJECT_VAL(aliases[i]))) {
+						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], aliases[i]);
+					}else {
+						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], names[i]);
+					}
 					if (!success) {
 						for (int j = 0; j < i; j++) {
 							tableDelete(&vm->globals, names[j]);
