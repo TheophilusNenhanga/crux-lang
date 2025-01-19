@@ -21,4 +21,8 @@ bool defineMethods(VM *vm, Table *methodTable, Callable *methods);
 
 bool defineNativeFunctions(VM *vm, Table *callableTable);
 
+bool initNativeModule(VM* vm, Callable *globals, char* moduleName);
+
+bool defineStandardLibrary(VM *vm);
+
 #endif // TYPES_H

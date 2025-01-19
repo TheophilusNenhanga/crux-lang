@@ -25,6 +25,17 @@ typedef struct {
 	Table methods;
 } NativeType;
 
+typedef struct {
+	char *name;
+	Table *names;
+} NativeModule;
+
+typedef struct {
+	NativeModule *modules;
+	int count;
+	int capacity;
+}NativeModules;
+
 struct VM {
 	Value stack[STACK_MAX]; // always points just past the last item
 	Value *stackTop;
@@ -47,6 +58,7 @@ struct VM {
 	int grayCapacity;
 	uint8_t previousInstruction; 
 	ObjectModule *module;
+	NativeModules nativeModules;
 };
 
 VM *newVM();

@@ -155,7 +155,6 @@ typedef enum {
 	IN_PROGRESS,
 	INITIAL,
 } ModuleState;
-;
 
 struct ObjectModule{
 	Object object;

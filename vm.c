@@ -333,6 +333,10 @@ void initVM(VM *vm) {
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
+	vm->nativeModules = (NativeModules) {
+	.modules = GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules, 0, 8),
+	.count = 0,
+	.capacity = 8};
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -350,6 +354,7 @@ void initVM(VM *vm) {
 	defineMethods(vm, &vm->errorType.methods, errorMethods);
 
 	defineNativeFunctions(vm, &vm->globals);
+	defineStandardLibrary(vm);
 }
 
 void freeVM(VM *vm) {
@@ -1218,6 +1223,13 @@ static InterpretResult run(VM *vm) {
 					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
+
+				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0)  {
+					char* moduleName = modulePath->chars + 4;
+
+
+				}
+
 
 				char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
 				if (resolvedPath == NULL) {

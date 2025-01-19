@@ -1,4 +1,5 @@
 #include "std.h"
+#include "../memory.h"
 #include "array.h"
 #include "collections.h"
 #include "error.h"
@@ -6,6 +7,7 @@
 #include "stl_time.h"
 #include "string.h"
 #include "tables.h"
+#include "stl_math.h"
 
 Callable stringMethods[] = {{"first", stringFirstMethod, 1},
 														{"last", stringLastMethod, 1},
@@ -47,6 +49,11 @@ Callable errorMethods[] = {{"message", errorMessageMethod, 1},
 													 {"type", errorTypeMethod, 1},
 													 {NULL, NULL, 0}};
 
+Callable mathFunctions[] = {
+{"power", power, 2},
+	{NULL, NULL, 0}
+};
+
 bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int) strlen(methodName));
 	if (!tableSet(vm, methodTable, name, OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
@@ -55,9 +62,9 @@ bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, Nati
 	return true;
 }
 
-bool defineNativeFunction(VM *vm, Table *functionTable, const char *functionName, NativeFn function, int arity) {
+bool defineNativeFunction(VM *vm, Table *functionTable, const char *functionName, NativeFn function, int arity, bool isPublic) {
 	ObjectString *name = copyString(vm, functionName, (int) strlen(functionName));
-	if (!tableSet(vm, functionTable, name, OBJECT_VAL(newNativeFunction(vm, function, arity, name)), false)) {
+	if (!tableSet(vm, functionTable, name, OBJECT_VAL(newNativeFunction(vm, function, arity, name)), isPublic)) {
 		return false;
 	}
 	return true;
@@ -78,10 +85,38 @@ bool defineMethods(VM *vm, Table *methodTable, Callable *methods) {
 bool defineNativeFunctions(VM *vm, Table *callableTable) {
 	for (int i = 0; nativeCallables[i].name != NULL; i++) {
 		Callable function = nativeCallables[i];
-		bool result = defineNativeFunction(vm, callableTable, function.name, function.function, function.arity);
+		bool result = defineNativeFunction(vm, callableTable, function.name, function.function, function.arity, false);
 		if (!result) {
 			return false;
 		}
 	}
+	return true;
+}
+
+bool initNativeModule(VM *vm, Callable* globals, char *moduleName) {
+	Table* names = ALLOCATE(vm, Table, 1);
+	initTable(names);
+
+	for (int i = 0; globals[i].name != NULL; i++) {
+		bool result = defineNativeFunction(vm, names, globals[i].name, globals[i].function, globals[i].arity, true);
+		if (!result) {
+			return false;
+		}
+	}
+
+	if (vm->nativeModules.count + 1 > vm->nativeModules.capacity) {
+		GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity, vm->nativeModules.capacity*2);
+		vm->nativeModules.capacity *= 2;
+	}
+
+	vm->nativeModules.modules[vm->nativeModules.count] = (NativeModule){.name = moduleName, .names = names};
+	vm->nativeModules.count++;
+
+	return true;
+}
+
+bool defineStandardLibrary(VM *vm) {
+	bool r1 = initNativeModule(vm, mathFunctions, "math");
+	if (!r1) {return false;}
 	return true;
 }
