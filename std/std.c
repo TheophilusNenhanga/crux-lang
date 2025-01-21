@@ -4,10 +4,11 @@
 #include "collections.h"
 #include "error.h"
 #include "io.h"
+#include "stl_io.h"
+#include "stl_math.h"
 #include "stl_time.h"
 #include "string.h"
 #include "tables.h"
-#include "stl_math.h"
 
 Callable stringMethods[] = {{"first", stringFirstMethod, 1},
 														{"last", stringLastMethod, 1},
@@ -50,8 +51,31 @@ Callable errorMethods[] = {{"message", errorMessageMethod, 1},
 													 {NULL, NULL, 0}};
 
 Callable mathFunctions[] = {
-{"power", power, 2},
-	{NULL, NULL, 0}
+{"pow", _pow, 2},
+{"sqrt", _sqrt, 1},
+{"ciel", _ceil, 1},
+{"floor", _floor, 1},
+{"abs", _abs, 1},
+{"sin", _sin, 1},
+{"cos", _cos, 1},
+{"tan", _tan, 1},
+{"atan", _atan, 1},
+{"acos", _acos, 1 },
+{"asin", _asin, 1},
+{"exp", _exp, 1},
+{"ln", _ln, 1},
+{"log", _log10, 1},
+{"round", _round, 1},
+{"e", _e, 0},
+{"pi",_pi , 0},
+{NULL, NULL, 0}
+};
+
+Callable ioFunctions[] = {
+	{"write", _write, 2},
+	{"writeln", _writeln, 1},
+	{"read", _read, 1},
+	{"readln", _readln, 1},
 };
 
 bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity) {

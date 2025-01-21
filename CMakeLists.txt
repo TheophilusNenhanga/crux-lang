@@ -59,4 +59,6 @@ add_executable(StellaC
         file_handler.h
         std/stl_math.c
         std/stl_math.h
+        std/stl_io.c
+        std/stl_io.h
 )
