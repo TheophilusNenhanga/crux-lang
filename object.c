@@ -432,6 +432,17 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 	return native;
 }
 
+ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectFileMode mode) {
+	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
+	file->path = path;
+	file->handle = handle;
+	file->isOpen = false;
+	file->current = 0;
+	file->size = 0;
+	file->mode = mode;
+	return file;
+}
+
 ObjectTable *newTable(VM *vm, int elementCount) {
 	ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
 	table->capacity = elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);

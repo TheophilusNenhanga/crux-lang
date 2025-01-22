@@ -84,6 +84,7 @@ static void blackenObject(VM *vm, Object *object) {
 #endif
 
 	switch (object->type) {
+
 		case OBJECT_CLOSURE: {
 			ObjectClosure *closure = (ObjectClosure *) object;
 			markObject(vm, (Object *) closure->function);
@@ -92,44 +93,52 @@ static void blackenObject(VM *vm, Object *object) {
 			}
 			break;
 		}
+
 		case OBJECT_FUNCTION: {
 			ObjectFunction *function = (ObjectFunction *) object;
 			markObject(vm, (Object *) function->name);
 			markArray(vm, &function->chunk.constants);
 			break;
 		}
+
 		case OBJECT_UPVALUE: {
 			markValue(vm, ((ObjectUpvalue *) object)->closed);
 			break;
 		}
+
 		case OBJECT_CLASS: {
 			ObjectClass *klass = (ObjectClass *) object;
 			markObject(vm, (Object *) klass->name);
 			markTable(vm, &klass->methods);
 			break;
 		}
+
 		case OBJECT_INSTANCE: {
 			ObjectInstance *instance = (ObjectInstance *) object;
 			markObject(vm, (Object *) instance->klass);
 			markTable(vm, &instance->fields);
 			break;
 		}
+
 		case OBJECT_BOUND_METHOD: {
 			ObjectBoundMethod *bound = (ObjectBoundMethod *) object;
 			markValue(vm, bound->receiver);
 			markObject(vm, (Object *) bound->method);
 			break;
 		}
+
 		case OBJECT_ARRAY: {
 			ObjectArray *array = (ObjectArray *) object;
 			markObjectArray(vm, array);
 			break;
 		}
+
 		case OBJECT_TABLE: {
 			ObjectTable *table = (ObjectTable *) object;
 			markObjectTable(vm, table);
 			break;
 		}
+
 		case OBJECT_ERROR: {
 			ObjectError *error = (ObjectError *) object;
 			markObject(vm, (Object *) error->message);
@@ -141,18 +150,29 @@ static void blackenObject(VM *vm, Object *object) {
 			markObject(vm, (Object *) native->name);
 			break;
 		}
+
 		case OBJECT_NATIVE_METHOD: {
 			ObjectNativeMethod *native = (ObjectNativeMethod *) object;
 			markObject(vm, (Object *) native->name);
 			break;
 		}
-		case OBJECT_STRING:
-			break;
+
 		case OBJECT_MODULE: {
 			ObjectModule *module = (ObjectModule *) object;
 			markObject(vm, (Object *) module->path);
-		}
 			break;
+		}
+
+		case OBJECT_FILE: {
+			ObjectFile *file = (ObjectFile *) object;
+			markObject(vm, (Object *) file->path);
+			break;
+		}
+
+		case OBJECT_STRING: {
+			break;
+		}
+
 	}
 }
 
@@ -235,6 +255,11 @@ static void freeObject(VM *vm, Object *object) {
 			FREE(vm, ObjectModule, object);
 			break;
 		}
+		case OBJECT_FILE: {
+			FREE(vm, ObjectFile, object);
+			break;
+		}
+
 	}
 }
 

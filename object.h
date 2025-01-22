@@ -19,6 +19,7 @@
 #define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
 #define IS_ERROR(value) isObjectType(value, OBJECT_ERROR)
+#define IS_FILE(value) isObjectType(value, OBJECT_FILE)
 
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
@@ -32,6 +33,7 @@
 #define AS_ARRAY(value) ((ObjectArray *) AS_OBJECT(value))
 #define AS_TABLE(value) ((ObjectTable *) AS_OBJECT(value))
 #define AS_ERROR(value) ((ObjectError *) AS_OBJECT(value))
+#define AS_FILE(value) ((ObjectFile *) AS_OBJECT(value))
 
 
 typedef enum {
@@ -48,6 +50,7 @@ typedef enum {
 	OBJECT_TABLE,
 	OBJECT_ERROR,
 	OBJECT_MODULE,
+	OBJECT_FILE,
 } ObjectType;
 
 struct Object {
@@ -165,6 +168,22 @@ struct ObjectModule{
 };
 
 typedef enum {
+	WRITE,
+	READ,
+	APPEND,
+} ObjectFileMode;
+
+typedef struct ObjectFile {
+	Object object;
+	FILE *handle;
+	ObjectString *path;
+	long long size;
+	ObjectFileMode mode;
+	long long current;
+	bool isOpen;
+} ObjectFile;
+
+typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
 	INDEX_OUT_OF_BOUNDS,
@@ -214,6 +233,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 ObjectFunction *newFunction(VM *vm);
 ObjectClass *newClass(VM *vm, ObjectString *name);
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
+ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle);
 
 ObjectString *takeString(VM *vm, char *chars, uint64_t length);
 ObjectString *copyString(VM *vm, const char *chars, uint64_t length);
