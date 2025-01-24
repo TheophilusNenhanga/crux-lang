@@ -84,7 +84,6 @@ static void blackenObject(VM *vm, Object *object) {
 #endif
 
 	switch (object->type) {
-
 		case OBJECT_CLOSURE: {
 			ObjectClosure *closure = (ObjectClosure *) object;
 			markObject(vm, (Object *) closure->function);
@@ -166,6 +165,7 @@ static void blackenObject(VM *vm, Object *object) {
 		case OBJECT_FILE: {
 			ObjectFile *file = (ObjectFile *) object;
 			markObject(vm, (Object *) file->path);
+			markObject(vm, (Object*) file->mode);
 			break;
 		}
 
@@ -256,6 +256,8 @@ static void freeObject(VM *vm, Object *object) {
 			break;
 		}
 		case OBJECT_FILE: {
+			ObjectFile *file = (ObjectFile *) object;
+			free(file->handle);
 			FREE(vm, ObjectFile, object);
 			break;
 		}

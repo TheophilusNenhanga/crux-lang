@@ -432,7 +432,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 	return native;
 }
 
-ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectFileMode mode) {
+ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectString* mode) {
 	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
 	file->path = path;
 	file->handle = handle;

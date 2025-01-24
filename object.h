@@ -5,6 +5,7 @@
 #include "common.h"
 #include "table.h"
 #include "value.h"
+#include "stdio.h"
 
 #define OBJECT_TYPE(value) (AS_OBJECT(value)->type)
 
@@ -167,19 +168,13 @@ struct ObjectModule{
 	int vmDepth;
 };
 
-typedef enum {
-	WRITE,
-	READ,
-	APPEND,
-} ObjectFileMode;
-
 typedef struct ObjectFile {
 	Object object;
 	FILE *handle;
 	ObjectString *path;
-	long long size;
-	ObjectFileMode mode;
-	long long current;
+	size_t size;
+	ObjectString *mode;
+	unsigned long long current;
 	bool isOpen;
 } ObjectFile;
 
@@ -233,7 +228,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 ObjectFunction *newFunction(VM *vm);
 ObjectClass *newClass(VM *vm, ObjectString *name);
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
-ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle);
+ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectString *mode);
 
 ObjectString *takeString(VM *vm, char *chars, uint64_t length);
 ObjectString *copyString(VM *vm, const char *chars, uint64_t length);

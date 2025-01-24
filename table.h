@@ -25,7 +25,7 @@ typedef struct {
 	int capacity;
 	VM *fromVM;
 	VM *toVM;
-} CopyContext;
+} ModuleCopyContext;
 
 void initTable(Table *table);
 

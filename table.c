@@ -7,7 +7,7 @@
 #include "value.h"
 #include "vm.h"
 
-static Value deepCopyValue(CopyContext *ctx, Value value);
+static Value deepCopyValue(ModuleCopyContext *ctx, Value value);
 
 void initTable(Table *table) {
 	table->count = 0;
@@ -175,7 +175,7 @@ void tableRemoveWhite(Table *table) {
 	}
 }
 
-static void copyChunk(VM *vm, Chunk *from, Chunk *to, CopyContext *ctx) {
+static void copyChunk(VM *vm, Chunk *from, Chunk *to, ModuleCopyContext *ctx) {
 	for (int i = 0; i < from->count; i++) {
 		writeChunk(vm, to, from->code[i], from->lines[i]);
 	}
@@ -186,7 +186,7 @@ static void copyChunk(VM *vm, Chunk *from, Chunk *to, CopyContext *ctx) {
 	}
 }
 
-static Object *findCopy(CopyContext *ctx, Object *original) {
+static Object *findCopy(ModuleCopyContext *ctx, Object *original) {
 	for (int i = 0; i < ctx->count; i++) {
 		if (ctx->objects[i] == original) {
 			return ctx->copies[i];
@@ -195,7 +195,7 @@ static Object *findCopy(CopyContext *ctx, Object *original) {
 	return NULL;
 }
 
-static void trackCopy(CopyContext *ctx, Object *original, Object *copy) {
+static void trackCopy(ModuleCopyContext *ctx, Object *original, Object *copy) {
 	if (ctx->count >= ctx->capacity) {
 		int newCapacity = GROW_CAPACITY(ctx->capacity);
 		ctx->objects = GROW_ARRAY(ctx->toVM, Object *, ctx->objects, ctx->capacity, newCapacity);
@@ -208,7 +208,7 @@ static void trackCopy(CopyContext *ctx, Object *original, Object *copy) {
 	ctx->count++;
 }
 
-static Value deepCopyValue(CopyContext *ctx, Value value) {
+static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 	if (!IS_OBJECT(value))
 		return value;
 
@@ -356,7 +356,7 @@ bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  Obje
 		return false;
 	}
 
-	CopyContext context;
+	ModuleCopyContext context;
 	context.capacity = 8;
 	context.count = 0;
 	context.objects = ALLOCATE(fromVM, Object *, context.capacity);
