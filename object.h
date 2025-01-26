@@ -174,7 +174,7 @@ typedef struct ObjectFile {
 	ObjectString *path;
 	size_t size;
 	ObjectString *mode;
-	unsigned long long current;
+	fpos_t* position;
 	bool isOpen;
 } ObjectFile;
 

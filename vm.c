@@ -1230,6 +1230,7 @@ static InterpretResult run(VM *vm) {
 					for (int i = 0; i < vm->nativeModules.count; i++) {
 						if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
 							moduleIndex = i;
+							break;
 						}
 					}
 					if (moduleIndex == -1) {

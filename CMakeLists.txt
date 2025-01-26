@@ -36,8 +36,6 @@ add_executable(StellaC
         table.c
         table.h
         object.h
-        std/io.h
-        std/io.c
         std/stl_time.h
         std/stl_time.c
         std/collections.h

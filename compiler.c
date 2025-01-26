@@ -891,7 +891,12 @@ static void returnStatement() {
 }
 
 static void useStatement() {
-	consume(TOKEN_LEFT_PAREN, "Expected '(' after use statement");
+	bool hasParen = false;
+	if (parser.current.type == TOKEN_LEFT_PAREN) {
+		consume(TOKEN_LEFT_PAREN, "Expected '(' after use statement");
+		hasParen = true;
+	}
+
 	uint8_t nameCount = 0;
 	uint8_t names[UINT8_MAX];
 	uint8_t aliases[UINT8_MAX];
@@ -917,7 +922,10 @@ static void useStatement() {
 		names[nameCount] = name;
 		nameCount++;
 	} while (match(TOKEN_COMMA));
-	consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
+	if (hasParen) {
+			consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
+	}
+
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
 	consume(TOKEN_STRING, "Expected string literal for module name");
 	uint8_t module =

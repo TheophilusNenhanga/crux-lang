@@ -437,7 +437,7 @@ ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectString* mode
 	file->path = path;
 	file->handle = handle;
 	file->isOpen = false;
-	file->current = 0;
+	file->position = NULL;
 	file->size = 0;
 	file->mode = mode;
 	return file;
