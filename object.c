@@ -204,6 +204,14 @@ void printObject(Value value) {
 			printf("<error>");
 			break;
 		}
+		case OBJECT_MODULE: {
+			printf("<module>");
+			break;
+		}
+		case OBJECT_FILE: {
+			printf("<file>");
+			break;
+		}
 	}
 }
 

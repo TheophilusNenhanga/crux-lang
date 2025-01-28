@@ -910,7 +910,7 @@ static void useStatement() {
 		uint8_t name;
 		if (parser.current.type == TOKEN_AS) {
 			name = identifierConstant(&parser.previous);
-			consume(TOKEN_AS, "");
+			consume(TOKEN_AS, "Expected 'as' keyword.");
 			consume(TOKEN_IDENTIFIER, "Expected name to alias import from external module.");
 			uint8_t alias = identifierConstant(&parser.previous);
 			aliases[nameCount] = alias;

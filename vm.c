@@ -1247,13 +1247,20 @@ static InterpretResult run(VM *vm) {
 							return INTERPRET_RUNTIME_ERROR;
 						}
 						push(vm, OBJECT_VAL(value));
-						bool setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
+						bool setSuccess = false;
+						if (aliases[i] != NULL) {
+							setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
+						} else {
+							setSuccess = tableSet(vm, &vm->globals, names[i], value, false);
+						}
+						
 						if (!setSuccess) {
 							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
 							return INTERPRET_RUNTIME_ERROR;
 						}
 						pop(vm);
 					}
+					importSetAdd(vm, &vm->module->importedModules, modulePath);
 					break;
 				}
 
