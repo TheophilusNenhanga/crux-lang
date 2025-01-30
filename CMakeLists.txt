@@ -3,60 +3,31 @@ project(StellaC C)
 
 set(CMAKE_C_STANDARD 11)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
-if (CMAKE_BUILD_TYPE)
-    if (CMAKE_BUILD_TYPE STREQUAL "Release")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -O3")
-    endif ()
-    if (CMAKE_BUILD_TYPE STREQUAL "Profile")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
-    endif ()
-endif ()
+set(CMAKE_C_FLAGS_RELEASE "-O3")
+set(CMAKE_C_FLAGS_PROFILE "-pg")
+set(CMAKE_EXE_LINKER_FLAGS_PROFILE "-pg")
 
-add_executable(StellaC
-        main.c
-        common.h
-        chunk.h
-        chunk.c
-        memory.h
-        memory.c
-        debug.h
-        debug.c
-        value.c
-        value.h
-        vm.c
-        vm.h
-        compiler.c
-        compiler.h
-        scanner.c
-        scanner.h
-        object.c
-        table.c
-        table.h
-        object.h
-        std/stl_time.h
-        std/stl_time.c
-        std/collections.h
-        std/collections.c
-        main.c
-        panic.c
-        panic.h
-        std/error.c
-        std/error.h
-        std/string.c
-        std/string.h
-        std/std.c
-        std/std.h
-        std/array.c
-        std/array.h
-        std/tables.c
-        std/tables.h
-        file_handler.c
-        file_handler.h
-        std/stl_math.c
-        std/stl_math.h
-        std/stl_io.c
-        std/stl_io.h
+
+file(GLOB SOURCES 
+    "*.c" 
+    "std/*.c"
 )
+
+file(GLOB HEADERS
+    "*.h"
+    "std/*.h"
+)
+
+find_library(MATH_LIBRARY m)
+
+add_executable(StellaC ${SOURCES} ${HEADERS})
+target_link_libraries(StellaC PRIVATE ${MATH_LIBRARY})
+
+if (CMAKE_BUILD_TYPE STREQUAL "Profile")
+    target_compile_options(StellaC PRIVATE -pg)
+    target_link_options(StellaC PRIVATE -pg)
+endif ()

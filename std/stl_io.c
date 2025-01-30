@@ -73,7 +73,6 @@ NativeReturn _openFile(VM *vm, int argCount, Value *args) {
 	}
 
 	objectFile->size = fileSize;
-	fgetpos(objectFile->handle, objectFile->position);
 
 	free(resolvedPath);
 	nativeReturn.values[0] = OBJECT_VAL(objectFile);
