@@ -208,10 +208,6 @@ void printObject(Value value) {
 			printf("<module>");
 			break;
 		}
-		case OBJECT_FILE: {
-			printf("<file>");
-			break;
-		}
 	}
 }
 
@@ -438,15 +434,6 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 	native->arity = arity;
 	native->name = name;
 	return native;
-}
-
-ObjectFile *newFile(VM *vm, ObjectString *path, FILE *handle, ObjectString* mode) {
-	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
-	file->path = path;
-	file->file = handle;
-	file->isOpen = false;
-	file->mode = mode;
-	return file;
 }
 
 ObjectTable *newTable(VM *vm, int elementCount) {

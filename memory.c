@@ -162,13 +162,6 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
-		case OBJECT_FILE: {
-			ObjectFile *file = (ObjectFile *) object;
-			markObject(vm, (Object *) file->path);
-			markObject(vm, (Object*) file->mode);
-			break;
-		}
-
 		case OBJECT_STRING: {
 			break;
 		}
@@ -255,13 +248,6 @@ static void freeObject(VM *vm, Object *object) {
 			FREE(vm, ObjectModule, object);
 			break;
 		}
-		case OBJECT_FILE: {
-			ObjectFile *file = (ObjectFile *) object;
-			free(file->file);
-			FREE(vm, ObjectFile, object);
-			break;
-		}
-
 	}
 }
 

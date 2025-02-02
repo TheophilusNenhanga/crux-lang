@@ -54,11 +54,7 @@ Callable mathFunctions[] = {{"pow", _pow, 2},		{"sqrt", _sqrt, 1}, {"ciel", _cei
 														{"ln", _ln, 1},			{"log", _log10, 1}, {"round", _round, 1}, {"e", _e, 0},
 														{"pi", _pi, 0},			{NULL, NULL, 0}};
 
-Callable ioFunctions[] = {{"read_one", _readOne, 0},
-													{"readln", _readln, 0},
-													{"write", _writeOne, 2},
-													{"writeln", _writeln, 2},
-													{"print", _print, 1},
+Callable ioFunctions[] = {{"print", _print, 1},
 													{"println", _println, 1},
 													{"print_to", _printTo, 2},
 													{"scan", _scan, 0},
@@ -67,8 +63,6 @@ Callable ioFunctions[] = {{"read_one", _readOne, 0},
 													{"scanln_from", _scanlnFrom, 1},
 													{"nscan", _nscan, 1},
 													{"nscan_from", _nscanFrom, 2},
-													{"open_file", _openFile, 2},
-													{"close_file", _closeFile, 1},
 													{NULL, NULL, 0}};
 
 Callable timeFunctions[] = {

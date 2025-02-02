@@ -12,7 +12,6 @@ NativeReturn _readOne(VM *vm, int argCount, Value *args);    // Read single char
 NativeReturn _readln(VM *vm, int argCount, Value *args);     // Read line from file
 
 // File Writing functions
-NativeReturn _writeOne(VM *vm, int argCount, Value *args);    // Write single char to file
 NativeReturn _writeln(VM *vm, int argCount, Value *args);			// Write line to file
 
 NativeReturn _print(VM *vm, int argCount, Value *args);				// write to stdout without newline

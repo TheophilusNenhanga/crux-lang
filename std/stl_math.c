@@ -16,6 +16,7 @@ NativeReturn _pow(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Both arguments must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 
 	double base = AS_NUMBER(args[0]);
@@ -32,6 +33,7 @@ NativeReturn _sqrt(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	double number = AS_NUMBER(args[0]);
 	if (number < 0) {
@@ -55,6 +57,7 @@ NativeReturn _abs(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	double num = AS_NUMBER(args[0]);
 	nativeReturn.values[0] = NUMBER_VAL(fabs(num));
@@ -69,6 +72,7 @@ NativeReturn _sin(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(sin(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -82,6 +86,7 @@ NativeReturn _cos(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(cos(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -95,6 +100,7 @@ NativeReturn _tan(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(tan(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -108,6 +114,7 @@ NativeReturn _asin(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 
 	double num = AS_NUMBER(args[0]);
@@ -133,6 +140,7 @@ NativeReturn _acos(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	double num = AS_NUMBER(args[0]);
 	if (num < -1 || num > 1) {
@@ -155,6 +163,7 @@ NativeReturn _atan(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(atan(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -168,11 +177,11 @@ NativeReturn _exp(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(exp(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
 	return nativeReturn;
-
 }
 
 NativeReturn _ln(VM *vm, int argCount, Value *args){
@@ -181,6 +190,7 @@ NativeReturn _ln(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 
 	double number = AS_NUMBER(args[0]);
@@ -201,6 +211,7 @@ NativeReturn _log10(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 
 	double number = AS_NUMBER(args[0]);
@@ -222,6 +233,7 @@ NativeReturn _ceil(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(ceil(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -235,6 +247,7 @@ NativeReturn _floor(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(floor(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
@@ -247,6 +260,7 @@ NativeReturn _round(VM *vm, int argCount, Value *args){
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Argument must be of type 'number'.", 40), TYPE, STELLA));
+		return nativeReturn;
 	}
 	nativeReturn.values[0] = NUMBER_VAL(round(AS_NUMBER(args[0])));
 	nativeReturn.values[1] = NIL_VAL;
