@@ -71,15 +71,15 @@ NativeReturn errorCreatorMethod(VM *vm, int argCount, Value *args) {
 
 	switch (error->creator) {
 		case STELLA: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "'stella'", 9));
+			returnValue.values[0] = OBJECT_VAL(takeString(vm, "stella", 7));
 			break;
 		}
 		case USER: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "'user'", 7));
+			returnValue.values[0] = OBJECT_VAL(takeString(vm, "user", 4));
 			break;
 		}
 		case PANIC: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "'panic'", 8));
+			returnValue.values[0] = OBJECT_VAL(takeString(vm, "panic", 5));
 			break;
 		}
 	}

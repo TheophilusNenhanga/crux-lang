@@ -5,6 +5,7 @@
 #include "common.h"
 #include "table.h"
 #include "value.h"
+#include "stdio.h"
 
 #define OBJECT_TYPE(value) (AS_OBJECT(value)->type)
 
@@ -155,7 +156,6 @@ typedef enum {
 	IN_PROGRESS,
 	INITIAL,
 } ModuleState;
-;
 
 struct ObjectModule{
 	Object object;

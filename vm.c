@@ -333,6 +333,10 @@ void initVM(VM *vm) {
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
+	vm->nativeModules = (NativeModules) {
+	.modules = ALLOCATE(vm, NativeModule, 8),
+	.count = 0,
+	.capacity = 8};
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -350,6 +354,7 @@ void initVM(VM *vm) {
 	defineMethods(vm, &vm->errorType.methods, errorMethods);
 
 	defineNativeFunctions(vm, &vm->globals);
+	defineStandardLibrary(vm);
 }
 
 void freeVM(VM *vm) {
@@ -1217,6 +1222,46 @@ static InterpretResult run(VM *vm) {
 				if (importSetContains(&vm->module->importedModules, modulePath)) {
 					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0)  {
+					char* moduleName = modulePath->chars + 4;
+					int moduleIndex = -1;
+					for (int i = 0; i < vm->nativeModules.count; i++) {
+						if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
+							moduleIndex = i;
+							break;
+						}
+					}
+					if (moduleIndex == -1) {
+						runtimePanic(vm, IMPORT, "Module '%s' does not exist.", modulePath->chars);
+						return INTERPRET_RUNTIME_ERROR;
+					}
+
+					Table* moduleTable = vm->nativeModules.modules[moduleIndex].names;
+					for (int i = 0; i < nameCount; i++) {
+						Value value;
+						bool getSuccess = tableGet(moduleTable, names[i], &value);
+						if (!getSuccess) {
+							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						push(vm, OBJECT_VAL(value));
+						bool setSuccess = false;
+						if (aliases[i] != NULL) {
+							setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
+						} else {
+							setSuccess = tableSet(vm, &vm->globals, names[i], value, false);
+						}
+						
+						if (!setSuccess) {
+							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						pop(vm);
+					}
+					importSetAdd(vm, &vm->module->importedModules, modulePath);
+					break;
 				}
 
 				char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
