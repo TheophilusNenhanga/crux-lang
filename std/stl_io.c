@@ -17,6 +17,17 @@ static FILE *getChannel(const char *channel) {
 	return NULL;
 }
 
+static bool isValidMode(const char *mode) {
+	char* modes[] = {"r", "rb", "w", "wb", "a", "ab", "r+", "rb+", "w+", "wb+", "a+", "ab+"};
+	int modeLength = 12;
+	for (int i = 0; i < modeLength; i++) {
+		if (strcmp(modes[i], mode) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool isMode(char **desiredMode, const char *givenMode, int length) {
 	for (int i = 0; i < length; i++) {
 		if (strcmp(desiredMode[i], givenMode) == 0) {
@@ -26,6 +37,13 @@ static bool isMode(char **desiredMode, const char *givenMode, int length) {
 	return false;
 }
 
+/**
+ * Opens a file.
+ * @param vm The current VM
+ * @param argCount The number of arguments (2)
+ * @param args 0: path - string 1: mode - string
+ * @return NativeReturn<ObjectFile, Error>
+ */
 NativeReturn _openFile(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
 
@@ -43,15 +61,23 @@ NativeReturn _openFile(VM *vm, int argCount, Value *args) {
 		return nativeReturn;
 	}
 
-	char *resolvedPath = resolvePath(vm->module->path->chars, AS_CSTRING(args[0]));
+	char* importPath = AS_CSTRING(args[0]);
+	char* mode = AS_CSTRING(args[1]);
+
+	if (!isValidMode(mode)) {
+		nativeReturn.values[0] = NIL_VAL;
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Invalid file opening mode.", 26), IO, STELLA));
+		return nativeReturn;
+	}
+
+	char *resolvedPath = resolvePath(vm->module->path->chars, importPath);
 	if (resolvedPath == NULL) {
-		free(resolvedPath);
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Failed to resolve path.", 23), IO, STELLA));
 		return nativeReturn;
 	}
 
-	FILE *file = fopen(resolvedPath, AS_CSTRING(args[1]));
+	FILE *file = fopen(resolvedPath, mode);
 	if (file == NULL) {
 		free(resolvedPath);
 		nativeReturn.values[0] = NIL_VAL;
@@ -59,11 +85,7 @@ NativeReturn _openFile(VM *vm, int argCount, Value *args) {
 		return nativeReturn;
 	}
 
-	fseek(file, 0, SEEK_END);
-	size_t fileSize = ftell(file);
-	rewind(file);
-
-	ObjectFile *objectFile = newFile(vm, takeString(vm, resolvedPath, strlen(resolvedPath)), file, AS_STRING(args[1]));
+	ObjectFile *objectFile = newFile(vm, copyString(vm, resolvedPath, strlen(resolvedPath)), file, AS_STRING(args[1]));
 	if (objectFile == NULL) {
 		free(resolvedPath);
 		nativeReturn.values[0] = NIL_VAL;
@@ -71,8 +93,6 @@ NativeReturn _openFile(VM *vm, int argCount, Value *args) {
 				OBJECT_VAL(newError(vm, takeString(vm, "Failed to create file object.", 29), RUNTIME, STELLA));
 		return nativeReturn;
 	}
-
-	objectFile->size = fileSize;
 
 	free(resolvedPath);
 	nativeReturn.values[0] = OBJECT_VAL(objectFile);
@@ -89,7 +109,7 @@ NativeReturn _closeFile(VM *vm, int argCount, Value *args) {
 		return nativeReturn;
 	}
 	ObjectFile *objectFile = AS_FILE(args[0]);
-	int res = fclose(objectFile->handle);
+	int res = fclose(objectFile->file);
 
 	if (res != 0) {
 		nativeReturn.values[0] = BOOL_VAL(false);
@@ -122,7 +142,7 @@ NativeReturn _readOne(VM *vm, int argCount, Value *args) {
 		return nativeReturn;
 	}
 
-	if (objectFile->handle == NULL) {
+	if (objectFile->file == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Corrupted file given.", 31), IO, STELLA));
 		return nativeReturn;
@@ -135,7 +155,7 @@ NativeReturn _readOne(VM *vm, int argCount, Value *args) {
 		return nativeReturn;
 	}
 
-	int ch = fgetc(objectFile->handle);
+	int ch = fgetc(objectFile->file);
 
 	if (ch == EOF) {
 		nativeReturn.values[0] = OBJECT_VAL(takeString(vm, "", 0));
@@ -182,7 +202,7 @@ NativeReturn _writeln(VM *vm, int argCount, Value *args) {
         return nativeReturn;
     }
 
-    if (objectFile->handle == NULL) {
+    if (objectFile->file == NULL) {
         nativeReturn.values[0] = NIL_VAL;
         nativeReturn.values[1] = OBJECT_VAL(newError(vm,
             takeString(vm, "Corrupted file given.", 21),
@@ -199,7 +219,7 @@ NativeReturn _writeln(VM *vm, int argCount, Value *args) {
         return nativeReturn;
     }
 
-    if (fprintf(objectFile->handle, "%s\n", content) < 0) {
+    if (fprintf(objectFile->file, "%s\n", content) < 0) {
         nativeReturn.values[0] = NIL_VAL;
         nativeReturn.values[1] = OBJECT_VAL(newError(vm,
             takeString(vm, "Error writing to file.", 22),
@@ -234,7 +254,7 @@ NativeReturn _writeOne(VM *vm, int argCount, Value *args) {
         return nativeReturn;
     }
 
-    if (objectFile->handle == NULL) {
+    if (objectFile->file == NULL) {
         nativeReturn.values[0] = NIL_VAL;
         nativeReturn.values[1] = OBJECT_VAL(newError(vm,
             takeString(vm, "Corrupted file given.", 21),
@@ -259,7 +279,7 @@ NativeReturn _writeOne(VM *vm, int argCount, Value *args) {
         return nativeReturn;
     }
 
-    if (fputc(str[0], objectFile->handle) == EOF) {
+    if (fputc(str[0], objectFile->file) == EOF) {
         nativeReturn.values[0] = NIL_VAL;
         nativeReturn.values[1] = OBJECT_VAL(newError(vm,
             takeString(vm, "Error writing to file.", 22),
@@ -293,7 +313,7 @@ NativeReturn _readln(VM *vm, int argCount, Value *args) {
         return nativeReturn;
     }
 
-    if (objectFile->handle == NULL) {
+    if (objectFile->file == NULL) {
         nativeReturn.values[0] = NIL_VAL;
         nativeReturn.values[1] = OBJECT_VAL(newError(vm,
             takeString(vm, "Corrupted file given.", 21),
@@ -311,8 +331,8 @@ NativeReturn _readln(VM *vm, int argCount, Value *args) {
     }
 
     char buffer[4096];
-    if (fgets(buffer, sizeof(buffer), objectFile->handle) == NULL) {
-        if (feof(objectFile->handle)) {
+    if (fgets(buffer, sizeof(buffer), objectFile->file) == NULL) {
+        if (feof(objectFile->file)) {
             nativeReturn.values[0] = NIL_VAL;
             nativeReturn.values[1] = NIL_VAL;
             return nativeReturn;

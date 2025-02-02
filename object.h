@@ -170,9 +170,8 @@ struct ObjectModule{
 
 typedef struct ObjectFile {
 	Object object;
-	FILE *handle;
+	FILE *file;
 	ObjectString *path;
-	size_t size;
 	ObjectString *mode;
 	bool isOpen;
 } ObjectFile;

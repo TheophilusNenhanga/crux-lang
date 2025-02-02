@@ -257,7 +257,7 @@ static void freeObject(VM *vm, Object *object) {
 		}
 		case OBJECT_FILE: {
 			ObjectFile *file = (ObjectFile *) object;
-			free(file->handle);
+			free(file->file);
 			FREE(vm, ObjectFile, object);
 			break;
 		}

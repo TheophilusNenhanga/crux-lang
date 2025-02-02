@@ -68,7 +68,7 @@ Callable ioFunctions[] = {{"read_one", _readOne, 0},
 													{"nscan", _nscan, 1},
 													{"nscan_from", _nscanFrom, 2},
 													{"open_file", _openFile, 2},
-													{"close_file", _closeFile, 2},
+													{"close_file", _closeFile, 1},
 													{NULL, NULL, 0}};
 
 Callable timeFunctions[] = {

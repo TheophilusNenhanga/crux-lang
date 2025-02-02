@@ -21,12 +21,13 @@ file(GLOB HEADERS
     "*.h"
     "std/*.h"
 )
+
+add_executable(StellaC ${SOURCES} ${HEADERS})
+
 if (UNIX)
 find_library(MATH_LIBRARY m)
 target_link_libraries(StellaC PRIVATE ${MATH_LIBRARY})
 endif ()
-
-add_executable(StellaC ${SOURCES} ${HEADERS})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Profile")
     target_compile_options(StellaC PRIVATE -pg)
