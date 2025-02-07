@@ -40,14 +40,14 @@ NativeReturn _sleep_s(VM *vm, int argCount, Value *args) {
 
 		if (!IS_NUMBER(args[0])) {
 			nativeReturn.values[0] = NIL_VAL;
-			nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, STELLA));
+			nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, STELLA));
 			return nativeReturn;
 		}
 
     double seconds = AS_NUMBER(args[0]);
     if (seconds < 0) {
         nativeReturn.values[0] = NIL_VAL;
-        nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Sleep duration cannot be negative.", 32), VALUE, STELLA));
+        nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, STELLA));
         return nativeReturn;
     }
 
@@ -67,14 +67,14 @@ NativeReturn _sleep_ms(VM *vm, int argCount, Value *args) {
 
 	if (!IS_NUMBER(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, STELLA));
 		return nativeReturn;
 	}
 
     double milliseconds = AS_NUMBER(args[0]);
     if (milliseconds < 0) {
         nativeReturn.values[0] = NIL_VAL;
-        nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Sleep duration cannot be negative.", 32), VALUE, STELLA));
+        nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, STELLA));
         return nativeReturn;
     }
 
