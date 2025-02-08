@@ -44,7 +44,6 @@ Callable builtinCallables[] = {
 		{"error", errorNative, 1}, {"assert", assertNative, 2}, {NULL, NULL, 0}};
 
 Callable errorMethods[] = {{"message", errorMessageMethod, 1},
-													 {"creator", errorCreatorMethod, 1},
 													 {"type", errorTypeMethod, 1},
 													 {NULL, NULL, 0}};
 

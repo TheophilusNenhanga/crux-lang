@@ -12,7 +12,7 @@ NativeReturn arrayPushMethod(VM *vm, int argCount, Value *args) {
 
 	if (!arrayAdd(vm, array, toAdd, array->size)) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Failed to add to array.", 23), RUNTIME, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Failed to add to array.", 23), RUNTIME, false));
 		return returnValue;
 	}
 
@@ -28,7 +28,7 @@ NativeReturn arrayPopMethod(VM *vm, int argCount, Value *args) {
 	if (array->size == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, copyString(vm, "Cannot remove a value from an empty array.", 42), INDEX_OUT_OF_BOUNDS, STELLA));
+				newError(vm, copyString(vm, "Cannot remove a value from an empty array.", 42), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
@@ -48,7 +48,7 @@ NativeReturn arrayInsertMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[2])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
 		return returnValue;
 	}
 
@@ -58,7 +58,7 @@ NativeReturn arrayInsertMethod(VM *vm, int argCount, Value *args) {
 	if (insertAt < 0 || insertAt > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<index> is out of bounds.", 25), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<index> is out of bounds.", 25), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
@@ -72,7 +72,7 @@ NativeReturn arrayInsertMethod(VM *vm, int argCount, Value *args) {
 	} else {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate enough memory for new array.", 47), MEMORY, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate enough memory for new array.", 47), MEMORY, false));
 		return returnValue;
 	}
 
@@ -88,7 +88,7 @@ NativeReturn arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
 		return returnValue;
 	}
 
@@ -97,7 +97,7 @@ NativeReturn arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
 	if (removeAt >= array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<index> is out of bounds.", 25), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<index> is out of bounds.", 25), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
@@ -121,7 +121,7 @@ NativeReturn arrayConcatMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_ARRAY(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<target> must be of type 'array'.", 33), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<target> must be of type 'array'.", 33), TYPE, false));
 		return returnValue;
 	}
 
@@ -131,7 +131,7 @@ NativeReturn arrayConcatMethod(VM *vm, int argCount, Value *args) {
 	if (combinedSize > MAX_ARRAY_SIZE) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, copyString(vm, "Size of resultant array out of bounds.", 38), INDEX_OUT_OF_BOUNDS, STELLA));
+				newError(vm, copyString(vm, "Size of resultant array out of bounds.", 38), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
@@ -156,14 +156,14 @@ NativeReturn arraySliceMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<start_index> must be of type 'number'.", 39), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<start_index> must be of type 'number'.", 39), TYPE, false));
 		return returnValue;
 	}
 
 	if (!IS_NUMBER(args[2])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<end_index> must be of type 'number'.", 37), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<end_index> must be of type 'number'.", 37), TYPE, false));
 		return returnValue;
 	}
 
@@ -173,21 +173,21 @@ NativeReturn arraySliceMethod(VM *vm, int argCount, Value *args) {
 	if (startIndex > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<start_index> out of bounds.", 28), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<start_index> out of bounds.", 28), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
 	if (endIndex > array->size) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<end_index> out of bounds.", 26), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<end_index> out of bounds.", 26), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
 	if (endIndex < startIndex) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "indexes out of bounds.", 22), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "indexes out of bounds.", 22), INDEX_OUT_OF_BOUNDS, false));
 		return returnValue;
 	}
 
@@ -213,7 +213,7 @@ NativeReturn arrayReverseMethod(VM *vm, int argCount, Value *args) {
 	if (values == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate memory when reversing array.", 47), MEMORY, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate memory when reversing array.", 47), MEMORY, false));
 		return returnValue;
 	}
 
@@ -247,7 +247,7 @@ NativeReturn arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
 	}
 	returnValue.values[0] = NIL_VAL;
 	returnValue.values[1] =
-			OBJECT_VAL(newError(vm, copyString(vm, "Value could not be found in the array.", 38), VALUE, STELLA));
+			OBJECT_VAL(newError(vm, copyString(vm, "Value could not be found in the array.", 38), VALUE, false));
 	return returnValue;
 }
 

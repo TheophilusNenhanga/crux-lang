@@ -622,12 +622,12 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	return true;
 }
 
-ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreator creator) {
+ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic) {
 	ObjectError *error = ALLOCATE(vm, ObjectError, OBJECT_ERROR);
 	error->object.type = OBJECT_ERROR;
 	error->message = message;
 	error->type = type;
-	error->creator = creator;
+	error->isPanic = isPanic;
 	return error;
 }
 

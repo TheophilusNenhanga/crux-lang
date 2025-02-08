@@ -80,7 +80,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					Value last = result.values[result.size - 1];
 					if (IS_ERROR(last)) {
 						ObjectError *error = AS_ERROR(last);
-						if (error->creator == PANIC) {
+						if (error->isPanic == true) {
 							runtimePanic(vm, error->type, "%s", error->message->chars);
 							return false;
 						}
@@ -108,7 +108,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					Value last = result.values[result.size - 1];
 					if (IS_ERROR(last)) {
 						ObjectError *error = AS_ERROR(last);
-						if (error->creator == PANIC) {
+						if (error->isPanic == true) {
 							runtimePanic(vm, error->type, "%s", error->message->chars);
 							return false;
 						}

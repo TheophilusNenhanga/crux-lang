@@ -20,6 +20,7 @@
 #define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
 #define IS_ERROR(value) isObjectType(value, OBJECT_ERROR)
+#define AS_RESULT(value) isObjectType(value, OBJECT_RESULT)
 
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
@@ -33,6 +34,7 @@
 #define AS_ARRAY(value) ((ObjectArray *) AS_OBJECT(value))
 #define AS_TABLE(value) ((ObjectTable *) AS_OBJECT(value))
 #define AS_ERROR(value) ((ObjectError *) AS_OBJECT(value))
+#define AS_RESULT(value) ((ObjectResult *) AS_OBJECT(value))
 
 
 typedef enum {
@@ -49,6 +51,7 @@ typedef enum {
 	OBJECT_TABLE,
 	OBJECT_ERROR,
 	OBJECT_MODULE,
+	OBJECT_RESULT,
 } ObjectType;
 
 struct Object {
@@ -195,18 +198,25 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef enum { USER, STELLA, PANIC } ErrorCreator;
-
 typedef struct {
 	Object object;
 	ObjectString *message;
 	ErrorType type;
-	ErrorCreator creator;
+	bool isPanic;
 } ObjectError;
+
+typedef struct {
+	Object object;
+	bool isOk;
+	union {
+		Value value;
+		ObjectError* error;
+	} content;
+} ObjectResult;
 
 static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
 
-ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreator creator);
+ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic);
 ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
 ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
@@ -236,6 +246,8 @@ bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
 ObjectModule *newModule(VM *vm, const char* path);
+
+ObjectResult* newResult(VM *vm);
 
 bool importSetContains(ImportSet *set, ObjectString *path);
 bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);

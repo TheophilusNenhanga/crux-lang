@@ -330,7 +330,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		case OBJECT_ERROR: {
 			ObjectError *error = AS_ERROR(value);
 			ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
-			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->creator);
+			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
 			trackCopy(ctx, object, (Object *) copy);
 			return OBJECT_VAL(copy);
 		}
