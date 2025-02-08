@@ -1063,6 +1063,12 @@ static void string(bool canAssign) {
 	char* src = (char*) parser.previous.start + 1;
 	int srcLength = parser.previous.length - 2;
 
+	if (srcLength == 0) {
+		ObjectString* string = copyString(current->owner, "", 0);
+		emitConstant(OBJECT_VAL(string));
+		return;
+	}
+
 	for (int i = 0; i < srcLength; i++) {
 		if (src[i] == '\\') {
 

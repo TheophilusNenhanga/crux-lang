@@ -212,7 +212,7 @@ void printObject(Value value) {
 }
 
 /**
- * Takes ownership of a given string
+ * Takes ownership of the given null terminated string
  * Attempts to free the string that is passed to it.
  * @param vm The Stella Virtual Machine
  * @param chars The characters that the VM will own
