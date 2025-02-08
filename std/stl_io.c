@@ -114,7 +114,7 @@ NativeReturn _printTo(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Channel and content must be strings.", 34), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Channel and content must be strings.", 36), TYPE, STELLA));
 		return nativeReturn;
 	}
 
@@ -124,13 +124,13 @@ NativeReturn _printTo(VM *vm, int argCount, Value *args) {
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Invalid channel specified.", 24), VALUE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, STELLA));
 		return nativeReturn;
 	}
 
 	if (fprintf(stream, "%s", content) < 0) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error writing to stream.", 23), IO, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error writing to stream.", 26), IO, STELLA));
 		return nativeReturn;
 	}
 
@@ -145,7 +145,7 @@ NativeReturn _scan(VM *vm, int argCount, Value *args) {
 	int ch = getchar();
 	if (ch == EOF) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stdin.", 24), IO, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stdin.", 25), IO, STELLA));
 		return nativeReturn;
 	}
 
@@ -164,7 +164,7 @@ NativeReturn _scanln(VM *vm, int argCount, Value *args) {
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stdin.", 24), IO, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stdin.", 26), IO, STELLA));
 		return nativeReturn;
 	}
 
@@ -184,7 +184,7 @@ NativeReturn _scanFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Channel must be a string.", 24), TYPE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, STELLA));
 		return nativeReturn;
 	}
 
@@ -192,14 +192,14 @@ NativeReturn _scanFrom(VM *vm, int argCount, Value *args) {
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Invalid channel specified.", 24), VALUE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, STELLA));
 		return nativeReturn;
 	}
 
 	int ch = fgetc(stream);
 	if (ch == EOF) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stream.", 24), IO, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stream.", 26), IO, STELLA));
 		return nativeReturn;
 	}
 
@@ -217,7 +217,7 @@ NativeReturn _scanlnFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Channel must be a string.", 24), TYPE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, STELLA));
 		return nativeReturn;
 	}
 
@@ -225,14 +225,14 @@ NativeReturn _scanlnFrom(VM *vm, int argCount, Value *args) {
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Invalid channel specified.", 24), VALUE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, STELLA));
 		return nativeReturn;
 	}
 
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stream) == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stream.", 24), IO, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stream.", 26), IO, STELLA));
 		return nativeReturn;
 	}
 
@@ -261,7 +261,7 @@ NativeReturn _nscan(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Number of characters must be a number.", 36), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Number of characters must be a number.", 38), TYPE, STELLA));
 		return nativeReturn;
 	}
 
@@ -269,7 +269,7 @@ NativeReturn _nscan(VM *vm, int argCount, Value *args) {
 	if (n <= 0) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Number of characters must be positive.", 36), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Number of characters must be positive.", 38), VALUE, STELLA));
 		return nativeReturn;
 	}
 
@@ -277,7 +277,7 @@ NativeReturn _nscan(VM *vm, int argCount, Value *args) {
 	if (buffer == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Failed to allocate memory for input buffer.", 41), MEMORY, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate memory for input buffer.", 43), MEMORY, STELLA));
 		return nativeReturn;
 	}
 
@@ -287,7 +287,7 @@ NativeReturn _nscan(VM *vm, int argCount, Value *args) {
 		if (ch == EOF) {
 			FREE_ARRAY(vm, char, buffer, n + 1);
 			nativeReturn.values[0] = NIL_VAL;
-			nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stdin.", 24), IO, STELLA));
+			nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stdin.", 25), IO, STELLA));
 			return nativeReturn;
 		}
 		buffer[read++] = ch;
@@ -313,14 +313,14 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Channel must be a string.", 24), TYPE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, STELLA));
 		return nativeReturn;
 	}
 
 	if (!IS_NUMBER(args[1])) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Number of characters must be a number.", 36), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Number of characters must be a number.", 38), TYPE, STELLA));
 		return nativeReturn;
 	}
 
@@ -328,7 +328,7 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
-		nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Invalid channel specified.", 24), VALUE, STELLA));
+		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, STELLA));
 		return nativeReturn;
 	}
 
@@ -336,7 +336,7 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 	if (n <= 0) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Number of characters must be positive.", 36), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Number of characters must be positive.", 38), VALUE, STELLA));
 		return nativeReturn;
 	}
 
@@ -344,7 +344,7 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 	if (buffer == NULL) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Failed to allocate memory for input buffer.", 41), MEMORY, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Failed to allocate memory for input buffer.", 43), MEMORY, STELLA));
 		return nativeReturn;
 	}
 
@@ -354,7 +354,7 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 		if (ch == EOF) {
 			FREE_ARRAY(vm, char, buffer, n + 1);
 			nativeReturn.values[0] = NIL_VAL;
-			nativeReturn.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Error reading from stream.", 24), IO, STELLA));
+			nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Error reading from stream.", 26), IO, STELLA));
 			return nativeReturn;
 		}
 		buffer[read++] = ch;
@@ -369,7 +369,7 @@ NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
 		while ((ch = fgetc(stream)) != '\n' && ch != EOF);
 	}
 
-	nativeReturn.values[0] = OBJECT_VAL(takeString(vm, buffer, read));
+	nativeReturn.values[0] = OBJECT_VAL(copyString(vm, buffer, read));
 	nativeReturn.values[1] = NIL_VAL;
 	FREE_ARRAY(vm, char, buffer, n + 1);
 	return nativeReturn;

@@ -1,5 +1,6 @@
 #include "scanner.h"
 
+#include "stdio.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -194,10 +195,42 @@ static bool match(char expected) {
 	return true;
 }
 
-static Token string() {
-	while (peek() != '"' && !isAtEnd()) {
-		if (peek() == '\n')
+static Token singleString() {
+	while (!isAtEnd()) {
+		if (peek() == '\'') break;
+		if (peek() == '\\') {
+			advance();
+			if (!isAtEnd()) {
+				advance();
+			}
+			continue;
+		}
+		if (peek() == '\n') {
 			scanner.line++;
+		}
+		advance();
+	}
+
+	if (isAtEnd())
+		return errorToken("Unterminated String");
+	// The closing quote
+	advance();
+	return makeToken(TOKEN_STRING);
+}
+
+static Token doubleString() {
+	while (!isAtEnd()) {
+		if (peek() == '"') break;
+		if (peek() == '\\') {
+			advance();
+			if (!isAtEnd()) {
+				advance();
+			}
+			continue;
+		}
+		if (peek() == '\n') {
+			scanner.line++;
+		}
 		advance();
 	}
 
@@ -293,7 +326,9 @@ Token scanToken() {
 			}
 			return makeToken(match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
 		case '"':
-			return string();
+			return doubleString();
+		case '\'':
+			return singleString();
 		default:;
 	}
 	return errorToken("Unexpected character.");

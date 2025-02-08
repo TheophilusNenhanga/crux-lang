@@ -211,8 +211,15 @@ void printObject(Value value) {
 	}
 }
 
+/**
+ * Takes ownership of the given null terminated string
+ * Attempts to free the string that is passed to it.
+ * @param vm The Stella Virtual Machine
+ * @param chars The characters that the VM will own
+ * @param length The length of the string
+ * @return ObjectString*
+ */
 ObjectString *takeString(VM *vm, char *chars, uint64_t length) {
-	// claims ownership of the string that you give it
 	uint32_t hash = hashString(chars, length);
 
 	ObjectString *interned = tableFindString(&vm->strings, chars, length, hash);
@@ -294,7 +301,7 @@ ObjectString *toString(VM *vm, Value value) {
 			if (function->name == NULL) {
 				return copyString(vm, "<script>", 8);
 			}
-			char buffer[64];
+			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
 			return copyString(vm, buffer, length);
 		}
@@ -305,21 +312,21 @@ ObjectString *toString(VM *vm, Value value) {
 
 		case OBJECT_CLASS: {
 			ObjectClass *klass = AS_CLASS(value);
-			char buffer[64];
+			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_INSTANCE: {
 			ObjectInstance *instance = AS_INSTANCE(value);
-			char buffer[64];
+			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <instance>", instance->klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_BOUND_METHOD: {
 			ObjectBoundMethod *bound = AS_BOUND_METHOD(value);
-			char buffer[64];
+			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>", bound->method->function->name->chars);
 			return copyString(vm, buffer, length);
 		}
@@ -393,7 +400,7 @@ ObjectString *toString(VM *vm, Value value) {
 
 		case OBJECT_ERROR: {
 			ObjectError *error = AS_ERROR(value);
-			char buffer[128];
+			char buffer[1024];
 			int length = snprintf(buffer, sizeof(buffer), "<error: %s>", error->message->chars);
 			return copyString(vm, buffer, length);
 		}

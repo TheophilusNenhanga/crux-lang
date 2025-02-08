@@ -1030,10 +1030,81 @@ static void number(bool canAssign) {
 	emitConstant(NUMBER_VAL(value));
 }
 
+static char processEscapeSequence(char escape, bool* hasError) {
+	*hasError = false;
+	switch (escape) {
+		case 'n': return '\n';
+		case 't': return '\t';
+		case 'r': return '\r';
+		case '\\': return '\\';
+		case '"': return '"';
+		case '\'': return '\'';
+		case '0': return ' ';
+		case 'a': return '\a';
+		case 'b': return '\b';
+		case 'f': return '\f';
+		case 'v': return '\v';
+		default: {
+			*hasError = true;
+			return '\0';
+		}
+	}
+}
+
 static void string(bool canAssign) {
-	// +1 -2 trims the leading and trailing quotation marks
-	emitConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
-	// TODO: translate string escape sequences
+	char* processed = ALLOCATE(current->owner, char, parser.previous.length);
+
+	if (processed == NULL) {
+		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
+		return;
+	}
+
+	int processedLength = 0;
+	char* src = (char*) parser.previous.start + 1;
+	int srcLength = parser.previous.length - 2;
+
+	if (srcLength == 0) {
+		ObjectString* string = copyString(current->owner, "", 0);
+		emitConstant(OBJECT_VAL(string));
+		return;
+	}
+
+	for (int i = 0; i < srcLength; i++) {
+		if (src[i] == '\\') {
+
+			if (i + 1 >= srcLength) {
+				compilerPanic(&parser, "Unterminated escape sequence at end of string", SYNTAX);
+				FREE_ARRAY(current->owner, char, processed, parser.previous.length);
+				return;
+			}
+
+			bool error;
+			char escaped = processEscapeSequence(src[i+1], &error);
+			if (error) {
+				char errorMessage[64];
+				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i+1]);
+				compilerPanic(&parser, errorMessage, SYNTAX);
+				FREE_ARRAY(current->owner, char, processed, parser.previous.length);
+				return;
+			}
+
+			processed[processedLength++] = escaped;
+			i++;
+		}else {
+			processed[processedLength++] = src[i];
+		}
+	}
+
+	char* temp = realloc(processed, processedLength * sizeof(char));
+	if (temp == NULL) {
+		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
+		FREE_ARRAY(current->owner, char, processed, parser.previous.length);
+		return;
+	}
+	processed = temp;
+	processed[processedLength] = '\0';
+	ObjectString* string = takeString(current->owner, processed, processedLength);
+	emitConstant(OBJECT_VAL(string));
 }
 
 

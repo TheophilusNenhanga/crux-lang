@@ -9,7 +9,7 @@ NativeReturn tableValuesMethod(VM *vm, int argCount, Value *args) {
 	if (values == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, takeString(vm, "Failed to allocate enough memory for <values> array.", 53), MEMORY, STELLA));
+				newError(vm, copyString(vm, "Failed to allocate enough memory for <values> array.", 52), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -39,7 +39,7 @@ NativeReturn tableKeysMethod(VM *vm, int argCount, Value *args) {
 	if (keys == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, takeString(vm, "Failed to allocate enough memory for <keys> array.", 51), MEMORY, STELLA));
+				newError(vm, copyString(vm, "Failed to allocate enough memory for <keys> array.", 50), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -69,7 +69,7 @@ NativeReturn tablePairsMethod(VM *vm, int argCount, Value *args) {
 	if (pairs == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, takeString(vm, "Failed to allocate enough memory for <pairs> array.", 51), MEMORY, STELLA));
+				newError(vm, copyString(vm, "Failed to allocate enough memory for <pairs> array.", 51), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -83,7 +83,7 @@ NativeReturn tablePairsMethod(VM *vm, int argCount, Value *args) {
 			if (pair == NULL) {
 				returnValue.values[0] = NIL_VAL;
 				returnValue.values[1] = OBJECT_VAL(
-						newError(vm, takeString(vm, "Failed to allocate enough memory for pair array.", 49), MEMORY, STELLA));
+						newError(vm, copyString(vm, "Failed to allocate enough memory for pair array.", 48), MEMORY, STELLA));
 				return returnValue;
 			}
 

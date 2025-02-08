@@ -33,13 +33,13 @@ NativeReturn assertNative(VM *vm, int argCount, Value *args) {
 	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 	if (!IS_BOOL(args[0])) {
 		ObjectError *error =
-				newError(vm, takeString(vm, "Failed to assert: <condition> must be of type 'bool'.", 36), TYPE, PANIC);
+				newError(vm, copyString(vm, "Failed to assert: <condition> must be of type 'bool'.", 53), TYPE, PANIC);
 		nativeReturn.values[0] = OBJECT_VAL(error);
 		return nativeReturn;
 	}
 	if (!IS_STRING(args[1])) {
 		ObjectError *error =
-				newError(vm, takeString(vm, "Failed to assert: <message> must be of type 'string'.", 54), TYPE, PANIC);
+				newError(vm, copyString(vm, "Failed to assert: <message> must be of type 'string'.", 53), TYPE, PANIC);
 		nativeReturn.values[0] = OBJECT_VAL(error);
 		return nativeReturn;
 	}
@@ -71,15 +71,15 @@ NativeReturn errorCreatorMethod(VM *vm, int argCount, Value *args) {
 
 	switch (error->creator) {
 		case STELLA: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "stella", 7));
+			returnValue.values[0] = OBJECT_VAL(copyString(vm, "stella", 7));
 			break;
 		}
 		case USER: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "user", 4));
+			returnValue.values[0] = OBJECT_VAL(copyString(vm, "user", 4));
 			break;
 		}
 		case PANIC: {
-			returnValue.values[0] = OBJECT_VAL(takeString(vm, "panic", 5));
+			returnValue.values[0] = OBJECT_VAL(copyString(vm, "panic", 5));
 			break;
 		}
 	}
@@ -92,156 +92,156 @@ NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args) {
 
 	switch (error->type) {
 		case SYNTAX: {
-			ObjectString *type = takeString(vm, "<syntax error>", 15);
+			ObjectString *type = copyString(vm, "<syntax error>", 14);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case DIVISION_BY_ZERO: {
-			ObjectString *type = takeString(vm, "<zero division error>", 22);
+			ObjectString *type = copyString(vm, "<zero division error>", 21);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case INDEX_OUT_OF_BOUNDS: {
-			ObjectString *type = takeString(vm, "<index error>", 13);
+			ObjectString *type = copyString(vm, "<index error>", 13);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case RUNTIME: {
-			ObjectString *type = takeString(vm, "<runtime error>", 15);
+			ObjectString *type = copyString(vm, "<runtime error>", 14);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case TYPE: {
-			ObjectString *type = takeString(vm, "<type error>", 12);
+			ObjectString *type = copyString(vm, "<type error>", 12);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case LOOP_EXTENT: {
-			ObjectString *type = takeString(vm, "<loop extent error>", 19);
+			ObjectString *type = copyString(vm, "<loop extent error>", 19);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case LIMIT: {
-			ObjectString *type = takeString(vm, "<limit error>", 13);
+			ObjectString *type = copyString(vm, "<limit error>", 13);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case BRANCH_EXTENT: {
-			ObjectString *type = takeString(vm, "<branch extent error>", 21);
+			ObjectString *type = copyString(vm, "<branch extent error>", 21);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case CLOSURE_EXTENT: {
-			ObjectString *type = takeString(vm, "<closure extent error>", 22);
+			ObjectString *type = copyString(vm, "<closure extent error>", 22);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case LOCAL_EXTENT: {
-			ObjectString *type = takeString(vm, "<local extent error>", 20);
+			ObjectString *type = copyString(vm, "<local extent error>", 20);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case ARGUMENT_EXTENT: {
-			ObjectString *type = takeString(vm, "<argument extent error>", 24);
+			ObjectString *type = copyString(vm, "<argument extent error>", 23);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case NAME: {
-			ObjectString *type = takeString(vm, "<name error>", 13);
+			ObjectString *type = copyString(vm, "<name error>", 12);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case COLLECTION_EXTENT: {
-			ObjectString *type = takeString(vm, "<collection extent error>", 26);
+			ObjectString *type = copyString(vm, "<collection extent error>", 25);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case VARIABLE_EXTENT: {
-			ObjectString *type = takeString(vm, "<variable extent error>", 24);
+			ObjectString *type = copyString(vm, "<variable extent error>", 23);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case VARIABLE_DECLARATION_MISMATCH: {
-			ObjectString *type = takeString(vm, "<variable mismatch error>", 25);
+			ObjectString *type = copyString(vm, "<variable mismatch error>", 25);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case RETURN_EXTENT: {
-			ObjectString *type = takeString(vm, "<return extent error>", 22);
+			ObjectString *type = copyString(vm, "<return extent error>", 21);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case ARGUMENT_MISMATCH: {
-			ObjectString *type = takeString(vm, "<argument mismatch error>", 26);
+			ObjectString *type = copyString(vm, "<argument mismatch error>", 22);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case STACK_OVERFLOW: {
-			ObjectString *type = takeString(vm, "<stack overflow error>", 23);
+			ObjectString *type = copyString(vm, "<stack overflow error>", 22);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case COLLECTION_GET: {
-			ObjectString *type = takeString(vm, "<collection get error>", 23);
+			ObjectString *type = copyString(vm, "<collection get error>", 22);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case COLLECTION_SET: {
-			ObjectString *type = takeString(vm, "<collection set error>", 23);
+			ObjectString *type = copyString(vm, "<collection set error>", 22);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case UNPACK_MISMATCH: {
-			ObjectString *type = takeString(vm, "<unpack mismatch error>", 24);
+			ObjectString *type = copyString(vm, "<unpack mismatch error>", 23);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case MEMORY: {
-			ObjectString *type = takeString(vm, "<memory error>", 15);
+			ObjectString *type = copyString(vm, "<memory error>", 14);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case VALUE: {
-			ObjectString *type = takeString(vm, "<value error>", 14);
+			ObjectString *type = copyString(vm, "<value error>", 13);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case ASSERT: {
-			ObjectString *type = takeString(vm, "<assert error>", 15);
+			ObjectString *type = copyString(vm, "<assert error>", 14);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		case IMPORT_EXTENT: {
-			ObjectString *type = takeString(vm, "<import extent error>", 22);
+			ObjectString *type = copyString(vm, "<import extent error>", 21);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 		case IO: {
-			ObjectString *type = takeString(vm, "<io error>", 10);
+			ObjectString *type = copyString(vm, "<io error>", 10);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}
 
 		default: {
-			ObjectString *type = takeString(vm, "<stella error>", 8);
+			ObjectString *type = copyString(vm, "<stella error>", 14);
 			returnValue.values[0] = OBJECT_VAL(type);
 			break;
 		}

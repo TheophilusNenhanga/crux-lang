@@ -18,6 +18,8 @@ typedef enum {
 	TOKEN_STAR,
 	TOKEN_PERCENT,
 	TOKEN_COLON,
+	TOKEN_SINGLE_QUOTE,
+	TOKEN_DOUBLE_QUOTE,
 	// One or two character tokens.
 	TOKEN_BANG_EQUAL,
 	TOKEN_EQUAL,
@@ -61,7 +63,7 @@ typedef enum {
 	TOKEN_FROM,
 	TOKEN_PUB,
 	TOKEN_AS, 
-	TOKEN_EOF
+	TOKEN_EOF,
 } TokenType;
 
 typedef struct {

@@ -34,7 +34,7 @@ NativeReturn stringFirstMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, takeString(vm, "'string' must have at least one character to get the first character.", 69), VALUE,
+				newError(vm, copyString(vm, "'string' must have at least one character to get the first character.", 69), VALUE,
 								 STELLA));
 		return returnValue;
 	}
@@ -51,7 +51,7 @@ NativeReturn stringLastMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(newError(
-				vm, takeString(vm, "'string' must have at least one character to get the last character.", 68), VALUE, STELLA));
+				vm, copyString(vm, "'string' must have at least one character to get the last character.", 68), VALUE, STELLA));
 		return returnValue;
 	}
 	returnValue.values[0] = OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1));
@@ -66,14 +66,14 @@ NativeReturn stringGetMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(index)) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "index must be of type 'number'.", 31), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *string = AS_STRING(value);
-	if (AS_NUMBER(index) < 0 || AS_NUMBER(index) > string->length) {
+	if (AS_NUMBER(index) < 0 || AS_NUMBER(index) > (double) string->length) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(newError(
-				vm, takeString(vm, "Index must be a non negative number that is less than the length of the string.", 79),
+				vm, copyString(vm, "<index> must be a non negative number that is less than the length of the string.", 81),
 				INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
@@ -81,7 +81,7 @@ NativeReturn stringGetMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(newError(
-				vm, takeString(vm, "'string' must have at least one character to get a character.", 61), VALUE, STELLA));
+				vm, copyString(vm, "'string' must have at least one character to get a character.", 61), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -96,7 +96,7 @@ NativeReturn stringUpperMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Cannot make empty string uppercase.", 35), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Cannot make empty string uppercase.", 35), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -118,7 +118,7 @@ NativeReturn stringLowerMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Cannot make empty string lowercase.", 35), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Cannot make empty string lowercase.", 35), VALUE, STELLA));
 
 		return returnValue;
 	}
@@ -141,7 +141,7 @@ NativeReturn stringStripMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Cannot strip whitespace from an empty string.", 45), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Cannot strip whitespace from an empty string.", 45), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -173,20 +173,20 @@ NativeReturn stringSubstringMethod(VM *vm, int argCount, Value *args) {
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
 		return returnValue;
 	}
 
 	if (!IS_NUMBER(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
 		return returnValue;
 	}
 	if (!IS_NUMBER(args[2])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "<end> index should be of type 'number'.", 39), VALUE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "<end> index should be of type 'number'.", 39), VALUE, STELLA));
 		return returnValue;
 	}
 
@@ -195,7 +195,7 @@ NativeReturn stringSubstringMethod(VM *vm, int argCount, Value *args) {
 	if (startIndex > string->length || endIndex > string->length || startIndex > endIndex) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, STELLA));
 		return returnValue;
 	}
 
@@ -213,7 +213,7 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "Both arguments must be strings.", 32), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Both arguments must be strings.", 31), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -224,8 +224,8 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
 				OBJECT_VAL(newError(vm,
-														string->length == 0 ? takeString(vm, "Source string cannot be empty.", 30)
-																								: takeString(vm, "Delimiter cannot be empty.", 26),
+														string->length == 0 ? copyString(vm, "Source string cannot be empty.", 30)
+																								: copyString(vm, "Delimiter cannot be empty.", 26),
 														VALUE, STELLA));
 		return returnValue;
 	}
@@ -244,7 +244,7 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, delimiterLength * sizeof(uint64_t));
 	if (prefixTable == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -274,14 +274,14 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 				free(prefixTable);
 				returnValue.values[0] = NIL_VAL;
 				returnValue.values[1] =
-						OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+						OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 				return returnValue;
 			}
 
 			memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
 			substringChars[substringLength] = '\0';
 
-			ObjectString *substring = takeString(vm, substringChars, substringLength);
+			ObjectString *substring = copyString(vm, substringChars, substringLength);
 			arrayAdd(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
 			lastAddIndex++;
 
@@ -298,14 +298,14 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 		if (substringChars == NULL) {
 			free(prefixTable);
 			returnValue.values[0] = NIL_VAL;
-			returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+			returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 			return returnValue;
 		}
 
 		memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
 		substringChars[substringLength] = '\0';
 
-		ObjectString *substring = takeString(vm, substringChars, substringLength);
+		ObjectString *substring = copyString(vm, substringChars, substringLength);
 		arrayAdd(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
 	}
 
@@ -324,7 +324,7 @@ NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "First argument must be of type 'string'.", 40), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
@@ -333,8 +333,8 @@ NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
 				OBJECT_VAL(newError(vm,
-														string->length == 0 ? takeString(vm, "String must have at least one character.", 40)
-																								: takeString(vm, "<goal> string must have at least one character.", 47),
+														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
+																								: copyString(vm, "<goal> string must have at least one character.", 47),
 														VALUE, STELLA));
 		return returnValue;
 	}
@@ -353,7 +353,7 @@ NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
 	if (prefixTable == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, takeString(vm, "Failed to allocate memory for string.contains().", 48), MEMORY, STELLA));
+				newError(vm, copyString(vm, "Failed to allocate memory for string.contains().", 48), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -387,7 +387,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1]) || !IS_STRING(args[2])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "All arguments must be strings.", 31), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, STELLA));
 		return returnValue;
 	}
 
@@ -399,8 +399,8 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(
 				newError(vm,
-								 string->length == 0 ? takeString(vm, "Source string must have at least one character.", 47)
-																		 : takeString(vm, "Target substring must have at least one character.", 50),
+								 string->length == 0 ? copyString(vm, "Source string must have at least one character.", 47)
+																		 : copyString(vm, "<target> substring must have at least one character.", 52),
 								 VALUE, STELLA));
 		return returnValue;
 	}
@@ -418,7 +418,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, goalLength * sizeof(uint64_t));
 	if (prefixTable == NULL) {
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -429,7 +429,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (matchIndices == NULL) {
 		free(prefixTable);
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -462,7 +462,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 		free(prefixTable);
 		free(matchIndices);
 		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, takeString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
+		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
 		return returnValue;
 	}
 
@@ -485,7 +485,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 
 	newStringChars[newStringLength] = '\0';
 
-	ObjectString *newString = takeString(vm, newStringChars, newStringLength);
+	ObjectString *newString = copyString(vm, newStringChars, newStringLength);
 
 	free(prefixTable);
 	free(matchIndices);
@@ -501,7 +501,7 @@ NativeReturn stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "First argument must be of type 'string'.", 40), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
@@ -510,8 +510,8 @@ NativeReturn stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
 				OBJECT_VAL(newError(vm,
-														string->length == 0 ? takeString(vm, "String must have at least one character.", 40)
-																								: takeString(vm, "<goal> string must have at least one character.", 47),
+														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
+																								: copyString(vm, "<goal> string must have at least one character.", 47),
 														VALUE, STELLA));
 		return returnValue;
 	}
@@ -542,7 +542,7 @@ NativeReturn stringEndsWithMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, takeString(vm, "First argument must be of type 'string'.", 40), TYPE, STELLA));
+				OBJECT_VAL(newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, STELLA));
 		return returnValue;
 	}
 	ObjectString *goal = AS_STRING(args[1]);
@@ -551,8 +551,8 @@ NativeReturn stringEndsWithMethod(VM *vm, int argCount, Value *args) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
 				OBJECT_VAL(newError(vm,
-														string->length == 0 ? takeString(vm, "String must have at least one character.", 40)
-																								: takeString(vm, "<goal> string must have at least one character.", 47),
+														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
+																								: copyString(vm, "<goal> string must have at least one character.", 47),
 														VALUE, STELLA));
 		return returnValue;
 	}
