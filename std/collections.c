@@ -23,7 +23,7 @@ NativeReturn lengthNative(VM *vm, int argCount, Value *args) {
 		nativeReturn.values[1] = NIL_VAL;
 		return nativeReturn;
 	}
-	ObjectError *error = newError(vm, copyString(vm, "Expected either collection type.", 32), TYPE, false);
+	ObjectError *error = newError(vm, copyString(vm, "Expected either a collection type or a string.", 46), TYPE, false);
 	nativeReturn.values[0] = NIL_VAL;
 	nativeReturn.values[1] = OBJECT_VAL(error);
 	return nativeReturn;

@@ -623,8 +623,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 }
 
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic) {
-	ObjectError *error = ALLOCATE(vm, ObjectError, OBJECT_ERROR);
-	error->object.type = OBJECT_ERROR;
+	ObjectError *error = ALLOCATE_OBJECT(vm, ObjectError, OBJECT_ERROR);
 	error->message = message;
 	error->type = type;
 	error->isPanic = isPanic;
@@ -678,4 +677,18 @@ bool importSetAdd(VM* vm, ImportSet* set, ObjectString* path) {
 void freeImportSet(VM* vm, ImportSet* set) {
 	FREE_ARRAY(vm, ObjectString*, set->paths, set->capacity);
 	initImportSet(set);
+}
+
+ObjectResult* Ok(VM* vm, Value value) {
+	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
+	result->isOk = true;
+	result->content.value = value;
+	return result;
+}
+
+ObjectResult* Err(VM *vm, ObjectError* error) {
+	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
+	result->isOk = false;
+	result->content.error = error;
+	return result;
 }

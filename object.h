@@ -225,29 +225,28 @@ ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, Object
 ObjectFunction *newFunction(VM *vm);
 ObjectClass *newClass(VM *vm, ObjectString *name);
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
+ObjectModule *newModule(VM *vm, const char* path);
+ObjectTable *newTable(VM *vm, int elementCount);
+ObjectResult* Ok(VM *vm, Value value);
+ObjectResult* Err(VM *vm, ObjectError *error);
+ObjectArray *newArray(VM *vm, uint64_t elementCount);
 
 ObjectString *takeString(VM *vm, char *chars, uint64_t length);
 ObjectString *copyString(VM *vm, const char *chars, uint64_t length);
-void printObject(Value value);
-NativeReturn makeNativeReturn(VM *vm, uint8_t size);
-
 ObjectString *toString(VM *vm, Value value);
 
-ObjectTable *newTable(VM *vm, int elementCount);
+NativeReturn makeNativeReturn(VM *vm, uint8_t size);
+void printObject(Value value);
+
 void freeObjectTable(VM *vm, ObjectTable *table);
 bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
 bool objectTableGet(ObjectTable *table, Value key, Value *value);
 void markObjectTable(VM *vm, ObjectTable *table);
 
-ObjectArray *newArray(VM *vm, uint64_t elementCount);
 bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded);
 bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value);
 bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
-
-ObjectModule *newModule(VM *vm, const char* path);
-
-ObjectResult* newResult(VM *vm);
 
 bool importSetContains(ImportSet *set, ObjectString *path);
 bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);

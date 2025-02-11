@@ -241,7 +241,7 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 	uint64_t stringLength = string->length;
 	uint64_t delimiterLength = delimiter->length;
 
-	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, delimiterLength * sizeof(uint64_t));
+	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, delimiterLength);
 	if (prefixTable == NULL) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
