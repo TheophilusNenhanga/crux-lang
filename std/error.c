@@ -226,3 +226,27 @@ NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args) {
 	}
 	return returnValue;
 }
+
+NativeReturn _err(VM *vm, int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 1);
+
+	if (IS_OBJECT(args[0]) && IS_ERROR(args[0])) {
+		ObjectResult *result = Err(vm, AS_ERROR(args[0]));
+		returnValue.values[0] =  OBJECT_VAL(result);
+		return returnValue;
+	}
+
+	ObjectString* message = toString(vm, args[0]);
+	ObjectError* error = newError(vm, message, RUNTIME, false);
+	ObjectResult* result = Err(vm, error);
+	returnValue.values[0] = OBJECT_VAL(result);
+	return returnValue;
+
+}
+
+NativeReturn _ok(VM *vm, int argCount, Value *args) {
+	NativeReturn returnValue = makeNativeReturn(vm, 1);
+	ObjectResult *result = Ok(vm, args[0]);
+	returnValue.values[0] = OBJECT_VAL(result);
+	return returnValue;
+}

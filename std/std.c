@@ -41,7 +41,7 @@ Callable tableMethods[] = {
 
 Callable builtinCallables[] = {
 		{"scanln", _scanln, 1},		 {"println", _println, 1},		{"len", lengthNative, 1}, {"panic", panicNative, 1},
-		{"error", errorNative, 1}, {"assert", assertNative, 2}, {NULL, NULL, 0}};
+		{"error", errorNative, 1}, {"assert", assertNative, 2}, {"Err", _err, 1}, {"Ok", _ok, 1},  {NULL, NULL, 0}};
 
 Callable errorMethods[] = {{"message", errorMessageMethod, 1},
 													 {"type", errorTypeMethod, 1},

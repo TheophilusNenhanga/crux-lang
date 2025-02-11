@@ -13,7 +13,7 @@ NativeReturn assertNative(VM *vm, int argCount, Value *args);
 NativeReturn errorMessageMethod(VM *vm, int argCount, Value *args);
 NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args);
 
-Value _err(VM *vm, int argCount, Value *args);
-Value _ok(VM *vm, int argCount, Value *args);
+NativeReturn _err(VM *vm, int argCount, Value *args);
+NativeReturn _ok(VM *vm, int argCount, Value *args);
 
 #endif // ERROR_H
