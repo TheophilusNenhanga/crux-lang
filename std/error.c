@@ -2,9 +2,7 @@
 
 #include "../memory.h"
 
-NativeReturn errorNative(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
-
+ObjectResult* errorNative(VM *vm, int argCount, Value *args) {
 	Value message = args[0];
 	ObjectString *errorMessage = toString(vm, message);
 	ObjectError *error = newError(vm, errorMessage, RUNTIME, false);
@@ -12,9 +10,7 @@ NativeReturn errorNative(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn panicNative(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
-
+ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 
 	if (IS_ERROR(value)) {
@@ -28,9 +24,7 @@ NativeReturn panicNative(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn assertNative(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
-	if (!IS_BOOL(args[0])) {
+ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(args[0])) {
 		ObjectError *error =
 				newError(vm, copyString(vm, "Failed to assert: <condition> must be of type 'bool'.", 53), TYPE, true);
 		nativeReturn.values[0] = OBJECT_VAL(error);
@@ -56,16 +50,14 @@ NativeReturn assertNative(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn errorMessageMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 1);
+ObjectResult* errorMessageMethod(VM *vm, int argCount, Value *args) {
 	ObjectError *error = AS_ERROR(args[0]);
 
 	returnValue.values[0] = OBJECT_VAL(error->message);
 	return returnValue;
 }
 
-NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 1);
+ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
 	ObjectError *error = AS_ERROR(args[0]);
 
 	switch (error->type) {
@@ -227,8 +219,7 @@ NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn _err(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 1);
+ObjectResult* _err(VM *vm, int argCount, Value *args) {
 
 	if (IS_OBJECT(args[0]) && IS_ERROR(args[0])) {
 		ObjectResult *result = Err(vm, AS_ERROR(args[0]));
@@ -244,9 +235,6 @@ NativeReturn _err(VM *vm, int argCount, Value *args) {
 
 }
 
-NativeReturn _ok(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 1);
-	ObjectResult *result = Ok(vm, args[0]);
-	returnValue.values[0] = OBJECT_VAL(result);
-	return returnValue;
+ObjectResult* _ok(VM *vm, int argCount, Value *args) {
+	return stellaOk(vm, args[0]);
 }

@@ -10,8 +10,7 @@ static bool numberArgs(Value* args, int argCount) {
 	return true;
 }
 
-NativeReturn _pow(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _pow(VM *vm, int argCount, Value *args) {
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -27,8 +26,7 @@ NativeReturn _pow(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _sqrt(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _sqrt(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -51,8 +49,7 @@ NativeReturn _sqrt(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _abs(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _abs(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -66,8 +63,7 @@ NativeReturn _abs(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _sin(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _sin(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -80,8 +76,7 @@ NativeReturn _sin(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _cos(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _cos(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -94,8 +89,7 @@ NativeReturn _cos(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _tan(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _tan(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -108,8 +102,7 @@ NativeReturn _tan(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _asin(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _asin(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -134,8 +127,7 @@ NativeReturn _asin(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _acos(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _acos(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -157,8 +149,7 @@ NativeReturn _acos(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _atan(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _atan(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -171,8 +162,7 @@ NativeReturn _atan(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _exp(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _exp(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -184,8 +174,7 @@ NativeReturn _exp(VM *vm, int argCount, Value *args){
 	return nativeReturn;
 }
 
-NativeReturn _ln(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _ln(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -205,8 +194,7 @@ NativeReturn _ln(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _log10(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _log10(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -227,8 +215,7 @@ NativeReturn _log10(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _ceil(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _ceil(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -241,8 +228,7 @@ NativeReturn _ceil(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _floor(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _floor(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -254,8 +240,7 @@ NativeReturn _floor(VM *vm, int argCount, Value *args){
 	return nativeReturn;
 }
 
-NativeReturn _round(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _round(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -268,14 +253,12 @@ NativeReturn _round(VM *vm, int argCount, Value *args){
 
 }
 
-NativeReturn _pi(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _pi(VM *vm, int argCount, Value *args){
 	nativeReturn.values[0] = NUMBER_VAL(3.14159265358979323846);
 	return nativeReturn;
 }
 
-NativeReturn _e(VM *vm, int argCount, Value *args){
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _e(VM *vm, int argCount, Value *args){
 	nativeReturn.values[0] = NUMBER_VAL(2.71828182845904523536);
 	return nativeReturn;
 }

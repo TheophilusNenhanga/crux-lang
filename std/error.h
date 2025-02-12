@@ -5,15 +5,15 @@
 #include "../value.h"
 
 // std library functions
-NativeReturn errorNative(VM *vm, int argCount, Value *args);
-NativeReturn panicNative(VM *vm, int argCount, Value *args);
-NativeReturn assertNative(VM *vm, int argCount, Value *args);
+ObjectResult* errorNative(VM *vm, int argCount, Value *args);
+ObjectResult* panicNative(VM *vm, int argCount, Value *args);
+ObjectResult* assertNative(VM *vm, int argCount, Value *args);
 
 // error type methods
-NativeReturn errorMessageMethod(VM *vm, int argCount, Value *args);
-NativeReturn errorTypeMethod(VM *vm, int argCount, Value *args);
+ObjectResult* errorMessageMethod(VM *vm, int argCount, Value *args);
+ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args);
 
-NativeReturn _err(VM *vm, int argCount, Value *args);
-NativeReturn _ok(VM *vm, int argCount, Value *args);
+ObjectResult* _err(VM *vm, int argCount, Value *args);
+ObjectResult* _ok(VM *vm, int argCount, Value *args);
 
 #endif // ERROR_H

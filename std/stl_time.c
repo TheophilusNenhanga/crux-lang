@@ -9,14 +9,12 @@
 #include "stl_time.h"
 #include "../memory.h"
 
-NativeReturn _time_s(VM* vm, int argCount, Value* args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _time_s(VM* vm, int argCount, Value* args) {
 	nativeReturn.values[0] = NUMBER_VAL((double)time(NULL));
 	return nativeReturn;
 }
 
-NativeReturn _time_ms(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _time_ms(VM *vm, int argCount, Value *args) {
 #ifdef _WIN32
 	SYSTEMTIME st;
 	GetSystemTime(&st);
@@ -35,9 +33,7 @@ NativeReturn _time_ms(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _sleep_s(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 2);
-
+ObjectResult* _sleep_s(VM *vm, int argCount, Value *args) {
 		if (!IS_NUMBER(args[0])) {
 			nativeReturn.values[0] = NIL_VAL;
 			nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, false));
@@ -62,9 +58,7 @@ NativeReturn _sleep_s(VM *vm, int argCount, Value *args) {
     return nativeReturn;
 }
 
-NativeReturn _sleep_ms(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 2);
-
+ObjectResult* _sleep_ms(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
 		nativeReturn.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, false));
@@ -93,56 +87,49 @@ static time_t getCurrentTime() {
     return time(NULL);
 }
 
-NativeReturn _year(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _year(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_year + 1900);
     return nativeReturn;
 }
 
-NativeReturn _month(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _month(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_mon + 1);
     return nativeReturn;
 }
 
-NativeReturn _day(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _day(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_mday);
     return nativeReturn;
 }
 
-NativeReturn _hour(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _hour(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_hour);
     return nativeReturn;
 }
 
-NativeReturn _minute(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _minute(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_min);
     return nativeReturn;
 }
 
-NativeReturn _second(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _second(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_sec);
     return nativeReturn;
 }
 
-NativeReturn _weekday(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _weekday(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     // 1 (Monday) - 7 (Sunday)
@@ -151,8 +138,7 @@ NativeReturn _weekday(VM *vm, int argCount, Value *args) {
     return nativeReturn;
 }
 
-NativeReturn _day_of_year(VM *vm, int argCount, Value *args) {
-    NativeReturn nativeReturn = makeNativeReturn(vm, 1);
+ObjectResult* _day_of_year(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     nativeReturn.values[0] = NUMBER_VAL(timeInfo->tm_yday + 1);

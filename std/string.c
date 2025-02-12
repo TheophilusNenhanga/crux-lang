@@ -26,10 +26,9 @@ void buildPrefixTable(const char *pattern, uint64_t patternLength, uint64_t *pre
 	}
 }
 
-NativeReturn stringFirstMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringFirstMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	ObjectString *string = AS_STRING(value);
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
 
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
@@ -44,10 +43,9 @@ NativeReturn stringFirstMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringLastMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringLastMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	ObjectString *string = AS_STRING(value);
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] = OBJECT_VAL(newError(
@@ -59,10 +57,9 @@ NativeReturn stringLastMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringGetMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringGetMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value index = args[1];
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	if (!IS_NUMBER(index)) {
 		returnValue.values[0] = NIL_VAL;
 		returnValue.values[1] =
@@ -90,8 +87,7 @@ NativeReturn stringGetMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringUpperMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringUpperMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 	if (string->length == 0) {
 		returnValue.values[0] = NIL_VAL;
@@ -111,8 +107,7 @@ NativeReturn stringUpperMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringLowerMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringLowerMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -134,8 +129,7 @@ NativeReturn stringLowerMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringStripMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringStripMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -166,8 +160,7 @@ NativeReturn stringStripMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringSubstringMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringSubstringMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -207,8 +200,7 @@ NativeReturn stringSubstringMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
@@ -317,8 +309,7 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 }
 
 // KMP string-matching algorithm
-NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringContainsMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 
 	if (!IS_STRING(args[1])) {
@@ -381,8 +372,7 @@ NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringReplaceMethod(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1]) || !IS_STRING(args[2])) {
 		returnValue.values[0] = NIL_VAL;
@@ -495,8 +485,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringStartsWithMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;
@@ -536,8 +525,7 @@ NativeReturn stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 	return returnValue;
 }
 
-NativeReturn stringEndsWithMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringEndsWithMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_STRING(args[0]);
 	if (!IS_STRING(args[1])) {
 		returnValue.values[0] = NIL_VAL;

@@ -5,7 +5,6 @@
 #include "common.h"
 #include "table.h"
 #include "value.h"
-#include "stdio.h"
 
 #define OBJECT_TYPE(value) (AS_OBJECT(value)->type)
 
@@ -20,7 +19,7 @@
 #define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
 #define IS_ERROR(value) isObjectType(value, OBJECT_ERROR)
-#define AS_RESULT(value) isObjectType(value, OBJECT_RESULT)
+#define IS_RESULT(value) isObjectType(value, OBJECT_RESULT)
 
 #define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
 #define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
@@ -114,60 +113,6 @@ typedef struct {
 	uint64_t capacity;
 } ObjectArray;
 
-typedef struct {
-	Value *values;
-	uint8_t size;
-} NativeReturn;
-
-typedef NativeReturn (*NativeFn)(VM *vm, int argCount, Value *args);
-
-typedef struct {
-	Object object;
-	NativeFn function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeFunction;
-
-typedef struct {
-	Object object;
-	NativeFn function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeMethod;
-
-typedef struct {
-	Value key;
-	Value value;
-	bool isOccupied;
-} ObjectTableEntry;
-
-typedef struct {
-	ObjectString **paths; // module paths
-	int count;
-	int capacity;
-} ImportSet;
-
-typedef struct {
-	Object object;
-	ObjectTableEntry *entries;
-	uint16_t capacity;
-	uint16_t size;
-} ObjectTable;
-
-typedef enum {
-	IMPORTED, 
-	IN_PROGRESS,
-	INITIAL,
-} ModuleState;
-
-struct ObjectModule{
-	Object object;
-	ObjectString *path;
-	ImportSet importedModules;
-	ModuleState state;
-	int vmDepth;
-};
-
 typedef enum {
 	SYNTAX,
 	DIVISION_BY_ZERO,
@@ -214,28 +159,76 @@ typedef struct {
 	} content;
 } ObjectResult;
 
+typedef ObjectResult* (*StellaNativeCallable)(VM *vm, int argCount, Value *args);
+
+typedef struct {
+	Object object;
+	StellaNativeCallable function;
+	ObjectString *name;
+	int arity;
+} ObjectNativeFunction;
+
+typedef struct {
+	Object object;
+	StellaNativeCallable function;
+	ObjectString *name;
+	int arity;
+} ObjectNativeMethod;
+
+typedef struct {
+	Value key;
+	Value value;
+	bool isOccupied;
+} ObjectTableEntry;
+
+typedef struct {
+	ObjectString **paths; // module paths
+	int count;
+	int capacity;
+} ImportSet;
+
+typedef struct {
+	Object object;
+	ObjectTableEntry *entries;
+	uint16_t capacity;
+	uint16_t size;
+} ObjectTable;
+
+typedef enum {
+	IMPORTED, 
+	IN_PROGRESS,
+	INITIAL,
+} ModuleState;
+
+struct ObjectModule{
+	Object object;
+	ObjectString *path;
+	ImportSet importedModules;
+	ModuleState state;
+	int vmDepth;
+};
+
 static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
 
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic);
 ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method);
 ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
 ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
-ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, ObjectString *name);
-ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, ObjectString *name);
+ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name);
+ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name);
 ObjectFunction *newFunction(VM *vm);
 ObjectClass *newClass(VM *vm, ObjectString *name);
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
 ObjectModule *newModule(VM *vm, const char* path);
 ObjectTable *newTable(VM *vm, int elementCount);
-ObjectResult* Ok(VM *vm, Value value);
-ObjectResult* Err(VM *vm, ObjectError *error);
+ObjectResult* stellaOk(VM *vm, Value value);
+ObjectResult* stellaErr(VM *vm, ObjectError *error);
 ObjectArray *newArray(VM *vm, uint64_t elementCount);
 
 ObjectString *takeString(VM *vm, char *chars, uint64_t length);
 ObjectString *copyString(VM *vm, const char *chars, uint64_t length);
 ObjectString *toString(VM *vm, Value value);
 
-NativeReturn makeNativeReturn(VM *vm, uint8_t size);
 void printObject(Value value);
 
 void freeObjectTable(VM *vm, ObjectTable *table);

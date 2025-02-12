@@ -72,26 +72,19 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					return false;
 				}
 
-				NativeReturn result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult* result = native->function(vm, argCount, vm->stackTop - argCount);
+
 				vm->stackTop -= argCount;
 
-				if (result.size > 0) {
-					// The last Value returned from a native function must be the error if it has one
-					Value last = result.values[result.size - 1];
-					if (IS_ERROR(last)) {
-						ObjectError *error = AS_ERROR(last);
-						if (error->isPanic == true) {
-							runtimePanic(vm, error->type, "%s", error->message->chars);
-							return false;
-						}
+				if (!result->isOk) {
+					if (result->content.error->isPanic) {
+						runtimePanic(vm, result->content.error->type, result->content.error->message->chars);
+						return false;
 					}
 				}
 
-				for (int i = 0; i < result.size; i++) {
-					push(vm, result.values[i]);
-				}
+				push(vm, OBJECT_VAL(result));
 
-				free(result.values);
 				return true;
 			}
 			case OBJECT_NATIVE_FUNCTION: {
@@ -101,24 +94,17 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					return false;
 				}
 
-				NativeReturn result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult* result = native->function(vm, argCount, vm->stackTop - argCount);
 				vm->stackTop -= argCount + 1;
-				if (result.size > 0) {
-					// The last Value returned from a native function must be the error if it has one
-					Value last = result.values[result.size - 1];
-					if (IS_ERROR(last)) {
-						ObjectError *error = AS_ERROR(last);
-						if (error->isPanic == true) {
-							runtimePanic(vm, error->type, "%s", error->message->chars);
-							return false;
-						}
+
+				if (!result->isOk) {
+					if (result->content.error->isPanic) {
+						runtimePanic(vm, result->content.error->type, result->content.error->message->chars);
+						return false;
 					}
 				}
 
-				for (int i = 0; i < result.size; i++) {
-					push(vm, result.values[i]);
-				}
-				free(result.values);
+				push(vm, OBJECT_VAL(result));
 				return true;
 			}
 			case OBJECT_CLASS: {

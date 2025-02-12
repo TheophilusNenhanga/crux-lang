@@ -71,7 +71,7 @@ Callable timeFunctions[] = {
 		{NULL, NULL, 0}};
 
 
-bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity) {
+bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, StellaNativeCallable methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int) strlen(methodName));
 	if (!tableSet(vm, methodTable, name, OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
 		return false;
@@ -79,7 +79,7 @@ bool defineNativeMethod(VM *vm, Table *methodTable, const char *methodName, Nati
 	return true;
 }
 
-bool defineNativeFunction(VM *vm, Table *functionTable, const char *functionName, NativeFn function, int arity,
+bool defineNativeFunction(VM *vm, Table *functionTable, const char *functionName, StellaNativeCallable function, int arity,
 													bool isPublic) {
 	ObjectString *name = copyString(vm, functionName, (int) strlen(functionName));
 	if (!tableSet(vm, functionTable, name, OBJECT_VAL(newNativeFunction(vm, function, arity, name)), isPublic)) {

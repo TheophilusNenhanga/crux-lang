@@ -427,7 +427,7 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	return instance;
 }
 
-ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, ObjectString *name) {
+ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
 	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -435,7 +435,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, Ob
 	return native;
 }
 
-ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, ObjectString *name) {
+ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -630,13 +630,6 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPani
 	return error;
 }
 
-NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
-	NativeReturn nativeReturn;
-	nativeReturn.size = size;
-	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);
-	return nativeReturn;
-}
-
 ObjectModule *newModule(VM *vm, const char *path) {
 	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
 	module->path = copyString(vm, path, strlen(path));
@@ -679,14 +672,14 @@ void freeImportSet(VM* vm, ImportSet* set) {
 	initImportSet(set);
 }
 
-ObjectResult* Ok(VM* vm, Value value) {
+ObjectResult* stellaOk(VM* vm, Value value) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = true;
 	result->content.value = value;
 	return result;
 }
 
-ObjectResult* Err(VM *vm, ObjectError* error) {
+ObjectResult* stellaErr(VM *vm, ObjectError* error) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = false;
 	result->content.error = error;

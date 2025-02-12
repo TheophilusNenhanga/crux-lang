@@ -93,23 +93,20 @@ void valuePrint(Value value) {
 }
 
 // Standard I/O Functions
-NativeReturn _print(VM *vm, int argCount, Value *args) {
+ObjectResult* _print(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 	nativeReturn.values[0] = NIL_VAL;
 	return nativeReturn;
 }
 
-NativeReturn _println(VM *vm, int argCount, Value *args) {
+ObjectResult* _println(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
 	printf("\n");
-	NativeReturn nativeReturn = makeNativeReturn(vm, 1);
 	nativeReturn.values[0] = NIL_VAL;
 	return nativeReturn;
 }
 
-NativeReturn _printTo(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -139,8 +136,7 @@ NativeReturn _printTo(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _scan(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _scan(VM *vm, int argCount, Value *args) {
 
 	int ch = getchar();
 	if (ch == EOF) {
@@ -158,8 +154,7 @@ NativeReturn _scan(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _scanln(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
 
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
@@ -179,8 +174,7 @@ NativeReturn _scanln(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _scanFrom(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -212,8 +206,7 @@ NativeReturn _scanFrom(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _scanlnFrom(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -255,8 +248,7 @@ NativeReturn _scanlnFrom(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _nscan(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
 
 	if (!IS_NUMBER(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
@@ -308,8 +300,7 @@ NativeReturn _nscan(VM *vm, int argCount, Value *args) {
 	return nativeReturn;
 }
 
-NativeReturn _nscanFrom(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
+ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 
 	if (!IS_STRING(args[0])) {
 		nativeReturn.values[0] = NIL_VAL;
