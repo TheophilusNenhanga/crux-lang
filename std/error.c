@@ -6,8 +6,7 @@ ObjectResult* errorNative(VM *vm, int argCount, Value *args) {
 	Value message = args[0];
 	ObjectString *errorMessage = toString(vm, message);
 	ObjectError *error = newError(vm, errorMessage, RUNTIME, false);
-	nativeReturn.values[0] = OBJECT_VAL(error);
-	return nativeReturn;
+	return stellaOk(vm, OBJECT_VAL(error));
 }
 
 ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
@@ -15,26 +14,23 @@ ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
 
 	if (IS_ERROR(value)) {
 		ObjectError *error = AS_ERROR(value);
-		nativeReturn.values[0] = OBJECT_VAL(error);
-		return nativeReturn;
+		error->isPanic = true;
+		return stellaErr(vm, error);
 	}
 	ObjectString *errorMessage = toString(vm, value);
 	ObjectError *error = newError(vm, errorMessage, RUNTIME, true);
-	nativeReturn.values[0] = OBJECT_VAL(error);
-	return nativeReturn;
+	return stellaErr(vm, error);
 }
 
 ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(args[0])) {
 		ObjectError *error =
 				newError(vm, copyString(vm, "Failed to assert: <condition> must be of type 'bool'.", 53), TYPE, true);
-		nativeReturn.values[0] = OBJECT_VAL(error);
-		return nativeReturn;
+		return stellaErr(vm, error);
 	}
 	if (!IS_STRING(args[1])) {
 		ObjectError *error =
 				newError(vm, copyString(vm, "Failed to assert: <message> must be of type 'string'.", 53), TYPE, true);
-		nativeReturn.values[0] = OBJECT_VAL(error);
-		return nativeReturn;
+		return stellaErr(vm, error);
 	}
 
 	bool result = AS_BOOL(args[0]);
@@ -42,19 +38,16 @@ ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(arg
 
 	if (result == false) {
 		ObjectError *error = newError(vm, message, ASSERT, true);
-		nativeReturn.values[0] = OBJECT_VAL(error);
-		return nativeReturn;
+		return stellaErr(vm, error);
 	}
 
-	nativeReturn.values[0] = NIL_VAL;
-	return nativeReturn;
+	return stellaOk(vm, NIL_VAL);
 }
 
 ObjectResult* errorMessageMethod(VM *vm, int argCount, Value *args) {
 	ObjectError *error = AS_ERROR(args[0]);
 
-	returnValue.values[0] = OBJECT_VAL(error->message);
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(error->message));
 }
 
 ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
@@ -63,176 +56,143 @@ ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
 	switch (error->type) {
 		case SYNTAX: {
 			ObjectString *type = copyString(vm, "<syntax error>", 14);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case DIVISION_BY_ZERO: {
 			ObjectString *type = copyString(vm, "<zero division error>", 21);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case INDEX_OUT_OF_BOUNDS: {
 			ObjectString *type = copyString(vm, "<index error>", 13);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case RUNTIME: {
 			ObjectString *type = copyString(vm, "<runtime error>", 14);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case TYPE: {
 			ObjectString *type = copyString(vm, "<type error>", 12);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case LOOP_EXTENT: {
 			ObjectString *type = copyString(vm, "<loop extent error>", 19);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case LIMIT: {
 			ObjectString *type = copyString(vm, "<limit error>", 13);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case BRANCH_EXTENT: {
 			ObjectString *type = copyString(vm, "<branch extent error>", 21);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case CLOSURE_EXTENT: {
 			ObjectString *type = copyString(vm, "<closure extent error>", 22);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case LOCAL_EXTENT: {
 			ObjectString *type = copyString(vm, "<local extent error>", 20);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case ARGUMENT_EXTENT: {
 			ObjectString *type = copyString(vm, "<argument extent error>", 23);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case NAME: {
 			ObjectString *type = copyString(vm, "<name error>", 12);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case COLLECTION_EXTENT: {
 			ObjectString *type = copyString(vm, "<collection extent error>", 25);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case VARIABLE_EXTENT: {
 			ObjectString *type = copyString(vm, "<variable extent error>", 23);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case VARIABLE_DECLARATION_MISMATCH: {
 			ObjectString *type = copyString(vm, "<variable mismatch error>", 25);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case RETURN_EXTENT: {
 			ObjectString *type = copyString(vm, "<return extent error>", 21);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case ARGUMENT_MISMATCH: {
 			ObjectString *type = copyString(vm, "<argument mismatch error>", 22);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case STACK_OVERFLOW: {
 			ObjectString *type = copyString(vm, "<stack overflow error>", 22);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case COLLECTION_GET: {
 			ObjectString *type = copyString(vm, "<collection get error>", 22);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case COLLECTION_SET: {
 			ObjectString *type = copyString(vm, "<collection set error>", 22);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case UNPACK_MISMATCH: {
 			ObjectString *type = copyString(vm, "<unpack mismatch error>", 23);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case MEMORY: {
 			ObjectString *type = copyString(vm, "<memory error>", 14);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case VALUE: {
 			ObjectString *type = copyString(vm, "<value error>", 13);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case ASSERT: {
 			ObjectString *type = copyString(vm, "<assert error>", 14);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		case IMPORT_EXTENT: {
 			ObjectString *type = copyString(vm, "<import extent error>", 21);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 		case IO: {
 			ObjectString *type = copyString(vm, "<io error>", 10);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 
 		default: {
 			ObjectString *type = copyString(vm, "<stella error>", 14);
-			returnValue.values[0] = OBJECT_VAL(type);
-			break;
+			return stellaOk(vm, OBJECT_VAL(type));
 		}
 	}
-	return returnValue;
 }
 
 ObjectResult* _err(VM *vm, int argCount, Value *args) {
 
 	if (IS_OBJECT(args[0]) && IS_ERROR(args[0])) {
-		ObjectResult *result = Err(vm, AS_ERROR(args[0]));
-		returnValue.values[0] =  OBJECT_VAL(result);
-		return returnValue;
+		return stellaErr(vm, AS_ERROR(args[0]));
 	}
 
 	ObjectString* message = toString(vm, args[0]);
 	ObjectError* error = newError(vm, message, RUNTIME, false);
-	ObjectResult* result = Err(vm, error);
-	returnValue.values[0] = OBJECT_VAL(result);
-	return returnValue;
-
+	return stellaErr(vm, error);
 }
 
 ObjectResult* _ok(VM *vm, int argCount, Value *args) {
