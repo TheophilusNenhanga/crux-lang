@@ -61,12 +61,12 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
 }
 
 static bool callValue(VM *vm, Value callee, int argCount) {
-	if (IS_OBJECT(callee)) {
+	if (IS_STL_OBJECT(callee)) {
 		switch (OBJECT_TYPE(callee)) {
 			case OBJECT_CLOSURE:
-				return call(vm, AS_CLOSURE(callee), argCount);
+				return call(vm, AS_STL_CLOSURE(callee), argCount);
 			case OBJECT_NATIVE_METHOD: {
-				ObjectNativeMethod *native = AS_NATIVE_METHOD(callee);
+				ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(callee);
 				if (argCount != native->arity) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
@@ -88,7 +88,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				return true;
 			}
 			case OBJECT_NATIVE_FUNCTION: {
-				ObjectNativeFunction *native = AS_NATIVE_FUNCTION(callee);
+				ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(callee);
 				if (argCount != native->arity) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
@@ -108,12 +108,12 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				return true;
 			}
 			case OBJECT_CLASS: {
-				ObjectClass *klass = AS_CLASS(callee);
+				ObjectClass *klass = AS_STL_CLASS(callee);
 				vm->stackTop[-argCount - 1] = OBJECT_VAL(newInstance(vm, klass));
 				Value initializer;
 
 				if (tableGet(&klass->methods, vm->initString, &initializer)) {
-					return call(vm, AS_CLOSURE(initializer), argCount);
+					return call(vm, AS_STL_CLOSURE(initializer), argCount);
 				}
 				if (argCount != 0) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected 0 arguments but got %d arguments.", argCount);
@@ -122,7 +122,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				return true;
 			}
 			case OBJECT_BOUND_METHOD: {
-				ObjectBoundMethod *bound = AS_BOUND_METHOD(callee);
+				ObjectBoundMethod *bound = AS_STL_BOUND_METHOD(callee);
 				vm->stackTop[-argCount - 1] = bound->receiver;
 				return call(vm, bound->method, argCount);
 			}
@@ -137,7 +137,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
 	Value method;
 	if (tableGet(&klass->methods, name, &method)) {
-		return call(vm, AS_CLOSURE(method), argCount);
+		return call(vm, AS_STL_CLOSURE(method), argCount);
 	}
 	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
 	return false;
@@ -146,9 +146,9 @@ static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int 
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	Value receiver = peek(vm, argCount);
 
-	if (!IS_INSTANCE(receiver)) {
+	if (!IS_STL_INSTANCE(receiver)) {
 		argCount++; // for the value that the method will act upon
-		if (IS_STRING(receiver)) {
+		if (IS_STL_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
@@ -158,7 +158,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 				return false;
 			}
-		} else if (IS_ARRAY(receiver)) {
+		} else if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
@@ -168,7 +168,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 				return false;
 			}
-		} else if (IS_ERROR(receiver)) {
+		} else if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
@@ -178,7 +178,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 				return false;
 			}
-		} else if (IS_TABLE(receiver)) {
+		} else if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
@@ -194,7 +194,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		return false;
 	}
 
-	ObjectInstance *instance = AS_INSTANCE(receiver);
+	ObjectInstance *instance = AS_STL_INSTANCE(receiver);
 
 	Value value;
 	if (tableGet(&instance->fields, name, &value)) {
@@ -212,7 +212,7 @@ static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
 		return false;
 	}
 
-	ObjectBoundMethod *bound = newBoundMethod(vm, peek(vm, 0), AS_CLOSURE(method));
+	ObjectBoundMethod *bound = newBoundMethod(vm, peek(vm, 0), AS_STL_CLOSURE(method));
 	pop(vm);
 	push(vm, OBJECT_VAL(bound));
 	return true;
@@ -253,7 +253,7 @@ static void closeUpvalues(VM *vm, Value *last) {
 
 static void defineMethod(VM *vm, ObjectString *name) {
 	Value method = peek(vm, 0);
-	ObjectClass *klass = AS_CLASS(peek(vm, 1));
+	ObjectClass *klass = AS_STL_CLASS(peek(vm, 1));
 	if (tableSet(vm, &klass->methods, name, method, false)) {
 		pop(vm);
 	}
@@ -268,8 +268,8 @@ static bool concatenate(VM *vm) {
 	ObjectString *stringB;
 	ObjectString *stringA;
 
-	if (IS_STRING(b)) {
-		stringB = AS_STRING(b);
+	if (IS_STL_STRING(b)) {
+		stringB = AS_STL_STRING(b);
 	} else {
 		stringB = toString(vm, b);
 		if (stringB == NULL) {
@@ -278,8 +278,8 @@ static bool concatenate(VM *vm) {
 		}
 	}
 
-	if (IS_STRING(a)) {
-		stringA = AS_STRING(a);
+	if (IS_STL_STRING(a)) {
+		stringA = AS_STL_STRING(a);
 	} else {
 		stringA = toString(vm, a);
 		if (stringA == NULL) {
@@ -494,7 +494,7 @@ static InterpretResult run(VM *vm) {
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_BYTE()])
-#define READ_STRING() AS_STRING(READ_CONSTANT())
+#define READ_STRING() AS_STL_STRING(READ_CONSTANT())
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
 	uint8_t instruction;
 	for (;;) {
@@ -564,7 +564,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_CLOSURE: {
-				ObjectFunction *function = AS_FUNCTION(READ_CONSTANT());
+				ObjectFunction *function = AS_STL_FUNCTION(READ_CONSTANT());
 				ObjectClosure *closure = newClosure(vm, function);
 				push(vm, OBJECT_VAL(closure));
 
@@ -649,7 +649,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_ADD: {
-				if (IS_STRING(peek(vm, 0)) || IS_STRING(peek(vm, 1))) {
+				if (IS_STL_STRING(peek(vm, 0)) || IS_STL_STRING(peek(vm, 1))) {
 					if (!concatenate(vm)) {
 						return INTERPRET_RUNTIME_ERROR;
 					}
@@ -819,11 +819,11 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
-				if (!IS_INSTANCE(peek(vm, 0))) {
+				if (!IS_STL_INSTANCE(peek(vm, 0))) {
 					runtimePanic(vm, TYPE, "Only instances have properties.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				ObjectInstance *instance = AS_INSTANCE(peek(vm, 0));
+				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 0));
 				ObjectString *name = READ_STRING();
 
 				Value value;
@@ -844,12 +844,12 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_SET_PROPERTY: {
-				if (!IS_INSTANCE(peek(vm, 1))) {
+				if (!IS_STL_INSTANCE(peek(vm, 1))) {
 					runtimePanic(vm, TYPE, "Only instances have fields.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectInstance *instance = AS_INSTANCE(peek(vm, 1));
+				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 1));
 				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
@@ -877,20 +877,20 @@ static InterpretResult run(VM *vm) {
 			case OP_INHERIT: {
 				Value superClass = peek(vm, 1);
 
-				if (!IS_CLASS(superClass)) {
+				if (!IS_STL_CLASS(superClass)) {
 					runtimePanic(vm, TYPE, "Cannot inherit from non class object.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectClass *subClass = AS_CLASS(peek(vm, 0));
-				tableAddAll(vm, &AS_CLASS(superClass)->methods, &subClass->methods);
+				ObjectClass *subClass = AS_STL_CLASS(peek(vm, 0));
+				tableAddAll(vm, &AS_STL_CLASS(superClass)->methods, &subClass->methods);
 				pop(vm);
 				break;
 			}
 
 			case OP_GET_SUPER: {
 				ObjectString *name = READ_STRING();
-				ObjectClass *superClass = AS_CLASS(pop(vm));
+				ObjectClass *superClass = AS_STL_CLASS(pop(vm));
 
 				if (!bindMethod(vm, superClass, name)) {
 					return INTERPRET_RUNTIME_ERROR;
@@ -901,7 +901,7 @@ static InterpretResult run(VM *vm) {
 			case OP_SUPER_INVOKE: {
 				ObjectString *method = READ_STRING();
 				int argCount = READ_BYTE();
-				ObjectClass *superClass = AS_CLASS(pop(vm));
+				ObjectClass *superClass = AS_STL_CLASS(pop(vm));
 				if (!invokeFromClass(vm, superClass, method, argCount)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
@@ -925,7 +925,7 @@ static InterpretResult run(VM *vm) {
 				for (int i = elementCount - 1; i >= 0; i--) {
 					Value value = pop(vm);
 					Value key = pop(vm);
-					if (IS_NUMBER(key) || IS_STRING(key)) {
+					if (IS_NUMBER(key) || IS_STL_STRING(key)) {
 						if (!objectTableSet(vm, table, key, value)) {
 							runtimePanic(vm, COLLECTION_SET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
@@ -941,9 +941,9 @@ static InterpretResult run(VM *vm) {
 
 			case OP_GET_COLLECTION: {
 				Value indexValue = pop(vm);
-				if (IS_TABLE(peek(vm, 0))) {
-					if (IS_STRING(indexValue) || IS_NUMBER(indexValue)) {
-						ObjectTable *table = AS_TABLE(peek(vm, 0));
+				if (IS_STL_TABLE(peek(vm, 0))) {
+					if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
+						ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
 						Value value;
 						if (!objectTableGet(table, indexValue, &value)) {
 							runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
@@ -955,13 +955,13 @@ static InterpretResult run(VM *vm) {
 						runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_ARRAY(peek(vm, 0))) {
+				} else if (IS_STL_ARRAY(peek(vm, 0))) {
 					if (!IS_NUMBER(indexValue)) {
 						runtimePanic(vm, TYPE, "Index must be of type 'number'.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 					int index = AS_NUMBER(indexValue);
-					ObjectArray *array = AS_ARRAY(peek(vm, 0));
+					ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
 					Value value;
 					if (index < 0 || index >= array->size) {
 						runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
@@ -982,9 +982,9 @@ static InterpretResult run(VM *vm) {
 				Value value = pop(vm);
 				Value indexValue = peek(vm, 0);
 
-				if (IS_TABLE(peek(vm, 1))) {
-					ObjectTable *table = AS_TABLE(peek(vm, 1));
-					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
+				if (IS_STL_TABLE(peek(vm, 1))) {
+					ObjectTable *table = AS_STL_TABLE(peek(vm, 1));
+					if (IS_NUMBER(indexValue) || IS_STL_STRING(indexValue)) {
 						if (!objectTableSet(vm, table, indexValue, value)) {
 							runtimePanic(vm, COLLECTION_GET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
@@ -993,8 +993,8 @@ static InterpretResult run(VM *vm) {
 						runtimePanic(vm, TYPE, "Key cannot be hashed.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_ARRAY(peek(vm, 1))) {
-					ObjectArray *array = AS_ARRAY(peek(vm, 1));
+				} else if (IS_STL_ARRAY(peek(vm, 1))) {
+					ObjectArray *array = AS_STL_ARRAY(peek(vm, 1));
 					int index = AS_NUMBER(indexValue);
 					if (!arraySet(vm, array, index, value)) {
 						runtimePanic(vm, COLLECTION_SET, "Failed to set value in array");
@@ -1144,7 +1144,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_ANON_FUNCTION: {
-				ObjectFunction *function = AS_FUNCTION(READ_CONSTANT());
+				ObjectFunction *function = AS_STL_FUNCTION(READ_CONSTANT());
 				ObjectClosure *closure = newClosure(vm, function);
 				push(vm, OBJECT_VAL(closure));
 				for (int i = 0; i < closure->upvalueCount; i++) {
@@ -1296,7 +1296,7 @@ static InterpretResult run(VM *vm) {
 				// add the imported names to the current module (deep copy)
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
-					if (aliases[i] != NULL && IS_STRING(OBJECT_VAL(aliases[i]))) {
+					if (aliases[i] != NULL && IS_STL_STRING(OBJECT_VAL(aliases[i]))) {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], aliases[i]);
 					}else {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], names[i]);

@@ -12,8 +12,8 @@ ObjectResult* errorNative(VM *vm, int argCount, Value *args) {
 ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 
-	if (IS_ERROR(value)) {
-		ObjectError *error = AS_ERROR(value);
+	if (IS_STL_ERROR(value)) {
+		ObjectError *error = AS_STL_ERROR(value);
 		error->isPanic = true;
 		return stellaErr(vm, error);
 	}
@@ -27,14 +27,14 @@ ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(arg
 				newError(vm, copyString(vm, "Failed to assert: <condition> must be of type 'bool'.", 53), TYPE, true);
 		return stellaErr(vm, error);
 	}
-	if (!IS_STRING(args[1])) {
+	if (!IS_STL_STRING(args[1])) {
 		ObjectError *error =
 				newError(vm, copyString(vm, "Failed to assert: <message> must be of type 'string'.", 53), TYPE, true);
 		return stellaErr(vm, error);
 	}
 
 	bool result = AS_BOOL(args[0]);
-	ObjectString *message = AS_STRING(args[1]);
+	ObjectString *message = AS_STL_STRING(args[1]);
 
 	if (result == false) {
 		ObjectError *error = newError(vm, message, ASSERT, true);
@@ -45,13 +45,13 @@ ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(arg
 }
 
 ObjectResult* errorMessageMethod(VM *vm, int argCount, Value *args) {
-	ObjectError *error = AS_ERROR(args[0]);
+	ObjectError *error = AS_STL_ERROR(args[0]);
 
 	return stellaOk(vm, OBJECT_VAL(error->message));
 }
 
 ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
-	ObjectError *error = AS_ERROR(args[0]);
+	ObjectError *error = AS_STL_ERROR(args[0]);
 
 	switch (error->type) {
 		case SYNTAX: {
@@ -186,8 +186,8 @@ ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult* _err(VM *vm, int argCount, Value *args) {
 
-	if (IS_OBJECT(args[0]) && IS_ERROR(args[0])) {
-		return stellaErr(vm, AS_ERROR(args[0]));
+	if (IS_STL_OBJECT(args[0]) && IS_STL_ERROR(args[0])) {
+		return stellaErr(vm, AS_STL_ERROR(args[0]));
 	}
 
 	ObjectString* message = toString(vm, args[0]);

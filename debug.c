@@ -132,7 +132,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			printValue(chunk->constants.values[constant]);
 			printf("\n");
 
-			ObjectFunction *function = AS_FUNCTION(chunk->constants.values[constant]);
+			ObjectFunction *function = AS_STL_FUNCTION(chunk->constants.values[constant]);
 			for (int j = 0; j < function->upvalueCount; j++) {
 				int isLocal = chunk->code[offset++];
 				int index = chunk->code[offset++];
@@ -233,7 +233,7 @@ bool verifyNumbers(Value a, Value b, const char *operation) {
 		printf(" (type: %s)\n", IS_NUMBER(a)	 ? "number"
 														: IS_NIL(a)		 ? "nil"
 														: IS_BOOL(a)	 ? "boolean"
-														: IS_STRING(a) ? "string"
+														: IS_STL_STRING(a) ? "string"
 																					 : "other");
 
 		printf("Right operand: ");
@@ -241,7 +241,7 @@ bool verifyNumbers(Value a, Value b, const char *operation) {
 		printf(" (type: %s)\n", IS_NUMBER(b)	 ? "number"
 														: IS_NIL(b)		 ? "nil"
 														: IS_BOOL(b)	 ? "boolean"
-														: IS_STRING(b) ? "string"
+														: IS_STL_STRING(b) ? "string"
 																					 : "other");
 		return false;
 	}

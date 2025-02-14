@@ -50,8 +50,8 @@ void markObject(VM *vm, Object *object) {
 }
 
 void markValue(VM *vm, Value value) {
-	if (IS_OBJECT(value)) {
-		markObject(vm, AS_OBJECT(value));
+	if (IS_STL_OBJECT(value)) {
+		markObject(vm, AS_STL_OBJECT(value));
 	}
 }
 
@@ -162,10 +162,18 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
+		case OBJECT_RESULT: {
+			ObjectResult *result = (ObjectResult *) object;
+			if (result->isOk) {
+				markValue(vm, result->content.value);
+			}else {
+				markObject(vm, (Object *) result->content.error);
+			}
+		}
+
 		case OBJECT_STRING: {
 			break;
 		}
-
 	}
 }
 
@@ -246,6 +254,12 @@ static void freeObject(VM *vm, Object *object) {
 			ObjectModule *module = (ObjectModule *) object;
 			freeImportSet(vm, &module->importedModules);
 			FREE(vm, ObjectModule, object);
+			break;
+		}
+
+		case OBJECT_RESULT: {
+			ObjectResult *result = (ObjectResult *) object;
+			FREE(vm, ObjectResult, object);
 			break;
 		}
 	}

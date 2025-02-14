@@ -28,7 +28,7 @@ void buildPrefixTable(const char *pattern, uint64_t patternLength, uint64_t *pre
 
 ObjectResult* stringFirstMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
-	ObjectString *string = AS_STRING(value);
+	ObjectString *string = AS_STL_STRING(value);
 
 	if (string->length == 0) {
 		return stellaErr(vm,
@@ -41,7 +41,7 @@ ObjectResult* stringFirstMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult* stringLastMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
-	ObjectString *string = AS_STRING(value);
+	ObjectString *string = AS_STL_STRING(value);
 	if (string->length == 0) {
 		return stellaErr(vm, newError(
 				vm, copyString(vm, "'string' must have at least one character to get the last character.", 68), VALUE, false));
@@ -57,7 +57,7 @@ ObjectResult* stringGetMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
 
 	}
-	ObjectString *string = AS_STRING(value);
+	ObjectString *string = AS_STL_STRING(value);
 	if (AS_NUMBER(index) < 0 || AS_NUMBER(index) > (double) string->length) {
 		return stellaErr(vm, newError(
 				vm, copyString(vm, "<index> must be a non negative number that is less than the length of the string.", 81),
@@ -74,7 +74,7 @@ ObjectResult* stringGetMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringUpperMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
+	ObjectString *string = AS_STL_STRING(args[0]);
 	if (string->length == 0) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Cannot make empty string uppercase.", 35), VALUE, false));
 	}
@@ -88,7 +88,7 @@ ObjectResult* stringUpperMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringLowerMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Cannot make empty string lowercase.", 35), VALUE, false));
@@ -103,7 +103,7 @@ ObjectResult* stringLowerMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringStripMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Cannot strip whitespace from an empty string.", 45), VALUE, false));
@@ -128,7 +128,7 @@ ObjectResult* stringStripMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringSubstringMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, false));
@@ -157,13 +157,13 @@ ObjectResult* stringSubstringMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult* stringSplitMethod(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
+	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Both arguments must be strings.", 31), TYPE, false));
 
 	}
 
-	ObjectString *string = AS_STRING(args[0]);
-	ObjectString *delimiter = AS_STRING(args[1]);
+	ObjectString *string = AS_STL_STRING(args[0]);
+	ObjectString *delimiter = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || delimiter->length == 0) {
 		return stellaErr(vm, newError(vm,
@@ -254,13 +254,13 @@ ObjectResult* stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 // KMP string-matching algorithm
 ObjectResult* stringContainsMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
+	ObjectString *string = AS_STL_STRING(args[0]);
 
-	if (!IS_STRING(args[1])) {
+	if (!IS_STL_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, false));
 
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		return stellaErr(vm, newError(vm,
@@ -305,14 +305,14 @@ ObjectResult* stringContainsMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult* stringReplaceMethod(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0]) || !IS_STRING(args[1]) || !IS_STRING(args[2])) {
+	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1]) || !IS_STL_STRING(args[2])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, false));
 
 	}
 
-	ObjectString *string = AS_STRING(args[0]);
-	ObjectString *goal = AS_STRING(args[1]);
-	ObjectString *replacement = AS_STRING(args[2]);
+	ObjectString *string = AS_STL_STRING(args[0]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
+	ObjectString *replacement = AS_STL_STRING(args[2]);
 
 	if (string->length == 0 || goal->length == 0) {
 		return stellaErr(vm,
@@ -405,12 +405,12 @@ ObjectResult* stringReplaceMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringStartsWithMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
-	if (!IS_STRING(args[1])) {
+	ObjectString *string = AS_STL_STRING(args[0]);
+	if (!IS_STL_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, false));
 
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		return stellaErr(vm, newError(vm,
@@ -432,12 +432,12 @@ ObjectResult* stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* stringEndsWithMethod(VM *vm, int argCount, Value *args) {
-	ObjectString *string = AS_STRING(args[0]);
-	if (!IS_STRING(args[1])) {
+	ObjectString *string = AS_STL_STRING(args[0]);
+	if (!IS_STL_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, false));
 
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
 		return stellaErr(vm, newError(vm,

@@ -76,6 +76,20 @@ void printTable(ObjectTable *table) {
 	printf("}");
 }
 
+void printResult(ObjectResult* result) {
+	if (result->isOk) {
+			printf("Ok<");
+			printValue(result->content.value);
+			printf(">");
+	}
+	else {
+		printf("Err<");
+		// TODO: Make this print the error's type
+		printf("%s", result->content.error->message->chars);
+		printf(">");
+	}
+}
+
 void valuePrint(Value value) {
 	if (IS_BOOL(value)) {
 		printf(AS_BOOL(value) ? "true" : "false");
@@ -83,11 +97,13 @@ void valuePrint(Value value) {
 		printf("nil");
 	} else if (IS_NUMBER(value)) {
 		printNumber(value);
-	} else if (IS_ARRAY(value)) {
-		printArray(AS_ARRAY(value));
-	} else if (IS_TABLE(value)) {
-		printTable(AS_TABLE(value));
-	} else if (IS_OBJECT(value)) {
+	} else if (IS_STL_ARRAY(value)) {
+		printArray(AS_STL_ARRAY(value));
+	} else if (IS_STL_TABLE(value)) {
+		printTable(AS_STL_TABLE(value));
+	}else if (IS_STL_RESULT(value)) {
+		printResult(AS_STL_RESULT(value));
+	} else if (IS_STL_OBJECT(value)) {
 		printObject(value);
 	}
 }
@@ -106,12 +122,12 @@ ObjectResult* _println(VM *vm, int argCount, Value *args) {
 
 ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
+	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel and content must be strings.", 36), TYPE, false));
 	}
 
-	const char *channel = AS_CSTRING(args[0]);
-	const char *content = AS_CSTRING(args[1]);
+	const char *channel = AS_C_STRING(args[0]);
+	const char *content = AS_C_STRING(args[1]);
 
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
@@ -157,11 +173,11 @@ ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
 
 ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0])) {
+	if (!IS_STL_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
-	const char *channel = AS_CSTRING(args[0]);
+	const char *channel = AS_C_STRING(args[0]);
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, false));
@@ -181,11 +197,11 @@ ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
 
 ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0])) {
+	if (!IS_STL_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
-	const char *channel = AS_CSTRING(args[0]);
+	const char *channel = AS_C_STRING(args[0]);
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, false));
@@ -255,7 +271,7 @@ ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
 
 ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0])) {
+	if (!IS_STL_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
@@ -263,7 +279,7 @@ ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Number of characters must be a number.", 38), TYPE, false));
 	}
 
-	const char *channel = AS_CSTRING(args[0]);
+	const char *channel = AS_C_STRING(args[0]);
 	FILE *stream = getChannel(channel);
 	if (stream == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Invalid channel specified.", 26), VALUE, false));

@@ -6,34 +6,34 @@
 #include "table.h"
 #include "value.h"
 
-#define OBJECT_TYPE(value) (AS_OBJECT(value)->type)
+#define OBJECT_TYPE(value) (AS_STL_OBJECT(value)->type)
 
-#define IS_STRING(value) isObjectType(value, OBJECT_STRING)
-#define IS_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
-#define IS_NATIVE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_FUNCTION)
-#define IS_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
-#define IS_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
-#define IS_CLASS(value) isObjectType(value, OBJECT_CLASS)
-#define IS_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
-#define IS_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
-#define IS_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
-#define IS_TABLE(value) isObjectType(value, OBJECT_TABLE)
-#define IS_ERROR(value) isObjectType(value, OBJECT_ERROR)
-#define IS_RESULT(value) isObjectType(value, OBJECT_RESULT)
+#define IS_STL_STRING(value) isObjectType(value, OBJECT_STRING)
+#define IS_STL_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
+#define IS_STL_NATIVE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_FUNCTION)
+#define IS_STL_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
+#define IS_STL_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
+#define IS_STL_CLASS(value) isObjectType(value, OBJECT_CLASS)
+#define IS_STL_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
+#define IS_STL_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
+#define IS_STL_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
+#define IS_STL_TABLE(value) isObjectType(value, OBJECT_TABLE)
+#define IS_STL_ERROR(value) isObjectType(value, OBJECT_ERROR)
+#define IS_STL_RESULT(value) isObjectType(value, OBJECT_RESULT)
 
-#define AS_STRING(value) ((ObjectString *) AS_OBJECT(value))
-#define AS_CSTRING(value) (((ObjectString *) AS_OBJECT(value))->chars)
-#define AS_FUNCTION(value) ((ObjectFunction *) AS_OBJECT(value))
-#define AS_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_OBJECT(value))
-#define AS_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_OBJECT(value))
-#define AS_CLOSURE(value) ((ObjectClosure *) AS_OBJECT(value))
-#define AS_CLASS(value) ((ObjectClass *) AS_OBJECT(value))
-#define AS_INSTANCE(value) ((ObjectInstance *) AS_OBJECT(value))
-#define AS_BOUND_METHOD(value) ((ObjectBoundMethod *) AS_OBJECT(value))
-#define AS_ARRAY(value) ((ObjectArray *) AS_OBJECT(value))
-#define AS_TABLE(value) ((ObjectTable *) AS_OBJECT(value))
-#define AS_ERROR(value) ((ObjectError *) AS_OBJECT(value))
-#define AS_RESULT(value) ((ObjectResult *) AS_OBJECT(value))
+#define AS_STL_STRING(value) ((ObjectString *) AS_STL_OBJECT(value))
+#define AS_C_STRING(value) (((ObjectString *) AS_STL_OBJECT(value))->chars)
+#define AS_STL_FUNCTION(value) ((ObjectFunction *) AS_STL_OBJECT(value))
+#define AS_STL_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_STL_OBJECT(value))
+#define AS_STL_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_STL_OBJECT(value))
+#define AS_STL_CLOSURE(value) ((ObjectClosure *) AS_STL_OBJECT(value))
+#define AS_STL_CLASS(value) ((ObjectClass *) AS_STL_OBJECT(value))
+#define AS_STL_INSTANCE(value) ((ObjectInstance *) AS_STL_OBJECT(value))
+#define AS_STL_BOUND_METHOD(value) ((ObjectBoundMethod *) AS_STL_OBJECT(value))
+#define AS_STL_ARRAY(value) ((ObjectArray *) AS_STL_OBJECT(value))
+#define AS_STL_TABLE(value) ((ObjectTable *) AS_STL_OBJECT(value))
+#define AS_STL_ERROR(value) ((ObjectError *) AS_STL_OBJECT(value))
+#define AS_STL_RESULT(value) ((ObjectResult *) AS_STL_OBJECT(value))
 
 
 typedef enum {
@@ -208,7 +208,7 @@ struct ObjectModule{
 	int vmDepth;
 };
 
-static bool isObjectType(Value value, ObjectType type) { return IS_OBJECT(value) && AS_OBJECT(value)->type == type; }
+static bool isObjectType(Value value, ObjectType type) { return IS_STL_OBJECT(value) && AS_STL_OBJECT(value)->type == type; }
 
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic);
 ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method);

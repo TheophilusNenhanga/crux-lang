@@ -3,22 +3,22 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "chunk.h"
 #include "memory.h"
 #include "object.h"
+#include "panic.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
 
-// Make these two non globals
 Parser parser;
 Compiler *current = NULL;
 ClassCompiler *currentClass = NULL;
 Chunk *compilingChunk;
 
-#include "panic.h"
 static void expression();
 
 static void parsePrecedence(Precedence precedence);
