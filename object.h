@@ -156,7 +156,7 @@ typedef struct {
 	union {
 		Value value;
 		ObjectError* error;
-	} content;
+	} as;
 } ObjectResult;
 
 typedef ObjectResult* (*StellaNativeCallable)(VM *vm, int argCount, Value *args);

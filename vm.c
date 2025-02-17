@@ -77,8 +77,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				vm->stackTop -= argCount;
 
 				if (!result->isOk) {
-					if (result->content.error->isPanic) {
-						runtimePanic(vm, result->content.error->type, result->content.error->message->chars);
+					if (result->as.error->isPanic) {
+						runtimePanic(vm, result->as.error->type, result->as.error->message->chars);
 						return false;
 					}
 				}
@@ -98,8 +98,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				vm->stackTop -= argCount + 1;
 
 				if (!result->isOk) {
-					if (result->content.error->isPanic) {
-						runtimePanic(vm, result->content.error->type, result->content.error->message->chars);
+					if (result->as.error->isPanic) {
+						runtimePanic(vm, result->as.error->type, result->as.error->message->chars);
 						return false;
 					}
 				}

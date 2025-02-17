@@ -683,13 +683,13 @@ void freeImportSet(VM* vm, ImportSet* set) {
 ObjectResult* stellaOk(VM* vm, Value value) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = true;
-	result->content.value = value;
+	result->as.value = value;
 	return result;
 }
 
 ObjectResult* stellaErr(VM *vm, ObjectError* error) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = false;
-	result->content.error = error;
+	result->as.error = error;
 	return result;
 }

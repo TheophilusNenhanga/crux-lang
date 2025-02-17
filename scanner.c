@@ -150,6 +150,9 @@ static TokenType identifierType() {
 						return TOKEN_IDENTIFIER;
 				}
 			}
+		case 'm': {
+			return checkKeyword(1, 4, "atch", TOKEN_MATCH);
+		}
 		case 't':
 			return checkKeyword(1, 3, "rue", TOKEN_TRUE);
 		case 'u':
@@ -314,7 +317,16 @@ Token scanToken() {
 				return makeToken(TOKEN_BANG_EQUAL);
 			}
 		case '=':
-			return makeToken(match('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);
+			if (scanner.current - scanner.start > 1) {
+				switch (scanner.start[1]) {
+					case '=':
+						return makeToken(TOKEN_EQUAL_EQUAL);
+					case '>':
+						return makeToken(TOKEN_EQUAL_ARROW);
+				}
+			}else {
+				return makeToken(TOKEN_EQUAL);
+			}
 		case '<':
 			if (match('<')) {
 				return makeToken(TOKEN_LEFT_SHIFT);

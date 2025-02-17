@@ -165,9 +165,9 @@ static void blackenObject(VM *vm, Object *object) {
 		case OBJECT_RESULT: {
 			ObjectResult *result = (ObjectResult *) object;
 			if (result->isOk) {
-				markValue(vm, result->content.value);
+				markValue(vm, result->as.value);
 			}else {
-				markObject(vm, (Object *) result->content.error);
+				markObject(vm, (Object *) result->as.error);
 			}
 		}
 

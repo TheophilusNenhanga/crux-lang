@@ -64,6 +64,9 @@ typedef enum {
 	TOKEN_PUB,
 	TOKEN_AS, 
 	TOKEN_EOF,
+	TOKEN_MATCH,
+	TOKEN_EQUAL_ARROW,
+	TOKEN_UNDERSCORE,
 } TokenType;
 
 typedef struct {

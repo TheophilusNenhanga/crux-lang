@@ -982,6 +982,24 @@ static void publicDeclaration() {
 	}
 }
 
+static void matchStatement() {
+	expression();
+	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
+
+	int patternCount = 0;
+
+	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+		// parse the pattern
+		// emit the pattern
+		// handle the jumping
+		// compile the body of the pattern
+	}
+
+	// patchJumps at the end
+
+	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
+}
+
 
 static void declaration() {
 	if (match(TOKEN_LET)) {
@@ -1015,6 +1033,8 @@ static void statement() {
 		returnStatement();
 	} else if (match(TOKEN_USE)) {
 		useStatement();
+	}else if (match(TOKEN_MATCH)) {
+		matchStatement();
 	} else {
 		expressionStatement();
 	}
