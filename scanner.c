@@ -159,6 +159,10 @@ static TokenType identifierType() {
 			return checkKeyword(1, 2, "se", TOKEN_USE);
 		case 'p':
 			return checkKeyword(1, 2, "ub", TOKEN_PUB);
+		case 'E':
+			return checkKeyword(1, 2, "rr", TOKEN_ERR);
+		case 'O':
+			return checkKeyword(1, 1, "k", TOKEN_OK);
 		default:;
 	}
 

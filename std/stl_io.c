@@ -79,13 +79,13 @@ void printTable(ObjectTable *table) {
 void printResult(ObjectResult* result) {
 	if (result->isOk) {
 			printf("Ok<");
-			printValue(result->content.value);
+			printValue(result->as.value);
 			printf(">");
 	}
 	else {
 		printf("Err<");
 		// TODO: Make this print the error's type
-		printf("%s", result->content.error->message->chars);
+		printf("%s", result->as.error->message->chars);
 		printf(">");
 	}
 }

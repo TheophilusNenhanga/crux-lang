@@ -50,8 +50,10 @@ static void advance() {
 }
 
 /**
- * Reads the next token. Validates that the token has the expected type. If not
- * reports an error.
+ * Checks if the current token is the same as the given token.
+ * If it is, advances, if not causes the compiler to panic
+ * @param type The type you are trying to check for
+ * @param message The error message if the check fails
  */
 static void consume(TokenType type, const char *message) {
 	if (parser.current.type == type) {
@@ -61,8 +63,20 @@ static void consume(TokenType type, const char *message) {
 	compilerPanic(&parser, message, SYNTAX);
 }
 
+/**
+ * Check if the current token is the same as the given token.
+ * Does not advance.
+ * @param type The token you are trying to check for.
+ * @return true if the token matches false otherwise.
+ */
 static bool check(TokenType type) { return parser.current.type == type; }
 
+/**
+ * checks if the current token is the given token. If it is, advances.
+ * Does not advance if the token does not match.
+ * @param type The token you are trying to check for.
+ * @return true if the token matched, false otherwise.
+ */
 static bool match(TokenType type) {
 	if (!check(type))
 		return false;
@@ -986,17 +1000,93 @@ static void matchStatement() {
 	expression();
 	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
 
-	int patternCount = 0;
+	int* endJumps = ALLOCATE(current->owner, int, 8);
+	int jumpCount = 0;
+	int jumpCapacity = 8;
+
+	emitByte(OP_MATCH);
+	bool hasDefault = false;
+	bool hasOk = false;
+	bool hasErr = false;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		// parse the pattern
-		// emit the pattern
-		// handle the jumping
-		// compile the body of the pattern
+
+		if (match(TOKEN_OK)) {
+			if (!match(TOKEN_EQUAL_ARROW)) {
+				emitByte(OP_MATCH_OK);
+			}else {
+				advance();
+				consume(TOKEN_LEFT_PAREN, "Expected '(' after Ok.");
+				consume(TOKEN_IDENTIFIER, "Expected identifier after Ok(.");
+				uint8_t slot = parseVariable("Cannot declare variable in match pattern.");
+				defineVariable(slot);
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				emitByte(OP_MATCH_OK);
+			}
+			hasOk = true;
+		} else if (match(TOKEN_ERR)) {
+			if (!check(TOKEN_EQUAL_ARROW)) {
+				emitByte(OP_MATCH_ERR);
+			} else {
+				advance();
+				consume(TOKEN_LEFT_PAREN, "Expected '(' after Err.");
+				consume(TOKEN_IDENTIFIER, "Expected identifier after Err(.");
+				uint8_t slot = parseVariable("Cannot declare variable in match pattern.");
+				defineVariable(slot);
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				emitByte(OP_MATCH_ERR);
+			}
+			hasErr = true;
+		} else if (match(TOKEN_UNDERSCORE)) {
+			if (hasDefault) {
+				compilerPanic(&parser, "Cannot have multiple default patterns.", SYNTAX);
+			}
+			hasDefault = true;
+		}else {
+			expression();
+		}
+
+
+		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
+
+		int jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
+
+		// Compile match body
+		if (match(TOKEN_LEFT_BRACE)) {
+			beginScope();
+			block();
+			endScope();
+		} else {
+			expression();
+			consume(TOKEN_SEMICOLON, "Expected ';' after match arm expression.");
+		}
+
+		if (jumpCount + 1 > jumpCapacity) {
+			int oldCapacity = jumpCapacity;
+			jumpCapacity = GROW_CAPACITY(oldCapacity);
+			endJumps = GROW_ARRAY(current->owner, int, endJumps, oldCapacity, jumpCapacity);
+		}
+
+		endJumps[jumpCount++] = emitJump(OP_JUMP);
+		patchJump(jumpIfNotMatch);
 	}
 
-	// patchJumps at the end
+	if (!(hasErr && hasOk)) {
+		hasErr ? compilerPanic(&parser, "match statement must have Ok branch if it has Err branch.", SYNTAX) : compilerPanic(&parser, "match statement must have Err branch if it has Ok branch.", SYNTAX);
+	}
+	bool needsDefault = !(hasErr || hasOk);
+	if (!(needsDefault && hasDefault)) {
+		compilerPanic(&parser, "match statement must have default case '_'.", SYNTAX);
+	}
 
+	emitByte(OP_MATCH_END);
+
+	for (int i = 0; i < jumpCount; i++) {
+		patchJump(endJumps[i]);
+	}
+
+	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
 }
 

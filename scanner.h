@@ -67,6 +67,8 @@ typedef enum {
 	TOKEN_MATCH,
 	TOKEN_EQUAL_ARROW,
 	TOKEN_UNDERSCORE,
+	TOKEN_OK,
+	TOKEN_ERR,
 } TokenType;
 
 typedef struct {

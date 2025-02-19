@@ -69,6 +69,11 @@ typedef enum {
 	OP_UNPACK_TUPLE,
 	OP_USE,
 	OP_PUB,
+	OP_MATCH,
+	OP_MATCH_OK,
+	OP_MATCH_ERR,
+	OP_MATCH_JUMP,
+	OP_MATCH_END
 } OpCode;
 
 typedef struct {
