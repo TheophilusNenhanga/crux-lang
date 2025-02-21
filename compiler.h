@@ -61,6 +61,7 @@ typedef struct {
 	FunctionType type;
 	int localCount;
 	int scopeDepth; // 0 is global scope
+	int matchDepth;
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 } Compiler;

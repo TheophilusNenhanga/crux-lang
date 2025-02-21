@@ -87,7 +87,7 @@ static TokenType identifierType() {
 			}
 		case 'b':
 			return checkKeyword(1, 4, "reak", TOKEN_BREAK);
-		case 'c':
+		case 'c': {
 			if (scanner.current - scanner.start > 1) {
 				switch (scanner.start[1]) {
 					case 'l':
@@ -98,6 +98,10 @@ static TokenType identifierType() {
 				}
 			}
 			return checkKeyword(1, 4, "lass", TOKEN_CLASS);
+		}
+		case 'd': {
+			return checkKeyword(1, 6, "efault", TOKEN_DEFAULT);
+		}
 		case 'e':
 			return checkKeyword(1, 3, "lse", TOKEN_ELSE);
 		case 'i':
@@ -321,16 +325,14 @@ Token scanToken() {
 				return makeToken(TOKEN_BANG_EQUAL);
 			}
 		case '=':
-			if (scanner.current - scanner.start > 1) {
-				switch (scanner.start[1]) {
-					case '=':
-						return makeToken(TOKEN_EQUAL_EQUAL);
-					case '>':
-						return makeToken(TOKEN_EQUAL_ARROW);
-				}
-			}else {
-				return makeToken(TOKEN_EQUAL);
+			// we can have == or = or => as tokens
+			if (match('=')) {
+				return makeToken(TOKEN_EQUAL_EQUAL);
 			}
+			if (match('>')) {
+				return makeToken(TOKEN_EQUAL_ARROW);
+			}
+			return makeToken(TOKEN_EQUAL);
 		case '<':
 			if (match('<')) {
 				return makeToken(TOKEN_LEFT_SHIFT);

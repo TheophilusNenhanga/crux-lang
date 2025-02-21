@@ -148,6 +148,7 @@ static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+	compiler->matchDepth = 0;
 	compiler->owner = vm;
 
 	compiler->function = newFunction(compiler->owner);
@@ -996,13 +997,27 @@ static void publicDeclaration() {
 	}
 }
 
+static void beginMatchScope() {
+	beginScope();
+	current->matchDepth++;
+}
+
+static void endMatchScope() {
+	endScope();
+	current->matchDepth--;
+}
+
 static void matchStatement() {
-	expression();
+	beginMatchScope();
+
+	expression(); // compile match target
 	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
 
 	int* endJumps = ALLOCATE(current->owner, int, 8);
 	int jumpCount = 0;
 	int jumpCapacity = 8;
+
+	int armCount = 0;
 
 	emitByte(OP_MATCH);
 	bool hasDefault = false;
@@ -1010,57 +1025,59 @@ static void matchStatement() {
 	bool hasErr = false;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-		// parse the pattern
+		bool patternNeedsBinding = false;
+		Token bindingName = {};  // Store the name for variable binding
 
 		if (match(TOKEN_OK)) {
-			if (!match(TOKEN_EQUAL_ARROW)) {
-				emitByte(OP_MATCH_OK);
-			}else {
-				advance();
-				consume(TOKEN_LEFT_PAREN, "Expected '(' after Ok.");
+			if (match(TOKEN_LEFT_PAREN)) {
+				patternNeedsBinding = true;
 				consume(TOKEN_IDENTIFIER, "Expected identifier after Ok(.");
-				uint8_t slot = parseVariable("Cannot declare variable in match pattern.");
-				defineVariable(slot);
+				bindingName = parser.previous;
 				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
-				emitByte(OP_MATCH_OK);
 			}
+			emitByte(OP_MATCH_OK);
 			hasOk = true;
+			armCount++;
 		} else if (match(TOKEN_ERR)) {
-			if (!check(TOKEN_EQUAL_ARROW)) {
-				emitByte(OP_MATCH_ERR);
-			} else {
-				advance();
-				consume(TOKEN_LEFT_PAREN, "Expected '(' after Err.");
+			// Result::Err pattern
+			if (match(TOKEN_LEFT_PAREN)) {
+				patternNeedsBinding = true;
 				consume(TOKEN_IDENTIFIER, "Expected identifier after Err(.");
-				uint8_t slot = parseVariable("Cannot declare variable in match pattern.");
-				defineVariable(slot);
+				bindingName = parser.previous;
 				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
-				emitByte(OP_MATCH_ERR);
 			}
+			emitByte(OP_MATCH_ERR);
 			hasErr = true;
-		} else if (match(TOKEN_UNDERSCORE)) {
+			armCount++;
+		} else if (match(TOKEN_DEFAULT)) {
 			if (hasDefault) {
 				compilerPanic(&parser, "Cannot have multiple default patterns.", SYNTAX);
 			}
 			hasDefault = true;
+			armCount++;
 		}else {
 			expression();
+			armCount++;
 		}
-
 
 		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
 
 		int jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
 
+		if (patternNeedsBinding) {
+			namedVariable(bindingName, true);
+			emitByte(OP_MATCH_BIND);
+		}
+
+		beginScope();
 		// Compile match body
 		if (match(TOKEN_LEFT_BRACE)) {
-			beginScope();
 			block();
-			endScope();
 		} else {
 			expression();
 			consume(TOKEN_SEMICOLON, "Expected ';' after match arm expression.");
 		}
+		endScope();
 
 		if (jumpCount + 1 > jumpCapacity) {
 			int oldCapacity = jumpCapacity;
@@ -1072,12 +1089,20 @@ static void matchStatement() {
 		patchJump(jumpIfNotMatch);
 	}
 
-	if (!(hasErr && hasOk)) {
-		hasErr ? compilerPanic(&parser, "match statement must have Ok branch if it has Err branch.", SYNTAX) : compilerPanic(&parser, "match statement must have Err branch if it has Ok branch.", SYNTAX);
+	if (armCount == 0) {
+		compilerPanic(&parser, "Match statement must have at least one arm.", SYNTAX);
 	}
+
+	if (hasErr && !hasOk) {
+	
+		compilerPanic(&parser, "match statement must have Ok branch if it has Err branch.", SYNTAX);
+	} else if (hasOk && !hasErr) {
+		compilerPanic(&parser, "match statement must have Err branch if it has Ok branch.", SYNTAX);
+	}
+
 	bool needsDefault = !(hasErr || hasOk);
-	if (!(needsDefault && hasDefault)) {
-		compilerPanic(&parser, "match statement must have default case '_'.", SYNTAX);
+	if (needsDefault && !hasDefault) {
+		compilerPanic(&parser, "match statement must have default case 'default'.", SYNTAX);
 	}
 
 	emitByte(OP_MATCH_END);
@@ -1088,6 +1113,7 @@ static void matchStatement() {
 
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
+	endMatchScope();
 }
 
 
@@ -1296,6 +1322,8 @@ ParseRule rules[] = {
 		[TOKEN_PUB] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
+		[TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
+		[TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

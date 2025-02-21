@@ -73,7 +73,8 @@ typedef enum {
 	OP_MATCH_OK,
 	OP_MATCH_ERR,
 	OP_MATCH_JUMP,
-	OP_MATCH_END
+	OP_MATCH_END,
+	OP_MATCH_BIND,
 } OpCode;
 
 typedef struct {
