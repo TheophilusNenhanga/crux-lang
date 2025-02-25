@@ -23,7 +23,6 @@ typedef enum {
 	OP_SUBTRACT,
 	OP_MULTIPLY,
 	OP_DIVIDE,
-	OP_PRINT,
 	OP_POP,
 	OP_DEFINE_GLOBAL,
 	OP_GET_GLOBAL,
@@ -72,6 +71,9 @@ typedef enum {
 	OP_MATCH,
 	OP_MATCH_JUMP,
 	OP_MATCH_END,
+	OP_RESULT_MATCH_OK,
+	OP_RESULT_MATCH_ERR,
+	OP_RESULT_BIND,
 } OpCode;
 
 typedef struct {

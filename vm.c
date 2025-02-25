@@ -72,7 +72,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					return false;
 				}
 
-				ObjectResult* result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 
 				vm->stackTop -= argCount;
 
@@ -94,7 +94,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 					return false;
 				}
 
-				ObjectResult* result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 				vm->stackTop -= argCount + 1;
 
 				if (!result->isOk) {
@@ -319,10 +319,7 @@ void initVM(VM *vm) {
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
-	vm->nativeModules = (NativeModules) {
-	.modules = ALLOCATE(vm, NativeModule, 8),
-	.count = 0,
-	.capacity = 8};
+	vm->nativeModules = (NativeModules) {.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -705,12 +702,6 @@ static InterpretResult run(VM *vm) {
 
 			case OP_NOT: {
 				push(vm, BOOL_VAL(isFalsy(pop(vm))));
-				break;
-			}
-
-			case OP_PRINT: {
-				printValue(pop(vm));
-				printf("\n");
 				break;
 			}
 
@@ -1206,12 +1197,14 @@ static InterpretResult run(VM *vm) {
 				ObjectString *modulePath = READ_STRING();
 
 				if (importSetContains(&vm->module->importedModules, modulePath)) {
-					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
+					runtimePanic(vm, IMPORT,
+											 "Module '%s' has already been imported. All imports must be done in a single 'use' statement.",
+											 modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0)  {
-					char* moduleName = modulePath->chars + 4;
+				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0) {
+					char *moduleName = modulePath->chars + 4;
 					int moduleIndex = -1;
 					for (int i = 0; i < vm->nativeModules.count; i++) {
 						if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
@@ -1224,7 +1217,7 @@ static InterpretResult run(VM *vm) {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 
-					Table* moduleTable = vm->nativeModules.modules[moduleIndex].names;
+					Table *moduleTable = vm->nativeModules.modules[moduleIndex].names;
 					for (int i = 0; i < nameCount; i++) {
 						Value value;
 						bool getSuccess = tableGet(moduleTable, names[i], &value);
@@ -1298,7 +1291,7 @@ static InterpretResult run(VM *vm) {
 				for (int i = 0; i < nameCount; i++) {
 					if (aliases[i] != NULL && IS_STL_STRING(OBJECT_VAL(aliases[i]))) {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], aliases[i]);
-					}else {
+					} else {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], names[i]);
 					}
 					if (!success) {
@@ -1330,6 +1323,41 @@ static InterpretResult run(VM *vm) {
 
 				break;
 			}
+
+			case OP_RESULT_MATCH_ERR: {
+				uint16_t offset = READ_SHORT();
+				Value target = peek(vm, 0);
+
+				if (!IS_STL_RESULT(target) || AS_STL_RESULT(target)->isOk) {
+					frame->ip += offset;
+				} else {
+					Value error = OBJECT_VAL(AS_STL_RESULT(target)->as.error);
+					pop(vm);
+					push(vm, error);
+				}
+				break;
+			}
+
+			case OP_RESULT_MATCH_OK: {
+				uint16_t offset = READ_SHORT();
+				Value target = peek(vm, 0);
+
+				if (!IS_STL_RESULT(target) || !AS_STL_RESULT(target)->isOk) {
+					frame->ip += offset;
+				} else {
+					Value value = AS_STL_RESULT(target)->as.value;
+					pop(vm);
+					push(vm, value);
+				}
+				break;
+			}
+
+			case OP_RESULT_BIND: {
+				uint8_t slot = READ_BYTE();
+				frame->slots[slot] = peek(vm, 0);
+				break;
+			}
+
 			case OP_MATCH_END: {
 				pop(vm);
 				break;

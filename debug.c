@@ -99,8 +99,6 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return simpleInstruction("OP_LEFT_SHIFT", offset);
 		case OP_RIGHT_SHIFT:
 			return simpleInstruction("OP_RIGHT_SHIFT", offset);
-		case OP_PRINT:
-			return simpleInstruction("OP_PRINT", offset);
 		case OP_POP:
 			return simpleInstruction("OP_POP", offset);
 		case OP_DEFINE_GLOBAL:
@@ -227,6 +225,15 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		}
 		case OP_MATCH_END: {
 			return simpleInstruction("OP_MATCH_END", offset);
+		}
+		case OP_RESULT_MATCH_OK: {
+			return simpleInstruction("OP_RESULT_MATCH_OK", offset);
+		}
+		case OP_RESULT_MATCH_ERR: {
+			return simpleInstruction("OP_RESULT_MATCH_ERR", offset);
+		}
+		case OP_RESULT_BIND: {
+			return constantInstruction("OP_RESULT_BIND", chunk, offset);
 		}
 		default:
 			printf("Unknown opcode %d\n", instruction);

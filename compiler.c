@@ -1,9 +1,9 @@
 #include "compiler.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "chunk.h"
 #include "memory.h"
@@ -930,7 +930,7 @@ static void useStatement() {
 			uint8_t alias = identifierConstant(&parser.previous);
 			aliases[nameCount] = alias;
 			aliasPresence[nameCount] = true;
-		}else {
+		} else {
 			name = identifierConstant(&parser.previous);
 		}
 
@@ -938,7 +938,7 @@ static void useStatement() {
 		nameCount++;
 	} while (match(TOKEN_COMMA));
 	if (hasParen) {
-			consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
+		consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
 	}
 
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
@@ -952,7 +952,7 @@ static void useStatement() {
 	for (uint8_t i = 0; i < nameCount; i++) {
 		if (aliasPresence[i]) {
 			emitByte(aliases[i]);
-		}else {
+		} else {
 			emitByte(names[i]);
 		}
 	}
@@ -998,44 +998,84 @@ static void publicDeclaration() {
 }
 
 static void beginMatchScope() {
-	beginScope();
+	if (current->matchDepth > 0) {
+		compilerPanic(&parser, "Nesting match statements is not allowed.", SYNTAX);
+	}
 	current->matchDepth++;
 }
 
-static void endMatchScope() {
-	endScope();
-	current->matchDepth--;
-}
+static void endMatchScope() { current->matchDepth--; }
 
 static void matchStatement() {
 	beginMatchScope();
-
 	expression(); // compile match target
 	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
 
-	int* endJumps = ALLOCATE(current->owner, int, 8);
+	int *endJumps = ALLOCATE(current->owner, int, 8);
 	int jumpCount = 0;
 	int jumpCapacity = 8;
 
 	emitByte(OP_MATCH);
 	bool hasDefault = false;
+	bool hasOkPattern = false;
+	bool hasErrPattern = false;
+	uint8_t bindingSlot = UINT8_MAX;
+	bool hasBinding = false;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		int jumpIfNotMatch = -1;
+		bindingSlot = UINT8_MAX;
+		hasBinding = false;
 
 		if (match(TOKEN_DEFAULT)) {
 			if (hasDefault) {
 				compilerPanic(&parser, "Cannot have multiple default patterns.", SYNTAX);
 			}
 			hasDefault = true;
-		}else {
+		} else if (match(TOKEN_OK)) {
+			if (hasOkPattern) {
+				compilerPanic(&parser, "Cannot have multiple 'Ok' patterns.", SYNTAX);
+			}
+			hasOkPattern = true;
+			jumpIfNotMatch = emitJump(OP_RESULT_MATCH_OK);
+
+			if (match(TOKEN_LEFT_PAREN)) {
+				beginScope();
+				hasBinding = true;
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				declareVariable();
+				bindingSlot = current->localCount - 1;
+				markInitialized();
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+			}
+
+		} else if (match(TOKEN_ERR)) {
+			if (hasErrPattern) {
+				compilerPanic(&parser, "Cannot have multiple 'Err' patterns.", SYNTAX);
+			}
+			hasErrPattern = true;
+			jumpIfNotMatch = emitJump(OP_RESULT_MATCH_ERR);
+
+			if (match(TOKEN_LEFT_PAREN)) {
+				beginScope();
+				hasBinding = true;
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				declareVariable();
+				bindingSlot = current->localCount - 1;
+				markInitialized();
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+			}
+		} else {
 			expression();
 			jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
 		}
 
 		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
 
-		beginScope();
+		if (bindingSlot != UINT8_MAX) {
+			emitBytes(OP_RESULT_BIND, bindingSlot);
+		}
+
 		// Compile match body
 		if (match(TOKEN_LEFT_BRACE)) {
 			block();
@@ -1043,7 +1083,10 @@ static void matchStatement() {
 			expression();
 			consume(TOKEN_SEMICOLON, "Expected ';' after match arm expression.");
 		}
-		endScope();
+
+		if (hasBinding) {
+			endScope();
+		}
 
 		if (jumpCount + 1 > jumpCapacity) {
 			int oldCapacity = jumpCapacity;
@@ -1052,6 +1095,7 @@ static void matchStatement() {
 		}
 
 		endJumps[jumpCount++] = emitJump(OP_JUMP);
+
 		if (jumpIfNotMatch != -1) {
 			patchJump(jumpIfNotMatch);
 		}
@@ -1061,8 +1105,12 @@ static void matchStatement() {
 		compilerPanic(&parser, "Match statement must have at least one arm.", SYNTAX);
 	}
 
-	if (!hasDefault) {
-		compilerPanic(&parser, "match statement must have default case 'default'.", SYNTAX);
+	if (hasOkPattern || hasErrPattern) {
+		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
+			compilerPanic(&parser, "Result match must have both 'Ok' and 'Err' patterns, or include a default case.", SYNTAX);
+		}
+	} else if (!hasDefault) {
+		compilerPanic(&parser, "Match statement must have default case 'default'.", SYNTAX);
 	}
 
 	emitByte(OP_MATCH_END);
@@ -1109,7 +1157,7 @@ static void statement() {
 		returnStatement();
 	} else if (match(TOKEN_USE)) {
 		useStatement();
-	}else if (match(TOKEN_MATCH)) {
+	} else if (match(TOKEN_MATCH)) {
 		matchStatement();
 	} else {
 		expressionStatement();
@@ -1126,20 +1174,31 @@ static void number(bool canAssign) {
 	emitConstant(NUMBER_VAL(value));
 }
 
-static char processEscapeSequence(char escape, bool* hasError) {
+static char processEscapeSequence(char escape, bool *hasError) {
 	*hasError = false;
 	switch (escape) {
-		case 'n': return '\n';
-		case 't': return '\t';
-		case 'r': return '\r';
-		case '\\': return '\\';
-		case '"': return '"';
-		case '\'': return '\'';
-		case '0': return ' ';
-		case 'a': return '\a';
-		case 'b': return '\b';
-		case 'f': return '\f';
-		case 'v': return '\v';
+		case 'n':
+			return '\n';
+		case 't':
+			return '\t';
+		case 'r':
+			return '\r';
+		case '\\':
+			return '\\';
+		case '"':
+			return '"';
+		case '\'':
+			return '\'';
+		case '0':
+			return ' ';
+		case 'a':
+			return '\a';
+		case 'b':
+			return '\b';
+		case 'f':
+			return '\f';
+		case 'v':
+			return '\v';
 		default: {
 			*hasError = true;
 			return '\0';
@@ -1148,7 +1207,7 @@ static char processEscapeSequence(char escape, bool* hasError) {
 }
 
 static void string(bool canAssign) {
-	char* processed = ALLOCATE(current->owner, char, parser.previous.length);
+	char *processed = ALLOCATE(current->owner, char, parser.previous.length);
 
 	if (processed == NULL) {
 		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
@@ -1156,11 +1215,11 @@ static void string(bool canAssign) {
 	}
 
 	int processedLength = 0;
-	char* src = (char*) parser.previous.start + 1;
+	char *src = (char *) parser.previous.start + 1;
 	int srcLength = parser.previous.length - 2;
 
 	if (srcLength == 0) {
-		ObjectString* string = copyString(current->owner, "", 0);
+		ObjectString *string = copyString(current->owner, "", 0);
 		emitConstant(OBJECT_VAL(string));
 		return;
 	}
@@ -1175,10 +1234,10 @@ static void string(bool canAssign) {
 			}
 
 			bool error;
-			char escaped = processEscapeSequence(src[i+1], &error);
+			char escaped = processEscapeSequence(src[i + 1], &error);
 			if (error) {
 				char errorMessage[64];
-				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i+1]);
+				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i + 1]);
 				compilerPanic(&parser, errorMessage, SYNTAX);
 				FREE_ARRAY(current->owner, char, processed, parser.previous.length);
 				return;
@@ -1186,12 +1245,12 @@ static void string(bool canAssign) {
 
 			processed[processedLength++] = escaped;
 			i++;
-		}else {
+		} else {
 			processed[processedLength++] = src[i];
 		}
 	}
 
-	char* temp = realloc(processed, processedLength * sizeof(char));
+	char *temp = realloc(processed, processedLength * sizeof(char));
 	if (temp == NULL) {
 		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
 		FREE_ARRAY(current->owner, char, processed, parser.previous.length);
@@ -1199,7 +1258,7 @@ static void string(bool canAssign) {
 	}
 	processed = temp;
 	processed[processedLength] = '\0';
-	ObjectString* string = takeString(current->owner, processed, processedLength);
+	ObjectString *string = takeString(current->owner, processed, processedLength);
 	emitConstant(OBJECT_VAL(string));
 }
 
