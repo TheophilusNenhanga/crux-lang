@@ -1017,57 +1017,23 @@ static void matchStatement() {
 	int jumpCount = 0;
 	int jumpCapacity = 8;
 
-	int armCount = 0;
-
 	emitByte(OP_MATCH);
 	bool hasDefault = false;
-	bool hasOk = false;
-	bool hasErr = false;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-		bool patternNeedsBinding = false;
-		Token bindingName = {};  // Store the name for variable binding
+		int jumpIfNotMatch = -1;
 
-		if (match(TOKEN_OK)) {
-			if (match(TOKEN_LEFT_PAREN)) {
-				patternNeedsBinding = true;
-				consume(TOKEN_IDENTIFIER, "Expected identifier after Ok(.");
-				bindingName = parser.previous;
-				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
-			}
-			emitByte(OP_MATCH_OK);
-			hasOk = true;
-			armCount++;
-		} else if (match(TOKEN_ERR)) {
-			// Result::Err pattern
-			if (match(TOKEN_LEFT_PAREN)) {
-				patternNeedsBinding = true;
-				consume(TOKEN_IDENTIFIER, "Expected identifier after Err(.");
-				bindingName = parser.previous;
-				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
-			}
-			emitByte(OP_MATCH_ERR);
-			hasErr = true;
-			armCount++;
-		} else if (match(TOKEN_DEFAULT)) {
+		if (match(TOKEN_DEFAULT)) {
 			if (hasDefault) {
 				compilerPanic(&parser, "Cannot have multiple default patterns.", SYNTAX);
 			}
 			hasDefault = true;
-			armCount++;
 		}else {
 			expression();
-			armCount++;
+			jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
 		}
 
 		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
-
-		int jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
-
-		if (patternNeedsBinding) {
-			namedVariable(bindingName, true);
-			emitByte(OP_MATCH_BIND);
-		}
 
 		beginScope();
 		// Compile match body
@@ -1086,22 +1052,16 @@ static void matchStatement() {
 		}
 
 		endJumps[jumpCount++] = emitJump(OP_JUMP);
-		patchJump(jumpIfNotMatch);
+		if (jumpIfNotMatch != -1) {
+			patchJump(jumpIfNotMatch);
+		}
 	}
 
-	if (armCount == 0) {
+	if (jumpCount == 0) {
 		compilerPanic(&parser, "Match statement must have at least one arm.", SYNTAX);
 	}
 
-	if (hasErr && !hasOk) {
-	
-		compilerPanic(&parser, "match statement must have Ok branch if it has Err branch.", SYNTAX);
-	} else if (hasOk && !hasErr) {
-		compilerPanic(&parser, "match statement must have Err branch if it has Ok branch.", SYNTAX);
-	}
-
-	bool needsDefault = !(hasErr || hasOk);
-	if (needsDefault && !hasDefault) {
+	if (!hasDefault) {
 		compilerPanic(&parser, "match statement must have default case 'default'.", SYNTAX);
 	}
 

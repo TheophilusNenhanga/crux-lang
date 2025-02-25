@@ -70,11 +70,8 @@ typedef enum {
 	OP_USE,
 	OP_PUB,
 	OP_MATCH,
-	OP_MATCH_OK,
-	OP_MATCH_ERR,
 	OP_MATCH_JUMP,
 	OP_MATCH_END,
-	OP_MATCH_BIND,
 } OpCode;
 
 typedef struct {

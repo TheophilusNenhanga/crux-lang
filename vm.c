@@ -1239,7 +1239,7 @@ static InterpretResult run(VM *vm) {
 						} else {
 							setSuccess = tableSet(vm, &vm->globals, names[i], value, false);
 						}
-						
+
 						if (!setSuccess) {
 							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
 							return INTERPRET_RUNTIME_ERROR;
@@ -1312,6 +1312,26 @@ static InterpretResult run(VM *vm) {
 
 				importSetAdd(vm, &vm->module->importedModules, modulePath);
 				freeVM(newModuleVM);
+				break;
+			}
+
+			case OP_MATCH: {
+				break;
+			}
+
+			case OP_MATCH_JUMP: {
+				uint16_t offset = READ_SHORT();
+				Value pattern = pop(vm);
+				Value target = peek(vm, 0);
+				if (!valuesEqual(pattern, target)) {
+					frame->ip += offset;
+					pop(vm); // without this the matched against value will be top of stack
+				}
+
+				break;
+			}
+			case OP_MATCH_END: {
+				pop(vm);
 				break;
 			}
 		}

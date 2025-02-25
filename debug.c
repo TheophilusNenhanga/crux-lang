@@ -219,6 +219,15 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		case OP_PUB: {
 			return simpleInstruction("OP_PUB", offset);
 		}
+		case OP_MATCH: {
+			return simpleInstruction("OP_MATCH", offset);
+		}
+		case OP_MATCH_JUMP: {
+			return jumpInstruction("OP_MATCH_JUMP", 1, chunk, offset);
+		}
+		case OP_MATCH_END: {
+			return simpleInstruction("OP_MATCH_END", offset);
+		}
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;
