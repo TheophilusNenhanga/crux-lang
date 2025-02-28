@@ -20,7 +20,7 @@ A memory managed, interpreted programming language.
 ```shell
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release ../src
 cmake --build . --config Release
 ```
 
@@ -29,7 +29,7 @@ cmake --build . --config Release
 ```shell
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release ../src
 make
 ```
 
