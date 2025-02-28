@@ -6,7 +6,7 @@
 
 typedef struct {
 	const char *name;
-	NativeFn function;
+	StellaNativeCallable function;
 	int arity;
 } Callable;
 
@@ -15,7 +15,7 @@ extern Callable arrayMethods[];
 extern Callable tableMethods[];
 extern Callable errorMethods[];
 
-bool defineNativeCallable(VM *vm, Table *methodTable, const char *methodName, NativeFn methodFunction, int arity);
+bool defineNativeCallable(VM *vm, Table *methodTable, const char *methodName, StellaNativeCallable methodFunction, int arity);
 
 bool defineMethods(VM *vm, Table *methodTable, Callable *methods);
 

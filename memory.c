@@ -10,6 +10,7 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
+
 void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize) {
 	vm->bytesAllocated += newSize - oldSize;
 	if (newSize > oldSize) {
@@ -50,23 +51,50 @@ void markObject(VM *vm, Object *object) {
 }
 
 void markValue(VM *vm, Value value) {
-	if (IS_OBJECT(value)) {
-		markObject(vm, AS_OBJECT(value));
+	if (IS_STL_OBJECT(value)) {
+		markObject(vm, AS_STL_OBJECT(value));
 	}
 }
 
+/**
+ * @brief Marks all objects within a ValueArray as reachable.
+ *
+ * Iterates through the `values` array of the `ValueArray` and calls `markValue`
+ * for each element, marking any contained objects.
+ *
+ * @param vm The virtual machine.
+ * @param array The ValueArray whose elements should be marked.
+ */
 void markArray(VM *vm, ValueArray *array) {
 	for (int i = 0; i < array->count; i++) {
 		markValue(vm, array->values[i]);
 	}
 }
 
+/**
+ * @brief Marks all objects within an ObjectArray as reachable.
+ *
+ * Iterates through the `array` of the `ObjectArray` and calls `markValue`
+ * for each element, marking any contained objects.
+ *
+ * @param vm The virtual machine.
+ * @param array The ObjectArray whose elements should be marked.
+ */
 void markObjectArray(VM *vm, ObjectArray *array) {
 	for (int i = 0; i < array->size; i++) {
 		markValue(vm, array->array[i]);
 	}
 }
 
+/**
+ * @brief Marks all objects within an ObjectTable as reachable.
+ *
+ * Iterates through the entries of the `ObjectTable` and calls `markValue`
+ * for both the key and the value of each occupied entry, marking any contained objects.
+ *
+ * @param vm The virtual machine.
+ * @param table The ObjectTable whose entries should be marked.
+ */
 void markObjectTable(VM *vm, ObjectTable *table) {
 	for (int i = 0; i < table->capacity; i++) {
 		if (table->entries[i].isOccupied) {
@@ -76,6 +104,16 @@ void markObjectTable(VM *vm, ObjectTable *table) {
 	}
 }
 
+/**
+ * @brief Blackens an object, marking all objects it references.
+ *
+ * This function moves an object from the gray set to the black set in the
+ * garbage collection mark phase. It examines the object's type and recursively
+ * marks all objects referenced by it, ensuring transitive reachability.
+ *
+ * @param vm The virtual machine.
+ * @param object The object to blacken.
+ */
 static void blackenObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p blacken ", (void *) object);
@@ -162,13 +200,33 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
-		case OBJECT_STRING: {
-			break;
+		case OBJECT_RESULT: {
+			ObjectResult *result = (ObjectResult *) object;
+			if (result->isOk) {
+				markValue(vm, result->as.value);
+			}else {
+				markObject(vm, (Object *) result->as.error);
+			}
 		}
 
+		case OBJECT_STRING: {
+			// Strings are primitives in terms of GC reachability in this implementation
+			break;
+		}
 	}
 }
 
+/**
+ * @brief Frees the memory associated with an object based on its type.
+ *
+ * This function frees the memory allocated for the given `object`. It handles
+ * different object types and their specific memory management needs, such as
+ * freeing character arrays for strings, chunks for functions, and upvalue arrays
+ * for closures.
+ *
+ * @param vm The virtual machine.
+ * @param object The object to free.
+ */
 static void freeObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
 	printf("%p free type %d\n", (void *) object, object->type);
@@ -248,9 +306,24 @@ static void freeObject(VM *vm, Object *object) {
 			FREE(vm, ObjectModule, object);
 			break;
 		}
+
+		case OBJECT_RESULT: {
+			ObjectResult *result = (ObjectResult *) object;
+			FREE(vm, ObjectResult, object);
+			break;
+		}
 	}
 }
 
+/**
+ * @brief Marks all root objects reachable by the VM.
+ *
+ * This function marks objects that are considered roots for garbage collection.
+ * These roots are directly accessible by the VM and include the stack, call frames,
+ * open upvalues, global variables, compiler roots and the init string.
+ *
+ * @param vm The virtual machine.
+ */
 void markRoots(VM *vm) {
 	for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
 		markValue(vm, *slot);
@@ -269,6 +342,15 @@ void markRoots(VM *vm) {
 	markObject(vm, (Object *) vm->initString);
 }
 
+/**
+ * @brief Traces references from gray objects, blackening them.
+ *
+ * This function processes the gray stack, taking gray objects and blackening them
+ * by calling `blackenObject`. This process continues until the gray stack is empty,
+ * ensuring that all reachable objects and their references are marked.
+ *
+ * @param vm The virtual machine.
+ */
 static void traceReferences(VM *vm) {
 	while (vm->grayCount > 0) {
 		Object *object = vm->grayStack[--vm->grayCount];
@@ -276,6 +358,15 @@ static void traceReferences(VM *vm) {
 	}
 }
 
+/**
+ * @brief Sweeps unmarked objects, freeing their memory.
+ *
+ * This function performs the sweep phase of garbage collection. It iterates
+ * through the VM's object list, frees any objects that are not marked (i.e.,
+ * unreachable), and removes them from the linked list of objects.
+ *
+ * @param vm The virtual machine.
+ */
 static void sweep(VM *vm) {
 	Object *previous = NULL;
 	Object *object = vm->objects;
@@ -305,7 +396,7 @@ void collectGarbage(VM *vm) {
 
 	markRoots(vm);
 	traceReferences(vm);
-	tableRemoveWhite(&vm->strings);
+	tableRemoveWhite(&vm->strings); // Clean up string table
 	sweep(vm);
 	vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
 

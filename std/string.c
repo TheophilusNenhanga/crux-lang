@@ -26,78 +26,57 @@ void buildPrefixTable(const char *pattern, uint64_t patternLength, uint64_t *pre
 	}
 }
 
-NativeReturn stringFirstMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringFirstMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
-	ObjectString *string = AS_STRING(value);
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+	ObjectString *string = AS_STL_STRING(value);
 
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(
+		return stellaErr(vm,
 				newError(vm, copyString(vm, "'string' must have at least one character to get the first character.", 69), VALUE,
-								 STELLA));
-		return returnValue;
+								 false));
 	}
 
-	returnValue.values[0] = OBJECT_VAL(copyString(vm, &string->chars[0], 1));
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[0], 1)));
 }
 
-NativeReturn stringLastMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringLastMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
-	ObjectString *string = AS_STRING(value);
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+	ObjectString *string = AS_STL_STRING(value);
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-				vm, copyString(vm, "'string' must have at least one character to get the last character.", 68), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(
+				vm, copyString(vm, "'string' must have at least one character to get the last character.", 68), VALUE, false));
 	}
-	returnValue.values[0] = OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1));
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1)));
+
 }
 
-NativeReturn stringGetMethod(VM *vm, int argCount, Value *args) {
+ObjectResult* stringGetMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value index = args[1];
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
 	if (!IS_NUMBER(index)) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
+
 	}
-	ObjectString *string = AS_STRING(value);
+	ObjectString *string = AS_STL_STRING(value);
 	if (AS_NUMBER(index) < 0 || AS_NUMBER(index) > (double) string->length) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
+		return stellaErr(vm, newError(
 				vm, copyString(vm, "<index> must be a non negative number that is less than the length of the string.", 81),
-				INDEX_OUT_OF_BOUNDS, STELLA));
-		return returnValue;
+				INDEX_OUT_OF_BOUNDS, false));
+
 	}
 
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(
-				vm, copyString(vm, "'string' must have at least one character to get a character.", 61), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(
+				vm, copyString(vm, "'string' must have at least one character to get a character.", 61), VALUE, false));
 	}
 
-	returnValue.values[0] = OBJECT_VAL(copyString(vm, &string->chars[(uint64_t) AS_NUMBER(index)], 1));
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[(uint64_t) AS_NUMBER(index)], 1)));
 }
 
-NativeReturn stringUpperMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
+ObjectResult* stringUpperMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Cannot make empty string uppercase.", 35), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Cannot make empty string uppercase.", 35), VALUE, false));
 	}
 
 	for (uint64_t i = 0; i < string->length; i++) {
@@ -105,22 +84,14 @@ NativeReturn stringUpperMethod(VM *vm, int argCount, Value *args) {
 			string->chars[i] = toUpper(string->chars[i]);
 		}
 	}
-
-	returnValue.values[0] = NIL_VAL;
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, NIL_VAL);
 }
 
-NativeReturn stringLowerMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
+ObjectResult* stringLowerMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Cannot make empty string lowercase.", 35), VALUE, STELLA));
-
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Cannot make empty string lowercase.", 35), VALUE, false));
 	}
 
 	for (uint64_t i = 0; i < string->length; i++) {
@@ -128,21 +99,14 @@ NativeReturn stringLowerMethod(VM *vm, int argCount, Value *args) {
 			string->chars[i] = toLower(string->chars[i]);
 		}
 	}
-
-	returnValue.values[0] = NIL_VAL;
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, NIL_VAL);
 }
 
-NativeReturn stringStripMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
+ObjectResult* stringStripMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Cannot strip whitespace from an empty string.", 45), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Cannot strip whitespace from an empty string.", 45), VALUE, false));
 	}
 
 	uint64_t start = 0;
@@ -156,96 +120,72 @@ NativeReturn stringStripMethod(VM *vm, int argCount, Value *args) {
 	}
 
 	if (start == end) {
-		returnValue.values[0] = OBJECT_VAL(copyString(vm, "", 0));
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, OBJECT_VAL(copyString(vm, "", 0)));
 	}
 
-	returnValue.values[0] = OBJECT_VAL(copyString(vm, string->chars + start, end - start));
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(copyString(vm, string->chars + start, end - start)));
+
 }
 
-NativeReturn stringSubstringMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
+ObjectResult* stringSubstringMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
 
 	if (string->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, false));
+
 	}
 
 	if (!IS_NUMBER(args[1])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Cannot get substring of empty string.", 37), VALUE, false));
+
 	}
 	if (!IS_NUMBER(args[2])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "<end> index should be of type 'number'.", 39), VALUE, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "<end> index should be of type 'number'.", 39), VALUE, false));
 	}
 
 	uint64_t startIndex = AS_NUMBER(args[1]);
 	uint64_t endIndex = AS_NUMBER(args[2]);
 	if (startIndex > string->length || endIndex > string->length || startIndex > endIndex) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, false));
 	}
 
 	char *substring = string->chars + startIndex;
 	ObjectString *newSubstring = copyString(vm, substring, endIndex - startIndex);
 
-	returnValue.values[0] = OBJECT_VAL(newSubstring);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(newSubstring));
 }
 
-NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringSplitMethod(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0]) || !IS_STRING(args[1])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Both arguments must be strings.", 31), TYPE, STELLA));
-		return returnValue;
+	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Both arguments must be strings.", 31), TYPE, false));
+
 	}
 
-	ObjectString *string = AS_STRING(args[0]);
-	ObjectString *delimiter = AS_STRING(args[1]);
+	ObjectString *string = AS_STL_STRING(args[0]);
+	ObjectString *delimiter = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || delimiter->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm,
+		return stellaErr(vm, newError(vm,
 														string->length == 0 ? copyString(vm, "Source string cannot be empty.", 30)
 																								: copyString(vm, "Delimiter cannot be empty.", 26),
-														VALUE, STELLA));
-		return returnValue;
+														VALUE, false));
+
 	}
 
 	if (delimiter->length > string->length) {
 		ObjectArray *resultArray = newArray(vm, 1);
 		arrayAdd(vm, resultArray, OBJECT_VAL(string), 0);
-		returnValue.values[0] = OBJECT_VAL(resultArray);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, OBJECT_VAL(resultArray));
 	}
 
 	uint64_t stringLength = string->length;
 	uint64_t delimiterLength = delimiter->length;
 
-	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, delimiterLength * sizeof(uint64_t));
+	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, delimiterLength);
 	if (prefixTable == NULL) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+
 	}
 
 	buildPrefixTable(delimiter->chars, delimiterLength, prefixTable);
@@ -272,10 +212,9 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 			char *substringChars = ALLOCATE(vm, char, substringLength + 1);
 			if (substringChars == NULL) {
 				free(prefixTable);
-				returnValue.values[0] = NIL_VAL;
-				returnValue.values[1] =
-						OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-				return returnValue;
+
+				return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+
 			}
 
 			memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
@@ -297,9 +236,7 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 		if (substringChars == NULL) {
 			free(prefixTable);
-			returnValue.values[0] = NIL_VAL;
-			returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-			return returnValue;
+			return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
 		}
 
 		memcpy(substringChars, string->chars + lastSplitIndex, substringLength);
@@ -311,50 +248,39 @@ NativeReturn stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 	free(prefixTable);
 
-	returnValue.values[0] = OBJECT_VAL(resultArray);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(resultArray));
+
 }
 
 // KMP string-matching algorithm
-NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
+ObjectResult* stringContainsMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
 
-	if (!IS_STRING(args[1])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, STELLA));
-		return returnValue;
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, false));
+
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm,
+		return stellaErr(vm, newError(vm,
 														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
 																								: copyString(vm, "<goal> string must have at least one character.", 47),
-														VALUE, STELLA));
-		return returnValue;
+														VALUE, false));
 	}
 
 	if (goal->length > string->length) {
-		returnValue.values[0] = BOOL_VAL(false);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, BOOL_VAL(false));
 	}
 
 	uint64_t stringLength = string->length;
 	uint64_t goalLength = goal->length;
 
-	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, goalLength * sizeof(uint64_t));
+	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, goalLength);
 
 	if (prefixTable == NULL) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(
-				newError(vm, copyString(vm, "Failed to allocate memory for string.contains().", 48), MEMORY, STELLA));
-		return returnValue;
+		return stellaErr(vm,
+				newError(vm, copyString(vm, "Failed to allocate memory for string.contains().", 48), MEMORY, false));
 	}
 
 	buildPrefixTable(goal->chars, goalLength, prefixTable);
@@ -369,68 +295,57 @@ NativeReturn stringContainsMethod(VM *vm, int argCount, Value *args) {
 		}
 		if (j == goalLength) {
 			free(prefixTable);
-			returnValue.values[0] = BOOL_VAL(true);
-			returnValue.values[1] = NIL_VAL;
-			return returnValue;
+			return stellaOk(vm, BOOL_VAL(true));
 		}
 	}
 
 	free(prefixTable);
-	returnValue.values[0] = BOOL_VAL(false);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, BOOL_VAL(false));
 }
 
-NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
+ObjectResult* stringReplaceMethod(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STRING(args[0]) || !IS_STRING(args[1]) || !IS_STRING(args[2])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, STELLA));
-		return returnValue;
+	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1]) || !IS_STL_STRING(args[2])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, false));
+
 	}
 
-	ObjectString *string = AS_STRING(args[0]);
-	ObjectString *goal = AS_STRING(args[1]);
-	ObjectString *replacement = AS_STRING(args[2]);
+	ObjectString *string = AS_STL_STRING(args[0]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
+	ObjectString *replacement = AS_STL_STRING(args[2]);
 
 	if (string->length == 0 || goal->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(
+		return stellaErr(vm,
 				newError(vm,
 								 string->length == 0 ? copyString(vm, "Source string must have at least one character.", 47)
 																		 : copyString(vm, "<target> substring must have at least one character.", 52),
-								 VALUE, STELLA));
-		return returnValue;
+								 VALUE, false));
+
 	}
 
 	if (goal->length > string->length) {
-		returnValue.values[0] = OBJECT_VAL(string);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, OBJECT_VAL(string));
+
 	}
 
 	uint64_t stringLength = string->length;
 	uint64_t goalLength = goal->length;
 	uint64_t replacementLength = replacement->length;
 
-	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, goalLength * sizeof(uint64_t));
+	uint64_t *prefixTable = ALLOCATE(vm, uint64_t, goalLength);
 	if (prefixTable == NULL) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+
 	}
 
 	buildPrefixTable(goal->chars, goalLength, prefixTable);
 
 	uint64_t matchCount = 0;
-	uint64_t *matchIndices = ALLOCATE(vm, uint64_t, stringLength * sizeof(uint64_t));
+	uint64_t *matchIndices = ALLOCATE(vm, uint64_t, stringLength);
 	if (matchIndices == NULL) {
 		free(prefixTable);
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+
 	}
 
 	uint64_t j = 0;
@@ -450,9 +365,7 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (matchCount == 0) {
 		free(prefixTable);
 		free(matchIndices);
-		returnValue.values[0] = OBJECT_VAL(string);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, OBJECT_VAL(string));
 	}
 
 	uint64_t newStringLength = stringLength + (replacementLength - goalLength) * matchCount;
@@ -461,9 +374,8 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (newStringChars == NULL) {
 		free(prefixTable);
 		free(matchIndices);
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] = OBJECT_VAL(newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, STELLA));
-		return returnValue;
+		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+
 	}
 
 	uint64_t writeIndex = 0;
@@ -486,93 +398,62 @@ NativeReturn stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	newStringChars[newStringLength] = '\0';
 
 	ObjectString *newString = copyString(vm, newStringChars, newStringLength);
-
 	free(prefixTable);
 	free(matchIndices);
 
-	returnValue.values[0] = OBJECT_VAL(newString);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, OBJECT_VAL(newString));
 }
 
-NativeReturn stringStartsWithMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
-	if (!IS_STRING(args[1])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, STELLA));
-		return returnValue;
+ObjectResult* stringStartsWithMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, false));
+
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm,
+		return stellaErr(vm, newError(vm,
 														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
 																								: copyString(vm, "<goal> string must have at least one character.", 47),
-														VALUE, STELLA));
-		return returnValue;
+														VALUE, false));
 	}
 
 	if (goal->length > string->length) {
-		returnValue.values[0] = BOOL_VAL(false);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, BOOL_VAL(false));
 	}
 
 	for (uint64_t i = 0; i < goal->length; i++) {
 		if (string->chars[i] != goal->chars[i]) {
-			returnValue.values[0] = BOOL_VAL(false);
-			returnValue.values[1] = NIL_VAL;
-			return returnValue;
+			return stellaOk(vm, BOOL_VAL(false));
 		}
 	}
-
-
-	returnValue.values[0] = BOOL_VAL(true);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, BOOL_VAL(true));
 }
 
-NativeReturn stringEndsWithMethod(VM *vm, int argCount, Value *args) {
-	NativeReturn returnValue = makeNativeReturn(vm, 2);
-	ObjectString *string = AS_STRING(args[0]);
-	if (!IS_STRING(args[1])) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, STELLA));
-		return returnValue;
+ObjectResult* stringEndsWithMethod(VM *vm, int argCount, Value *args) {
+	ObjectString *string = AS_STL_STRING(args[0]);
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, false));
+
 	}
-	ObjectString *goal = AS_STRING(args[1]);
+	ObjectString *goal = AS_STL_STRING(args[1]);
 
 	if (string->length == 0 || goal->length == 0) {
-		returnValue.values[0] = NIL_VAL;
-		returnValue.values[1] =
-				OBJECT_VAL(newError(vm,
+		return stellaErr(vm, newError(vm,
 														string->length == 0 ? copyString(vm, "String must have at least one character.", 40)
 																								: copyString(vm, "<goal> string must have at least one character.", 47),
-														VALUE, STELLA));
-		return returnValue;
+														VALUE, false));
 	}
-
 	if (goal->length > string->length) {
-		returnValue.values[0] = BOOL_VAL(false);
-		returnValue.values[1] = NIL_VAL;
-		return returnValue;
+		return stellaOk(vm, BOOL_VAL(false));
 	}
 
 	uint64_t stringStart = string->length - goal->length;
 	for (uint64_t i = 0; i < goal->length; i++) {
 		if (string->chars[stringStart + i] != goal->chars[i]) {
-			returnValue.values[0] = BOOL_VAL(false);
-			returnValue.values[1] = NIL_VAL;
-			return returnValue;
+			return stellaOk(vm, BOOL_VAL(false));
 		}
 	}
-
-	returnValue.values[0] = BOOL_VAL(true);
-	returnValue.values[1] = NIL_VAL;
-	return returnValue;
+	return stellaOk(vm, BOOL_VAL(true));
 }

@@ -3,28 +3,16 @@
 #include "../memory.h"
 #include "../object.h"
 
-
-NativeReturn lengthNative(VM *vm, int argCount, Value *args) {
-	NativeReturn nativeReturn = makeNativeReturn(vm, 2);
-
+ObjectResult* lengthNative(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
-	if (IS_ARRAY(value)) {
-		nativeReturn.values[0] = NUMBER_VAL(AS_ARRAY(value)->size);
-		nativeReturn.values[1] = NIL_VAL;
-		return nativeReturn;
+	if (IS_STL_ARRAY(value)) {
+		return stellaOk(vm, NUMBER_VAL(AS_STL_ARRAY(value)->size));
 	}
-	if (IS_STRING(value)) {
-		nativeReturn.values[0] = NUMBER_VAL(AS_STRING(value)->length);
-		nativeReturn.values[1] = NIL_VAL;
-		return nativeReturn;
+	if (IS_STL_STRING(value)) {
+		return stellaOk(vm, NUMBER_VAL(AS_STL_STRING(value)->length));
 	}
-	if (IS_TABLE(value)) {
-		nativeReturn.values[0] = NUMBER_VAL(AS_TABLE(value)->size);
-		nativeReturn.values[1] = NIL_VAL;
-		return nativeReturn;
+	if (IS_STL_TABLE(value)) {
+		return stellaOk(vm, NUMBER_VAL(AS_STL_TABLE(value)->size));
 	}
-	ObjectError *error = newError(vm, copyString(vm, "Expected either collection type.", 32), TYPE, STELLA);
-	nativeReturn.values[0] = NIL_VAL;
-	nativeReturn.values[1] = OBJECT_VAL(error);
-	return nativeReturn;
+	return stellaErr(vm, newError(vm, copyString(vm, "Expected either a collection type or a string.", 46), TYPE, false));
 }

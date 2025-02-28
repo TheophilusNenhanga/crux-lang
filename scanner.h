@@ -64,6 +64,11 @@ typedef enum {
 	TOKEN_PUB,
 	TOKEN_AS, 
 	TOKEN_EOF,
+	TOKEN_MATCH,
+	TOKEN_EQUAL_ARROW,
+	TOKEN_OK,
+	TOKEN_ERR,
+	TOKEN_DEFAULT,
 } TokenType;
 
 typedef struct {
@@ -73,8 +78,16 @@ typedef struct {
 	int line;
 } Token;
 
+/**
+ * Initializes the scanner with the given source code.
+ * @param source Pointer to the source code string
+ */
 void initScanner(const char *source);
 
+/**
+ * Scans the next token from the source code.
+ * @return The scanned token
+ */
 Token scanToken();
 
 #endif // SCANNER_H

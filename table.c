@@ -91,6 +91,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPubli
 	return isNewKey || !isNilValue ? true : false;
 }
 
+
 bool tableDelete(Table *table, ObjectString *key) {
 	if (table->count == 0)
 		return false;
@@ -209,10 +210,10 @@ static void trackCopy(ModuleCopyContext *ctx, Object *original, Object *copy) {
 }
 
 static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
-	if (!IS_OBJECT(value))
+	if (!IS_STL_OBJECT(value))
 		return value;
 
-	Object *object = AS_OBJECT(value);
+	Object *object = AS_STL_OBJECT(value);
 
 	Object *existingCopy = findCopy(ctx, object);
 	if (existingCopy != NULL) {
@@ -221,14 +222,14 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 
 	switch (object->type) {
 		case OBJECT_STRING: {
-			ObjectString *string = AS_STRING(value);
+			ObjectString *string = AS_STL_STRING(value);
 			ObjectString *copy = copyString(ctx->toVM, string->chars, string->length);
 			trackCopy(ctx, object, (Object *) copy);
 			return OBJECT_VAL(copy);
 		}
 
 		case OBJECT_FUNCTION: {
-			ObjectFunction *function = AS_FUNCTION(value);
+			ObjectFunction *function = AS_STL_FUNCTION(value);
 			ObjectFunction *copy = newFunction(ctx->toVM);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -243,9 +244,9 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_CLOSURE: {
-			ObjectClosure *closure = AS_CLOSURE(value);
+			ObjectClosure *closure = AS_STL_CLOSURE(value);
 			Value functionCopy = deepCopyValue(ctx, OBJECT_VAL(closure->function));
-			ObjectClosure *copy = newClosure(ctx->toVM, AS_FUNCTION(functionCopy));
+			ObjectClosure *copy = newClosure(ctx->toVM, AS_STL_FUNCTION(functionCopy));
 			trackCopy(ctx, object, (Object *) copy);
 
 			for (int i = 0; i < closure->upvalueCount; i++) {
@@ -262,7 +263,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_CLASS: {
-			ObjectClass *klass = AS_CLASS(value);
+			ObjectClass *klass = AS_STL_CLASS(value);
 			ObjectClass *copy = newClass(ctx->toVM, copyString(ctx->toVM, klass->name->chars, klass->name->length));
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -279,10 +280,10 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_INSTANCE: {
-			ObjectInstance *instance = AS_INSTANCE(value);
+			ObjectInstance *instance = AS_STL_INSTANCE(value);
 
 			Value klassCopy = deepCopyValue(ctx, OBJECT_VAL(instance->klass));
-			ObjectInstance *copy = newInstance(ctx->toVM, AS_CLASS(klassCopy));
+			ObjectInstance *copy = newInstance(ctx->toVM, AS_STL_CLASS(klassCopy));
 			trackCopy(ctx, object, (Object *) copy);
 
 			for (int i = 0; i < instance->fields.capacity; i++) {
@@ -298,7 +299,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_ARRAY: {
-			ObjectArray *array = AS_ARRAY(value);
+			ObjectArray *array = AS_STL_ARRAY(value);
 			ObjectArray *copy = newArray(ctx->toVM, array->size);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -311,7 +312,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_TABLE: {
-			ObjectTable *table = AS_TABLE(value);
+			ObjectTable *table = AS_STL_TABLE(value);
 			ObjectTable *copy = newTable(ctx->toVM, table->size);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -328,9 +329,9 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_ERROR: {
-			ObjectError *error = AS_ERROR(value);
+			ObjectError *error = AS_STL_ERROR(value);
 			ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
-			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->creator);
+			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
 			trackCopy(ctx, object, (Object *) copy);
 			return OBJECT_VAL(copy);
 		}
@@ -342,6 +343,21 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		case OBJECT_UPVALUE:
 		case OBJECT_MODULE:
 			return NIL_VAL;
+		case OBJECT_RESULT: {
+			ObjectResult *result = AS_STL_RESULT(value);
+			ObjectResult* newResult;
+
+			if (result->isOk) {
+				newResult = stellaOk(ctx->toVM, deepCopyValue(ctx, result->as.value));
+			}else {
+				ObjectError* error = result->as.error;
+				ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
+				ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
+				newResult = stellaErr(ctx->toVM, copy);
+			}
+			trackCopy(ctx, object, (Object*) newResult);
+		}
+			break;
 	}
 	return NIL_VAL;
 }

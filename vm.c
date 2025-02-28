@@ -14,6 +14,7 @@
 #include "std/std.h"
 #include "value.h"
 
+
 VM *newVM() {
 	VM *vm = (VM *) malloc(sizeof(VM));
 	if (vm == NULL) {
@@ -24,24 +25,40 @@ VM *newVM() {
 	return vm;
 }
 
+
 void resetStack(VM *vm) {
 	vm->stackTop = vm->stack;
 	vm->frameCount = 0;
 	vm->openUpvalues = NULL;
 }
 
+
 void push(VM *vm, Value value) {
 	*vm->stackTop = value; // stores value in the array element at the top of the stack
 	vm->stackTop++; // stack top points just past the last used element, at the next available one
 }
+
 
 Value pop(VM *vm) {
 	vm->stackTop--; // Move the stack pointer back to get the most recent slot in the array
 	return *vm->stackTop;
 }
 
+/**
+ * Returns a value from the stack without removing it.
+ * @param vm The virtual machine
+ * @param distance How far from the top of the stack to look (0 is the top)
+ * @return The value at the specified distance from the top
+ */
 static Value peek(VM *vm, int distance) { return vm->stackTop[-1 - distance]; }
 
+/**
+ * Calls a function closure with the given arguments.
+ * @param vm The virtual machine
+ * @param closure The function closure to call
+ * @param argCount Number of arguments on the stack
+ * @return true if the call succeeds, false otherwise
+ */
 static bool call(VM *vm, ObjectClosure *closure, int argCount) {
 	if (argCount != closure->function->arity) {
 		runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity, argCount);
@@ -60,74 +77,67 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
 	return true;
 }
 
+/**
+ * Calls a value as a function with the given arguments.
+ * @param vm The virtual machine
+ * @param callee The value to call
+ * @param argCount Number of arguments on the stack
+ * @return true if the call succeeds, false otherwise
+ */
 static bool callValue(VM *vm, Value callee, int argCount) {
-	if (IS_OBJECT(callee)) {
+	if (IS_STL_OBJECT(callee)) {
 		switch (OBJECT_TYPE(callee)) {
 			case OBJECT_CLOSURE:
-				return call(vm, AS_CLOSURE(callee), argCount);
+				return call(vm, AS_STL_CLOSURE(callee), argCount);
 			case OBJECT_NATIVE_METHOD: {
-				ObjectNativeMethod *native = AS_NATIVE_METHOD(callee);
+				ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(callee);
 				if (argCount != native->arity) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
 				}
 
-				NativeReturn result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
+
 				vm->stackTop -= argCount;
 
-				if (result.size > 0) {
-					// The last Value returned from a native function must be the error if it has one
-					Value last = result.values[result.size - 1];
-					if (IS_ERROR(last)) {
-						ObjectError *error = AS_ERROR(last);
-						if (error->creator == PANIC) {
-							runtimePanic(vm, error->type, "%s", error->message->chars);
-							return false;
-						}
+				if (!result->isOk) {
+					if (result->as.error->isPanic) {
+						runtimePanic(vm, result->as.error->type, result->as.error->message->chars);
+						return false;
 					}
 				}
 
-				for (int i = 0; i < result.size; i++) {
-					push(vm, result.values[i]);
-				}
+				push(vm, OBJECT_VAL(result));
 
-				free(result.values);
 				return true;
 			}
 			case OBJECT_NATIVE_FUNCTION: {
-				ObjectNativeFunction *native = AS_NATIVE_FUNCTION(callee);
+				ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(callee);
 				if (argCount != native->arity) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
 					return false;
 				}
 
-				NativeReturn result = native->function(vm, argCount, vm->stackTop - argCount);
+				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 				vm->stackTop -= argCount + 1;
-				if (result.size > 0) {
-					// The last Value returned from a native function must be the error if it has one
-					Value last = result.values[result.size - 1];
-					if (IS_ERROR(last)) {
-						ObjectError *error = AS_ERROR(last);
-						if (error->creator == PANIC) {
-							runtimePanic(vm, error->type, "%s", error->message->chars);
-							return false;
-						}
+
+				if (!result->isOk) {
+					if (result->as.error->isPanic) {
+						runtimePanic(vm, result->as.error->type, result->as.error->message->chars);
+						return false;
 					}
 				}
 
-				for (int i = 0; i < result.size; i++) {
-					push(vm, result.values[i]);
-				}
-				free(result.values);
+				push(vm, OBJECT_VAL(result));
 				return true;
 			}
 			case OBJECT_CLASS: {
-				ObjectClass *klass = AS_CLASS(callee);
+				ObjectClass *klass = AS_STL_CLASS(callee);
 				vm->stackTop[-argCount - 1] = OBJECT_VAL(newInstance(vm, klass));
 				Value initializer;
 
 				if (tableGet(&klass->methods, vm->initString, &initializer)) {
-					return call(vm, AS_CLOSURE(initializer), argCount);
+					return call(vm, AS_STL_CLOSURE(initializer), argCount);
 				}
 				if (argCount != 0) {
 					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected 0 arguments but got %d arguments.", argCount);
@@ -136,7 +146,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				return true;
 			}
 			case OBJECT_BOUND_METHOD: {
-				ObjectBoundMethod *bound = AS_BOUND_METHOD(callee);
+				ObjectBoundMethod *bound = AS_STL_BOUND_METHOD(callee);
 				vm->stackTop[-argCount - 1] = bound->receiver;
 				return call(vm, bound->method, argCount);
 			}
@@ -148,67 +158,85 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 	return false;
 }
 
+/**
+ * Invokes a method from a class with the given arguments.
+ * @param vm The virtual machine
+ * @param klass The class containing the method
+ * @param name The name of the method to invoke
+ * @param argCount Number of arguments on the stack
+ * @return true if the method invocation succeeds, false otherwise
+ */
 static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
 	Value method;
 	if (tableGet(&klass->methods, name, &method)) {
-		return call(vm, AS_CLOSURE(method), argCount);
+		return call(vm, AS_STL_CLOSURE(method), argCount);
 	}
 	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
 	return false;
 }
 
+
+/**
+ * Invokes a method on an object with the given arguments.
+ * @param vm The virtual machine
+ * @param name The name of the method to invoke
+ * @param argCount Number of arguments on the stack
+ * @return true if the method invocation succeeds, false otherwise
+ */
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	Value receiver = peek(vm, argCount);
 
-	if (!IS_INSTANCE(receiver)) {
+	if (!IS_STL_INSTANCE(receiver)) {
 		argCount++; // for the value that the method will act upon
-		if (IS_STRING(receiver)) {
+		if (IS_STL_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
 				return callValue(vm, value, argCount);
-			} else {
-				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-				return false;
 			}
-		} else if (IS_ARRAY(receiver)) {
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+
+		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
 				return callValue(vm, value, argCount);
-			} else {
-				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-				return false;
 			}
-		} else if (IS_ERROR(receiver)) {
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+
+		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
 				return callValue(vm, value, argCount);
-			} else {
-				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-				return false;
 			}
-		} else if (IS_TABLE(receiver)) {
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+
+		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
 				return callValue(vm, value, argCount);
-			} else {
-				runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-				return false;
 			}
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
 		}
 
 		runtimePanic(vm, TYPE, "Only instances have methods.");
 		return false;
 	}
 
-	ObjectInstance *instance = AS_INSTANCE(receiver);
+	ObjectInstance *instance = AS_STL_INSTANCE(receiver);
 
 	Value value;
 	if (tableGet(&instance->fields, name, &value)) {
@@ -219,6 +247,14 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	return invokeFromClass(vm, instance->klass, name, argCount);
 }
 
+
+/**
+ * Binds a method from a class to an instance.
+ * @param vm The virtual machine
+ * @param klass The class containing the method
+ * @param name The name of the method to bind
+ * @return true if the binding succeeds, false otherwise
+ */
 static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
 	Value method;
 	if (!tableGet(&klass->methods, name, &method)) {
@@ -226,12 +262,18 @@ static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
 		return false;
 	}
 
-	ObjectBoundMethod *bound = newBoundMethod(vm, peek(vm, 0), AS_CLOSURE(method));
+	ObjectBoundMethod *bound = newBoundMethod(vm, peek(vm, 0), AS_STL_CLOSURE(method));
 	pop(vm);
 	push(vm, OBJECT_VAL(bound));
 	return true;
 }
 
+/**
+ * Captures a local variable in an upvalue for closures.
+ * @param vm The virtual machine
+ * @param local Pointer to the local variable to capture
+ * @return The created or reused upvalue
+ */
 static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 	ObjectUpvalue *prevUpvalue = NULL;
 	ObjectUpvalue *upvalue = vm->openUpvalues;
@@ -256,6 +298,11 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 	return createdUpvalue;
 }
 
+/**
+ * Closes all upvalues up to a certain stack position.
+ * @param vm The virtual machine
+ * @param last Pointer to the last variable to close
+ */
 static void closeUpvalues(VM *vm, Value *last) {
 	while (vm->openUpvalues != NULL && vm->openUpvalues->location >= last) {
 		ObjectUpvalue *upvalue = vm->openUpvalues;
@@ -265,16 +312,32 @@ static void closeUpvalues(VM *vm, Value *last) {
 	}
 }
 
+
+/**
+ * Defines a method on a class.
+ * @param vm The virtual machine
+ * @param name The name of the method
+ */
 static void defineMethod(VM *vm, ObjectString *name) {
 	Value method = peek(vm, 0);
-	ObjectClass *klass = AS_CLASS(peek(vm, 1));
+	ObjectClass *klass = AS_STL_CLASS(peek(vm, 1));
 	if (tableSet(vm, &klass->methods, name, method, false)) {
 		pop(vm);
 	}
 }
 
+/**
+ * Determines if a value is falsy (nil or false).
+ * @param value The value to check
+ * @return true if the value is falsy, false otherwise
+ */
 static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
+/**
+ * Concatenates two values as strings.
+ * @param vm The virtual machine
+ * @return true if concatenation succeeds, false otherwise
+ */
 static bool concatenate(VM *vm) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
@@ -282,8 +345,8 @@ static bool concatenate(VM *vm) {
 	ObjectString *stringB;
 	ObjectString *stringA;
 
-	if (IS_STRING(b)) {
-		stringB = AS_STRING(b);
+	if (IS_STL_STRING(b)) {
+		stringB = AS_STL_STRING(b);
 	} else {
 		stringB = toString(vm, b);
 		if (stringB == NULL) {
@@ -292,8 +355,8 @@ static bool concatenate(VM *vm) {
 		}
 	}
 
-	if (IS_STRING(a)) {
-		stringA = AS_STRING(a);
+	if (IS_STL_STRING(a)) {
+		stringA = AS_STL_STRING(a);
 	} else {
 		stringA = toString(vm, a);
 		if (stringA == NULL) {
@@ -322,6 +385,8 @@ static bool concatenate(VM *vm) {
 	return true;
 }
 
+
+
 void initVM(VM *vm) {
 	resetStack(vm);
 	vm->objects = NULL;
@@ -333,10 +398,7 @@ void initVM(VM *vm) {
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
-	vm->nativeModules = (NativeModules) {
-	.modules = ALLOCATE(vm, NativeModule, 8),
-	.count = 0,
-	.capacity = 8};
+	vm->nativeModules = (NativeModules) {.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -357,6 +419,7 @@ void initVM(VM *vm) {
 	defineStandardLibrary(vm);
 }
 
+
 void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
@@ -367,6 +430,12 @@ void freeVM(VM *vm) {
 	}
 }
 
+/**
+ * Performs a binary operation on the top two values of the stack.
+ * @param vm The virtual machine
+ * @param operation The operation code to perform
+ * @return true if the operation succeeds, false otherwise
+ */
 static bool binaryOperation(VM *vm, OpCode operation) {
 
 	Value b = peek(vm, 0);
@@ -446,6 +515,14 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 	return true;
 }
 
+/**
+ * Performs a compound assignment operation on a global variable.
+ * @param vm The virtual machine
+ * @param name The name of the global variable
+ * @param opcode The operation code to perform
+ * @param operation String representation of the operation for error messages
+ * @return The interpretation result
+ */
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcode, char *operation) {
 	Value currentValue;
 	if (!tableGet(&vm->globals, name, &currentValue)) {
@@ -486,7 +563,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 	return INTERPRET_OK;
 }
 
-static void reverse_stack(VM *vm, int actual) {
+static void reverseStack(VM *vm, int actual) {
 	Value *start = vm->stackTop - actual;
 	for (int i = 0; i < actual / 2; i++) {
 		Value temp = start[i];
@@ -495,6 +572,13 @@ static void reverse_stack(VM *vm, int actual) {
 	}
 }
 
+/**
+ * Checks if a previous instruction matches the expected opcode.
+ * @param frame The current call frame
+ * @param instructionsAgo How many instructions to look back
+ * @param instruction The opcode to check for
+ * @return true if the previous instruction matches, false otherwise
+ */
 static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCode instruction) {
 	uint8_t *current = frame->ip;
 	if (current - instructionsAgo < frame->closure->function->chunk.code) {
@@ -503,12 +587,18 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCo
 	return *(current - (instructionsAgo + 2)) == instruction; // +2 to account for offset
 }
 
+
+/**
+ * Executes bytecode in the virtual machine.
+ * @param vm The virtual machine
+ * @return The interpretation result
+ */
 static InterpretResult run(VM *vm) {
 	CallFrame *frame = &vm->frames[vm->frameCount - 1];
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_BYTE()])
-#define READ_STRING() AS_STRING(READ_CONSTANT())
+#define READ_STRING() AS_STL_STRING(READ_CONSTANT())
 #define READ_SHORT() (frame->ip += 2, (uint16_t) ((frame->ip[-2] << 8) | frame->ip[-1]))
 	uint8_t instruction;
 	for (;;) {
@@ -578,7 +668,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_CLOSURE: {
-				ObjectFunction *function = AS_FUNCTION(READ_CONSTANT());
+				ObjectFunction *function = AS_STL_FUNCTION(READ_CONSTANT());
 				ObjectClosure *closure = newClosure(vm, function);
 				push(vm, OBJECT_VAL(closure));
 
@@ -592,7 +682,6 @@ static InterpretResult run(VM *vm) {
 						closure->upvalues[i] = frame->closure->upvalues[index];
 					}
 				}
-
 				break;
 			}
 
@@ -663,7 +752,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_ADD: {
-				if (IS_STRING(peek(vm, 0)) || IS_STRING(peek(vm, 1))) {
+				if (IS_STL_STRING(peek(vm, 0)) || IS_STL_STRING(peek(vm, 1))) {
 					if (!concatenate(vm)) {
 						return INTERPRET_RUNTIME_ERROR;
 					}
@@ -719,12 +808,6 @@ static InterpretResult run(VM *vm) {
 
 			case OP_NOT: {
 				push(vm, BOOL_VAL(isFalsy(pop(vm))));
-				break;
-			}
-
-			case OP_PRINT: {
-				printValue(pop(vm));
-				printf("\n");
 				break;
 			}
 
@@ -833,11 +916,11 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
-				if (!IS_INSTANCE(peek(vm, 0))) {
+				if (!IS_STL_INSTANCE(peek(vm, 0))) {
 					runtimePanic(vm, TYPE, "Only instances have properties.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				ObjectInstance *instance = AS_INSTANCE(peek(vm, 0));
+				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 0));
 				ObjectString *name = READ_STRING();
 
 				Value value;
@@ -858,12 +941,12 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_SET_PROPERTY: {
-				if (!IS_INSTANCE(peek(vm, 1))) {
+				if (!IS_STL_INSTANCE(peek(vm, 1))) {
 					runtimePanic(vm, TYPE, "Only instances have fields.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectInstance *instance = AS_INSTANCE(peek(vm, 1));
+				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 1));
 				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
@@ -891,20 +974,20 @@ static InterpretResult run(VM *vm) {
 			case OP_INHERIT: {
 				Value superClass = peek(vm, 1);
 
-				if (!IS_CLASS(superClass)) {
+				if (!IS_STL_CLASS(superClass)) {
 					runtimePanic(vm, TYPE, "Cannot inherit from non class object.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectClass *subClass = AS_CLASS(peek(vm, 0));
-				tableAddAll(vm, &AS_CLASS(superClass)->methods, &subClass->methods);
+				ObjectClass *subClass = AS_STL_CLASS(peek(vm, 0));
+				tableAddAll(vm, &AS_STL_CLASS(superClass)->methods, &subClass->methods);
 				pop(vm);
 				break;
 			}
 
 			case OP_GET_SUPER: {
 				ObjectString *name = READ_STRING();
-				ObjectClass *superClass = AS_CLASS(pop(vm));
+				ObjectClass *superClass = AS_STL_CLASS(pop(vm));
 
 				if (!bindMethod(vm, superClass, name)) {
 					return INTERPRET_RUNTIME_ERROR;
@@ -915,7 +998,7 @@ static InterpretResult run(VM *vm) {
 			case OP_SUPER_INVOKE: {
 				ObjectString *method = READ_STRING();
 				int argCount = READ_BYTE();
-				ObjectClass *superClass = AS_CLASS(pop(vm));
+				ObjectClass *superClass = AS_STL_CLASS(pop(vm));
 				if (!invokeFromClass(vm, superClass, method, argCount)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
@@ -939,7 +1022,7 @@ static InterpretResult run(VM *vm) {
 				for (int i = elementCount - 1; i >= 0; i--) {
 					Value value = pop(vm);
 					Value key = pop(vm);
-					if (IS_NUMBER(key) || IS_STRING(key)) {
+					if (IS_NUMBER(key) || IS_STL_STRING(key)) {
 						if (!objectTableSet(vm, table, key, value)) {
 							runtimePanic(vm, COLLECTION_SET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
@@ -955,9 +1038,9 @@ static InterpretResult run(VM *vm) {
 
 			case OP_GET_COLLECTION: {
 				Value indexValue = pop(vm);
-				if (IS_TABLE(peek(vm, 0))) {
-					if (IS_STRING(indexValue) || IS_NUMBER(indexValue)) {
-						ObjectTable *table = AS_TABLE(peek(vm, 0));
+				if (IS_STL_TABLE(peek(vm, 0))) {
+					if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
+						ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
 						Value value;
 						if (!objectTableGet(table, indexValue, &value)) {
 							runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
@@ -969,13 +1052,13 @@ static InterpretResult run(VM *vm) {
 						runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_ARRAY(peek(vm, 0))) {
+				} else if (IS_STL_ARRAY(peek(vm, 0))) {
 					if (!IS_NUMBER(indexValue)) {
 						runtimePanic(vm, TYPE, "Index must be of type 'number'.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
 					int index = AS_NUMBER(indexValue);
-					ObjectArray *array = AS_ARRAY(peek(vm, 0));
+					ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
 					Value value;
 					if (index < 0 || index >= array->size) {
 						runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
@@ -996,9 +1079,9 @@ static InterpretResult run(VM *vm) {
 				Value value = pop(vm);
 				Value indexValue = peek(vm, 0);
 
-				if (IS_TABLE(peek(vm, 1))) {
-					ObjectTable *table = AS_TABLE(peek(vm, 1));
-					if (IS_NUMBER(indexValue) || IS_STRING(indexValue)) {
+				if (IS_STL_TABLE(peek(vm, 1))) {
+					ObjectTable *table = AS_STL_TABLE(peek(vm, 1));
+					if (IS_NUMBER(indexValue) || IS_STL_STRING(indexValue)) {
 						if (!objectTableSet(vm, table, indexValue, value)) {
 							runtimePanic(vm, COLLECTION_GET, "Failed to set value in table");
 							return INTERPRET_RUNTIME_ERROR;
@@ -1007,8 +1090,8 @@ static InterpretResult run(VM *vm) {
 						runtimePanic(vm, TYPE, "Key cannot be hashed.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_ARRAY(peek(vm, 1))) {
-					ObjectArray *array = AS_ARRAY(peek(vm, 1));
+				} else if (IS_STL_ARRAY(peek(vm, 1))) {
+					ObjectArray *array = AS_STL_ARRAY(peek(vm, 1));
 					int index = AS_NUMBER(indexValue);
 					if (!arraySet(vm, array, index, value)) {
 						runtimePanic(vm, COLLECTION_SET, "Failed to set value in array");
@@ -1158,7 +1241,7 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_ANON_FUNCTION: {
-				ObjectFunction *function = AS_FUNCTION(READ_CONSTANT());
+				ObjectFunction *function = AS_STL_FUNCTION(READ_CONSTANT());
 				ObjectClosure *closure = newClosure(vm, function);
 				push(vm, OBJECT_VAL(closure));
 				for (int i = 0; i < closure->upvalueCount; i++) {
@@ -1198,7 +1281,7 @@ static InterpretResult run(VM *vm) {
 					}
 				}
 				if (scopeDepth == 0) {
-					reverse_stack(vm, actual);
+					reverseStack(vm, actual);
 				}
 				break;
 			}
@@ -1220,12 +1303,14 @@ static InterpretResult run(VM *vm) {
 				ObjectString *modulePath = READ_STRING();
 
 				if (importSetContains(&vm->module->importedModules, modulePath)) {
-					runtimePanic(vm, IMPORT, "Module '%s' has already been imported. All imports must be done in a single 'use' statement.", modulePath->chars);
+					runtimePanic(vm, IMPORT,
+											 "Module '%s' has already been imported. All imports must be done in a single 'use' statement.",
+											 modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0)  {
-					char* moduleName = modulePath->chars + 4;
+				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0) {
+					char *moduleName = modulePath->chars + 4;
 					int moduleIndex = -1;
 					for (int i = 0; i < vm->nativeModules.count; i++) {
 						if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
@@ -1238,7 +1323,7 @@ static InterpretResult run(VM *vm) {
 						return INTERPRET_RUNTIME_ERROR;
 					}
 
-					Table* moduleTable = vm->nativeModules.modules[moduleIndex].names;
+					Table *moduleTable = vm->nativeModules.modules[moduleIndex].names;
 					for (int i = 0; i < nameCount; i++) {
 						Value value;
 						bool getSuccess = tableGet(moduleTable, names[i], &value);
@@ -1253,7 +1338,7 @@ static InterpretResult run(VM *vm) {
 						} else {
 							setSuccess = tableSet(vm, &vm->globals, names[i], value, false);
 						}
-						
+
 						if (!setSuccess) {
 							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
 							return INTERPRET_RUNTIME_ERROR;
@@ -1310,9 +1395,9 @@ static InterpretResult run(VM *vm) {
 				// add the imported names to the current module (deep copy)
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
-					if (aliases[i] != NULL && IS_STRING(OBJECT_VAL(aliases[i]))) {
+					if (aliases[i] != NULL && IS_STL_STRING(OBJECT_VAL(aliases[i]))) {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], aliases[i]);
-					}else {
+					} else {
 						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], names[i]);
 					}
 					if (!success) {
@@ -1326,6 +1411,61 @@ static InterpretResult run(VM *vm) {
 
 				importSetAdd(vm, &vm->module->importedModules, modulePath);
 				freeVM(newModuleVM);
+				break;
+			}
+
+			case OP_MATCH: {
+				break;
+			}
+
+			case OP_MATCH_JUMP: {
+				uint16_t offset = READ_SHORT();
+				Value pattern = pop(vm);
+				Value target = peek(vm, 0);
+				if (!valuesEqual(pattern, target)) {
+					frame->ip += offset;
+					pop(vm); // without this the matched against value will be top of stack
+				}
+
+				break;
+			}
+
+			case OP_RESULT_MATCH_ERR: {
+				uint16_t offset = READ_SHORT();
+				Value target = peek(vm, 0);
+
+				if (!IS_STL_RESULT(target) || AS_STL_RESULT(target)->isOk) {
+					frame->ip += offset;
+				} else {
+					Value error = OBJECT_VAL(AS_STL_RESULT(target)->as.error);
+					pop(vm);
+					push(vm, error);
+				}
+				break;
+			}
+
+			case OP_RESULT_MATCH_OK: {
+				uint16_t offset = READ_SHORT();
+				Value target = peek(vm, 0);
+
+				if (!IS_STL_RESULT(target) || !AS_STL_RESULT(target)->isOk) {
+					frame->ip += offset;
+				} else {
+					Value value = AS_STL_RESULT(target)->as.value;
+					pop(vm);
+					push(vm, value);
+				}
+				break;
+			}
+
+			case OP_RESULT_BIND: {
+				uint8_t slot = READ_BYTE();
+				frame->slots[slot] = peek(vm, 0);
+				break;
+			}
+
+			case OP_MATCH_END: {
+				pop(vm);
 				break;
 			}
 		}

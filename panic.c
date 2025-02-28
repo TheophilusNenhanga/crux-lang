@@ -140,7 +140,7 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
 	fprintf(stderr, RESET "\n");
 }
 
-// add file name
+
 void errorAt(Parser *parser, Token *token, const char *message, ErrorType errorType) {
 	if (parser->panicMode) {
 		return;

@@ -1,44 +1,114 @@
 #include "compiler.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "chunk.h"
 #include "memory.h"
 #include "object.h"
+#include "panic.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
 
-// Make these two non globals
+
 Parser parser;
+
+/**
+ * @brief Pointer to the currently active compiler.
+ *
+ * Used to track the current compilation context, especially when compiling nested functions.
+ */
 Compiler *current = NULL;
+
+/**
+ * @brief Pointer to the currently active class compiler.
+ *
+ * Used when compiling class declarations and methods.
+ */
 ClassCompiler *currentClass = NULL;
+
+/**
+ * @brief Pointer to the chunk of bytecode being currently compiled.
+ *
+ *  This is a convenience pointer to the chunk associated with the current compiler's function.
+ */
 Chunk *compilingChunk;
 
-#include "panic.h"
+
 static void expression();
 
+/**
+ * @brief Parses an expression based on its precedence.
+ *
+ * @param precedence The minimum precedence to parse.
+ */
 static void parsePrecedence(Precedence precedence);
 
+/**
+ * @brief Retrieves the parse rule for a given token type.
+ *
+ * @param type The token type to get the rule for.
+ * @return A pointer to the ParseRule struct for the given token type.
+ */
 static ParseRule *getRule(TokenType type);
 
+/**
+ * @brief Parses a binary expression.
+ *
+ * @param canAssign Whether the binary expression can be the target of an assignment.
+ */
 static void binary(bool canAssign);
 
+/**
+ * @brief Parses a unary expression.
+ *
+ * @param canAssign Whether the unary expression can be the target of an assignment.
+ */
 static void unary(bool canAssign);
 
+/**
+ * @brief Parses a grouping expression (expression surrounded by parentheses).
+ *
+ * @param canAssign Whether the grouping expression can be the target of an assignment.
+ */
 static void grouping(bool canAssign);
 
+/**
+ * @brief Parses a number literal.
+ *
+ * @param canAssign Whether the number literal can be the target of an assignment (always false for literals).
+ */
 static void number(bool canAssign);
 
+/**
+ * @brief Parses a statement.
+ *
+ *  Statements are top-level constructs like if statements, while loops, and variable declarations.
+ */
 static void statement();
 
+/**
+ * @brief Parses a declaration (variable, function, or class).
+ *
+ * Declarations introduce new names into the current scope.
+ */
 static void declaration();
 
+
+/**
+ * Gets the current chunk
+ * @return The current chunk
+ */
 static Chunk *currentChunk() { return &current->function->chunk; }
 
+/**
+ * moves to the next token from the source
+ * Causes the compiler to panic if it encounters an error token
+ */
 static void advance() {
 	parser.previous = parser.current;
 	for (;;) {
@@ -50,8 +120,10 @@ static void advance() {
 }
 
 /**
- * Reads the next token. Validates that the token has the expected type. If not
- * reports an error.
+ * Checks if the current token is the same as the given token.
+ * If it is, advances, if not causes the compiler to panic
+ * @param type The type you are trying to check for
+ * @param message The error message if the check fails
  */
 static void consume(TokenType type, const char *message) {
 	if (parser.current.type == type) {
@@ -61,8 +133,20 @@ static void consume(TokenType type, const char *message) {
 	compilerPanic(&parser, message, SYNTAX);
 }
 
+/**
+ * Check if the current token is the same as the given token.
+ * Does not advance.
+ * @param type The token you are trying to check for.
+ * @return true if the token matches false otherwise.
+ */
 static bool check(TokenType type) { return parser.current.type == type; }
 
+/**
+ * checks if the current token is the given token. If it is, advances.
+ * Does not advance if the token does not match.
+ * @param type The token you are trying to check for.
+ * @return true if the token matched, false otherwise.
+ */
 static bool match(TokenType type) {
 	if (!check(type))
 		return false;
@@ -70,13 +154,26 @@ static bool match(TokenType type) {
 	return true;
 }
 
+/**
+ * Writes a byte to the current chunk
+ * @param byte The byte to be written
+ */
 static void emitByte(uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
 
+/**
+ * Writes two bytes consecutively to the current chunk
+ * @param byte1 First byte to be written
+ * @param byte2 Second byte to be written
+ */
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
 	emitByte(byte1);
 	emitByte(byte2);
 }
 
+/**
+ * emits an OP_LOOP instruction
+ * @param loopStart The starting point of the loop
+ */
 static void emitLoop(int loopStart) {
 	emitByte(OP_LOOP);
 	int offset = currentChunk()->count - loopStart + 2; // +2 takes into account the size of the OP_LOOP
@@ -86,12 +183,40 @@ static void emitLoop(int loopStart) {
 	emitBytes(((offset >> 8) & 0xff), (offset & 0xff));
 }
 
+/**
+ * Emits a jump instruction and placeholders for the jump offset.
+ *
+ * @param instruction The opcode for the jump instruction (e.g., OP_JUMP, OP_JUMP_IF_FALSE).
+ * @return The index of the jump instruction in the bytecode, used for patching later.
+ */
 static int emitJump(uint8_t instruction) {
 	emitByte(instruction);
 	emitBytes(0xff, 0xff);
 	return currentChunk()->count - 2;
 }
 
+/**
+ * Patches a jump instruction with the calculated offset.
+ *
+ * @param offset The index of the jump instruction in the bytecode to patch.
+ */
+static void patchJump(int offset) {
+	// -2 to adjust for the bytecode for the jump offset itself
+	int jump = currentChunk()->count - offset - 2;
+	if (jump > UINT16_MAX) {
+		compilerPanic(&parser, "Too much code to jump over.", BRANCH_EXTENT);
+	}
+	currentChunk()->code[offset] = (jump >> 8) & 0xff;
+	currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
+/**
+ * Emits an instruction that signals the end of a scope.
+ * Depending on the scope one of these three OP CODES can be emitted:
+ * OP_GET_LOCAL 0,
+ * OP_NIL,
+ * OP_RETURN 0
+ */
 static void emitReturn() {
 	if (current->type == TYPE_INITIALIZER) {
 		emitBytes(OP_GET_LOCAL, 0);
@@ -101,6 +226,12 @@ static void emitReturn() {
 	emitBytes(OP_RETURN, 0);
 }
 
+/**
+ * Creates a constant value and adds it to the current chunk's constant pool.
+ *
+ * @param value The value to add as a constant.
+ * @return The index of the constant in the constant pool.
+ */
 static uint8_t makeConstant(Value value) {
 	int constant = addConstant(current->owner, currentChunk(), value);
 	// Add constant adds the given value to the end of the constant table and
@@ -115,25 +246,30 @@ static uint8_t makeConstant(Value value) {
 	return (uint8_t) constant;
 }
 
+/**
+ * Emits an OP_CONSTANT instruction and its operand (the constant index).
+ *
+ * @param value The constant value to emit.
+ */
 static void emitConstant(Value value) { emitBytes(OP_CONSTANT, makeConstant(value)); }
 
-static void patchJump(int offset) {
-	// -2 to adjust for the bytecode for the jump offset itself
-	int jump = currentChunk()->count - offset - 2;
-	if (jump > UINT16_MAX) {
-		compilerPanic(&parser, "Too much code to jump over.", BRANCH_EXTENT);
-	}
-	currentChunk()->code[offset] = (jump >> 8) & 0xff;
-	currentChunk()->code[offset + 1] = jump & 0xff;
-}
 
-
+/**
+ * Initializes a compiler.
+ *
+ * Sets up the compiler state for compiling a new function (or script).
+ *
+ * @param compiler The compiler to initialize.
+ * @param type The type of function being compiled (e.g., TYPE_FUNCTION, TYPE_SCRIPT).
+ * @param vm The virtual machine instance.
+ */
 static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+	compiler->matchDepth = 0;
 	compiler->owner = vm;
 
 	compiler->function = newFunction(compiler->owner);
@@ -160,12 +296,28 @@ static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
 	}
 }
 
+/**
+ * Creates a constant for an identifier token.
+ *
+ * @param name The token representing the identifier.
+ * @return The index of the identifier constant in the constant pool.
+ */
 static uint8_t identifierConstant(Token *name) {
 	return makeConstant(OBJECT_VAL(copyString(current->owner, name->start, name->length)));
 }
 
+/**
+ * Begins a new scope.
+ *
+ * Increases the scope depth, indicating that variables declared subsequently are in a new, inner scope.
+ */
 static void beginScope() { current->scopeDepth++; }
 
+/**
+ * Ends the current scope.
+ *
+ * Decreases the scope depth and emits OP_POP instructions to remove local variables that go out of scope.
+ */
 static void endScope() {
 	current->scopeDepth--;
 
@@ -179,12 +331,28 @@ static void endScope() {
 	}
 }
 
+/**
+ * Checks if two identifier tokens are equal.
+ *
+ * @param a The first token.
+ * @param b The second token.
+ * @return true if the tokens represent the same identifier, false otherwise.
+ */
 static bool identifiersEqual(Token *a, Token *b) {
 	if (a->length != b->length)
 		return false;
 	return memcmp(a->start, b->start, a->length) == 0;
 }
 
+/**
+ * Resolves a local variable in the current compiler's scope.
+ *
+ * Searches the current compiler's local variables for a variable with the given name.
+ *
+ * @param compiler The compiler whose scope to search.
+ * @param name The token representing the variable name.
+ * @return The index of the local variable if found, -1 otherwise.
+ */
 static int resolveLocal(Compiler *compiler, Token *name) {
 	for (int i = compiler->localCount - 1; i >= 0; i--) {
 		Local *local = &compiler->locals[i];
@@ -198,6 +366,16 @@ static int resolveLocal(Compiler *compiler, Token *name) {
 	return -1;
 }
 
+/**
+ * Adds an upvalue to the current function.
+ *
+ * An upvalue is a variable captured from an enclosing function's scope.
+ *
+ * @param compiler The current compiler.
+ * @param index The index of the local variable in the enclosing function, or the index of the upvalue.
+ * @param isLocal true if the upvalue is a local variable in the enclosing function, false if it's an upvalue itself.
+ * @return The index of the added upvalue in the current function's upvalue array.
+ */
 static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
 	int upvalueCount = compiler->function->upvalueCount;
 
@@ -218,6 +396,15 @@ static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
 	return compiler->function->upvalueCount++;
 }
 
+/**
+ * Resolves an upvalue in enclosing scopes.
+ *
+ * Searches enclosing compiler scopes for a local variable or upvalue with the given name.
+ *
+ * @param compiler The current compiler.
+ * @param name The token representing the variable name.
+ * @return The index of the resolved upvalue if found, -1 otherwise.
+ */
 static int resolveUpvalue(Compiler *compiler, Token *name) {
 	if (compiler->enclosing == NULL)
 		return -1;
@@ -236,6 +423,11 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
 	return -1;
 }
 
+/**
+ * Adds a local variable to the current scope.
+ *
+ * @param name The token representing the name of the local variable.
+ */
 static void addLocal(Token name) {
 	if (current->localCount == UINT8_COUNT) {
 		compilerPanic(&parser, "Too many local variables in function.", LOCAL_EXTENT);
@@ -248,6 +440,11 @@ static void addLocal(Token name) {
 	local->isCaptured = false;
 }
 
+/**
+ * Declares a variable in the current scope.
+ *
+ * Adds the variable name to the list of local variables, but does not mark it as initialized yet.
+ */
 static void declareVariable() {
 	if (current->scopeDepth == 0)
 		return;
@@ -267,12 +464,23 @@ static void declareVariable() {
 	addLocal(*name);
 }
 
+/**
+ * Marks the most recently declared local variable as initialized.
+ *
+ * This prevents reading a local variable before it has been assigned a value.
+ */
 static void markInitialized() {
 	if (current->scopeDepth == 0)
 		return;
 	current->locals[current->localCount - 1].depth = current->scopeDepth;
 }
 
+/**
+ * Parses a variable name and returns its constant pool index.
+ *
+ * @param errorMessage The error message to display if an identifier is not found.
+ * @return The index of the variable name constant in the constant pool.
+ */
 static uint8_t parseVariable(const char *errorMessage) {
 	consume(TOKEN_IDENTIFIER, errorMessage);
 	declareVariable();
@@ -281,6 +489,14 @@ static uint8_t parseVariable(const char *errorMessage) {
 	return identifierConstant(&parser.previous);
 }
 
+/**
+ * Defines a variable, emitting the bytecode to store its value.
+ *
+ * If the variable is global, emits OP_DEFINE_GLOBAL. Otherwise, it's a local variable and no bytecode is emitted at definition time
+ * (local variables are implicitly defined when they are declared and initialized).
+ *
+ * @param global The index of the variable name constant in the constant pool (for global variables).
+ */
 static void defineVariable(uint8_t global) {
 	if (current->scopeDepth > 0) {
 		markInitialized();
@@ -289,6 +505,11 @@ static void defineVariable(uint8_t global) {
 	emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
+/**
+ * Parses an argument list for a function call.
+ *
+ * @return The number of arguments parsed.
+ */
 static uint8_t argumentList() {
 	uint8_t argCount = 0;
 	if (!check(TOKEN_RIGHT_PAREN)) {
@@ -304,6 +525,11 @@ static uint8_t argumentList() {
 	return argCount;
 }
 
+/**
+ * Parses the 'and' operator. Implemented using short-circuiting.
+ *
+ * @param canAssign Whether the 'and' expression can be the target of an assignment.
+ */
 static void and_(bool canAssign) {
 	int endJump = emitJump(OP_JUMP_IF_FALSE);
 	emitByte(OP_POP);
@@ -312,6 +538,11 @@ static void and_(bool canAssign) {
 	patchJump(endJump);
 }
 
+/**
+ * Parses the 'or' operator. Implemented using short-circuiting.
+ *
+ * @param canAssign Whether the 'or' expression can be the target of an assignment.
+ */
 static void or_(bool canAssign) {
 	int elseJump = emitJump(OP_JUMP_IF_FALSE);
 	int endJump = emitJump(OP_JUMP);
@@ -322,6 +553,13 @@ static void or_(bool canAssign) {
 	patchJump(endJump);
 }
 
+/**
+ * Finishes compilation and returns the compiled function.
+ *
+ * Emits the final OP_RETURN instruction, frees the compiler state, and returns the compiled function object.
+ *
+ * @return The compiled function object.
+ */
 static ObjectFunction *endCompiler() {
 	emitReturn();
 	ObjectFunction *function = current->function;
@@ -334,6 +572,11 @@ static ObjectFunction *endCompiler() {
 	return function;
 }
 
+/**
+ * Parses a binary operator expression.
+ *
+ * @param canAssign Whether the binary expression can be the target of an assignment.
+ */
 static void binary(bool canAssign) {
 	TokenType operatorType = parser.previous.type;
 	ParseRule *rule = getRule(operatorType);
@@ -384,11 +627,21 @@ static void binary(bool canAssign) {
 	}
 }
 
+/**
+ * Parses a function call expression.
+ *
+ * @param canAssign Whether the call expression can be the target of an assignment.
+ */
 static void call(bool canAssign) {
 	uint8_t argCount = argumentList();
 	emitBytes(OP_CALL, argCount);
 }
 
+/**
+ * Parses a literal boolean or nil value.
+ *
+ * @param canAssign Whether the literal can be the target of an assignment (always false).
+ */
 static void literal(bool canAssign) {
 	switch (parser.previous.type) {
 		case TOKEN_FALSE:
@@ -404,6 +657,11 @@ static void literal(bool canAssign) {
 	}
 }
 
+/**
+ * Parses a dot (.) property access expression.
+ *
+ * @param canAssign Whether the dot expression can be the target of an assignment.
+ */
 static void dot(bool canAssign) {
 	consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
 	uint8_t name = identifierConstant(&parser.previous);
@@ -420,9 +678,20 @@ static void dot(bool canAssign) {
 	}
 }
 
+/**
+ * Parses an expression. Entry point for expression parsing.
+ */
 static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
 
-
+/**
+ * Gets the compound opcode based on the set opcode and compound operation.
+ *
+ * This helper function is used for compound assignments (e.g., +=, -=, *=, /=).
+ *
+ * @param setOp The base set opcode (e.g., OP_SET_LOCAL, OP_SET_GLOBAL).
+ * @param op The compound operation (e.g., COMPOUND_OP_PLUS, COMPOUND_OP_MINUS).
+ * @return The corresponding compound opcode.
+ */
 static OpCode getCompoundOpcode(OpCode setOp, CompoundOp op) {
 	switch (setOp) {
 		case OP_SET_LOCAL:
@@ -463,6 +732,12 @@ static OpCode getCompoundOpcode(OpCode setOp, CompoundOp op) {
 	}
 }
 
+/**
+ * Parses a named variable (local, upvalue, or global).
+ *
+ * @param name The token representing the variable name.
+ * @param canAssign Whether the variable expression can be the target of an assignment.
+ */
 static void namedVariable(Token name, bool canAssign) {
 	uint8_t getOp, setOp;
 	int arg = resolveLocal(current, &name);
@@ -509,8 +784,19 @@ static void namedVariable(Token name, bool canAssign) {
 	emitBytes(getOp, arg);
 }
 
+/**
+ * Parses a variable expression.
+ *
+ * @param canAssign Whether the variable expression can be the target of an assignment.
+ */
 static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
 
+/**
+ * Creates a synthetic token for internal compiler use.
+ *
+ * @param text The text of the synthetic token.
+ * @return The created synthetic token.
+ */
 static Token syntheticToken(const char *text) {
 	Token token;
 	token.start = text;
@@ -518,6 +804,11 @@ static Token syntheticToken(const char *text) {
 	return token;
 }
 
+/**
+ * Parses a 'super' expression (for accessing superclass methods).
+ *
+ * @param canAssign Whether the 'super' expression can be the target of an assignment.
+ */
 static void super_(bool canAssign) {
 	if (currentClass == NULL) {
 		compilerPanic(&parser, "Cannot use 'super' outside of a class", NAME);
@@ -542,6 +833,9 @@ static void super_(bool canAssign) {
 	}
 }
 
+/**
+ * Parses a block statement (code enclosed in curly braces {}).
+ */
 static void block() {
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		declaration();
@@ -550,6 +844,11 @@ static void block() {
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
+/**
+ * Parses a function declaration or anonymous function expression.
+ *
+ * @param type The type of function being parsed (TYPE_FUNCTION for declarations, TYPE_ANONYMOUS for expressions, TYPE_METHOD for methods).
+ */
 static void function(FunctionType type) {
 	Compiler compiler;
 	initCompiler(&compiler, type, current->owner);
@@ -581,6 +880,9 @@ static void function(FunctionType type) {
 	}
 }
 
+/**
+ * Parses a method declaration within a class.
+ */
 static void method() {
 	consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
 	consume(TOKEN_IDENTIFIER, "Expected method name.");
@@ -597,6 +899,9 @@ static void method() {
 	emitBytes(OP_METHOD, constant);
 }
 
+/**
+ * Parses a class declaration.
+ */
 static void classDeclaration() {
 	consume(TOKEN_IDENTIFIER, "Expected class name");
 	Token className = parser.previous;
@@ -646,6 +951,9 @@ static void classDeclaration() {
 	currentClass = classCompiler.enclosing;
 }
 
+/**
+ * Parses a function declaration.
+ */
 static void fnDeclaration() {
 	uint8_t global = parseVariable("Expected function name");
 	markInitialized();
@@ -653,6 +961,11 @@ static void fnDeclaration() {
 	defineVariable(global);
 }
 
+/**
+ * Parses an anonymous function expression.
+ *
+ * @param canAssign Whether the anonymous function expression can be the target of an assignment.
+ */
 static void anonymousFunction(bool canAssign) {
 	Compiler compiler;
 	initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
@@ -680,6 +993,11 @@ static void anonymousFunction(bool canAssign) {
 	}
 }
 
+/**
+ * Parses an array literal expression.
+ *
+ * @param canAssign Whether the array literal can be the target of an assignment.
+ */
 static void arrayLiteral(bool canAssign) {
 	uint16_t elementCount = 0;
 
@@ -697,6 +1015,11 @@ static void arrayLiteral(bool canAssign) {
 	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
+/**
+ * Parses a table literal expression.
+ *
+ * @param canAssign Whether the table literal can be the target of an assignment.
+ */
 static void tableLiteral(bool canAssign) {
 	uint16_t elementCount = 0;
 
@@ -716,11 +1039,16 @@ static void tableLiteral(bool canAssign) {
 	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
+/**
+ * Parses a collection index access expression (e.g., array[index]).
+ *
+ * @param canAssign Whether the collection index expression can be the target of an assignment.
+ */
 static void collectionIndex(bool canAssign) {
 	expression(); // array index
 	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
 
-	if (match(TOKEN_EQUAL)) {
+	if (canAssign && match(TOKEN_EQUAL)) {
 		expression();
 		emitByte(OP_SET_COLLECTION);
 	} else {
@@ -728,6 +1056,9 @@ static void collectionIndex(bool canAssign) {
 	}
 }
 
+/**
+ * Parses a variable declaration statement (using 'let').
+ */
 static void varDeclaration() {
 	uint8_t global = parseVariable("Expected variable name");
 
@@ -782,13 +1113,18 @@ static void varDeclaration() {
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 }
 
+/**
+ * Parses an expression statement (an expression followed by a semicolon).
+ */
 static void expressionStatement() {
 	expression();
 	consume(TOKEN_SEMICOLON, "Expected ';' after expression");
 	emitByte(OP_POP);
 }
 
-
+/**
+ * Parses a while loop statement.
+ */
 static void whileStatement() {
 	beginScope();
 	int loopStart = currentChunk()->count;
@@ -806,6 +1142,9 @@ static void whileStatement() {
 	endScope();
 }
 
+/**
+ * Parses a for loop statement.
+ */
 static void forStatement() {
 	beginScope();
 
@@ -849,6 +1188,9 @@ static void forStatement() {
 	endScope();
 }
 
+/**
+ * Parses an if statement.
+ */
 static void ifStatement() {
 	expression();
 	int thenJump = emitJump(OP_JUMP_IF_FALSE);
@@ -864,6 +1206,9 @@ static void ifStatement() {
 	patchJump(elseJump);
 }
 
+/**
+ * Parses a return statement.
+ */
 static void returnStatement() {
 	if (current->type == TYPE_SCRIPT) {
 		compilerPanic(&parser, "Cannot use <return> outside of a function", SYNTAX);
@@ -890,6 +1235,9 @@ static void returnStatement() {
 	}
 }
 
+/**
+ * Parses a use statement for importing modules.
+ */
 static void useStatement() {
 	bool hasParen = false;
 	if (parser.current.type == TOKEN_LEFT_PAREN) {
@@ -915,7 +1263,7 @@ static void useStatement() {
 			uint8_t alias = identifierConstant(&parser.previous);
 			aliases[nameCount] = alias;
 			aliasPresence[nameCount] = true;
-		}else {
+		} else {
 			name = identifierConstant(&parser.previous);
 		}
 
@@ -923,7 +1271,7 @@ static void useStatement() {
 		nameCount++;
 	} while (match(TOKEN_COMMA));
 	if (hasParen) {
-			consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
+		consume(TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
 	}
 
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
@@ -937,7 +1285,7 @@ static void useStatement() {
 	for (uint8_t i = 0; i < nameCount; i++) {
 		if (aliasPresence[i]) {
 			emitByte(aliases[i]);
-		}else {
+		} else {
 			emitByte(names[i]);
 		}
 	}
@@ -945,6 +1293,11 @@ static void useStatement() {
 	consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
+/**
+ * Synchronizes the parser after encountering a syntax error.
+ *
+ * Discards tokens until a statement boundary is found to minimize cascading errors.
+ */
 static void synchronize() {
 	parser.panicMode = false;
 
@@ -966,6 +1319,9 @@ static void synchronize() {
 	}
 }
 
+/**
+ * Parses a public declaration (using 'pub').
+ */
 static void publicDeclaration() {
 	if (current->scopeDepth > 0) {
 		compilerPanic(&parser, "Cannot declare public members in a local scope.", SYNTAX);
@@ -982,7 +1338,146 @@ static void publicDeclaration() {
 	}
 }
 
+/**
+ * Begins a match statement scope.
+ */
+static void beginMatchScope() {
+	if (current->matchDepth > 0) {
+		compilerPanic(&parser, "Nesting match statements is not allowed.", SYNTAX);
+	}
+	current->matchDepth++;
+}
 
+/**
+ * Ends a match statement scope.
+ */
+static void endMatchScope() { current->matchDepth--; }
+
+/**
+ * Parses a match statement.
+ */
+static void matchStatement() {
+	beginMatchScope();
+	expression(); // compile match target
+	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
+
+	int *endJumps = ALLOCATE(current->owner, int, 8);
+	int jumpCount = 0;
+	int jumpCapacity = 8;
+
+	emitByte(OP_MATCH);
+	bool hasDefault = false;
+	bool hasOkPattern = false;
+	bool hasErrPattern = false;
+	uint8_t bindingSlot = UINT8_MAX;
+	bool hasBinding = false;
+
+	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+		int jumpIfNotMatch = -1;
+		bindingSlot = UINT8_MAX;
+		hasBinding = false;
+
+		if (match(TOKEN_DEFAULT)) {
+			if (hasDefault) {
+				compilerPanic(&parser, "Cannot have multiple default patterns.", SYNTAX);
+			}
+			hasDefault = true;
+		} else if (match(TOKEN_OK)) {
+			if (hasOkPattern) {
+				compilerPanic(&parser, "Cannot have multiple 'Ok' patterns.", SYNTAX);
+			}
+			hasOkPattern = true;
+			jumpIfNotMatch = emitJump(OP_RESULT_MATCH_OK);
+
+			if (match(TOKEN_LEFT_PAREN)) {
+				beginScope();
+				hasBinding = true;
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				declareVariable();
+				bindingSlot = current->localCount - 1;
+				markInitialized();
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+			}
+
+		} else if (match(TOKEN_ERR)) {
+			if (hasErrPattern) {
+				compilerPanic(&parser, "Cannot have multiple 'Err' patterns.", SYNTAX);
+			}
+			hasErrPattern = true;
+			jumpIfNotMatch = emitJump(OP_RESULT_MATCH_ERR);
+
+			if (match(TOKEN_LEFT_PAREN)) {
+				beginScope();
+				hasBinding = true;
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				declareVariable();
+				bindingSlot = current->localCount - 1;
+				markInitialized();
+				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+			}
+		} else {
+			expression();
+			jumpIfNotMatch = emitJump(OP_MATCH_JUMP);
+		}
+
+		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
+
+		if (bindingSlot != UINT8_MAX) {
+			emitBytes(OP_RESULT_BIND, bindingSlot);
+		}
+
+		// Compile match body
+		if (match(TOKEN_LEFT_BRACE)) {
+			block();
+		} else {
+			expression();
+			consume(TOKEN_SEMICOLON, "Expected ';' after match arm expression.");
+		}
+
+		if (hasBinding) {
+			endScope();
+		}
+
+		if (jumpCount + 1 > jumpCapacity) {
+			int oldCapacity = jumpCapacity;
+			jumpCapacity = GROW_CAPACITY(oldCapacity);
+			endJumps = GROW_ARRAY(current->owner, int, endJumps, oldCapacity, jumpCapacity);
+		}
+
+		endJumps[jumpCount++] = emitJump(OP_JUMP);
+
+		if (jumpIfNotMatch != -1) {
+			patchJump(jumpIfNotMatch);
+		}
+	}
+
+	if (jumpCount == 0) {
+		compilerPanic(&parser, "Match statement must have at least one arm.", SYNTAX);
+	}
+
+	if (hasOkPattern || hasErrPattern) {
+		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
+			compilerPanic(&parser, "Result match must have both 'Ok' and 'Err' patterns, or include a default case.", SYNTAX);
+		}
+	} else if (!hasDefault) {
+		compilerPanic(&parser, "Match statement must have default case 'default'.", SYNTAX);
+	}
+
+	emitByte(OP_MATCH_END);
+
+	for (int i = 0; i < jumpCount; i++) {
+		patchJump(endJumps[i]);
+	}
+
+	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
+	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
+	endMatchScope();
+}
+
+
+/**
+ * Parses a declaration, which can be a variable, function, or class declaration.
+ */
 static void declaration() {
 	if (match(TOKEN_LET)) {
 		varDeclaration();
@@ -1000,6 +1495,9 @@ static void declaration() {
 		synchronize();
 }
 
+/**
+ * Parses a statement.
+ */
 static void statement() {
 	if (match(TOKEN_IF)) {
 		ifStatement();
@@ -1015,35 +1513,65 @@ static void statement() {
 		returnStatement();
 	} else if (match(TOKEN_USE)) {
 		useStatement();
+	} else if (match(TOKEN_MATCH)) {
+		matchStatement();
 	} else {
 		expressionStatement();
 	}
 }
 
+/**
+ * Parses a grouping expression.
+ *
+ * @param canAssign Whether the grouping expression can be the target of an assignment.
+ */
 static void grouping(bool canAssign) {
 	expression();
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
+/**
+ * Parses a number literal.
+ *
+ * @param canAssign Whether the number literal can be the target of an assignment.
+ */
 static void number(bool canAssign) {
 	double value = strtod(parser.previous.start, NULL);
 	emitConstant(NUMBER_VAL(value));
 }
 
-static char processEscapeSequence(char escape, bool* hasError) {
+/**
+ * Processes an escape sequence within a string literal.
+ *
+ * @param escape The escape character (e.g., 'n', 't', '\\').
+ * @param hasError A pointer to a boolean to indicate if an error occurred during processing.
+ * @return The processed escaped character, or '\0' if an error occurred.
+ */
+static char processEscapeSequence(char escape, bool *hasError) {
 	*hasError = false;
 	switch (escape) {
-		case 'n': return '\n';
-		case 't': return '\t';
-		case 'r': return '\r';
-		case '\\': return '\\';
-		case '"': return '"';
-		case '\'': return '\'';
-		case '0': return ' ';
-		case 'a': return '\a';
-		case 'b': return '\b';
-		case 'f': return '\f';
-		case 'v': return '\v';
+		case 'n':
+			return '\n';
+		case 't':
+			return '\t';
+		case 'r':
+			return '\r';
+		case '\\':
+			return '\\';
+		case '"':
+			return '"';
+		case '\'':
+			return '\'';
+		case '0':
+			return ' ';
+		case 'a':
+			return '\a';
+		case 'b':
+			return '\b';
+		case 'f':
+			return '\f';
+		case 'v':
+			return '\v';
 		default: {
 			*hasError = true;
 			return '\0';
@@ -1051,8 +1579,13 @@ static char processEscapeSequence(char escape, bool* hasError) {
 	}
 }
 
+/**
+ * Parses a string literal.
+ *
+ * @param canAssign Whether the string literal can be the target of an assignment.
+ */
 static void string(bool canAssign) {
-	char* processed = ALLOCATE(current->owner, char, parser.previous.length);
+	char *processed = ALLOCATE(current->owner, char, parser.previous.length);
 
 	if (processed == NULL) {
 		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
@@ -1060,11 +1593,11 @@ static void string(bool canAssign) {
 	}
 
 	int processedLength = 0;
-	char* src = (char*) parser.previous.start + 1;
+	char *src = (char *) parser.previous.start + 1;
 	int srcLength = parser.previous.length - 2;
 
 	if (srcLength == 0) {
-		ObjectString* string = copyString(current->owner, "", 0);
+		ObjectString *string = copyString(current->owner, "", 0);
 		emitConstant(OBJECT_VAL(string));
 		return;
 	}
@@ -1079,10 +1612,10 @@ static void string(bool canAssign) {
 			}
 
 			bool error;
-			char escaped = processEscapeSequence(src[i+1], &error);
+			char escaped = processEscapeSequence(src[i + 1], &error);
 			if (error) {
 				char errorMessage[64];
-				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i+1]);
+				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i + 1]);
 				compilerPanic(&parser, errorMessage, SYNTAX);
 				FREE_ARRAY(current->owner, char, processed, parser.previous.length);
 				return;
@@ -1090,12 +1623,12 @@ static void string(bool canAssign) {
 
 			processed[processedLength++] = escaped;
 			i++;
-		}else {
+		} else {
 			processed[processedLength++] = src[i];
 		}
 	}
 
-	char* temp = realloc(processed, processedLength * sizeof(char));
+	char *temp = realloc(processed, processedLength * sizeof(char));
 	if (temp == NULL) {
 		compilerPanic(&parser, "Cannot allocate memory for string expression.", MEMORY);
 		FREE_ARRAY(current->owner, char, processed, parser.previous.length);
@@ -1103,11 +1636,15 @@ static void string(bool canAssign) {
 	}
 	processed = temp;
 	processed[processedLength] = '\0';
-	ObjectString* string = takeString(current->owner, processed, processedLength);
+	ObjectString *string = takeString(current->owner, processed, processedLength);
 	emitConstant(OBJECT_VAL(string));
 }
 
-
+/**
+ * Parses a 'self' expression (referring to the current object instance within a class method).
+ *
+ * @param canAssign Whether the 'self' expression can be the target of an assignment.
+ */
 static void self(bool canAssign) {
 	if (currentClass == NULL) {
 		compilerPanic(&parser, "'self' cannot be used outside of a class.", NAME);
@@ -1117,6 +1654,11 @@ static void self(bool canAssign) {
 	variable(false);
 }
 
+/**
+ * Parses a unary operator expression.
+ *
+ * @param canAssign Whether the unary expression can be the target of an assignment.
+ */
 static void unary(bool canAssign) {
 	TokenType operatorType = parser.previous.type;
 
@@ -1135,7 +1677,11 @@ static void unary(bool canAssign) {
 	}
 }
 
-// Prefix Infix Precedence
+/**
+ * @brief Parse rules for each token type.
+ *
+ * Defines prefix and infix parsing functions and precedence for each token type.
+ */
 ParseRule rules[] = {
 		[TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
 		[TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -1186,6 +1732,8 @@ ParseRule rules[] = {
 		[TOKEN_PUB] = {NULL, NULL, PREC_NONE},
 		[TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
+		[TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
+		[TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 
@@ -1215,10 +1763,23 @@ static void parsePrecedence(Precedence precedence) {
 	}
 }
 
+/**
+ * Retrieves the parse rule for a given token type.
+ *
+ * @param type The token type to get the rule for.
+ * @return A pointer to the ParseRule struct for the given token type.
+ */
 static ParseRule *getRule(TokenType type) {
 	return &rules[type]; // Returns the rule at the given index
 }
 
+/**
+ * Compiles source code into bytecode.
+ *
+ * @param vm The virtual machine instance.
+ * @param source The source code string to compile.
+ * @return A pointer to the compiled function object if compilation succeeds, NULL otherwise.
+ */
 ObjectFunction *compile(VM *vm, char *source) {
 	initScanner(source);
 	Compiler compiler;
@@ -1238,6 +1799,13 @@ ObjectFunction *compile(VM *vm, char *source) {
 	return parser.hadError ? NULL : function;
 }
 
+/**
+ * Marks compiler-related objects as reachable for garbage collection.
+ *
+ * Traverses the compiler chain and marks the function objects associated with each compiler.
+ *
+ * @param vm The virtual machine instance.
+ */
 void markCompilerRoots(VM *vm) {
 	Compiler *compiler = current;
 	while (compiler != NULL) {

@@ -6,7 +6,7 @@
 #include "object.h"
 
 void disassembleChunk(Chunk *chunk, const char *name) {
-	printf("======= %s =======\n", name); // So we can tell which chunk we are looking at
+	printf("======= %s =======\n", name);
 
 	for (int offset = 0; offset < chunk->count;) {
 		offset = disassembleInstruction(chunk, offset);
@@ -14,17 +14,49 @@ void disassembleChunk(Chunk *chunk, const char *name) {
 	}
 }
 
+/**
+ * @brief Formats and prints a simple instruction (with no operands)
+ *
+ * Prints the instruction name and returns the offset of the next instruction.
+ *
+ * @param name The name of the instruction
+ * @param offset The current byte offset in the chunk
+ * @return The offset of the next instruction (current offset + 1)
+ */
 static int simpleInstruction(const char *name, const int offset) {
 	printf(" %s\n", name);
 	return offset + 1;
 }
 
+/**
+ * @brief Formats and prints an instruction with a single byte operand
+ *
+ * Prints the instruction name and its byte operand, then returns
+ * the offset of the next instruction.
+ *
+ * @param name The name of the instruction
+ * @param chunk Pointer to the Chunk containing the instruction
+ * @param offset The current byte offset in the chunk
+ * @return The offset of the next instruction (current offset + 2)
+ */
 static int byteInstruction(const char *name, Chunk *chunk, int offset) {
 	uint8_t slot = chunk->code[offset + 1];
 	printf("%-16s %4d\n", name, slot);
 	return offset + 2;
 }
 
+/**
+ * @brief Formats and prints a jump instruction with a two-byte operand
+ *
+ * Decodes the two-byte jump offset, calculates and prints the target offset,
+ * then returns the offset of the next instruction.
+ *
+ * @param name The name of the instruction
+ * @param sign Direction of the jump (1 for forward, -1 for backward)
+ * @param chunk Pointer to the Chunk containing the instruction
+ * @param offset The current byte offset in the chunk
+ * @return The offset of the next instruction (current offset + 3)
+ */
 static int jumpInstruction(const char *name, int sign, Chunk *chunk, int offset) {
 	uint16_t jump = (uint16_t) (chunk->code[offset + 1] << 8);
 	jump |= chunk->code[offset + 2];
@@ -32,6 +64,17 @@ static int jumpInstruction(const char *name, int sign, Chunk *chunk, int offset)
 	return offset + 3;
 }
 
+/**
+ * @brief Formats and prints an instruction with a constant operand
+ *
+ * Prints the instruction name, the constant index, and the constant's value,
+ * then returns the offset of the next instruction.
+ *
+ * @param name The name of the instruction
+ * @param chunk Pointer to the Chunk containing the instruction
+ * @param offset The current byte offset in the chunk
+ * @return The offset of the next instruction (current offset + 2)
+ */
 static int constantInstruction(const char *name, Chunk *chunk, int offset) {
 	uint8_t constant = chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
@@ -40,6 +83,17 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset) {
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
 
+/**
+ * @brief Formats and prints a method invocation instruction
+ *
+ * Prints the instruction name, argument count, constant index, and the method name,
+ * then returns the offset of the next instruction.
+ *
+ * @param name The name of the instruction
+ * @param chunk Pointer to the Chunk containing the instruction
+ * @param offset The current byte offset in the chunk
+ * @return The offset of the next instruction (current offset + 3)
+ */
 static int invokeInstruction(const char *name, Chunk *chunk, int offset) {
 	uint8_t constant = chunk->code[offset + 1];
 	uint8_t argCount = chunk->code[offset + 2];
@@ -99,8 +153,6 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			return simpleInstruction("OP_LEFT_SHIFT", offset);
 		case OP_RIGHT_SHIFT:
 			return simpleInstruction("OP_RIGHT_SHIFT", offset);
-		case OP_PRINT:
-			return simpleInstruction("OP_PRINT", offset);
 		case OP_POP:
 			return simpleInstruction("OP_POP", offset);
 		case OP_DEFINE_GLOBAL:
@@ -132,7 +184,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			printValue(chunk->constants.values[constant]);
 			printf("\n");
 
-			ObjectFunction *function = AS_FUNCTION(chunk->constants.values[constant]);
+			ObjectFunction *function = AS_STL_FUNCTION(chunk->constants.values[constant]);
 			for (int j = 0; j < function->upvalueCount; j++) {
 				int isLocal = chunk->code[offset++];
 				int index = chunk->code[offset++];
@@ -219,31 +271,26 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		case OP_PUB: {
 			return simpleInstruction("OP_PUB", offset);
 		}
+		case OP_MATCH: {
+			return simpleInstruction("OP_MATCH", offset);
+		}
+		case OP_MATCH_JUMP: {
+			return jumpInstruction("OP_MATCH_JUMP", 1, chunk, offset);
+		}
+		case OP_MATCH_END: {
+			return simpleInstruction("OP_MATCH_END", offset);
+		}
+		case OP_RESULT_MATCH_OK: {
+			return simpleInstruction("OP_RESULT_MATCH_OK", offset);
+		}
+		case OP_RESULT_MATCH_ERR: {
+			return simpleInstruction("OP_RESULT_MATCH_ERR", offset);
+		}
+		case OP_RESULT_BIND: {
+			return constantInstruction("OP_RESULT_BIND", chunk, offset);
+		}
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;
 	}
-}
-
-bool verifyNumbers(Value a, Value b, const char *operation) {
-	if (!IS_NUMBER(a) || !IS_NUMBER(b)) {
-		printf("Arithmetic error in '%s':\n", operation);
-		printf("Left operand: ");
-		printValue(a);
-		printf(" (type: %s)\n", IS_NUMBER(a)	 ? "number"
-														: IS_NIL(a)		 ? "nil"
-														: IS_BOOL(a)	 ? "boolean"
-														: IS_STRING(a) ? "string"
-																					 : "other");
-
-		printf("Right operand: ");
-		printValue(b);
-		printf(" (type: %s)\n", IS_NUMBER(b)	 ? "number"
-														: IS_NIL(b)		 ? "nil"
-														: IS_BOOL(b)	 ? "boolean"
-														: IS_STRING(b) ? "string"
-																					 : "other");
-		return false;
-	}
-	return true;
 }

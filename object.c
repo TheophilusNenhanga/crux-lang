@@ -6,6 +6,21 @@
 #include "memory.h"
 #include "object.h"
 
+/**
+ * @brief Allocates a new object of the specified type.
+ *
+ * This is a static helper function used to allocate memory for a new object
+ * and initialize its basic properties. It uses the `reallocate` function
+ * for memory management, integrates with the garbage collector by linking
+ * the new object into the VM's object list, and sets the object's type and
+ * initial marking status.
+ *
+ * @param vm The virtual machine.
+ * @param size The size of the object to allocate in bytes.
+ * @param type The type of the object being allocated (ObjectType enum).
+ *
+ * @return A pointer to the newly allocated and initialized Object.
+ */
 static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
 	Object *object = (Object *) reallocate(vm, NULL, 0, size);
 
@@ -26,8 +41,33 @@ static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
 
 	return object;
 }
+/**
+ * @brief Macro to allocate a specific type of object.
+ *
+ * This macro simplifies object allocation by wrapping the `allocateObject`
+ * function. It casts the result of `allocateObject` to the desired object type,
+ * reducing code duplication and improving readability.
+ *
+ * @param vm The virtual machine.
+ * @param type The C type of the object to allocate (e.g., ObjectString).
+ * @param objectType The ObjectType enum value for the object.
+ *
+ * @return A pointer to the newly allocated object, cast to the specified type.
+ */
 #define ALLOCATE_OBJECT(vm, type, objectType) (type *) allocateObject(vm, sizeof(type), objectType)
 
+/**
+ * @brief Calculates the next power of 2 capacity for a collection.
+ *
+ * This static helper function calculates the next power of 2 capacity for
+ * collections like tables and arrays. It ensures efficient hash table
+ * resizing and memory allocation by always using power-of-two capacities.
+ * If the input `n` is close to `UINT16_MAX`, it returns `UINT16_MAX - 1` to avoid potential overflow.
+ *
+ * @param n The desired minimum capacity.
+ *
+ * @return The next power of 2 capacity greater than or equal to `n`, or `UINT16_MAX - 1` if `n` is close to the maximum.
+ */
 static uint64_t calculateCollectionCapacity(uint64_t n) {
 	if (n >= UINT16_MAX - 1) {
 		return UINT16_MAX - 1;
@@ -44,9 +84,20 @@ static uint64_t calculateCollectionCapacity(uint64_t n) {
 	return n + 1;
 }
 
+/**
+ * @brief Generates a hash code for a Value.
+ *
+ * This static helper function calculates a hash code for a given `Value`.
+ * It handles different value types (strings, numbers, booleans, nil) to
+ * produce a suitable hash value for use in hash tables.
+ *
+ * @param value The Value to hash.
+ *
+ * @return A 32-bit hash code for the Value.
+ */
 static uint32_t hashValue(Value value) {
-	if (IS_STRING(value)) {
-		return AS_STRING(value)->hash;
+	if (IS_STL_STRING(value)) {
+		return AS_STL_STRING(value)->hash;
 	}
 	if (IS_NUMBER(value)) {
 		double num = AS_NUMBER(value);
@@ -101,6 +152,20 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function) {
 	return closure;
 }
 
+/**
+ * @brief Allocates a new string object.
+ *
+ * This static helper function allocates a new ObjectString and copies the given
+ * character array into the object's memory. It also calculates and stores the
+ * string's hash value and interns the string in the VM's string table.
+ *
+ * @param vm The virtual machine.
+ * @param chars The character array for the string. This memory is assumed to be managed externally and copied.
+ * @param length The length of the string.
+ * @param hash The pre-calculated hash value of the string.
+ *
+ * @return A pointer to the newly created and interned ObjectString.
+ */
 static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32_t hash) {
 	// creates a copy of the characters on the heap
 	// that the ObjectString can own
@@ -114,6 +179,17 @@ static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32
 	return string;
 }
 
+/**
+ * @brief Calculates the hash value of a C-style string.
+ *
+ * This function implements the FNV-1a hash algorithm to generate a hash
+ * code for a given C-style string.
+ *
+ * @param key The null-terminated C-style string to hash.
+ * @param length The length of the string (excluding null terminator).
+ *
+ * @return A 32-bit hash code for the string.
+ */
 uint32_t hashString(const char *key, uint64_t length) {
 	uint32_t hash = 2166136261u;
 	for (int i = 0; i < length; i++) {
@@ -136,6 +212,15 @@ ObjectString *copyString(VM *vm, const char *chars, uint64_t length) {
 	return allocateString(vm, heapChars, length, hash);
 }
 
+/**
+ * @brief Prints the name of a function object.
+ *
+ * This static helper function prints the name of a function object to the console,
+ * used for debugging and representation purposes. If the function is anonymous
+ * (name is NULL), it prints "<script>".
+ *
+ * @param function The ObjectFunction to print the name of.
+ */
 static void printFunction(ObjectFunction *function) {
 	if (function->name == NULL) {
 		printf("<script>");
@@ -147,19 +232,19 @@ static void printFunction(ObjectFunction *function) {
 void printObject(Value value) {
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_CLASS: {
-			printf("'%s' <class>", AS_CLASS(value)->name->chars);
+			printf("'%s' <class>", AS_STL_CLASS(value)->name->chars);
 			break;
 		}
 		case OBJECT_STRING: {
-			printf("%s", AS_CSTRING(value));
+			printf("%s", AS_C_STRING(value));
 			break;
 		}
 		case OBJECT_FUNCTION: {
-			printFunction(AS_FUNCTION(value));
+			printFunction(AS_STL_FUNCTION(value));
 			break;
 		}
 		case OBJECT_NATIVE_FUNCTION: {
-			ObjectNativeFunction *native = AS_NATIVE_FUNCTION(value);
+			ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(value);
 			if (native->name != NULL) {
 				printf("<native fn %s>", native->name->chars);
 			} else {
@@ -168,7 +253,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_NATIVE_METHOD: {
-			ObjectNativeMethod *native = AS_NATIVE_METHOD(value);
+			ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(value);
 			if (native->name != NULL) {
 				printf("<native method %s>", native->name->chars);
 			} else {
@@ -177,7 +262,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_CLOSURE: {
-			printFunction(AS_CLOSURE(value)->function);
+			printFunction(AS_STL_CLOSURE(value)->function);
 			break;
 		}
 		case OBJECT_UPVALUE: {
@@ -185,11 +270,11 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_INSTANCE: {
-			printf("'%s' <instance>", AS_INSTANCE(value)->klass->name->chars);
+			printf("'%s' <instance>", AS_STL_INSTANCE(value)->klass->name->chars);
 			break;
 		}
 		case OBJECT_BOUND_METHOD: {
-			printFunction(AS_BOUND_METHOD(value)->method->function);
+			printFunction(AS_STL_BOUND_METHOD(value)->method->function);
 			break;
 		}
 		case OBJECT_ARRAY: {
@@ -208,17 +293,13 @@ void printObject(Value value) {
 			printf("<module>");
 			break;
 		}
+		case OBJECT_RESULT: {
+			printf("<result>");
+			break;
+		}
 	}
 }
 
-/**
- * Takes ownership of the given null terminated string
- * Attempts to free the string that is passed to it.
- * @param vm The Stella Virtual Machine
- * @param chars The characters that the VM will own
- * @param length The length of the string
- * @return ObjectString*
- */
 ObjectString *takeString(VM *vm, char *chars, uint64_t length) {
 	uint32_t hash = hashString(chars, length);
 
@@ -232,8 +313,9 @@ ObjectString *takeString(VM *vm, char *chars, uint64_t length) {
 	return allocateString(vm, chars, length, hash);
 }
 
+
 ObjectString *toString(VM *vm, Value value) {
-	if (!IS_OBJECT(value)) {
+	if (!IS_STL_OBJECT(value)) {
 		char buffer[32];
 		if (IS_NUMBER(value)) {
 			double num = AS_NUMBER(value);
@@ -252,10 +334,10 @@ ObjectString *toString(VM *vm, Value value) {
 
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_STRING:
-			return AS_STRING(value);
+			return AS_STL_STRING(value);
 
 		case OBJECT_FUNCTION: {
-			ObjectFunction *function = AS_FUNCTION(value);
+			ObjectFunction *function = AS_STL_FUNCTION(value);
 			if (function->name == NULL) {
 				return copyString(vm, "<script>", 8);
 			}
@@ -265,7 +347,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_NATIVE_FUNCTION: {
-			ObjectNativeFunction *native = AS_NATIVE_FUNCTION(value);
+			ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(value);
 			if (native->name != NULL) {
 				char *start = "<native fn ";
 				char *end = ">";
@@ -281,7 +363,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_NATIVE_METHOD: {
-			ObjectNativeMethod *native = AS_NATIVE_METHOD(value);
+			ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(value);
 			if (native->name != NULL) {
 				char *start = "<native method ";
 				char *end = ">";
@@ -297,7 +379,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_CLOSURE: {
-			ObjectFunction *function = AS_CLOSURE(value)->function;
+			ObjectFunction *function = AS_STL_CLOSURE(value)->function;
 			if (function->name == NULL) {
 				return copyString(vm, "<script>", 8);
 			}
@@ -311,28 +393,28 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_CLASS: {
-			ObjectClass *klass = AS_CLASS(value);
+			ObjectClass *klass = AS_STL_CLASS(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_INSTANCE: {
-			ObjectInstance *instance = AS_INSTANCE(value);
+			ObjectInstance *instance = AS_STL_INSTANCE(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <instance>", instance->klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_BOUND_METHOD: {
-			ObjectBoundMethod *bound = AS_BOUND_METHOD(value);
+			ObjectBoundMethod *bound = AS_STL_BOUND_METHOD(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>", bound->method->function->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_ARRAY: {
-			ObjectArray *array = AS_ARRAY(value);
+			ObjectArray *array = AS_STL_ARRAY(value);
 			size_t bufSize = 2; // [] minimum
 			for (int i = 0; i < array->size; i++) {
 				ObjectString *element = toString(vm, array->array[i]);
@@ -359,7 +441,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_TABLE: {
-			ObjectTable *table = AS_TABLE(value);
+			ObjectTable *table = AS_STL_TABLE(value);
 			size_t bufSize = 2; // {} minimum
 			for (int i = 0; i < table->capacity; i++) {
 				if (table->entries[i].isOccupied) {
@@ -399,17 +481,24 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_ERROR: {
-			ObjectError *error = AS_ERROR(value);
+			ObjectError *error = AS_STL_ERROR(value);
 			char buffer[1024];
 			int length = snprintf(buffer, sizeof(buffer), "<error: %s>", error->message->chars);
 			return copyString(vm, buffer, length);
 		}
 
+		case OBJECT_RESULT: {
+			ObjectResult *result = AS_STL_RESULT(value);
+			if (result->isOk) {
+				return copyString(vm, "<Ok>", 4);
+			}
+			return copyString(vm, "<Err>", 5);
+		}
+
 		default:
-			return copyString(vm, "<unknown>", 9);
+			return copyString(vm, "<stella object>", 15);
 	}
 }
-
 
 ObjectFunction *newFunction(VM *vm) {
 	ObjectFunction *function = ALLOCATE_OBJECT(vm, ObjectFunction, OBJECT_FUNCTION);
@@ -427,7 +516,7 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	return instance;
 }
 
-ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, ObjectString *name) {
+ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
 	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -435,7 +524,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, NativeFn function, int arity, Ob
 	return native;
 }
 
-ObjectNativeMethod *newNativeMethod(VM *vm, NativeFn function, int arity, ObjectString *name) {
+ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -463,6 +552,20 @@ void freeObjectTable(VM *vm, ObjectTable *table) {
 	table->size = 0;
 }
 
+/**
+ * @brief Finds an entry in an object table.
+ *
+ * This static helper function finds an entry in an ObjectTable's entry array
+ * based on a given key. It uses open addressing with quadratic probing to
+ * resolve collisions. It also handles tombstones (entries that were previously
+ * occupied but are now deleted) to allow for rehashing after deletions.
+ *
+ * @param entries The array of ObjectTableEntry.
+ * @param capacity The capacity of the table's entry array.
+ * @param key The key Value to search for.
+ *
+ * @return A pointer to the ObjectTableEntry for the key, or a pointer to an empty entry (possibly a tombstone) if the key is not found.
+ */
 static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity, Value key) {
 	uint32_t hash = hashValue(key);
 	uint32_t index = hash & (capacity - 1);
@@ -484,6 +587,19 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity,
 	}
 }
 
+/**
+ * @brief Adjusts the capacity of an object table.
+ *
+ * This static helper function resizes an ObjectTable to a new capacity. It
+ * allocates a new entry array with the new capacity, rehashes all existing
+ * entries into the new array, and frees the old entry array.
+ *
+ * @param vm The virtual machine.
+ * @param table The ObjectTable to resize.
+ * @param capacity The new capacity for the table.
+ *
+ * @return true if the capacity adjustment was successful, false otherwise (e.g., memory allocation failure).
+ */
 static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
 	ObjectTableEntry *entries = ALLOCATE(vm, ObjectTableEntry, capacity);
 	if (entries == NULL) {
@@ -532,9 +648,9 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
 		table->size++;
 	}
 
-	if (IS_OBJECT(key))
+	if (IS_STL_OBJECT(key))
 		markValue(vm, key);
-	if (IS_OBJECT(value))
+	if (IS_STL_OBJECT(value))
 		markValue(vm, value);
 
 	entry->key = key;
@@ -543,6 +659,7 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
 
 	return true;
 }
+
 
 bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 	if (table->size == 0) {
@@ -557,6 +674,7 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
 	return true;
 }
 
+
 ObjectArray *newArray(VM *vm, uint64_t elementCount) {
 	ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
 	array->capacity = calculateCollectionCapacity(elementCount);
@@ -567,6 +685,7 @@ ObjectArray *newArray(VM *vm, uint64_t elementCount) {
 	}
 	return array;
 }
+
 
 bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded) {
 	if (capacityNeeded <= array->capacity) {
@@ -591,11 +710,12 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint64_t capacityNeeded) {
 	return true;
 }
 
+
 bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value) {
 	if (index >= array->size) {
 		return false;
 	}
-	if (IS_OBJECT(value)) {
+	if (IS_STL_OBJECT(value)) {
 		markValue(vm, value);
 	}
 	array->array[index] = value;
@@ -614,7 +734,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	if (!ensureCapacity(vm, array, array->size + 1)) {
 		return false;
 	}
-	if (IS_OBJECT(value)) {
+	if (IS_STL_OBJECT(value)) {
 		markValue(vm, value);
 	}
 	array->array[index] = value;
@@ -622,20 +742,12 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	return true;
 }
 
-ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, ErrorCreator creator) {
-	ObjectError *error = ALLOCATE(vm, ObjectError, OBJECT_ERROR);
-	error->object.type = OBJECT_ERROR;
+ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic) {
+	ObjectError *error = ALLOCATE_OBJECT(vm, ObjectError, OBJECT_ERROR);
 	error->message = message;
 	error->type = type;
-	error->creator = creator;
+	error->isPanic = isPanic;
 	return error;
-}
-
-NativeReturn makeNativeReturn(VM *vm, uint8_t size) {
-	NativeReturn nativeReturn;
-	nativeReturn.size = size;
-	nativeReturn.values = ALLOCATE(vm, Value, nativeReturn.size);
-	return nativeReturn;
 }
 
 ObjectModule *newModule(VM *vm, const char *path) {
@@ -678,4 +790,19 @@ bool importSetAdd(VM* vm, ImportSet* set, ObjectString* path) {
 void freeImportSet(VM* vm, ImportSet* set) {
 	FREE_ARRAY(vm, ObjectString*, set->paths, set->capacity);
 	initImportSet(set);
+}
+
+
+ObjectResult* stellaOk(VM* vm, Value value) {
+	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
+	result->isOk = true;
+	result->as.value = value;
+	return result;
+}
+
+ObjectResult* stellaErr(VM *vm, ObjectError* error) {
+	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
+	result->isOk = false;
+	result->as.error = error;
+	return result;
 }

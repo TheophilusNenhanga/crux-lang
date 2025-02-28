@@ -6,7 +6,14 @@
 
 
 ObjectFunction *compile(VM *vm, char *source);
+
 void markCompilerRoots();
+
+/**
+ * @brief Parser state used during compilation.
+ *
+ * Holds the current and previous tokens, error status, and source code being parsed.
+ */
 typedef struct {
 	char *source;
 	Token current;
@@ -61,6 +68,7 @@ typedef struct {
 	FunctionType type;
 	int localCount;
 	int scopeDepth; // 0 is global scope
+	int matchDepth;
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 } Compiler;
