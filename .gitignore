@@ -7,3 +7,4 @@
 /.vs
 /src/cmake-build-debug
 /src/out
+src/CMakeSettings.json

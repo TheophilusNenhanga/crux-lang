@@ -55,7 +55,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
+          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../src
           cmake --build . --config Release
           
       - name: Rename binary
