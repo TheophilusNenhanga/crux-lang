@@ -5,3 +5,5 @@
 /.cache
 /out
 /.vs
+/src/cmake-build-debug
+/src/out
