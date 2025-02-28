@@ -14,7 +14,9 @@ typedef struct ObjectModule ObjectModule;
 
 typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } InterpretResult;
 
-// A single ongoing function call
+/**
+ * An ongoing function call
+ */
 typedef struct {
 	ObjectClosure *closure;
 	uint8_t *ip;
@@ -61,18 +63,44 @@ struct VM {
 	NativeModules nativeModules;
 };
 
+/**
+ * Creates and initializes a new virtual machine.
+ * @return A pointer to the newly allocated VM, or exits on allocation failure
+ */
 VM *newVM();
 
+/**
+ * Initializes a virtual machine.
+ * @param vm The virtual machine to initialize
+ */
 void initVM(VM *vm);
 
+/**
+ * Frees all resources used by a virtual machine.
+ * @param vm The virtual machine to free
+ */
 void freeVM(VM *vm);
 
+/**
+ * Resets the VM's stack to an empty state.
+ * @param vm The virtual machine to reset
+ */
 void resetStack(VM *vm);
 
 InterpretResult interpret(VM *vm, char *source);
 
+/**
+ * Pushes a value onto the VM's stack.
+ * @param vm The virtual machine
+ * @param value The value to push onto the stack
+ */
 void push(VM *vm, Value value);
 
+/**
+ * Removes and returns the top value from the VM's stack.
+ * @param vm The virtual machine
+ * @return The value that was at the top of the stack
+ */
 Value pop(VM *vm);
 
 #endif // VM_H

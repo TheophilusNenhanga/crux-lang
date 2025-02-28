@@ -4,7 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-// caller must free the returned char*
+/**
+ * @brief Extracts the directory name from a file path
+ *
+ * Parses a file path and returns the directory portion.
+ * Handles platform-specific path separators and edge cases.
+ *
+ * @param path The file path to process
+ * @return Dynamically allocated string containing the directory name (caller must free)
+ */
 static char *dirName(char *path) {
 	if (path == NULL) {
 		return NULL;
@@ -72,6 +80,16 @@ static char *dirName(char *path) {
 	return result;
 }
 
+/**
+ * @brief Gets the directory component from a path
+ *
+ * Creates a copy of the input path and uses dirName() to extract
+ * the directory component. Handles memory management by making
+ * a separate copy of the result.
+ *
+ * @param path The file path to process
+ * @return Dynamically allocated string containing the directory (caller must free)
+ */
 static char *getDirectoryFromPath(const char *path) {
 	if (path == NULL) {
 		return NULL;
@@ -94,6 +112,16 @@ static char *getDirectoryFromPath(const char *path) {
 	return result;
 }
 
+/**
+ * @brief Combines a base path with a relative path
+ *
+ * Joins two path components together, handling path separators appropriately.
+ * If the relative path is absolute, returns a copy of the relative path.
+ *
+ * @param base The base directory path
+ * @param relative The relative path to append
+ * @return Dynamically allocated string containing the combined path (caller must free)
+ */
 static char *combinePaths(const char *base, const char *relative) {
 	if (base == NULL || relative == NULL)
 		return NULL;
@@ -127,7 +155,6 @@ static char *combinePaths(const char *base, const char *relative) {
 	strcat(result, relative);
 	return result;
 }
-
 
 char *resolvePath(const char *basePath, const char *importPath) {
 	if (importPath == NULL)

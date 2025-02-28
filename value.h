@@ -49,14 +49,62 @@ typedef struct {
 	Value *values;
 } ValueArray;
 
+/**
+ * @brief Compares two values for equality
+ *
+ * For number values, compares their numeric values.
+ * For other types, performs direct comparison.
+ *
+ * @param a First value to compare
+ * @param b Second value to compare
+ * @return true if the values are equal, false otherwise
+ */
 bool valuesEqual(Value a, Value b);
 
+/**
+ * @brief Initializes a new value array
+ *
+ * Sets up an empty ValueArray with null values pointer and
+ * zero capacity and count.
+ *
+ * @param array Pointer to the ValueArray to initialize
+ */
 void initValueArray(ValueArray *array);
 
+/**
+ * @brief Adds a value to a value array, growing the array if needed
+ *
+ * Appends the given value to the end of the array. If the array is at capacity,
+ * it will be resized to accommodate the new value.
+ *
+ * @param vm Pointer to the virtual machine (used for memory management)
+ * @param array Pointer to the ValueArray to modify
+ * @param value The Value to append to the array
+ */
 void writeValueArray(VM *vm, ValueArray *array, Value value);
 
+/**
+ * @brief Frees memory allocated for a value array
+ *
+ * Deallocates the memory used by the array's values and resets the array
+ * to an initialized state.
+ *
+ * @param vm Pointer to the virtual machine (used for memory management)
+ * @param array Pointer to the ValueArray to free
+ */
 void freeValueArray(VM *vm, ValueArray *array);
 
+/**
+ * @brief Prints a human-readable representation of a value
+ *
+ * Outputs the value to stdout in a format appropriate for its type:
+ * - Booleans print as "true" or "false"
+ * - Nil prints as "nil"
+ * - Numbers print in their natural format
+ * - Objects are printed using the printObject function
+ *
+ * @param value The Value to print
+ */
 void printValue(Value value);
 
 #endif // VALUE_H

@@ -91,6 +91,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPubli
 	return isNewKey || !isNilValue ? true : false;
 }
 
+
 bool tableDelete(Table *table, ObjectString *key) {
 	if (table->count == 0)
 		return false;
@@ -342,6 +343,21 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		case OBJECT_UPVALUE:
 		case OBJECT_MODULE:
 			return NIL_VAL;
+		case OBJECT_RESULT: {
+			ObjectResult *result = AS_STL_RESULT(value);
+			ObjectResult* newResult;
+
+			if (result->isOk) {
+				newResult = stellaOk(ctx->toVM, deepCopyValue(ctx, result->as.value));
+			}else {
+				ObjectError* error = result->as.error;
+				ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
+				ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
+				newResult = stellaErr(ctx->toVM, copy);
+			}
+			trackCopy(ctx, object, (Object*) newResult);
+		}
+			break;
 	}
 	return NIL_VAL;
 }

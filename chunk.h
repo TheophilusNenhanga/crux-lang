@@ -84,12 +84,53 @@ typedef struct {
 	ValueArray constants;
 } Chunk;
 
+/**
+ * @brief Initializes a new chunk structure
+ *
+ * Sets up an empty Chunk with null code and lines pointers,
+ * zero capacity and count, and initializes the constants value array.
+ *
+ * @param chunk Pointer to the Chunk to initialize
+ */
 void initChunk(Chunk *chunk);
 
+/**
+ * @brief Adds a byte to a chunk, growing the chunk if needed
+ *
+ * Appends the given byte to the end of the chunk's code array
+ * and records the corresponding source line number. If the chunk is at capacity,
+ * it will be resized to accommodate the new byte.
+ *
+ * @param vm Pointer to the virtual machine (used for memory management)
+ * @param chunk Pointer to the Chunk to modify
+ * @param byte The byte to append to the chunk
+ * @param line The source code line number corresponding to this byte
+ */
 void writeChunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
 
+/**
+ * @brief Frees memory allocated for a chunk
+ *
+ * Deallocates the memory used by the chunk's code and lines arrays,
+ * frees the constants value array, and resets the chunk to an initialized state.
+ *
+ * @param vm Pointer to the virtual machine (used for memory management)
+ * @param chunk Pointer to the Chunk to free
+ */
 void freeChunk(VM *vm, Chunk *chunk);
 
+/**
+ * @brief Adds a constant value to a chunk's constant pool
+ *
+ * Temporarily pushes the value onto the VM stack for GC safety,
+ * then adds the value to the chunk's constants array.
+ * Returns the index where the constant was stored for later reference.
+ *
+ * @param vm Pointer to the virtual machine (used for memory management and GC protection)
+ * @param chunk Pointer to the Chunk to modify
+ * @param value The Value to add to the constant pool
+ * @return The index of the added constant in the constants array
+ */
 int addConstant(VM *vm, Chunk *chunk, Value value);
 
 #endif // CHUNK_H
