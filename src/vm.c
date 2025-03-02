@@ -832,13 +832,7 @@ static InterpretResult run(VM *vm) {
 				if (checkPreviousInstruction(frame, 3, OP_PUB)) {
 					isPublic = true;
 				}
-				// TODO: Fix the underlying issue with classes
-				Value value = peek(vm, 0);
-				// if (IS_STL_CLOSURE(value) && AS_STL_CLOSURE(value)->function->name == NULL) {
-				// 	value = peek(vm, -1);
-				// }
-
-				if (tableSet(vm, &vm->globals, name, value, isPublic)) {
+				if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 					pop(vm);
 					break;
 				}
