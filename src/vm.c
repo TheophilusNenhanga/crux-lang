@@ -386,7 +386,6 @@ static bool concatenate(VM *vm) {
 }
 
 
-
 void initVM(VM *vm) {
 	resetStack(vm);
 	vm->objects = NULL;
@@ -398,7 +397,7 @@ void initVM(VM *vm) {
 	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
-	vm->nativeModules = (NativeModules) {.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
+	vm->nativeModules = (NativeModules){.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
@@ -437,7 +436,6 @@ void freeVM(VM *vm) {
  * @return true if the operation succeeds, false otherwise
  */
 static bool binaryOperation(VM *vm, OpCode operation) {
-
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
@@ -558,7 +556,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
 			break;
 		}
-		default:;
+		default: ;
 	}
 	return INTERPRET_OK;
 }
@@ -611,7 +609,8 @@ static InterpretResult run(VM *vm) {
 		}
 		printf("\n");
 
-		disassembleInstruction(&frame->closure->function->chunk, (int) (frame->ip - frame->closure->function->chunk.code));
+		disassembleInstruction(&frame->closure->function->chunk,
+		                       (int) (frame->ip - frame->closure->function->chunk.code));
 #endif
 
 		instruction = READ_BYTE();
@@ -625,6 +624,11 @@ static InterpretResult run(VM *vm) {
 			case OP_RETURN: {
 				uint8_t valueCount = READ_BYTE();
 				Value values[255];
+
+				ObjectString *functionName = frame->closure->function->name;
+				bool isInitializer = functionName != NULL &&
+				                     functionName->length == 4 &&
+				                     memcmp(functionName->chars, "init", 4) == 0;
 
 				if (valueCount == 1 && vm->previousInstruction == OP_RETURN) {
 					Value lastValue = peek(vm, 0);
@@ -645,7 +649,13 @@ static InterpretResult run(VM *vm) {
 					pop(vm);
 					return INTERPRET_OK;
 				}
-				vm->stackTop = frame->slots;
+				if (isInitializer) {
+					Value initializer = peek(vm, 0);
+					vm->stackTop = frame->slots;
+					push(vm, initializer);
+				} else {
+					vm->stackTop = frame->slots;
+				}
 
 				for (int i = valueCount - 1; i >= 0; i--) {
 					push(vm, values[i]);
@@ -822,7 +832,13 @@ static InterpretResult run(VM *vm) {
 				if (checkPreviousInstruction(frame, 3, OP_PUB)) {
 					isPublic = true;
 				}
-				if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
+				// TODO: Fix the underlying issue with classes
+				Value value = peek(vm, 0);
+				// if (IS_STL_CLOSURE(value) && AS_STL_CLOSURE(value)->function->name == NULL) {
+				// 	value = peek(vm, -1);
+				// }
+
+				if (tableSet(vm, &vm->globals, name, value, isPublic)) {
 					pop(vm);
 					break;
 				}
@@ -844,7 +860,8 @@ static InterpretResult run(VM *vm) {
 			case OP_SET_GLOBAL: {
 				ObjectString *name = READ_STRING();
 				if (!tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
-					runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined", name->chars);
+					runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined",
+					             name->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;
@@ -1184,7 +1201,8 @@ static InterpretResult run(VM *vm) {
 					runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '*=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0)));
+				*frame->closure->upvalues[slot]->location =
+						NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0)));
 				break;
 			}
 			case OP_SET_UPVALUE_PLUS: {
@@ -1195,7 +1213,8 @@ static InterpretResult run(VM *vm) {
 					runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '+=' operator");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0)));
+				*frame->closure->upvalues[slot]->location =
+						NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0)));
 
 				break;
 			}
@@ -1208,7 +1227,8 @@ static InterpretResult run(VM *vm) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0)));
+				*frame->closure->upvalues[slot]->location =
+						NUMBER_VAL(AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0)));
 				break;
 			}
 			case OP_SET_GLOBAL_SLASH: {
@@ -1268,15 +1288,17 @@ static InterpretResult run(VM *vm) {
 					if (IS_NUMBER(countValue)) {
 						actual = AS_NUMBER(pop(vm));
 						if (variableCount != actual) {
-							runtimePanic(vm, UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount, actual);
+							runtimePanic(vm, UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount,
+							             actual);
 							return INTERPRET_RUNTIME_ERROR;
 						}
 					}
 				} else {
 					int valuesOnStack = (int) (vm->stackTop - vm->stack - vm->frameCount);
 					if (valuesOnStack < variableCount) {
-						runtimePanic(vm, UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.", variableCount,
-												 valuesOnStack);
+						runtimePanic(vm, UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
+						             variableCount,
+						             valuesOnStack);
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
@@ -1304,8 +1326,8 @@ static InterpretResult run(VM *vm) {
 
 				if (importSetContains(&vm->module->importedModules, modulePath)) {
 					runtimePanic(vm, IMPORT,
-											 "Module '%s' has already been imported. All imports must be done in a single 'use' statement.",
-											 modulePath->chars);
+					             "Module '%s' has already been imported. All imports must be done in a single 'use' statement.",
+					             modulePath->chars);
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
@@ -1328,7 +1350,8 @@ static InterpretResult run(VM *vm) {
 						Value value;
 						bool getSuccess = tableGet(moduleTable, names[i], &value);
 						if (!getSuccess) {
-							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
+							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+							             modulePath->chars);
 							return INTERPRET_RUNTIME_ERROR;
 						}
 						push(vm, OBJECT_VAL(value));
@@ -1340,7 +1363,8 @@ static InterpretResult run(VM *vm) {
 						}
 
 						if (!setSuccess) {
-							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars, modulePath->chars);
+							runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+							             modulePath->chars);
 							return INTERPRET_RUNTIME_ERROR;
 						}
 						pop(vm);
@@ -1396,15 +1420,18 @@ static InterpretResult run(VM *vm) {
 				bool success = true;
 				for (int i = 0; i < nameCount; i++) {
 					if (aliases[i] != NULL && IS_STL_STRING(OBJECT_VAL(aliases[i]))) {
-						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], aliases[i]);
+						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
+						                        aliases[i]);
 					} else {
-						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i], names[i]);
+						success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
+						                        names[i]);
 					}
 					if (!success) {
 						for (int j = 0; j < i; j++) {
 							tableDelete(&vm->globals, names[j]);
 						}
-						runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars, modulePath->chars);
+						runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars,
+						             modulePath->chars);
 						return INTERPRET_RUNTIME_ERROR;
 					}
 				}
