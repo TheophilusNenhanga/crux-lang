@@ -916,8 +916,8 @@ static void classDeclaration() {
 	classCompiler.hasSuperclass = false;
 	currentClass = &classCompiler;
 
-	if (match(TOKEN_LESS)) {
-		consume(TOKEN_IDENTIFIER, "Expected super class name after '<'.");
+	if (match(TOKEN_COLON)) {
+		consume(TOKEN_IDENTIFIER, "Expected super class name after ':'.");
 		variable(false);
 
 		if (identifiersEqual(&className, &parser.previous)) {
