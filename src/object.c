@@ -167,12 +167,11 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function) {
  * @return A pointer to the newly created and interned ObjectString.
  */
 static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32_t hash) {
-	// creates a copy of the characters on the heap
-	// that the ObjectString can own
 	ObjectString *string = ALLOCATE_OBJECT(vm, ObjectString, OBJECT_STRING);
 	string->length = length;
 	string->chars = chars;
 	string->hash = hash;
+	// intern the string
 	push(vm, OBJECT_VAL(string));
 	tableSet(vm, &vm->strings, string, NIL_VAL, false);
 	pop(vm);
@@ -190,11 +189,14 @@ static ObjectString *allocateString(VM *vm, char *chars, uint64_t length, uint32
  *
  * @return A 32-bit hash code for the string.
  */
-uint32_t hashString(const char *key, uint64_t length) {
-	uint32_t hash = 2166136261u;
+static inline uint32_t hashString(const char *key, size_t length) {
+	static const uint32_t FNV_OFFSET_BIAS = 2166136261u;
+	static const uint32_t FNV_PRIME = 16777619u;
+
+	uint32_t hash = FNV_OFFSET_BIAS;
 	for (int i = 0; i < length; i++) {
 		hash ^= (uint8_t) key[i];
-		hash *= 16777619;
+		hash *= FNV_PRIME;
 	}
 	return hash;
 }
