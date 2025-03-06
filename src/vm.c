@@ -998,39 +998,69 @@ static InterpretResult run(VM *vm) {
 
 			case OP_GET_COLLECTION: {
 				Value indexValue = pop(vm);
-				if (IS_STL_TABLE(peek(vm, 0))) {
-					if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
-						ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
-						Value value;
-						if (!objectTableGet(table, indexValue, &value)) {
-							runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
+				if (!IS_STL_OBJECT(peek(vm, 0))) {
+					runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				switch (AS_STL_OBJECT(peek(vm, 0))->type) {
+					case OBJECT_TABLE: {
+						if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
+							ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
+							Value value;
+							if (!objectTableGet(table, indexValue, &value)) {
+								runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
+								return INTERPRET_RUNTIME_ERROR;
+							}
+							pop(vm);
+							push(vm, value);
+						} else {
+							runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
 							return INTERPRET_RUNTIME_ERROR;
 						}
+						break;
+					}
+					case OBJECT_ARRAY: {
+						if (!IS_NUMBER(indexValue)) {
+							runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						int index = AS_NUMBER(indexValue);
+						ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
+						Value value;
+						if (index < 0 || index >= array->size) {
+							runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						if (!arrayGet(array, index, &value)) {
+							runtimePanic(vm, COLLECTION_GET, "Failed to get value from array");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						pop(vm); // pop the array off the stack
+						push(vm, value); // push the value onto the stack
+						break;
+					}
+					case OBJECT_STRING: {
+						if (!IS_NUMBER(indexValue)) {
+							runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						int index = AS_NUMBER(indexValue);
+						ObjectString *string = AS_STL_STRING(peek(vm, 0));
+						ObjectString *ch;
+						if (index < 0 || index >= string->length) {
+							runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						// Only single character indexing
+						ch = copyString(vm, string->chars+index, 1);
 						pop(vm);
-						push(vm, value);
-					} else {
-						runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
+						push(vm, OBJECT_VAL(ch));
+						break;
+					}
+					default: {
+						runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_STL_ARRAY(peek(vm, 0))) {
-					if (!IS_NUMBER(indexValue)) {
-						runtimePanic(vm, TYPE, "Index must be of type 'number'.");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					int index = AS_NUMBER(indexValue);
-					ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
-					Value value;
-					if (index < 0 || index >= array->size) {
-						runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					if (!arrayGet(array, index, &value)) {
-						runtimePanic(vm, COLLECTION_GET, "Failed to get value from array");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					pop(vm); // pop the array off the stack
-					push(vm, value); // push the value onto the stack
-					break;
 				}
 				break;
 			}
