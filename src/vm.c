@@ -1393,7 +1393,6 @@ static InterpretResult run(VM *vm) {
 				Value target = peek(vm, 0);
 				if (!valuesEqual(pattern, target)) {
 					frame->ip += offset;
-					pop(vm); // without this the matched against value will be top of stack
 				}
 
 				break;
