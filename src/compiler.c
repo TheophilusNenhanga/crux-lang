@@ -1359,7 +1359,7 @@ static void matchStatement() {
 			if (match(TOKEN_LEFT_PAREN)) {
 				beginScope();
 				hasBinding = true;
-				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Err' pattern.");
 				declareVariable();
 				bindingSlot = current->localCount - 1;
 				markInitialized();
@@ -1413,12 +1413,12 @@ static void matchStatement() {
 		compilerPanic(&parser, "Match statement must have default case 'default'.", SYNTAX);
 	}
 
-	emitByte(OP_MATCH_END);
-
 	for (int i = 0; i < jumpCount; i++) {
 		patchJump(endJumps[i]);
 	}
-
+	
+	emitByte(OP_MATCH_END);
+	
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
 	endMatchScope();
