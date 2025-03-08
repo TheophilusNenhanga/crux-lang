@@ -6,7 +6,13 @@
 @theme {
     --font-whisper: 'Whisper', cursive;
     --font-playfair: 'Playfair Display', serif;
-    --color-thistle: #D6BDDB;
-    --color-powder: #FAFFFD;
+    --color-stella-start: #D500FF;
+    --color-stella-middle: #F4009B;
+    --color-stella-end: #BF00FF;
+}
 
+@layer components {
+    .stella-shimmer {
+       @apply bg-gradient-to-tl from-[theme(--color-stella-start)] via-[theme(--color-stella-middle)] to-[theme(--color-stella-end)];
+    }
 }
