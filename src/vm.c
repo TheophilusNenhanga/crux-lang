@@ -561,15 +561,6 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcod
 	return INTERPRET_OK;
 }
 
-static void reverseStack(VM *vm, int actual) {
-	Value *start = vm->stackTop - actual;
-	for (int i = 0; i < actual / 2; i++) {
-		Value temp = start[i];
-		start[i] = start[actual - 1 - i];
-		start[actual - 1 - i] = temp;
-	}
-}
-
 /**
  * Checks if a previous instruction matches the expected opcode.
  * @param frame The current call frame
@@ -622,58 +613,16 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_RETURN: {
-				uint8_t valueCount = READ_BYTE();
-				Value values[255];
-
-				ObjectString *functionName = frame->closure->function->name;
-				bool isInitializer = functionName != NULL &&
-				                     functionName->length == 4 &&
-				                     memcmp(functionName->chars, "init", 4) == 0;
-
-				if (valueCount == 1 && vm->previousInstruction == OP_RETURN) {
-					Value lastValue = peek(vm, 0);
-					if (IS_NUMBER(lastValue)) {
-						valueCount = (uint8_t) AS_NUMBER(pop(vm));
-					}
-				}
-
-				for (int i = 0; i < valueCount; i++) {
-					values[i] = pop(vm);
-				}
-
-				pop(vm); // pop the closure
-
+				Value result = pop(vm);
 				closeUpvalues(vm, frame->slots);
 				vm->frameCount--;
 				if (vm->frameCount == 0) {
 					pop(vm);
 					return INTERPRET_OK;
 				}
-				if (isInitializer) {
-					Value initializer = peek(vm, 0);
-					vm->stackTop = frame->slots;
-					push(vm, initializer);
-				} else {
-					vm->stackTop = frame->slots;
-				}
-
-				for (int i = valueCount - 1; i >= 0; i--) {
-					push(vm, values[i]);
-				}
-
-				if (valueCount > 1) {
-					push(vm, NUMBER_VAL(valueCount));
-				}
-
-				CallFrame *callerFrame = &vm->frames[vm->frameCount - 1];
-				uint8_t nextInstr = *callerFrame->ip;
-
-				if (nextInstr != OP_RETURN && nextInstr != OP_UNPACK_TUPLE && valueCount > 1) {
-					runtimePanic(vm, UNPACK_MISMATCH, "Expected to unpack %d values.", valueCount);
-					return INTERPRET_RUNTIME_ERROR;
-				}
-
-				frame = callerFrame;
+				vm->stackTop = frame->slots;
+				push(vm, result);
+				frame = &vm->frames[vm->frameCount - 1];
 				break;
 			}
 
@@ -1049,39 +998,69 @@ static InterpretResult run(VM *vm) {
 
 			case OP_GET_COLLECTION: {
 				Value indexValue = pop(vm);
-				if (IS_STL_TABLE(peek(vm, 0))) {
-					if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
-						ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
-						Value value;
-						if (!objectTableGet(table, indexValue, &value)) {
-							runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
+				if (!IS_STL_OBJECT(peek(vm, 0))) {
+					runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				switch (AS_STL_OBJECT(peek(vm, 0))->type) {
+					case OBJECT_TABLE: {
+						if (IS_STL_STRING(indexValue) || IS_NUMBER(indexValue)) {
+							ObjectTable *table = AS_STL_TABLE(peek(vm, 0));
+							Value value;
+							if (!objectTableGet(table, indexValue, &value)) {
+								runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
+								return INTERPRET_RUNTIME_ERROR;
+							}
+							pop(vm);
+							push(vm, value);
+						} else {
+							runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
 							return INTERPRET_RUNTIME_ERROR;
 						}
+						break;
+					}
+					case OBJECT_ARRAY: {
+						if (!IS_NUMBER(indexValue)) {
+							runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						int index = AS_NUMBER(indexValue);
+						ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
+						Value value;
+						if (index < 0 || index >= array->size) {
+							runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						if (!arrayGet(array, index, &value)) {
+							runtimePanic(vm, COLLECTION_GET, "Failed to get value from array");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						pop(vm); // pop the array off the stack
+						push(vm, value); // push the value onto the stack
+						break;
+					}
+					case OBJECT_STRING: {
+						if (!IS_NUMBER(indexValue)) {
+							runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						int index = AS_NUMBER(indexValue);
+						ObjectString *string = AS_STL_STRING(peek(vm, 0));
+						ObjectString *ch;
+						if (index < 0 || index >= string->length) {
+							runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+							return INTERPRET_RUNTIME_ERROR;
+						}
+						// Only single character indexing
+						ch = copyString(vm, string->chars+index, 1);
 						pop(vm);
-						push(vm, value);
-					} else {
-						runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
+						push(vm, OBJECT_VAL(ch));
+						break;
+					}
+					default: {
+						runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
 						return INTERPRET_RUNTIME_ERROR;
 					}
-				} else if (IS_STL_ARRAY(peek(vm, 0))) {
-					if (!IS_NUMBER(indexValue)) {
-						runtimePanic(vm, TYPE, "Index must be of type 'number'.");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					int index = AS_NUMBER(indexValue);
-					ObjectArray *array = AS_STL_ARRAY(peek(vm, 0));
-					Value value;
-					if (index < 0 || index >= array->size) {
-						runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					if (!arrayGet(array, index, &value)) {
-						runtimePanic(vm, COLLECTION_GET, "Failed to get value from array");
-						return INTERPRET_RUNTIME_ERROR;
-					}
-					pop(vm); // pop the array off the stack
-					push(vm, value); // push the value onto the stack
-					break;
 				}
 				break;
 			}
@@ -1268,37 +1247,6 @@ static InterpretResult run(VM *vm) {
 						closure->upvalues[i] = frame->closure->upvalues[index];
 					}
 				}
-
-				break;
-			}
-
-			case OP_UNPACK_TUPLE: {
-				uint8_t variableCount = READ_BYTE();
-				uint8_t scopeDepth = READ_BYTE();
-				int actual = variableCount;
-
-				if (vm->previousInstruction == OP_RETURN) {
-					Value countValue = peek(vm, 0);
-					if (IS_NUMBER(countValue)) {
-						actual = AS_NUMBER(pop(vm));
-						if (variableCount != actual) {
-							runtimePanic(vm, UNPACK_MISMATCH, "Expected %d values to unpack but got %d.", variableCount,
-							             actual);
-							return INTERPRET_RUNTIME_ERROR;
-						}
-					}
-				} else {
-					int valuesOnStack = (int) (vm->stackTop - vm->stack - vm->frameCount);
-					if (valuesOnStack < variableCount) {
-						runtimePanic(vm, UNPACK_MISMATCH, "Not enough values to unpack. Expected %d but got %d.",
-						             variableCount,
-						             valuesOnStack);
-						return INTERPRET_RUNTIME_ERROR;
-					}
-				}
-				if (scopeDepth == 0) {
-					reverseStack(vm, actual);
-				}
 				break;
 			}
 
@@ -1445,7 +1393,6 @@ static InterpretResult run(VM *vm) {
 				Value target = peek(vm, 0);
 				if (!valuesEqual(pattern, target)) {
 					frame->ip += offset;
-					pop(vm); // without this the matched against value will be top of stack
 				}
 
 				break;

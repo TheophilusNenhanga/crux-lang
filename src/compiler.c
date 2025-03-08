@@ -916,8 +916,8 @@ static void classDeclaration() {
 	classCompiler.hasSuperclass = false;
 	currentClass = &classCompiler;
 
-	if (match(TOKEN_LESS)) {
-		consume(TOKEN_IDENTIFIER, "Expected super class name after '<'.");
+	if (match(TOKEN_COLON)) {
+		consume(TOKEN_IDENTIFIER, "Expected super class name after ':'.");
 		variable(false);
 
 		if (identifiersEqual(&className, &parser.previous)) {
@@ -1060,57 +1060,16 @@ static void collectionIndex(bool canAssign) {
  * Parses a variable declaration statement (using 'let').
  */
 static void varDeclaration() {
-	uint8_t global = parseVariable("Expected variable name");
+	uint8_t global = parseVariable("Expected Variable Name.");
 
-	if (match(TOKEN_COMMA)) {
-		uint8_t variableCount = 1;
-		uint8_t variables[255];
-		variables[0] = global;
-
-		markInitialized();
-		do {
-			if (variableCount >= 255) {
-				compilerPanic(&parser, "Cannot declare more than 255 variables at one time.", VARIABLE_EXTENT);
-				return;
-			}
-			variables[variableCount] = parseVariable("Expected variable name");
-			markInitialized();
-			variableCount++;
-		} while (match(TOKEN_COMMA));
-
-		if (match(TOKEN_EQUAL)) {
-			int defined = 0;
-			do {
-				if (defined >= variableCount) {
-					compilerPanic(&parser, "Too many values given for variable declaration.", VARIABLE_DECLARATION_MISMATCH);
-					return;
-				}
-				expression();
-				defined++;
-			} while (match(TOKEN_COMMA));
-
-		} else {
-			for (int i = 0; i < variableCount; i++) {
-				emitByte(OP_NIL);
-			}
-		}
-
-		emitBytes(OP_UNPACK_TUPLE, variableCount);
-		emitByte(current->scopeDepth);
-
-		for (uint8_t i = 0; i < variableCount; i++) {
-			defineVariable(variables[i]);
-		}
-	} else {
-		if (match(TOKEN_EQUAL)) {
-			expression();
-		} else {
-			emitByte(OP_NIL);
-		}
-		defineVariable(global);
+	if (match(TOKEN_EQUAL)) {
+		expression();
 	}
-
+	else {
+		emitByte(OP_NIL);
+	}
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
+	defineVariable(global);
 }
 
 /**
@@ -1220,18 +1179,9 @@ static void returnStatement() {
 		if (current->type == TYPE_INITIALIZER) {
 			compilerPanic(&parser, "Cannot return a value from an 'init' function", SYNTAX);
 		}
-
-		uint8_t valueCount = 0;
-		do {
-			if (valueCount >= 255) {
-				compilerPanic(&parser, "Cannot return more than 255 values.", RETURN_EXTENT);
-			}
-			expression();
-			valueCount++;
-		} while (match(TOKEN_COMMA));
-
+		expression();
 		consume(TOKEN_SEMICOLON, "Expected ';' after return value");
-		emitBytes(OP_RETURN, valueCount);
+		emitByte(OP_RETURN);
 	}
 }
 
@@ -1409,7 +1359,7 @@ static void matchStatement() {
 			if (match(TOKEN_LEFT_PAREN)) {
 				beginScope();
 				hasBinding = true;
-				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Ok' pattern.");
+				consume(TOKEN_IDENTIFIER, "Expected identifier after 'Err' pattern.");
 				declareVariable();
 				bindingSlot = current->localCount - 1;
 				markInitialized();
@@ -1463,12 +1413,12 @@ static void matchStatement() {
 		compilerPanic(&parser, "Match statement must have default case 'default'.", SYNTAX);
 	}
 
-	emitByte(OP_MATCH_END);
-
 	for (int i = 0; i < jumpCount; i++) {
 		patchJump(endJumps[i]);
 	}
-
+	
+	emitByte(OP_MATCH_END);
+	
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
 	endMatchScope();

@@ -255,9 +255,6 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		case OP_SET_GLOBAL_MINUS: {
 			return simpleInstruction("OP_SET_GLOBAL_MINUS", offset);
 		}
-		case OP_UNPACK_TUPLE: {
-			return byteInstruction("OP_UNPACK_TUPLE", chunk, offset);
-		}
 		case OP_ANON_FUNCTION: {
 			return constantInstruction("OP_ANON_FUNCTION", chunk, offset);
 		}
