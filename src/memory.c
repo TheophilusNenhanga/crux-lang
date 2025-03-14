@@ -194,6 +194,18 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+			ObjectNativeInfallibleFunction *native = (ObjectNativeInfallibleFunction *) object;
+			markObject(vm, (Object *) native->name);
+			break;
+		}
+
+		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+			ObjectNativeInfallibleMethod *native = (ObjectNativeInfallibleMethod *) object;
+			markObject(vm, (Object *) native->name);
+			break;
+		}
+
 		case OBJECT_MODULE: {
 			ObjectModule *module = (ObjectModule *) object;
 			markObject(vm, (Object *) module->path);
@@ -252,6 +264,16 @@ static void freeObject(VM *vm, Object *object) {
 		case OBJECT_NATIVE_METHOD: {
 			ObjectNativeMethod *native = (ObjectNativeMethod *) object;
 			FREE(vm, ObjectNativeMethod, object);
+			break;
+		}
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+			ObjectNativeInfallibleFunction *native = (ObjectNativeInfallibleFunction *) object;
+			FREE(vm, ObjectNativeInfallibleFunction, object);
+			break;
+		}
+		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+			ObjectNativeInfallibleMethod *native = (ObjectNativeInfallibleMethod *) object;
+			FREE(vm, ObjectNativeInfallibleMethod, object);
 			break;
 		}
 		case OBJECT_CLOSURE: {

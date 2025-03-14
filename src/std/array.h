@@ -14,8 +14,8 @@ ObjectResult* arrayConcatMethod(VM *vm, int argCount, Value *args); // [1,2].con
 ObjectResult* arraySliceMethod(VM *vm, int argCount, Value *args); // [1,2,3].slice(1, 2) -> [2]
 ObjectResult* arrayReverseMethod(VM *vm, int argCount, Value *args); // [1,2,3].reverse([1,2,3]) -> [3,2,1]
 ObjectResult* arrayIndexOfMethod(VM *vm, int argCount, Value *args); // [1,2,3].index_of(2) -> 1
-ObjectResult* arrayContainsMethod(VM *vm, int argCount, Value *args); // [1,2,3].contains(2) -> true
-ObjectResult* arrayClearMethod(VM *vm, int argCount, Value *args); // [1,2,3].clear([1,2,3]) -> []
+Value arrayContainsMethod(VM *vm, int argCount, Value *args); // [1,2,3].contains(2) -> true
+Value arrayClearMethod(VM *vm, int argCount, Value *args); // [1,2,3].clear([1,2,3]) -> []
 
 
 #endif // ARRAY_H

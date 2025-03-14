@@ -9,11 +9,11 @@
 #include "stl_time.h"
 #include "../memory.h"
 
-ObjectResult* _time_s(VM* vm, int argCount, Value* args) {
-	return stellaOk(vm, NUMBER_VAL((double)time(NULL)));
+Value _time_s(VM* vm, int argCount, Value* args) {
+	return NUMBER_VAL((double)time(NULL));
 }
 
-ObjectResult* _time_ms(VM *vm, int argCount, Value *args) {
+Value _time_ms(VM *vm, int argCount, Value *args) {
 #ifdef _WIN32
 	SYSTEMTIME st;
 	GetSystemTime(&st);
@@ -28,7 +28,7 @@ ObjectResult* _time_ms(VM *vm, int argCount, Value *args) {
 	clock_gettime(CLOCK_REALTIME, &ts);
 	uint64_t ms = (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
 #endif
-	return stellaOk(vm, NUMBER_VAL((double)ms));
+	return NUMBER_VAL((double)ms);
 }
 
 ObjectResult* _sleep_s(VM *vm, int argCount, Value *args) {
@@ -74,52 +74,52 @@ static time_t getCurrentTime() {
     return time(NULL);
 }
 
-ObjectResult* _year(VM *vm, int argCount, Value *args) {
+Value _year(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_year + 1900));
+    return NUMBER_VAL(timeInfo->tm_year + 1900);
 }
 
-ObjectResult* _month(VM *vm, int argCount, Value *args) {
+Value _month(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_mon + 1));
+    return NUMBER_VAL(timeInfo->tm_mon + 1);
 }
 
-ObjectResult* _day(VM *vm, int argCount, Value *args) {
+Value _day(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_mday));
+    return NUMBER_VAL(timeInfo->tm_mday);
 }
 
-ObjectResult* _hour(VM *vm, int argCount, Value *args) {
+Value _hour(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_hour));
+    return NUMBER_VAL(timeInfo->tm_hour);
 }
 
-ObjectResult* _minute(VM *vm, int argCount, Value *args) {
+Value _minute(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_min));
+    return NUMBER_VAL(timeInfo->tm_min);
 }
 
-ObjectResult* _second(VM *vm, int argCount, Value *args) {
+Value _second(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_sec));
+    return NUMBER_VAL(timeInfo->tm_sec);
 }
 
-ObjectResult* _weekday(VM *vm, int argCount, Value *args) {
+Value _weekday(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     // 1 (Monday) - 7 (Sunday)
     int weekday = timeInfo->tm_wday == 0 ? 7 : timeInfo->tm_wday;
-    return stellaOk(vm, NUMBER_VAL(weekday));
+    return NUMBER_VAL(weekday);
 }
 
-ObjectResult* _day_of_year(VM *vm, int argCount, Value *args) {
+Value _day_of_year(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
-    return stellaOk(vm, NUMBER_VAL(timeInfo->tm_yday + 1));
+    return NUMBER_VAL(timeInfo->tm_yday + 1);
 }

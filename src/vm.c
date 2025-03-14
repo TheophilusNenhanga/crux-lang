@@ -98,7 +98,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 
 				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 
-				vm->stackTop -= argCount;
+				vm->stackTop -= argCount+1;
 
 				if (!result->isOk) {
 					if (result->as.error->isPanic) {
@@ -129,6 +129,31 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				}
 
 				push(vm, OBJECT_VAL(result));
+				return true;
+			}
+			case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+				ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(callee);
+				if (argCount != native->arity) {
+					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+
+				Value result = native->function(vm, argCount, vm->stackTop - argCount);
+				vm->stackTop -= argCount + 1;
+
+				push(vm, result);
+				return true;
+			}
+			case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+				ObjectNativeInfallibleMethod *native = AS_STL_NATIVE_INFALLIBLE_METHOD(callee);
+				if (argCount != native->arity) {
+					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+
+				Value result = native->function(vm, argCount, vm->stackTop - argCount);
+				vm->stackTop -= argCount+1;
+				push(vm, result);
 				return true;
 			}
 			case OBJECT_CLASS: {
@@ -169,6 +194,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
 	Value method;
 	if (tableGet(&klass->methods, name, &method)) {
+		// We only need to call the method, the result will be handled in invoke
 		return call(vm, AS_STL_CLOSURE(method), argCount);
 	}
 	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
@@ -185,15 +211,27 @@ static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int 
  */
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	Value receiver = peek(vm, argCount);
+	Value original = peek(vm, argCount + 1); // Store the original caller
 
 	if (!IS_STL_INSTANCE(receiver)) {
 		argCount++; // for the value that the method will act upon
 		if (IS_STL_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
+				Value result;
+				// Save original stack order
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				
+				if (!callValue(vm, value, argCount)) {
+					return false;
+				}
+				
+				// After the call, restore the original caller and put the result in the right place
+				result = pop(vm);
+				push(vm, original);
+				push(vm, result);
+				return true;
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -202,9 +240,20 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
+				Value result;
+				// Save original stack order
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				
+				if (!callValue(vm, value, argCount)) {
+					return false;
+				}
+				
+				// After the call, restore the original caller and put the result in the right place
+				result = pop(vm);
+				push(vm, original);
+				push(vm, result);
+				return true;
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -213,9 +262,20 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
+				Value result;
+				// Save original stack order
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				
+				if (!callValue(vm, value, argCount)) {
+					return false;
+				}
+				
+				// After the call, restore the original caller and put the result in the right place
+				result = pop(vm);
+				push(vm, original);
+				push(vm, result);
+				return true;
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -224,9 +284,20 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
+				Value result;
+				// Save original stack order
 				vm->stackTop[-argCount - 1] = value;
 				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				
+				if (!callValue(vm, value, argCount)) {
+					return false;
+				}
+				
+				// After the call, restore the original caller and put the result in the right place
+				result = pop(vm);
+				push(vm, original);
+				push(vm, result);
+				return true;
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -240,11 +311,31 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 	Value value;
 	if (tableGet(&instance->fields, name, &value)) {
+		Value result;
+		// Save original stack order
 		vm->stackTop[-argCount - 1] = value;
-		return callValue(vm, value, argCount);
+		
+		if (!callValue(vm, value, argCount)) {
+			return false;
+		}
+		
+		// After the call, restore the original caller and put the result in the right place
+		result = pop(vm);
+		push(vm, original);
+		push(vm, result);
+		return true;
 	}
 
-	return invokeFromClass(vm, instance->klass, name, argCount);
+	// For class methods, we need special handling
+	if (invokeFromClass(vm, instance->klass, name, argCount)) {
+		// After the call, the result is already on the stack
+		Value result = pop(vm);
+		push(vm, original);
+		push(vm, result);
+		return true;
+	}
+	
+	return false;
 }
 
 
@@ -409,12 +500,18 @@ void initVM(VM *vm) {
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
 
-	defineMethods(vm, &vm->stringType.methods, stringMethods);
-	defineMethods(vm, &vm->arrayType.methods, arrayMethods);
-	defineMethods(vm, &vm->tableType.methods, tableMethods);
-	defineMethods(vm, &vm->errorType.methods, errorMethods);
+	if (!
+			defineMethods(vm, &vm->stringType.methods, stringMethods) ||
+			!defineMethods(vm, &vm->arrayType.methods, arrayMethods) ||
+			!defineInfallibleMethods(vm, &vm->arrayType.methods, arrayInfallibleMethods) ||
+			!defineMethods(vm, &vm->tableType.methods, tableMethods) ||
+			!defineMethods(vm, &vm->errorType.methods, errorMethods)
+	) {
+		fprintf(stderr, "Failed to define object method on builtin type.\n");
+	}
 
 	defineNativeFunctions(vm, &vm->globals);
+	defineNativeInfallibleFunctions(vm, &vm->globals, builtinInfallibleCallables);
 	defineStandardLibrary(vm);
 }
 
@@ -1201,7 +1298,7 @@ static InterpretResult run(VM *vm) {
 				}
 
 				*frame->closure->upvalues[slot]->location =
-						NUMBER_VAL(AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0)));
+						NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0)));
 				break;
 			}
 			case OP_SET_GLOBAL_SLASH: {

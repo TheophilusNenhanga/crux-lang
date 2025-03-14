@@ -181,10 +181,10 @@ ObjectResult* _round(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _pi(VM *vm, int argCount, Value *args){
-	return stellaOk(vm, NUMBER_VAL(3.14159265358979323846));
+Value _pi(VM *vm, int argCount, Value *args){
+	return NUMBER_VAL(3.14159265358979323846);
 }
 
-ObjectResult* _e(VM *vm, int argCount, Value *args){
-	return stellaOk(vm, NUMBER_VAL(2.71828182845904523536));
+Value _e(VM *vm, int argCount, Value *args){
+	return NUMBER_VAL(2.71828182845904523536);
 }
