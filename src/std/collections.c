@@ -3,7 +3,7 @@
 #include "../memory.h"
 #include "../object.h"
 
-Value getLength(Value value) {
+static Value getLength(Value value) {
 	if (IS_STL_ARRAY(value)) {
 		return NUMBER_VAL(AS_STL_ARRAY(value)->size);
 	}
@@ -91,6 +91,5 @@ Value typeofNative(VM *vm, int argCount, Value *args) {
         return OBJECT_VAL(copyString(vm, "result", 6));
     }
     
-    // Fallback for any other type we might have missed
     return OBJECT_VAL(copyString(vm, "unknown", 7));
 }

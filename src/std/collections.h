@@ -6,8 +6,6 @@
 
 #define MAX_ARRAY_SIZE UINT16_MAX - 1
 
-Value getLength(Value value);
-
 ObjectResult* lengthNative(VM *vm, int argCount, Value *args);
 Value lengthNative_(VM *vm, int argCount, Value *args);
 

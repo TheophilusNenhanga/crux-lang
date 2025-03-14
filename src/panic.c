@@ -2,8 +2,10 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>  // For strncat and strlen
 
 #include "vm.h"
+#include "std/collections.h"  // For typeofNative function
 
 static ErrorDetails getErrorDetails(ErrorType type) {
 	switch (type) {
@@ -31,7 +33,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		case TYPE:
 			return (ErrorDetails) {
 					"Type Error",
-					"Operation not supported for these types",
+					"Check that all values in the operation are of the expected types",
 			};
 		case LIMIT: {
 			return (ErrorDetails) {"Stella Limit Error", "The program cannot handle this many constants"};
@@ -43,7 +45,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 			return (ErrorDetails) {"Closure Extent Error", "Functions cannot close over 255 variables."};
 		}
 		case LOCAL_EXTENT: {
-			return (ErrorDetails) {"Local Variable Extent Error", "Functions cannot have more than 255 local ."};
+			return (ErrorDetails) {"Local Variable Extent Error", "Functions cannot have more than 255 local variables."};
 		}
 		case ARGUMENT_EXTENT: {
 			return (ErrorDetails) {"Argument Extent Error", "Functions cannot have more than 255 arguments."};
@@ -64,27 +66,27 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 		}
 		case ARGUMENT_MISMATCH: {
 			return (ErrorDetails) {
-					"Mismatch Error",
-					"The number of arguments in the call must match the number of arguments in the declaration."};
+					"Argument Mismatch Error",
+					"The number of arguments in the call must match the function's declared parameters."};
 		}
 		case STACK_OVERFLOW: {
 			return (ErrorDetails) {"Stack Overflow Error",
-														 "Too many stacks created. There may be a unterminated recursive call."};
+														 "Too many frames on the stack. There may be an unterminated recursive call."};
 		}
 		case COLLECTION_GET: {
-			return (ErrorDetails) {"Collection Get Error", ""};
+			return (ErrorDetails) {"Collection Get Error", "Could not retrieve value from collection."};
 		}
 		case COLLECTION_SET: {
-			return (ErrorDetails) {"Collection Set Error", "Try adding a different value to the collection"};
+			return (ErrorDetails) {"Collection Set Error", "Could not set value in collection. Check the key type and value."};
 		}
 		case UNPACK_MISMATCH: {
-			return (ErrorDetails) {"Unpack Mismatch Error", "Ensure that you assign all unpacked values"};
+			return (ErrorDetails) {"Unpack Mismatch Error", "Ensure that you assign all unpacked values."};
 		}
 		case MEMORY: {
 			return (ErrorDetails) {"Memory Error", "Cannot allocate more memory."};
 		}
 		case ASSERT: {
-			return (ErrorDetails) {"Assert Error", "The state of your program does not match your expectations"};
+			return (ErrorDetails) {"Assert Error", "The assert statement failed. Check your program's logic."};
 		}
 		case IMPORT_EXTENT: {
 			return (ErrorDetails) {"Import Extent Error", "Cannot import any more names."};
@@ -94,7 +96,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
 																				 "exists at the specified location."};
 		}
 		case IMPORT: {
-			return (ErrorDetails) {"Import Error", "An error occurred while importing a module."};
+			return (ErrorDetails) {"Import Error", "An error occurred while importing a module. Check the module path and name."};
 		}
 		case RUNTIME:
 		default:
@@ -114,7 +116,6 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
 		lineStart++;
 	}
 
-
 	const char *lineEnd = strchr(lineStart, '\n');
 	if (!lineEnd)
 		lineEnd = lineStart + strlen(lineStart);
@@ -122,22 +123,42 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
 	// Calculate padding for line numbers (handles up to 9999 lines)
 	int lineNumWidth = snprintf(NULL, 0, "%d", line);
 
+	// Print line number and line content
 	fprintf(stderr, "%*d | ", lineNumWidth, line);
-	fprintf(stderr, "%.*s\n", (int) (lineEnd - lineStart), lineStart);
+	fprintf(stderr, "%.*s\n", (int)(lineEnd - lineStart), lineStart);
 
+	// Print column indicator
 	fprintf(stderr, "%*s | ", lineNumWidth, "");
 
+	// Calculate the correct position relative to the current line
+	int relativeStartCol = 0;
+	// Verify startCol is valid (not beyond end of line)
+	int maxCol = (int)(lineEnd - lineStart);
+	startCol = startCol < maxCol ? startCol : maxCol - 1;
+	if (startCol < 0) startCol = 0;
 
+	// Calculate visual width (accounting for tabs)
 	for (int i = 0; i < startCol; i++) {
-		char c = lineStart[i];
-		fprintf(stderr, "%c", (c == '\t') ? '\t' : ' ');
+		char c = *(lineStart + i);
+		if (c == '\t') {
+			// Assume tab width of 8 (common default)
+			relativeStartCol += 8 - (relativeStartCol % 8);
+		} else {
+			relativeStartCol++;
+		}
 	}
 
-	fprintf(stderr, RED "^");
-	for (int i = 1; i < length; i++) {
-		printf("~");
+	// Print spaces up to the error position
+	for (int i = 0; i < relativeStartCol; i++) {
+		fprintf(stderr, " ");
 	}
-	fprintf(stderr, RESET "\n");
+
+	// Print the error indicator
+	fprintf(stderr, "%s^", RED);
+	for (int i = 1; i < length && (startCol + i) < maxCol; i++) {
+		fprintf(stderr, "~");
+	}
+	fprintf(stderr, "%s\n", RESET);
 }
 
 
@@ -152,7 +173,23 @@ void errorAt(Parser *parser, Token *token, const char *message, ErrorType errorT
 
 	if (token->type != TOKEN_EOF) {
 		fprintf(stderr, "\n");
-		printErrorLine(token->line, parser->source, token->start - parser->source, token->length);
+		
+		// Calculate column position correctly
+		int startCol = 0;
+		if (token->start >= parser->source) {
+			// Find beginning of the line
+			const char* lineStart = parser->source;
+			for (int i = 0; i < token->line - 1; i++) {
+				const char* newline = strchr(lineStart, '\n');
+				if (!newline) break;
+				lineStart = newline + 1;
+			}
+			
+			// Calculate column offset from line beginning
+			startCol = (int)(token->start - lineStart);
+		}
+		
+		printErrorLine(token->line, parser->source, startCol, token->length);
 	}
 
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
@@ -169,24 +206,93 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 
+	// Format the error message header with the error type
 	fprintf(stderr, "\n%s%s: %s", RED, details.name, MAGENTA);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "%s", RESET);
+	va_end(args);
 
+	// Print stack trace
+	fprintf(stderr, "\n\n%sStack trace:%s", CYAN, RESET);
 	for (int i = vm->frameCount - 1; i >= 0; i--) {
 		CallFrame *frame = &vm->frames[i];
 		ObjectFunction *function = frame->closure->function;
 		size_t instruction = frame->ip - function->chunk.code - 1;
-		fprintf(stderr, "\n[line %d] in ", function->chunk.lines[instruction]);
+		
+		// Show more detailed frame information
+		fprintf(stderr, "\n%s[frame %d]%s ", CYAN, vm->frameCount - i, RESET);
+		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+		
 		if (function->name == NULL) {
-			fprintf(stderr, "> script");
+			fprintf(stderr, "%s<script>%s", CYAN, RESET);
 		} else {
-			fprintf(stderr, "> %s()", function->name->chars);
+			fprintf(stderr, "%s%s()%s", CYAN, function->name->chars, RESET);
 		}
 	}
 
-	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
-	va_end(args);
+	// Print the hint with a clear header
+	fprintf(stderr, "\n\n%sSuggestion: %s%s\n", CYAN, MAGENTA, details.hint);
+	
+	// Add a clear visual separator at the end
+	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 50), RESET);
 
 	resetStack(vm);
+}
+
+// Helper function to repeat a character
+char* repeat(char c, int count) {
+    static char buffer[256];
+    int i;
+    for (i = 0; i < count && i < sizeof(buffer) - 1; i++) {
+        buffer[i] = c;
+    }
+    buffer[i] = '\0';
+    return buffer;
+}
+
+/**
+ * Creates a formatted error message for type mismatches with actual type information.
+ */
+char* typeErrorMessage(VM *vm, Value value, const char* expectedType) {
+    static char buffer[256];
+    
+    // Get the actual type using our typeof function
+    Value typeValue = typeofNative(vm, 1, &value);
+    const char* actualType = "unknown";
+    
+    if (IS_STL_STRING(typeValue)) {
+        actualType = AS_C_STRING(typeValue);
+    }
+    
+    snprintf(buffer, sizeof(buffer), 
+             "Expected %s, but got '%s' (value: ", 
+             expectedType, actualType);
+    
+    // Append a string representation of the value
+    if (IS_NUMBER(value)) {
+        char numStr[32];
+        snprintf(numStr, sizeof(numStr), "%g", AS_NUMBER(value));
+        strncat(buffer, numStr, sizeof(buffer) - strlen(buffer) - 1);
+    } else if (IS_BOOL(value)) {
+        strncat(buffer, AS_BOOL(value) ? "true" : "false", sizeof(buffer) - strlen(buffer) - 1);
+    } else if (IS_NIL(value)) {
+        strncat(buffer, "nil", sizeof(buffer) - strlen(buffer) - 1);
+    } else if (IS_STL_STRING(value)) {
+        // For strings, include the actual string content
+        char strBuf[64];
+        const char* str = AS_C_STRING(value);
+        if (strlen(str) > 20) {
+            // Truncate if too long
+            snprintf(strBuf, sizeof(strBuf), "\"%.*s...\"", 20, str);
+        } else {
+            snprintf(strBuf, sizeof(strBuf), "\"%s\"", str);
+        }
+        strncat(buffer, strBuf, sizeof(buffer) - strlen(buffer) - 1);
+    } else {
+        // For other types, just mention the type
+        strncat(buffer, "[object]", sizeof(buffer) - strlen(buffer) - 1);
+    }
+    
+    strncat(buffer, ")", sizeof(buffer) - strlen(buffer) - 1);
+    return buffer;
 }

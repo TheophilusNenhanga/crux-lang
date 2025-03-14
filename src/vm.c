@@ -536,9 +536,14 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
-
-	if (!(IS_NUMBER(a) || IS_NUMBER(b))) {
-		runtimePanic(vm, TYPE, "Operands must be of type 'number'.");
+	// Check if both operands are numbers
+	if (!IS_NUMBER(a)) {
+		runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "number"));
+		return false;
+	}
+	
+	if (!IS_NUMBER(b)) {
+		runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "number"));
 		return false;
 	}
 
@@ -799,11 +804,12 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_NEGATE: {
-				if (IS_NUMBER(peek(vm, 0))) {
+				Value operand = peek(vm, 0);
+				if (IS_NUMBER(operand)) {
 					push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
 					break;
 				}
-				runtimePanic(vm, TYPE, "Operand must be of type 'number'.");
+				runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "number"));
 				return INTERPRET_RUNTIME_ERROR;
 			}
 
@@ -973,11 +979,15 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
-				if (!IS_STL_INSTANCE(peek(vm, 0))) {
-					runtimePanic(vm, TYPE, "Only instances have properties.");
+				Value receiver = peek(vm, 0);
+				if (!IS_STL_INSTANCE(receiver)) {
+					ObjectString *name = READ_STRING();
+					runtimePanic(vm, TYPE, 
+						"Cannot access property '%s' on non-instance value. %s", 
+						name->chars, typeErrorMessage(vm, receiver, "instance"));
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 0));
+				ObjectInstance *instance = AS_STL_INSTANCE(receiver);
 				ObjectString *name = READ_STRING();
 
 				Value value;
@@ -998,19 +1008,25 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_SET_PROPERTY: {
-				if (!IS_STL_INSTANCE(peek(vm, 1))) {
-					runtimePanic(vm, TYPE, "Only instances have fields.");
+				Value receiver = peek(vm, 1);
+				if (!IS_STL_INSTANCE(receiver)) {
+					ObjectString *name = READ_STRING();
+					runtimePanic(vm, TYPE, 
+						"Cannot set property '%s' on non-instance value. %s", 
+						name->chars, typeErrorMessage(vm, receiver, "instance"));
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 1));
-				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
+				ObjectInstance *instance = AS_STL_INSTANCE(receiver);
+				ObjectString *name = READ_STRING();
+				
+				if (tableSet(vm, &instance->fields, name, peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
 					push(vm, value);
 					break;
 				}
-				runtimePanic(vm, NAME, "Undefined property '%s'.", READ_STRING());
+				runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
 				return INTERPRET_RUNTIME_ERROR;
 			}
 			case OP_METHOD: {
