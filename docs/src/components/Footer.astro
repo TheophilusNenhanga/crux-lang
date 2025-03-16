@@ -1,0 +1,29 @@
+---
+import Logo from "./Logo.astro";
+import Wrapper from "./Wrapper.astro";
+---
+
+<Wrapper>
+	<div class="py-12">
+		<div class="grid grid-cols-3">
+  <div class="col-span-1">
+    <Logo />
+  </div>
+  <div>
+    <ul>
+      <li><a href="/getting-started">Getting Started</a></li>
+      <li><a href="/docs">Docs</a></li>
+      <li>
+        <a href="https://github.com/TheophilusNenhanga/StellaC">Source</a>
+      </li>
+    </ul>
+  </div>
+  <div>
+    <p>Theophilus N Nenhanga</p>
+    <p>&copy; {new Date().getFullYear()}</p>
+  </div>
+</div>
+	</div>
+	
+
+</Wrapper>

@@ -1,0 +1,69 @@
+---
+import DocumentationLayout from "../../layouts/DocumentationLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+
+const windowsInstallCode = `mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../src
+cmake --build . --config Release`;
+
+const linuxInstallCode = `mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../src
+make`;
+
+---
+
+<DocumentationLayout title="Installation">
+  <section>
+    <p class="text-xl mb-6">
+      Follow these instructions to install Stella on your system.
+    </p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+      <div class="bg-neutral-100 dark:bg-slate-800 p-6 rounded-lg border border-neutral-300 dark:border-slate-700">
+        <h3 class="text-xl font-bold mb-4">Windows</h3>
+        <CodeBlock code={windowsInstallCode} id="windows-install-code" />
+      </div>
+      
+      <div class="bg-neutral-100 dark:bg-slate-800 p-6 rounded-lg border border-neutral-300 dark:border-slate-700">
+        <h3 class="text-xl font-bold mb-4">Linux</h3>
+        <CodeBlock code={linuxInstallCode} id="linux-install-code" />
+        </div>
+      </div>
+    </div>
+    
+    <h2 class="text-2xl font-bold mt-10 mb-4">Verifying Installation</h2>
+    <p class="mb-4">
+      After installation, you can verify Stella is working by running:
+    </p>
+    <div class="bg-gray-900 text-gray-100 p-4 rounded font-mono text-sm overflow-auto mb-6">
+      <pre>./stella --version</pre>
+    </div>
+    
+    <h2 class="text-2xl font-bold mt-10 mb-4">First Stella Program</h2>
+    <p class="mb-4">
+      Create a file named <code>hello.stella</code> with the following content:
+    </p>
+    <div class="bg-gray-900 text-gray-100 p-4 rounded font-mono text-sm overflow-auto mb-6">
+      <pre>// My first Stella program
+println("Hello, Stella!");</pre>
+    </div>
+    
+    <p class="mb-4">
+      Run the program with:
+    </p>
+    <div class="bg-gray-900 text-gray-100 p-4 rounded font-mono text-sm overflow-auto mb-6">
+      <pre>./stella hello.stella</pre>
+    </div>
+    
+    <div class="bg-green-100 dark:bg-green-900 p-4 rounded-md my-6">
+      <p class="font-semibold">Congratulations!</p>
+      <p class="mt-2">
+        You've successfully installed Stella and run your first program. Continue to 
+        <a href="/docs/variables-and-data-types" class="text-blue-600 dark:text-blue-400 underline">Variables & Data Types</a> 
+        to start learning the language.
+      </p>
+    </div>
+  </section>
+</DocumentationLayout> 

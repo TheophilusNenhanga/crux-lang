@@ -1,0 +1,65 @@
+---
+import CodeBlock from '../components/CodeBlock.astro';
+import Layout from '../layouts/Layout.astro';
+
+const exampleCode = `
+// Variable declaration
+let name = "Stella";
+let age = 25;
+
+// Function declaration
+fn greet(name) {
+  println("Hello, " + name + "!");
+}
+
+// Function call
+greet(name);  // "Hello, Stella!"
+
+// Arrays
+let numbers = [1, 2, 3, 4, 5];
+println(numbers[2]);  // 3
+`;
+---
+
+<Layout title='Home'>
+  <div class="max-w-4xl mx-auto py-12">
+    <div class="text-center mb-12">
+      <h1 class="text-5xl font-bold mb-4">Stella Programming Language</h1>
+      <p class="text-xl">A modern, memory-managed, interpreted programming language</p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+      <div class="bg-neutral-100 dark:bg-slate-800 p-6 rounded-lg border border-neutral-300 dark:border-slate-700">
+        <h2 class="text-2xl font-bold mb-4">Key Features</h2>
+        <ul class="list-disc pl-6 space-y-2">
+          <li>Dynamic typing for flexibility</li>
+          <li>Automatic memory management with garbage collection</li>
+          <li>First-class functions and closures</li>
+          <li>Object-oriented programming with classes</li>
+          <li>Built-in data structures (arrays and tables)</li>
+        </ul>
+      </div>
+      
+      <div class="bg-neutral-100 dark:bg-slate-800 p-6 rounded-lg border border-neutral-300 dark:border-slate-700">
+        <h2 class="text-2xl font-bold mb-4">Quick Example</h2>
+        <CodeBlock code={exampleCode} id="example-code" />
+      </div>
+    </div>
+    
+    <div class="flex flex-col md:flex-row gap-6 justify-center">
+      <a href="/getting-started" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-center transition-colors">
+        Get Started
+      </a>
+      <a href="/docs" class="bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600 text-gray-900 dark:text-white font-bold py-3 px-6 rounded-lg text-center transition-colors">
+        Documentation
+      </a>
+      <a href="https://github.com/TheophilusNenhanga/StellaC" class="bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600 text-gray-900 dark:text-white font-bold py-3 px-6 rounded-lg text-center transition-colors flex items-center justify-center">
+        <span>GitHub</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</Layout>
+
