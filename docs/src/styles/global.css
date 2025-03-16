@@ -1,11 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Whisper&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Whisper&display=swap');
-
 @import "tailwindcss";
 
 @theme {
-    --font-whisper: 'Whisper', cursive;
-    --font-playfair: 'Playfair Display', serif;
     --color-stella-start: #D500FF;
     --color-stella-middle: #F4009B;
     --color-stella-end: #BF00FF;

@@ -1,0 +1,115 @@
+---
+import DocumentationLayout from "../../layouts/DocumentationLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+const classDefinitionCode = `// Basic class definition
+class Person {
+    fn init(name, age) {
+        self.name = name;
+        self.age = age;
+    }
+    
+    fn greet() {
+        println("Hello, my name is " + self.name);
+    }
+    
+    fn birthday() {
+        self.age = self.age + 1;
+        println(self.name + " is now " + self.age + " years old");
+    }
+}}
+`;
+const objectCreationCode = `// Creating objects
+let john = Person("John", 30);
+let alice = Person("Alice", 25);
+
+// Calling methods
+john.greet();    // "Hello, my name is John"
+alice.greet();   // "Hello, my name is Alice"
+
+// Accessing and modifying properties
+println(john.age);    // 30
+john.birthday();      // "John is now 31 years old"
+println(john.age);    // 31`;
+const inheritanceCode = `// Base class
+class Animal {
+    fn init(name) {
+        self.name = name;
+    }
+    
+    fn speak() {
+        println(self.name + " makes a sound");
+    }
+}
+
+// Derived class
+class Dog &lt; Animal {
+    fn init(name, breed) {
+        super.init(name);
+        self.breed = breed;
+    }
+    
+    fn speak() {
+        println(self.name + " barks");
+    }
+    
+    fn fetch() {
+        println(self.name + " fetches the ball");
+    }
+}}
+`;
+---
+
+<DocumentationLayout title="Classes & Objects">
+  <section>
+    <p class="text-xl mb-6">
+      Stella supports object-oriented programming through classes and objects, allowing you to create reusable, modular code.
+    </p>
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Defining Classes</h2>
+    <p class="mb-4">
+      Classes in Stella are defined using the <code>class</code> keyword, followed by the class name and a block of methods.
+    </p>
+    <CodeBlock code={classDefinitionCode} id="class-definition" />
+    
+    <h3 class="text-xl font-bold mt-6 mb-2">The <code>init</code> Method</h3>
+    <p class="mb-4">
+      The <code>init</code> method is a special method that is called when a new instance of the class is created. It's used to initialize the object's properties.
+    </p>
+    
+    <h3 class="text-xl font-bold mt-6 mb-2">The <code>self</code> Keyword</h3>
+    <p class="mb-4">
+      The <code>self</code> keyword refers to the current instance of the class. It's used to access the object's properties and methods.
+    </p>
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Creating Objects</h2>
+    <p class="mb-4">
+      Objects are created by calling the class name as if it were a function.
+    </p>
+    <CodeBlock code={objectCreationCode} id="object-creation" />
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Inheritance</h2>
+    <p class="mb-4">
+      Stella supports inheritance, allowing a class to inherit properties and methods from another class.
+    </p>
+    <CodeBlock code={inheritanceCode} id="inheritance" />
+    
+    <h3 class="text-xl font-bold mt-6 mb-2">The <code>super</code> Keyword</h3>
+    <p class="mb-4">
+      The <code>super</code> keyword is used to call methods from the parent class.
+    </p>
+    
+    <h3 class="text-xl font-bold mt-6 mb-2">Method Overriding</h3>
+    <p class="mb-4">
+      A derived class can override methods from the base class by defining a method with the same name.
+    </p>
+    
+    <div class="bg-blue-100 dark:bg-blue-900 p-4 rounded-md my-8">
+      <p class="font-semibold">Next Steps</p>
+      <p class="mt-2">
+        Now that you understand classes and objects, check out the 
+        <a href="/docs/built-in-functions" class="text-blue-600 dark:text-blue-400 underline">Built-in Functions</a> 
+        that Stella provides to help you with common tasks.
+      </p>
+    </div>
+  </section>
+</DocumentationLayout> 

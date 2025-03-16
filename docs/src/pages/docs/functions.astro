@@ -1,0 +1,105 @@
+---
+import DocumentationLayout from "../../layouts/DocumentationLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+
+const functionDeclarationCode = `// Basic function declaration
+fn add(a, b) {
+    return a + b;
+}
+
+// Function with no parameters
+fn sayHello() {
+    println("Hello, Stella!");
+}
+
+// Function with no return value
+fn greet(name) {
+    println("Hello, " + name + "!");
+}}`;
+
+const functionExpressionsCode = `// Function assigned to a variable
+let multiply = fn(a, b) {
+    return a * b;
+};
+
+// Using the function
+let result = multiply(5, 3);  // 15`;
+
+const functionsAsArgumentsCode = `// Function that takes another function as an argument
+fn applyOperation(a, b, operation) {
+    return operation(a, b);
+}
+
+// Using the function
+let sum = applyOperation(5, 3, add);           // 8
+let product = applyOperation(5, 3, multiply);  // 15`;
+
+const closuresCode = `// Function that returns a counter function
+fn makeCounter() {
+    let count = 0;
+    
+    return fn() {
+        count = count + 1;
+        return count;
+    };
+}
+
+// Create two counter functions
+let counter1 = makeCounter();
+let counter2 = makeCounter();
+
+println(counter1());  // 1
+println(counter1());  // 2
+println(counter2());  // 1
+println(counter1());  // 3
+println(counter2());  // 2`;
+
+const recursionCode = `// Recursive function to calculate factorial
+fn factorial(n) {
+    if n <= 1 {
+        return 1;
+    }
+    
+    return n * factorial(n - 1);
+}
+
+println(factorial(5));  // 120 (5 * 4 * 3 * 2 * 1)`;
+---
+
+<DocumentationLayout title="Functions">
+  <section>
+    <p class="text-xl mb-6">
+      Functions in Stella are first-class citizens, meaning they can be assigned to variables, passed as arguments, and returned from other functions.
+    </p>
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Function Declaration</h2>
+    <p class="mb-4">
+      Functions in Stella are declared using the <code>fn</code> keyword.
+    </p>
+    <CodeBlock code={functionDeclarationCode} id="function-declaration-code" />
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Function Expressions</h2>
+    <p class="mb-4">
+      Functions can be assigned to variables and used as expressions.
+    </p>
+    <CodeBlock code={functionExpressionsCode} id="function-expressions-code" />
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Functions as Arguments</h2>
+    <p class="mb-4">
+      Functions can be passed as arguments to other functions.
+    </p>
+    <CodeBlock code={functionsAsArgumentsCode} id="functions-as-arguments-code" />
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Closures</h2>
+    <p class="mb-4">
+      Stella supports closures, which are functions that capture and remember the environment in which they were created.
+    </p>
+    <CodeBlock code={closuresCode} id="closures-code" />
+    
+    <h2 class="text-2xl font-bold mt-8 mb-4">Recursion</h2>
+    <p class="mb-4">
+      Functions in Stella can call themselves, which is known as recursion.
+    </p>
+    <CodeBlock code={recursionCode} id="recursion-code" />
+  </section>
+</DocumentationLayout> 
