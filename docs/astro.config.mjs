@@ -9,5 +9,6 @@ export default defineConfig({
     plugins: [tailwindcss()]
   },
   site: 'https://stellac.github.io',
+  base: '/StellaC',
   output: 'static'
 });
