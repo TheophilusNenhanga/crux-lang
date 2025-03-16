@@ -14,8 +14,10 @@ ObjectResult* _readln(VM *vm, int argCount, Value *args);     // Read line from 
 // File Writing functions
 ObjectResult* _writeln(VM *vm, int argCount, Value *args);			// Write line to file
 
-ObjectResult* _print(VM *vm, int argCount, Value *args);				// write to stdout without newline
-ObjectResult* _println(VM *vm, int argCount, Value *args);			// write to stdout with newline
+Value _print(VM *vm, int argCount, Value *args);				// write to stdout without newline
+Value _println(VM *vm, int argCount, Value *args);			// write to stdout with newline
+
+// Functions that can fail
 ObjectResult* _printTo(VM *vm, int argCount, Value *args);			// write to specified channel without newline
 
 ObjectResult* _scan(VM *vm, int argCount, Value *args);				// read single char from stdin

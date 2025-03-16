@@ -175,20 +175,19 @@ ObjectResult* arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
 	return stellaErr(vm, newError(vm, copyString(vm, "Value could not be found in the array.", 38), VALUE, false));
 }
 
-ObjectResult* arrayContainsMethod(VM *vm, int argCount, Value *args) {
+Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
 	ObjectArray *array = AS_STL_ARRAY(args[0]);
-
 	Value target = args[1];
 
 	for (uint64_t i = 0; i < array->size; i++) {
 		if (valuesEqual(target, array->array[i])) {
-			return stellaOk(vm, BOOL_VAL(true));
+			return BOOL_VAL(true);
 		}
 	}
-	return stellaOk(vm, BOOL_VAL(false));
+	return BOOL_VAL(false);
 }
 
-ObjectResult* arrayClearMethod(VM *vm, int argCount, Value *args) {
+Value arrayClearMethod(VM *vm, int argCount, Value *args) {
 	ObjectArray *array = AS_STL_ARRAY(args[0]);
 
 	for (uint64_t i = 0; i < array->size; i++) {
@@ -196,5 +195,5 @@ ObjectResult* arrayClearMethod(VM *vm, int argCount, Value *args) {
 	}
 	array->size = 0;
 
-	return stellaOk(vm, NIL_VAL);
+	return NIL_VAL;
 }

@@ -20,6 +20,8 @@
 #define IS_STL_TABLE(value) isObjectType(value, OBJECT_TABLE)
 #define IS_STL_ERROR(value) isObjectType(value, OBJECT_ERROR)
 #define IS_STL_RESULT(value) isObjectType(value, OBJECT_RESULT)
+#define IS_STL_NATIVE_INFALLIBLE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
+#define IS_STL_NATIVE_INFALLIBLE_METHOD(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
 
 #define AS_STL_STRING(value) ((ObjectString *) AS_STL_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *) AS_STL_OBJECT(value))->chars)
@@ -34,6 +36,8 @@
 #define AS_STL_TABLE(value) ((ObjectTable *) AS_STL_OBJECT(value))
 #define AS_STL_ERROR(value) ((ObjectError *) AS_STL_OBJECT(value))
 #define AS_STL_RESULT(value) ((ObjectResult *) AS_STL_OBJECT(value))
+#define AS_STL_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_STL_OBJECT(value))
+#define AS_STL_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_STL_OBJECT(value))
 
 
 typedef enum {
@@ -51,6 +55,8 @@ typedef enum {
 	OBJECT_ERROR,
 	OBJECT_MODULE,
 	OBJECT_RESULT,
+	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
+	OBJECT_NATIVE_INFALLIBLE_METHOD,
 } ObjectType;
 
 struct Object {
@@ -160,6 +166,7 @@ typedef struct {
 } ObjectResult;
 
 typedef ObjectResult* (*StellaNativeCallable)(VM *vm, int argCount, Value *args);
+typedef Value (*StellaInfallibleCallable)(VM *vm, int argCount, Value *args);
 
 typedef struct {
 	Object object;
@@ -174,6 +181,20 @@ typedef struct {
 	ObjectString *name;
 	int arity;
 } ObjectNativeMethod;
+
+typedef struct {
+	Object object;
+	StellaInfallibleCallable function;
+	ObjectString *name;
+	int arity;
+} ObjectNativeInfallibleFunction;
+
+typedef struct {
+	Object object;
+	StellaInfallibleCallable function;
+	ObjectString *name;
+	int arity;
+} ObjectNativeInfallibleMethod;
 
 typedef struct {
 	Value key;
@@ -296,6 +317,30 @@ ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, i
  * @return A pointer to the newly created ObjectNativeMethod.
  */
 ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name);
+
+/**
+ * @brief Creates a new native infallible function object.
+ *
+ * Native infallible functions are implemented in C, callable from Stella code,
+ * and guaranteed not to return errors. This function allocates and initializes 
+ * a new ObjectNativeInfallibleFunction.
+ *
+ * @param vm The virtual machine.
+ * @param function The C function pointer representing the native function's implementation.
+ * @param arity The expected number of arguments for the native function.
+ * @param name The name of the native function as an ObjectString (for debugging).
+ *
+ * @return A pointer to the newly created ObjectNativeInfallibleFunction.
+ */
+ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name);
+
+/**
+ * @brief Creates a new native infallible method object.
+ *
+ * Native infallible methods are similar to native infallible functions but are associated with classes.
+ * This function allocates and initializes a new ObjectNativeInfallibleMethod.
+ */
+ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name);
 
 /**
  * @brief Creates a new function object.

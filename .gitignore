@@ -11,3 +11,4 @@ src/CMakeSettings.json
 /docs/node_modules
 /docs/.astro
 /docs/.vscode
+*.exe

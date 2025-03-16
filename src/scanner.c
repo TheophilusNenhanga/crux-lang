@@ -108,7 +108,7 @@ static TokenType identifierType() {
 			if (scanner.current - scanner.start > 1) {
 				switch (scanner.start[1]) {
 					case 's': {
-						return TOKEN_AS;
+						return checkKeyword(2, 0, "", TOKEN_AS);
 					}
 					case 'n': {
 						return checkKeyword(2, 1, "d", TOKEN_AND);
@@ -151,7 +151,6 @@ static TokenType identifierType() {
 					default:;
 				}
 			}
-
 		case 'o':
 			return checkKeyword(1, 1, "r", TOKEN_OR);
 		case 'r':

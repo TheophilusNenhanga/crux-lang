@@ -30,6 +30,6 @@ ObjectResult* _floor(VM *vm, int argCount, Value *args);
 ObjectResult* _round(VM *vm, int argCount, Value *args);
 
 // Constants
-ObjectResult* _pi(VM *vm, int argCount, Value *args);
-ObjectResult* _e(VM *vm, int argCount, Value *args);
+Value _pi(VM *vm, int argCount, Value *args);
+Value _e(VM *vm, int argCount, Value *args);
 #endif //STL_MATH_H

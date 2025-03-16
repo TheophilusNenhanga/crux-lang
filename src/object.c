@@ -263,6 +263,15 @@ void printObject(Value value) {
 			}
 			break;
 		}
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+			ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(value);
+			if (native->name != NULL) {
+				printf("<native infallible fn %s>", native->name->chars);
+			} else {
+				printf("<native infallible fn>");
+			}
+			break;
+		}
 		case OBJECT_CLOSURE: {
 			printFunction(AS_STL_CLOSURE(value)->function);
 			break;
@@ -378,6 +387,38 @@ ObjectString *toString(VM *vm, Value value) {
 				return result;
 			}
 			return copyString(vm, "<native method>", 15);
+		}
+
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+			ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(value);
+			if (native->name != NULL) {
+				char *start = "<native infallible fn ";
+				char *end = ">";
+				char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
+				strcpy(buffer, start);
+				strcat(buffer, native->name->chars);
+				strcat(buffer, end);
+				ObjectString *result = takeString(vm, buffer, strlen(buffer));
+				FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
+				return result;
+			}
+			return copyString(vm, "<native infallible fn>", 21);
+		}
+		
+		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+			ObjectNativeInfallibleMethod *native = AS_STL_NATIVE_INFALLIBLE_METHOD(value);
+			if (native->name != NULL) {
+				char *start = "<native infallible method ";
+				char *end = ">";
+				char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
+				strcpy(buffer, start);
+				strcat(buffer, native->name->chars);
+				strcat(buffer, end);
+				ObjectString *result = takeString(vm, buffer, strlen(buffer));
+				FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
+				return result;
+			}
+			return copyString(vm, "<native infallible method>", 25);
 		}
 
 		case OBJECT_CLOSURE: {
@@ -534,6 +575,21 @@ ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int a
 	return native;
 }
 
+ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+	ObjectNativeInfallibleFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleFunction, OBJECT_NATIVE_INFALLIBLE_FUNCTION);
+	native->function = function;
+	native->arity = arity;
+	native->name = name;
+	return native;
+}
+
+ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+	ObjectNativeInfallibleMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleMethod, OBJECT_NATIVE_INFALLIBLE_METHOD);
+	native->function = function;
+	native->arity = arity;
+	native->name = name;
+	return native;
+}
 ObjectTable *newTable(VM *vm, int elementCount) {
 	ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
 	table->capacity = elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
