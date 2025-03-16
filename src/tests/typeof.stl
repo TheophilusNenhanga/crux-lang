@@ -1,6 +1,6 @@
-// Testing the typeof function
+// Testing the type function
 
-println("=== Testing the typeof function ===");
+println("=== Testing the type function ===");
 
 let a = "string";
 let b = 1;
@@ -13,16 +13,16 @@ class Test {}
 let h = Test();
 let j = len(e);
 
-let aType = typeof(a);
-let bType = typeof(b);
-let cType = typeof(c);
-let dType = typeof(d);
-let eType = typeof(e);
-let fType = typeof(f);
-let gType = typeof(g);
-let hType = typeof(h);
-let iType = typeof(Test);
-let jType = typeof(j);
+let aType = type(a);
+let bType = type(b);
+let cType = type(c);
+let dType = type(d);
+let eType = type(e);
+let fType = type(f);
+let gType = type(g);
+let hType = type(h);
+let iType = type(Test);
+let jType = type(j);
 
 fn a (condition, message) {
     if not condition {
@@ -52,4 +52,4 @@ println("hType: " + hType);
 println("iType: " + iType);
 println("jType: " + jType);
 
-println("=== typeof function test complete ===");
+println("=== type function test complete ===");

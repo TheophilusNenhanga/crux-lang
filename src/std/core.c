@@ -1,4 +1,4 @@
-#include "collections.h"
+#include "core.h"
 
 #include "../memory.h"
 #include "../object.h"
@@ -20,7 +20,7 @@ ObjectResult* lengthNative(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value length = getLength(value);
 	if (IS_NIL(length)) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Expected either a collection type or a string.", 46), TYPE, false));
+		return stellaErr(vm, newError(vm, copyString(vm, "Expected either a collection type ('string', 'array', 'table').", 46), TYPE, false));
 	}
 	return stellaOk(vm, length);
 }
@@ -31,14 +31,14 @@ Value lengthNative_(VM *vm, int argCount, Value *args) {
 }
 
 /**
- * Infallible function that returns a string representing the type of a value
+ * Infallible function that returns a string representing the value's type
  * 
  * @param vm The virtual machine
  * @param argCount Number of arguments
  * @param args Array of arguments
  * @return A string value representing the type
  */
-Value typeofNative(VM *vm, int argCount, Value *args) {
+Value typeNative(VM *vm, int argCount, Value *args) {
     Value value = args[0];
     
     if (IS_NUMBER(value)) {

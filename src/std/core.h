@@ -10,8 +10,8 @@ ObjectResult* lengthNative(VM *vm, int argCount, Value *args);
 Value lengthNative_(VM *vm, int argCount, Value *args);
 
 /**
- * Returns a string representing the type of a value
+ * Returns a string representing the value's type
  */
-Value typeofNative(VM *vm, int argCount, Value *args);
+Value typeNative(VM *vm, int argCount, Value *args);
 
 #endif

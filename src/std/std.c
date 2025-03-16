@@ -1,7 +1,7 @@
 #include "std.h"
 #include "../memory.h"
 #include "array.h"
-#include "collections.h"
+#include "core.h"
 #include "error.h"
 #include "stl_io.h"
 #include "stl_math.h"
@@ -38,8 +38,8 @@ Callable arrayMethods[] = {
 };
 
 InfallibleCallable arrayInfallibleMethods[] = {
-	{"contains", arrayContainsMethod, 2},
-	{"clear", arrayClearMethod, 1},
+	{"_contains", arrayContainsMethod, 2},
+	{"_clear", arrayClearMethod, 1},
 	{NULL, NULL, 0}
 };
 
@@ -53,10 +53,10 @@ Callable builtinCallables[] = {
 };
 
 InfallibleCallable builtinInfallibleCallables[] = {
-	{"len_", lengthNative_, 1},
+	{"_len", lengthNative_, 1},
 	{"println", _println, 1},
 	{"print", _print, 1},
-	{"typeof", typeofNative, 1},
+	{"type", typeNative, 1},
 	{NULL, NULL, 0}
 };
 
@@ -75,8 +75,8 @@ Callable mathFunctions[] = {
 };
 
 InfallibleCallable mathInfallibleFunctions[] = {
-	{"e", _e, 0},
-	{"pi", _pi, 0},
+	{"_e", _e, 0},
+	{"_pi", _pi, 0},
 	{NULL, NULL, 0}
 };
 
@@ -98,9 +98,9 @@ Callable timeFunctions[] = {
 };
 
 InfallibleCallable timeInfallibleFunctions[] = {
-	{"time_s", _time_s, 0}, {"time_ms", _time_ms, 0},
-	{"year", _year, 0}, {"month", _month, 0}, {"day", _day, 0}, {"hour", _hour, 0},
-	{"minute", _minute, 0}, {"second", _second, 0}, {"weekday", _weekday, 0}, {"day_of_year", _day_of_year, 0},
+	{"_time_s", _time_s, 0}, {"_time_ms", _time_ms, 0},
+	{"_year", _year, 0}, {"_month", _month, 0}, {"_day", _day, 0}, {"_hour", _hour, 0},
+	{"_minute", _minute, 0}, {"_second", _second, 0}, {"_weekday", _weekday, 0}, {"_day_of_year", _day_of_year, 0},
 	{NULL, NULL, 0}
 };
 

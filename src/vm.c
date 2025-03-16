@@ -191,16 +191,33 @@ static bool callValue(VM *vm, Value callee, int argCount) {
  * @param argCount Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
-	Value method;
-	if (tableGet(&klass->methods, name, &method)) {
-		// We only need to call the method, the result will be handled in invoke
-		return call(vm, AS_STL_CLOSURE(method), argCount);
-	}
-	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
-	return false;
+static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
+                            int argCount) {
+  Value method;
+  if (tableGet(&klass->methods, name, &method)) {
+    return call(vm, AS_STL_CLOSURE(method), argCount);
+  }
+  runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
+  return false;
 }
 
+static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
+                         Value value) {
+  Value result;
+  // Save original stack order
+  vm->stackTop[-argCount - 1] = value;
+  vm->stackTop[-argCount] = receiver;
+
+  if (!callValue(vm, value, argCount)) {
+    return false;
+  }
+
+  // restore the caller and put the result in the right place
+  result = pop(vm);
+  push(vm, original);
+  push(vm, result);
+  return true;
+}
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -218,20 +235,8 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
-				Value result;
-				// Save original stack order
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				
-				if (!callValue(vm, value, argCount)) {
-					return false;
-				}
-				
-				// After the call, restore the original caller and put the result in the right place
-				result = pop(vm);
-				push(vm, original);
-				push(vm, result);
-				return true;
+				return handleInvoke(vm, argCount, receiver, original,
+                                              value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -240,20 +245,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
-				Value result;
-				// Save original stack order
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				
-				if (!callValue(vm, value, argCount)) {
-					return false;
-				}
-				
-				// After the call, restore the original caller and put the result in the right place
-				result = pop(vm);
-				push(vm, original);
-				push(vm, result);
-				return true;
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -262,20 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
-				Value result;
-				// Save original stack order
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				
-				if (!callValue(vm, value, argCount)) {
-					return false;
-				}
-				
-				// After the call, restore the original caller and put the result in the right place
-				result = pop(vm);
-				push(vm, original);
-				push(vm, result);
-				return true;
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -284,20 +263,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
-				Value result;
-				// Save original stack order
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				
-				if (!callValue(vm, value, argCount)) {
-					return false;
-				}
-				
-				// After the call, restore the original caller and put the result in the right place
-				result = pop(vm);
-				push(vm, original);
-				push(vm, result);
-				return true;
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
