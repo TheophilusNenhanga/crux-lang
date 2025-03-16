@@ -8,7 +8,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()]
   },
-  site: 'https://stellac.github.io',
+  site: 'https://theophilusnenhanga.github.io',
   base: '/StellaC',
   output: 'static'
 });
