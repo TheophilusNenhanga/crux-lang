@@ -1,10 +1,12 @@
 #include "stl_io.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../file_handler.h"
 #include "../memory.h"
 #include "../object.h"
+#include "../vm.h"
 
 
 static FILE *getChannel(const char *channel) {
@@ -109,15 +111,15 @@ void valuePrint(Value value) {
 }
 
 // Standard I/O Functions
-ObjectResult* _print(VM *vm, int argCount, Value *args) {
+Value _print(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
-	return stellaOk(vm, NIL_VAL);
+	return  NIL_VAL;
 }
 
-ObjectResult* _println(VM *vm, int argCount, Value *args) {
-	valuePrint(args[0]);
+Value _println(VM* vm, int argCount, Value* args) {
+	_print(vm, argCount, args);
 	printf("\n");
-	return stellaOk(vm, NIL_VAL);
+	return NIL_VAL;
 }
 
 ObjectResult* _printTo(VM *vm, int argCount, Value *args) {

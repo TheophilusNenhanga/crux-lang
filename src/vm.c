@@ -98,7 +98,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 
 				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 
-				vm->stackTop -= argCount;
+				vm->stackTop -= argCount+1;
 
 				if (!result->isOk) {
 					if (result->as.error->isPanic) {
@@ -129,6 +129,31 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				}
 
 				push(vm, OBJECT_VAL(result));
+				return true;
+			}
+			case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+				ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(callee);
+				if (argCount != native->arity) {
+					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+
+				Value result = native->function(vm, argCount, vm->stackTop - argCount);
+				vm->stackTop -= argCount + 1;
+
+				push(vm, result);
+				return true;
+			}
+			case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+				ObjectNativeInfallibleMethod *native = AS_STL_NATIVE_INFALLIBLE_METHOD(callee);
+				if (argCount != native->arity) {
+					runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d", native->arity, argCount);
+					return false;
+				}
+
+				Value result = native->function(vm, argCount, vm->stackTop - argCount);
+				vm->stackTop -= argCount+1;
+				push(vm, result);
 				return true;
 			}
 			case OBJECT_CLASS: {
@@ -166,15 +191,33 @@ static bool callValue(VM *vm, Value callee, int argCount) {
  * @param argCount Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int argCount) {
-	Value method;
-	if (tableGet(&klass->methods, name, &method)) {
-		return call(vm, AS_STL_CLOSURE(method), argCount);
-	}
-	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
-	return false;
+static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
+                            int argCount) {
+  Value method;
+  if (tableGet(&klass->methods, name, &method)) {
+    return call(vm, AS_STL_CLOSURE(method), argCount);
+  }
+  runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
+  return false;
 }
 
+static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
+                         Value value) {
+  Value result;
+  // Save original stack order
+  vm->stackTop[-argCount - 1] = value;
+  vm->stackTop[-argCount] = receiver;
+
+  if (!callValue(vm, value, argCount)) {
+    return false;
+  }
+
+  // restore the caller and put the result in the right place
+  result = pop(vm);
+  push(vm, original);
+  push(vm, result);
+  return true;
+}
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -185,15 +228,15 @@ static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name, int 
  */
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
 	Value receiver = peek(vm, argCount);
+	Value original = peek(vm, argCount + 1); // Store the original caller
 
 	if (!IS_STL_INSTANCE(receiver)) {
 		argCount++; // for the value that the method will act upon
 		if (IS_STL_STRING(receiver)) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				return handleInvoke(vm, argCount, receiver, original,
+                                              value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -202,9 +245,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -213,9 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -224,9 +263,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
-				vm->stackTop[-argCount - 1] = value;
-				vm->stackTop[-argCount] = receiver;
-				return callValue(vm, value, argCount);
+				handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -240,11 +277,31 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 	Value value;
 	if (tableGet(&instance->fields, name, &value)) {
+		Value result;
+		// Save original stack order
 		vm->stackTop[-argCount - 1] = value;
-		return callValue(vm, value, argCount);
+		
+		if (!callValue(vm, value, argCount)) {
+			return false;
+		}
+		
+		// After the call, restore the original caller and put the result in the right place
+		result = pop(vm);
+		push(vm, original);
+		push(vm, result);
+		return true;
 	}
 
-	return invokeFromClass(vm, instance->klass, name, argCount);
+	// For class methods, we need special handling
+	if (invokeFromClass(vm, instance->klass, name, argCount)) {
+		// After the call, the result is already on the stack
+		Value result = pop(vm);
+		push(vm, original);
+		push(vm, result);
+		return true;
+	}
+	
+	return false;
 }
 
 
@@ -409,12 +466,18 @@ void initVM(VM *vm) {
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
 
-	defineMethods(vm, &vm->stringType.methods, stringMethods);
-	defineMethods(vm, &vm->arrayType.methods, arrayMethods);
-	defineMethods(vm, &vm->tableType.methods, tableMethods);
-	defineMethods(vm, &vm->errorType.methods, errorMethods);
+	if (!
+			defineMethods(vm, &vm->stringType.methods, stringMethods) ||
+			!defineMethods(vm, &vm->arrayType.methods, arrayMethods) ||
+			!defineInfallibleMethods(vm, &vm->arrayType.methods, arrayInfallibleMethods) ||
+			!defineMethods(vm, &vm->tableType.methods, tableMethods) ||
+			!defineMethods(vm, &vm->errorType.methods, errorMethods)
+	) {
+		fprintf(stderr, "Failed to define object method on builtin type.\n");
+	}
 
 	defineNativeFunctions(vm, &vm->globals);
+	defineNativeInfallibleFunctions(vm, &vm->globals, builtinInfallibleCallables);
 	defineStandardLibrary(vm);
 }
 
@@ -439,9 +502,14 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
-
-	if (!(IS_NUMBER(a) || IS_NUMBER(b))) {
-		runtimePanic(vm, TYPE, "Operands must be of type 'number'.");
+	// Check if both operands are numbers
+	if (!IS_NUMBER(a)) {
+		runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "number"));
+		return false;
+	}
+	
+	if (!IS_NUMBER(b)) {
+		runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "number"));
 		return false;
 	}
 
@@ -702,11 +770,12 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_NEGATE: {
-				if (IS_NUMBER(peek(vm, 0))) {
+				Value operand = peek(vm, 0);
+				if (IS_NUMBER(operand)) {
 					push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
 					break;
 				}
-				runtimePanic(vm, TYPE, "Operand must be of type 'number'.");
+				runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "number"));
 				return INTERPRET_RUNTIME_ERROR;
 			}
 
@@ -876,11 +945,15 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_GET_PROPERTY: {
-				if (!IS_STL_INSTANCE(peek(vm, 0))) {
-					runtimePanic(vm, TYPE, "Only instances have properties.");
+				Value receiver = peek(vm, 0);
+				if (!IS_STL_INSTANCE(receiver)) {
+					ObjectString *name = READ_STRING();
+					runtimePanic(vm, TYPE, 
+						"Cannot access property '%s' on non-instance value. %s", 
+						name->chars, typeErrorMessage(vm, receiver, "instance"));
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 0));
+				ObjectInstance *instance = AS_STL_INSTANCE(receiver);
 				ObjectString *name = READ_STRING();
 
 				Value value;
@@ -901,19 +974,25 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_SET_PROPERTY: {
-				if (!IS_STL_INSTANCE(peek(vm, 1))) {
-					runtimePanic(vm, TYPE, "Only instances have fields.");
+				Value receiver = peek(vm, 1);
+				if (!IS_STL_INSTANCE(receiver)) {
+					ObjectString *name = READ_STRING();
+					runtimePanic(vm, TYPE, 
+						"Cannot set property '%s' on non-instance value. %s", 
+						name->chars, typeErrorMessage(vm, receiver, "instance"));
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				ObjectInstance *instance = AS_STL_INSTANCE(peek(vm, 1));
-				if (tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0), false)) {
+				ObjectInstance *instance = AS_STL_INSTANCE(receiver);
+				ObjectString *name = READ_STRING();
+				
+				if (tableSet(vm, &instance->fields, name, peek(vm, 0), false)) {
 					Value value = pop(vm);
 					pop(vm);
 					push(vm, value);
 					break;
 				}
-				runtimePanic(vm, NAME, "Undefined property '%s'.", READ_STRING());
+				runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
 				return INTERPRET_RUNTIME_ERROR;
 			}
 			case OP_METHOD: {
@@ -1201,7 +1280,7 @@ static InterpretResult run(VM *vm) {
 				}
 
 				*frame->closure->upvalues[slot]->location =
-						NUMBER_VAL(AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0)));
+						NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0)));
 				break;
 			}
 			case OP_SET_GLOBAL_SLASH: {
