@@ -1515,6 +1515,12 @@ static InterpretResult run(VM *vm) {
 				pop(vm);
 				break;
 			}
+
+			case OP_GIVE: {
+				Value result = pop(vm);
+				push(vm, result);
+				break;
+			}
 		}
 		vm->previousInstruction = instruction;
 	}

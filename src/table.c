@@ -88,7 +88,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPubli
 	entry->isPublic = isPublic;
 	entry->key = key;
 	entry->value = value;
-	return isNewKey || !isNilValue ? true : false;
+	return isNewKey;
 }
 
 

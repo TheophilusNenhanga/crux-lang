@@ -69,6 +69,7 @@ typedef enum {
 	TOKEN_OK,
 	TOKEN_ERR,
 	TOKEN_DEFAULT,
+	TOKEN_GIVE,
 } TokenType;
 
 typedef struct {

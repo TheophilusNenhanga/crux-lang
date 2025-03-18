@@ -1304,12 +1304,30 @@ static void beginMatchScope() {
 static void endMatchScope() { current->matchDepth--; }
 
 /**
- * Parses a match statement.
+ * Parses a give statement.
  */
-static void matchStatement() {
+static void giveStatement() {
+	if (current->matchDepth == 0) {
+		compilerPanic(&parser, "'give' can only be used inside a match expression.", SYNTAX);
+	}
+
+	if (match(TOKEN_SEMICOLON)) {
+		emitByte(OP_NIL);
+	} else {
+		expression();
+		consume(TOKEN_SEMICOLON, "Expected ';' after give statement.");
+	}
+
+	emitByte(OP_GIVE);
+}
+
+/**
+ * Parses a match expression.
+ */
+static void matchExpression() {
 	beginMatchScope();
 	expression(); // compile match target
-	consume(TOKEN_LEFT_BRACE, "Expected '{' after after match target.");
+	consume(TOKEN_LEFT_BRACE, "Expected '{' after match target.");
 
 	int *endJumps = ALLOCATE(current->owner, int, 8);
 	int jumpCount = 0;
@@ -1376,12 +1394,18 @@ static void matchStatement() {
 			emitBytes(OP_RESULT_BIND, bindingSlot);
 		}
 
-		// Compile match body
-		if (match(TOKEN_LEFT_BRACE)) {
+		// Compile match arm body
+		bool isBlockArm = match(TOKEN_LEFT_BRACE);
+		if (isBlockArm) {
 			block();
-		} else {
-			expression();
-			consume(TOKEN_SEMICOLON, "Expected ';' after match arm expression.");
+		} else if (match(TOKEN_GIVE)) {
+			if (match(TOKEN_SEMICOLON)) {
+				emitByte(OP_NIL);
+			} else {
+				expression();
+				consume(TOKEN_SEMICOLON, "Expected ';' after give expression.");
+			}
+			emitByte(OP_GIVE);
 		}
 
 		if (hasBinding) {
@@ -1402,28 +1426,27 @@ static void matchStatement() {
 	}
 
 	if (jumpCount == 0) {
-		compilerPanic(&parser, "Match statement must have at least one arm.", SYNTAX);
+		compilerPanic(&parser, "'match' expression must have at least one arm.", SYNTAX);
 	}
 
 	if (hasOkPattern || hasErrPattern) {
 		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
-			compilerPanic(&parser, "Result match must have both 'Ok' and 'Err' patterns, or include a default case.", SYNTAX);
+			compilerPanic(&parser, "Result 'match' must have both 'Ok' and 'Err' patterns, or include a default case.", SYNTAX);
 		}
 	} else if (!hasDefault) {
-		compilerPanic(&parser, "Match statement must have default case 'default'.", SYNTAX);
+		compilerPanic(&parser, "'match' expression must have default case 'default'.", SYNTAX);
 	}
 
 	for (int i = 0; i < jumpCount; i++) {
 		patchJump(endJumps[i]);
 	}
 	
-	emitByte(OP_MATCH_END);
+ // emitting OP_MATCH_END would make this a statement.
 	
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
-	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match statement.");
+	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
 	endMatchScope();
 }
-
 
 /**
  * Parses a declaration, which can be a variable, function, or class declaration.
@@ -1463,8 +1486,8 @@ static void statement() {
 		returnStatement();
 	} else if (match(TOKEN_USE)) {
 		useStatement();
-	} else if (match(TOKEN_MATCH)) {
-		matchStatement();
+	} else if (match(TOKEN_GIVE)) {
+		giveStatement();
 	} else {
 		expressionStatement();
 	}
@@ -1684,6 +1707,7 @@ ParseRule rules[] = {
 		[TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
 		[TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
 		[TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
+		[TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
 		[TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

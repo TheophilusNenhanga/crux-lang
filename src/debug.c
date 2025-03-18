@@ -286,6 +286,9 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		case OP_RESULT_BIND: {
 			return constantInstruction("OP_RESULT_BIND", chunk, offset);
 		}
+		case OP_GIVE: {
+			return simpleInstruction("OP_GIVE", offset);
+		}
 		default:
 			printf("Unknown opcode %d\n", instruction);
 			return offset + 1;
