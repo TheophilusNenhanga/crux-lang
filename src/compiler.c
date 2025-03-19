@@ -1395,8 +1395,8 @@ static void matchExpression() {
 		}
 
 		// Compile match arm body
-		bool isBlockArm = match(TOKEN_LEFT_BRACE);
-		if (isBlockArm) {
+
+		if (match(TOKEN_LEFT_BRACE)) {
 			block();
 		} else if (match(TOKEN_GIVE)) {
 			if (match(TOKEN_SEMICOLON)) {
@@ -1406,6 +1406,9 @@ static void matchExpression() {
 				consume(TOKEN_SEMICOLON, "Expected ';' after give expression.");
 			}
 			emitByte(OP_GIVE);
+		}else {
+			expression();
+			consume(TOKEN_SEMICOLON, "Expected ';' after expression.");
 		}
 
 		if (hasBinding) {

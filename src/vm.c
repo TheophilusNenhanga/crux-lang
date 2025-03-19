@@ -1518,6 +1518,7 @@ static InterpretResult run(VM *vm) {
 
 			case OP_GIVE: {
 				Value result = pop(vm);
+				pop(vm);
 				push(vm, result);
 				break;
 			}
