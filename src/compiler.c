@@ -1443,8 +1443,8 @@ static void matchExpression() {
 	for (int i = 0; i < jumpCount; i++) {
 		patchJump(endJumps[i]);
 	}
-	
- // emitting OP_MATCH_END would make this a statement.
+
+	emitByte(OP_MATCH_END);
 	
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");

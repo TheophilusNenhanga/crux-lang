@@ -33,6 +33,13 @@ typedef struct {
 } NativeModule;
 
 typedef struct {
+	Value matchTarget;
+	Value matchBind;
+	bool isMatchTarget;
+	bool isMatchBind;
+} MatchHandler;
+
+typedef struct {
 	NativeModule *modules;
 	int count;
 	int capacity;
@@ -61,6 +68,7 @@ struct VM {
 	uint8_t previousInstruction; 
 	ObjectModule *module;
 	NativeModules nativeModules;
+	MatchHandler matchHandler;
 };
 
 /**
