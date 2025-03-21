@@ -456,6 +456,12 @@ void initVM(VM *vm) {
 	vm->module = NULL;
 	vm->nativeModules = (NativeModules){.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
+	vm->matchHandler.isMatchBind = false;
+	vm->matchHandler.isMatchTarget = false;
+
+	vm->matchHandler.matchBind = NIL_VAL;
+	vm->matchHandler.matchTarget = NIL_VAL;
+
 	initTable(&vm->stringType.methods);
 	initTable(&vm->arrayType.methods);
 	initTable(&vm->tableType.methods);
@@ -1463,6 +1469,9 @@ static InterpretResult run(VM *vm) {
 			}
 
 			case OP_MATCH: {
+				Value target = peek(vm, 0);
+				vm->matchHandler.matchTarget = target;
+				vm->matchHandler.isMatchTarget = true;
 				break;
 			}
 
@@ -1507,12 +1516,31 @@ static InterpretResult run(VM *vm) {
 
 			case OP_RESULT_BIND: {
 				uint8_t slot = READ_BYTE();
-				frame->slots[slot] = peek(vm, 0);
+				Value bind = peek(vm, 0);
+				vm->matchHandler.matchBind = bind;
+				vm->matchHandler.isMatchBind = true;
+				frame->slots[slot] = bind;
 				break;
 			}
 
 			case OP_MATCH_END: {
+				if (vm->matchHandler.isMatchBind) {
+					push(vm, vm->matchHandler.matchBind);
+				}
+
+				vm->matchHandler.matchTarget = NIL_VAL;
+				vm->matchHandler.matchBind = NIL_VAL;
+
+				vm->matchHandler.isMatchBind = false;
+				vm->matchHandler.isMatchTarget = false;
+
+				break;
+			}
+
+			case OP_GIVE: {
+				Value result = pop(vm);
 				pop(vm);
+				push(vm, result);
 				break;
 			}
 		}

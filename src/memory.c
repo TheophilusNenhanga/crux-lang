@@ -362,6 +362,8 @@ void markRoots(VM *vm) {
 	markTable(vm, &vm->globals);
 	markCompilerRoots();
 	markObject(vm, (Object *) vm->initString);
+	markValue(vm, vm->matchHandler.matchBind);
+	markValue(vm, vm->matchHandler.matchTarget);
 }
 
 /**

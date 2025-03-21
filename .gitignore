@@ -12,3 +12,4 @@ src/CMakeSettings.json
 /docs/.astro
 /docs/.vscode
 *.exe
+/src/build

@@ -135,6 +135,9 @@ static TokenType identifierType() {
 		}
 		case 'e':
 			return checkKeyword(1, 3, "lse", TOKEN_ELSE);
+		case 'g': {
+			return checkKeyword(1, 3, "ive", TOKEN_GIVE);
+		}
 		case 'i':
 			return checkKeyword(1, 1, "f", TOKEN_IF);
 		case 'l':
