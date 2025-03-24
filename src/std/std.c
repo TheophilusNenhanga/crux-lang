@@ -40,6 +40,7 @@ Callable arrayMethods[] = {
 InfallibleCallable arrayInfallibleMethods[] = {
 	{"_contains", arrayContainsMethod, 2},
 	{"_clear", arrayClearMethod, 1},
+	{"_equals", arrayEqualsMethod, 2},
 	{NULL, NULL, 0}
 };
 
@@ -49,7 +50,12 @@ Callable tableMethods[] = {
 
 Callable builtinCallables[] = {
 	{"scanln", _scanln, 1}, {"panic", panicNative, 1}, {"len", lengthNative, 1},
-	{"error", errorNative, 1}, {"assert", assertNative, 2}, {"err", _err, 1}, {"ok", _ok, 1}, {NULL, NULL, 0}
+	{"error", errorNative, 1}, {"assert", assertNative, 2}, {"err", _err, 1}, {"ok", _ok, 1},
+	{"number", numberNative, 1},
+	{"string", stringNative, 1},
+	{"table", tableNative, 1},
+	{"array", arrayNative, 1},
+	{NULL, NULL, 0}
 };
 
 InfallibleCallable builtinInfallibleCallables[] = {
@@ -57,6 +63,10 @@ InfallibleCallable builtinInfallibleCallables[] = {
 	{"println", _println, 1},
 	{"print", _print, 1},
 	{"type", typeNative, 1},
+	{"_number", numberNative_, 1},
+	{"_string", stringNative_, 1},
+	{"_table", tableNative_, 1},
+	{"_array", arrayNative_, 1},
 	{NULL, NULL, 0}
 };
 

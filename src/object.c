@@ -800,6 +800,15 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	return true;
 }
 
+bool arrayAddBack(VM *vm, ObjectArray *array, Value value) {
+	if (!ensureCapacity(vm, array, array->size + 1)) {
+		return false;
+	}
+	array->array[array->size] = value;
+	array->size++;
+	return true;
+}
+
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPanic) {
 	ObjectError *error = ALLOCATE_OBJECT(vm, ObjectError, OBJECT_ERROR);
 	error->message = message;

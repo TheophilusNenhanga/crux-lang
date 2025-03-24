@@ -97,7 +97,7 @@ Value typeNative(VM *vm, int argCount, Value *args) {
     return OBJECT_VAL(copyString(vm, "unknown", 7));
 }
 
-static Value castArray(VM *vm, Value *args) {
+static Value castArray(VM *vm, Value *args, bool* success) {
     Value value = args[0];
 
     if (IS_STL_ARRAY(value)) {
@@ -108,7 +108,10 @@ static Value castArray(VM *vm, Value *args) {
         ObjectString* string = AS_STL_STRING(value);
         ObjectArray* array =  newArray(vm, string->length);
         for (int i = 0; i < string->length; i++) {
-            arrayAdd(vm, array, OBJECT_VAL(copyString(vm, &string->chars[i], 1)), i);
+            if (!arrayAddBack(vm, array, OBJECT_VAL(copyString(vm, &string->chars[i], 1)))) {
+                *success = false;
+                return NIL_VAL;
+            }
         }
         return OBJECT_VAL(array);
     }
@@ -118,12 +121,19 @@ static Value castArray(VM *vm, Value *args) {
         ObjectArray* array = newArray(vm, table->size*2);
         int index = 0;
         for (int i = 0; i < table->capacity; i++) {
+            if (index == table->size) {
+                break;
+            }
             if (table->entries[i].isOccupied) {
-                arrayAdd(vm, array, table->entries[i].key, index);
-                arrayAdd(vm, array, table->entries[i].value, index);
+                if (!arrayAddBack(vm, array, table->entries[i].key) ||
+                    !arrayAddBack(vm, array, table->entries[i].value)) {
+                    *success = false;
+                    return NIL_VAL;
+                }
                 index++;
             }
         }
+        return OBJECT_VAL(array);
     }
     ObjectArray* array = newArray(vm, 1);
     arrayAdd(vm, array, value, 0);
@@ -144,6 +154,15 @@ static Value castTable(VM *vm, Value *args) {
             Value k = NUMBER_VAL(i);
             Value v = array->array[i];
             objectTableSet(vm, table, k, v);
+        }
+        return OBJECT_VAL(table);
+    }
+
+    if (IS_STL_STRING(value)) {
+        ObjectString* string = AS_STL_STRING(value);
+        ObjectTable* table = newTable(vm, string->length);
+        for (int i = 0; i < string->length; i++) {
+            objectTableSet(vm, table, NUMBER_VAL(i), OBJECT_VAL(copyString(vm, &string->chars[i], 1)));
         }
         return OBJECT_VAL(table);
     }
@@ -181,8 +200,7 @@ static Value castNumber(VM *vm, Value *args, bool* success) {
     }
 
     *success = false;
-    return value;
-
+    return NIL_VAL;
 }
 
 ObjectResult* numberNative(VM *vm, int argCount, Value *args) {
@@ -200,7 +218,12 @@ ObjectResult* stringNative(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayNative(VM *vm, int argCount, Value *args) {
-    return stellaOk(vm, castArray(vm, args));
+    bool success = true;
+    Value array = castArray(vm, args, &success);
+    if (!success) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Failed to convert value to array.", 33), RUNTIME, false));
+    }
+    return stellaOk(vm, OBJECT_VAL(array));
 }
 
 ObjectResult* tableNative(VM *vm, int argCount, Value *args) {
@@ -213,36 +236,16 @@ Value numberNative_(VM *vm, int argCount, Value *args) {
 }
 
 Value stringNative_(VM *vm, int argCount, Value *args) {
-    Value value = args[0];
-    
-    if (IS_STL_STRING(value)) {
-        return value;
-    }
-    
-    if (IS_NUMBER(value)) {
-        char buffer[32];
-        int length = snprintf(buffer, sizeof(buffer), "%.14g", AS_NUMBER(value));
-        return OBJECT_VAL(copyString(vm, buffer, length));
-    }
-    
-    if (IS_BOOL(value)) {
-        if (AS_BOOL(value)) {
-            return OBJECT_VAL(copyString(vm, "true", 4));
-        } else {
-            return OBJECT_VAL(copyString(vm, "false", 5));
-        }
-    }
-    
-    if (IS_NIL(value)) {
-        return OBJECT_VAL(copyString(vm, "nil", 3));
-    }
-    
-    // Default for types we can't handle
-    return OBJECT_VAL(copyString(vm, "", 0));
+    return OBJECT_VAL(toString(vm, args[0]));
 }
 
 Value arrayNative_(VM *vm, int argCount, Value *args) {
-    return castArray(vm, args);
+    bool success = true;
+    Value array = castArray(vm, args, &success);
+    if (!success) {
+        return NIL_VAL;
+    }
+    return OBJECT_VAL(array);
 }
 
 Value tableNative_(VM *vm, int argCount, Value *args) {
