@@ -14,4 +14,14 @@ Value lengthNative_(VM *vm, int argCount, Value *args);
  */
 Value typeNative(VM *vm, int argCount, Value *args);
 
+ObjectResult* numberNative(VM *vm, int argCount, Value *args);
+ObjectResult* stringNative(VM *vm, int argCount, Value *args);
+ObjectResult* arrayNative(VM *vm, int argCount, Value *args);
+ObjectResult* tableNative(VM *vm, int argCount, Value *args);
+
+Value numberNative_(VM *vm, int argCount, Value *args);
+Value stringNative_(VM *vm, int argCount, Value *args);
+Value arrayNative_(VM *vm, int argCount, Value *args);
+Value tableNative_(VM *vm, int argCount, Value *args);
+
 #endif
