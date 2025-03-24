@@ -16,6 +16,7 @@ ObjectResult* arrayReverseMethod(VM *vm, int argCount, Value *args); // [1,2,3].
 ObjectResult* arrayIndexOfMethod(VM *vm, int argCount, Value *args); // [1,2,3].index_of(2) -> 1
 Value arrayContainsMethod(VM *vm, int argCount, Value *args); // [1,2,3].contains(2) -> true
 Value arrayClearMethod(VM *vm, int argCount, Value *args); // [1,2,3].clear([1,2,3]) -> []
+Value arrayEqualsMethod(VM *vm, int argCount, Value *args); // [1,2,3].equals([1,2,3]) -> true
 
 
 #endif // ARRAY_H

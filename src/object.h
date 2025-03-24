@@ -608,6 +608,14 @@ bool arrayGet(ObjectArray *array, uint64_t index, Value *value);
 bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index);
 
 /**
+ * @brief Adds a value to the end of an array.
+ *
+ * This function appends a Value to the end of an ObjectArray, increasing its size.
+ * It ensures sufficient capacity before adding the element.
+ */
+bool arrayAddBack(VM *vm, ObjectArray *array, Value value);
+
+/**
  * @brief Checks if an import set contains a path.
  *
  * This function checks if a given module path is already present in an ImportSet.

@@ -197,3 +197,26 @@ Value arrayClearMethod(VM *vm, int argCount, Value *args) {
 
 	return NIL_VAL;
 }
+
+Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
+	if (!IS_STL_ARRAY(args[1])) {
+		return BOOL_VAL(false);
+	}
+
+	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *targetArray = AS_STL_ARRAY(args[1]);
+	
+	if (array->size != targetArray->size) {
+		return BOOL_VAL(false);
+	}
+
+	for (uint64_t i = 0; i < array->size; i++) {
+		if (!valuesEqual(array->array[i], targetArray->array[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+
+	return BOOL_VAL(true);
+
+}
+

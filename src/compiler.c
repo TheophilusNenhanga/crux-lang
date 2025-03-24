@@ -1324,7 +1324,7 @@ static void giveStatement() {
 /**
  * Parses a match expression.
  */
-static void matchExpression() {
+static void matchExpression(bool canAssign) {
 	beginMatchScope();
 	expression(); // compile match target
 	consume(TOKEN_LEFT_BRACE, "Expected '{' after match target.");
