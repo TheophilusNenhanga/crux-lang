@@ -8,6 +8,7 @@
 #include "stl_time.h"
 #include "string.h"
 #include "tables.h"
+#include "random.h"
 
 Callable stringMethods[] = {
 	{"first", stringFirstMethod, 1},
@@ -111,6 +112,17 @@ InfallibleCallable timeInfallibleFunctions[] = {
 	{"_time_s", _time_s, 0}, {"_time_ms", _time_ms, 0},
 	{"_year", _year, 0}, {"_month", _month, 0}, {"_day", _day, 0}, {"_hour", _hour, 0},
 	{"_minute", _minute, 0}, {"_second", _second, 0}, {"_weekday", _weekday, 0}, {"_day_of_year", _day_of_year, 0},
+	{NULL, NULL, 0}
+};
+
+Callable randomMethods[] = {
+	{"seed", randomSeedMethod, 1},
+	{NULL, NULL, 0}
+};
+
+InfallibleCallable randomInfallibleMethods[] = {
+	{"Random", RandomInitFunction, 0},
+	{"_next", randomNextMethod, 0},
 	{NULL, NULL, 0}
 };
 
