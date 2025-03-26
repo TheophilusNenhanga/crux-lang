@@ -315,6 +315,13 @@ void printObject(Value value) {
 			printf("<result>");
 			break;
 		}
+		case OBJECT_RANDOM: {
+			printf("<random>");
+			break;
+		}
+		case OBJECT_NATIVE_INFALLIBLE_METHOD:
+			printf("<native infallible method>");
+			break;
 	}
 }
 
@@ -543,6 +550,11 @@ ObjectString *toString(VM *vm, Value value) {
 				return copyString(vm, "<Ok>", 4);
 			}
 			return copyString(vm, "<Err>", 5);
+		}
+
+		case OBJECT_RANDOM: {
+			ObjectRandom *random = AS_STL_RANDOM(value);
+			return copyString(vm, "<random>", 8);
 		}
 
 		default:

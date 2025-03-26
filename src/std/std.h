@@ -22,6 +22,9 @@ extern InfallibleCallable arrayInfallibleMethods[];
 extern Callable tableMethods[];
 extern Callable errorMethods[];
 extern InfallibleCallable builtinInfallibleCallables[];
+extern InfallibleCallable randomInfallibleMethods[];
+extern Callable randomMethods[];
+extern InfallibleCallable randomInfallibleMethods[];
 
 bool defineNativeCallable(VM *vm, Table *methodTable, const char *methodName, StellaNativeCallable methodFunction, int arity);
 

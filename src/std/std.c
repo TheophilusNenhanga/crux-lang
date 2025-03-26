@@ -50,7 +50,7 @@ Callable tableMethods[] = {
 };
 
 Callable builtinCallables[] = {
-	{"scanln", _scanln, 1}, {"panic", panicNative, 1}, {"len", lengthNative, 1},
+	{"scanln", _scanln, 0}, {"panic", panicNative, 1}, {"len", lengthNative, 1},
 	{"error", errorNative, 1}, {"assert", assertNative, 2}, {"err", _err, 1}, {"ok", _ok, 1},
 	{"number", numberNative, 1},
 	{"string", stringNative, 1},
@@ -117,12 +117,20 @@ InfallibleCallable timeInfallibleFunctions[] = {
 
 Callable randomMethods[] = {
 	{"seed", randomSeedMethod, 1},
+	{"int", randomIntMethod, 3},
+	{"double", randomDoubleMethod, 3},
+	{"bool", randomBoolMethod, 2},
+	{"choice", randomChoiceMethod, 2},
 	{NULL, NULL, 0}
 };
 
 InfallibleCallable randomInfallibleMethods[] = {
-	{"Random", RandomInitFunction, 0},
-	{"_next", randomNextMethod, 0},
+	{"_next", randomNextMethod, 1},
+	{NULL, NULL, 0}
+};
+
+InfallibleCallable randomInfallibleFunctions[] = {
+	{"Random", randomInitFunction, 0},
 	{NULL, NULL, 0}
 };
 
@@ -215,10 +223,12 @@ bool initNativeModule(VM *vm, Callable *globals, InfallibleCallable *infallibleC
 	Table *names = ALLOCATE(vm, Table, 1);
 	initTable(names);
 
-	for (int i = 0; globals[i].name != NULL; i++) {
-		bool result = defineNativeFunction(vm, names, globals[i].name, globals[i].function, globals[i].arity, true);
-		if (!result) {
-			return false;
+	if (globals) {
+		for (int i = 0; globals[i].name != NULL; i++) {
+			bool result = defineNativeFunction(vm, names, globals[i].name, globals[i].function, globals[i].arity, true);
+			if (!result) {
+				return false;
+			}
 		}
 	}
 
@@ -254,6 +264,10 @@ bool defineStandardLibrary(VM *vm) {
 	}
 	bool r3 = initNativeModule(vm, timeFunctions, timeInfallibleFunctions, "time");
 	if (!r3) {
+		return false;
+	}
+	bool r4 = initNativeModule(vm, NULL, randomInfallibleFunctions, "random");
+	if (!r4) {
 		return false;
 	}
 	return true;

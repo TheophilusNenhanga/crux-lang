@@ -245,7 +245,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -254,7 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -263,7 +263,16 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
+			}
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+
+		if (IS_STL_RANDOM(receiver)) {
+			Value value;
+			if (tableGet(&vm->randomType.methods, name, &value)) {
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -466,20 +475,24 @@ void initVM(VM *vm) {
 	initTable(&vm->arrayType.methods);
 	initTable(&vm->tableType.methods);
 	initTable(&vm->errorType.methods);
+	initTable(&vm->randomType.methods);
 	initTable(&vm->strings);
 	initTable(&vm->globals);
 
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
 
-	if (!
-			defineMethods(vm, &vm->stringType.methods, stringMethods) ||
+	if (
+			!defineMethods(vm, &vm->stringType.methods, stringMethods) ||
 			!defineMethods(vm, &vm->arrayType.methods, arrayMethods) ||
 			!defineInfallibleMethods(vm, &vm->arrayType.methods, arrayInfallibleMethods) ||
 			!defineMethods(vm, &vm->tableType.methods, tableMethods) ||
-			!defineMethods(vm, &vm->errorType.methods, errorMethods)
+			!defineMethods(vm, &vm->errorType.methods, errorMethods) ||
+			!defineMethods(vm, &vm->randomType.methods, randomMethods) ||
+			!defineInfallibleMethods(vm, &vm->randomType.methods, randomInfallibleMethods)
 	) {
-		fprintf(stderr, "Failed to define object method on builtin type.\n");
+		runtimePanic(vm, RUNTIME, "Fatal: Failed to define object method on builtin type.");
+		exit(1);
 	}
 
 	defineNativeFunctions(vm, &vm->globals);

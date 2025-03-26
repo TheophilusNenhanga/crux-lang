@@ -59,6 +59,7 @@ struct VM {
 	size_t nextGC;
 	Object **grayStack;
 	ObjectString *initString;
+	NativeType randomType;
 	NativeType stringType;
 	NativeType arrayType;
 	NativeType tableType;

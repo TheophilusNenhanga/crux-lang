@@ -38,8 +38,100 @@ Value randomNextMethod(VM* vm, int argCount, Value *args) {
     return NUMBER_VAL(getNext(random));
 }   
 
-Value RandomInitFunction(VM* vm, int argCount, Value *args) {
+Value randomInitFunction(VM* vm, int argCount, Value *args) {
     return OBJECT_VAL(newRandom(vm));
+}
+
+// Returns a random integer in the range [min, max] inclusive
+ObjectResult* randomIntMethod(VM* vm, int argCount, Value *args) {
+    if (argCount != 3) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Expected 2 arguments: min and max", 35), RUNTIME, false));
+    }
+
+    Value min = args[1];
+    Value max = args[2];
+    
+    if (!IS_NUMBER(min) || !IS_NUMBER(max)) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Arguments must be numbers", 25), RUNTIME, false));
+    }
+
+    int minInt = (int)AS_NUMBER(min);
+    int maxInt = (int)AS_NUMBER(max);
+
+    if (minInt > maxInt) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Min must be less than or equal to max", 37), RUNTIME, false));
+    }
+
+    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    double r = getNext(random);
+    int result = minInt + (int)(r * (maxInt - minInt + 1));
+    
+    return stellaOk(vm, NUMBER_VAL(result));
+}
+
+// Returns a random double in the range [min, max]
+ObjectResult* randomDoubleMethod(VM* vm, int argCount, Value *args) {
+    Value min = args[1];
+    Value max = args[2];
+
+    if (!IS_NUMBER(min)) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Parameter <min> must be a number.", 33), RUNTIME, false));
+    }
+
+    if (!IS_NUMBER(max)) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Parameter <max> must be a number.", 33), RUNTIME, false));
+    }
+    
+
+    double minDouble = AS_NUMBER(min);
+    double maxDouble = AS_NUMBER(max);
+
+    if (minDouble > maxDouble) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Parameter <min> must be less than or equal to parameter <max>.", 62), RUNTIME, false));
+    }
+
+    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    double r = getNext(random);
+    double result = minDouble + r * (maxDouble - minDouble);
+    
+    return stellaOk(vm, NUMBER_VAL(result));
+}
+
+// Returns true with probability p (0 <= p <= 1)
+ObjectResult* randomBoolMethod(VM* vm, int argCount, Value *args) {
+    Value p = args[1];
+    if (!IS_NUMBER(p)) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Argument must be a number", 25), RUNTIME, false));
+    }
+
+    double prob = AS_NUMBER(p);
+    if (prob < 0 || prob > 1) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Probability must be between 0 and 1", 37), RUNTIME, false));
+    }
+
+    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    double r = getNext(random);
+    
+    return stellaOk(vm, BOOL_VAL(r < prob));
+}
+
+// Returns a random element from the array
+ObjectResult* randomChoiceMethod(VM* vm, int argCount, Value *args) {
+    Value array = args[1];
+    if (!IS_STL_ARRAY(array)) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Argument must be an array", 25), RUNTIME, false));
+    }
+
+    ObjectArray *arr = AS_STL_ARRAY(array);
+    if (arr->size == 0) {
+        return stellaErr(vm, newError(vm, copyString(vm, "Array cannot be empty", 20), RUNTIME, false));
+    }
+
+    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    double r = getNext(random);
+    int index = (int)(r * arr->size);
+    
+    return stellaOk(vm, arr->array[index]);
 }
 
 
