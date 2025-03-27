@@ -221,6 +221,13 @@ static void blackenObject(VM *vm, Object *object) {
 			}
 		}
 
+		case OBJECT_RANDOM: {
+			ObjectRandom *random = (ObjectRandom *) object;
+			// mark the random object itself, because it doesn't have any other references within itself that will be marked
+			markObject(vm, (Object *) random);
+			break;
+		}
+
 		case OBJECT_STRING: {
 			// Strings are primitives in terms of GC reachability in this implementation
 			break;
@@ -332,6 +339,12 @@ static void freeObject(VM *vm, Object *object) {
 		case OBJECT_RESULT: {
 			ObjectResult *result = (ObjectResult *) object;
 			FREE(vm, ObjectResult, object);
+			break;
+		}
+
+		case OBJECT_RANDOM: {
+			ObjectRandom *random = (ObjectRandom *) object;
+			FREE(vm, ObjectRandom, object);
 			break;
 		}
 	}

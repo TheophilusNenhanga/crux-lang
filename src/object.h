@@ -22,6 +22,7 @@
 #define IS_STL_RESULT(value) isObjectType(value, OBJECT_RESULT)
 #define IS_STL_NATIVE_INFALLIBLE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
 #define IS_STL_NATIVE_INFALLIBLE_METHOD(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
+#define IS_STL_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
 
 #define AS_STL_STRING(value) ((ObjectString *) AS_STL_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *) AS_STL_OBJECT(value))->chars)
@@ -38,7 +39,7 @@
 #define AS_STL_RESULT(value) ((ObjectResult *) AS_STL_OBJECT(value))
 #define AS_STL_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_STL_OBJECT(value))
 #define AS_STL_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_STL_OBJECT(value))
-
+#define AS_STL_RANDOM(value) ((ObjectRandom *) AS_STL_OBJECT(value))
 
 typedef enum {
 	OBJECT_STRING,
@@ -57,6 +58,7 @@ typedef enum {
 	OBJECT_RESULT,
 	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
 	OBJECT_NATIVE_INFALLIBLE_METHOD,
+	OBJECT_RANDOM,
 } ObjectType;
 
 struct Object {
@@ -118,6 +120,11 @@ typedef struct {
 	uint64_t size;
 	uint64_t capacity;
 } ObjectArray;
+
+typedef struct {
+	Object object;
+	uint64_t seed;
+} ObjectRandom;
 
 typedef enum {
 	SYNTAX,
@@ -660,5 +667,17 @@ void initImportSet(ImportSet *set);
  * @param set The ImportSet to free.
  */
 void freeImportSet(VM *vm, ImportSet *set);
+
+/**
+ * @brief Creates a new random object.
+ *
+ * This function allocates and initializes a new ObjectRandom, representing
+ * a random number generator in the Stella language.
+ *
+ * @param vm The virtual machine.
+ *
+ * @return A pointer to the newly created ObjectRandom.
+ */
+ObjectRandom *newRandom(VM *vm);
 
 #endif

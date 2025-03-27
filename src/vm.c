@@ -245,7 +245,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ARRAY(receiver)) {
 			Value value;
 			if (tableGet(&vm->arrayType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -254,7 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_ERROR(receiver)) {
 			Value value;
 			if (tableGet(&vm->errorType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -263,7 +263,16 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		if (IS_STL_TABLE(receiver)) {
 			Value value;
 			if (tableGet(&vm->tableType.methods, name, &value)) {
-				handleInvoke(vm, argCount, receiver, original, value);
+				return handleInvoke(vm, argCount, receiver, original, value);
+			}
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+
+		if (IS_STL_RANDOM(receiver)) {
+			Value value;
+			if (tableGet(&vm->randomType.methods, name, &value)) {
+				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -466,33 +475,41 @@ void initVM(VM *vm) {
 	initTable(&vm->arrayType.methods);
 	initTable(&vm->tableType.methods);
 	initTable(&vm->errorType.methods);
+	initTable(&vm->randomType.methods);
 	initTable(&vm->strings);
 	initTable(&vm->globals);
 
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
 
-	if (!
-			defineMethods(vm, &vm->stringType.methods, stringMethods) ||
-			!defineMethods(vm, &vm->arrayType.methods, arrayMethods) ||
-			!defineInfallibleMethods(vm, &vm->arrayType.methods, arrayInfallibleMethods) ||
-			!defineMethods(vm, &vm->tableType.methods, tableMethods) ||
-			!defineMethods(vm, &vm->errorType.methods, errorMethods)
-	) {
-		fprintf(stderr, "Failed to define object method on builtin type.\n");
+	if (!initializeStdLib(vm)) {
+		runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
+		exit(1);
 	}
-
-	defineNativeFunctions(vm, &vm->globals);
-	defineNativeInfallibleFunctions(vm, &vm->globals, builtinInfallibleCallables);
-	defineStandardLibrary(vm);
 }
 
 
 void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
+
+	freeTable(vm, &vm->stringType.methods);
+	freeTable(vm, &vm->arrayType.methods);
+	freeTable(vm, &vm->tableType.methods);
+	freeTable(vm, &vm->errorType.methods);
+	freeTable(vm, &vm->randomType.methods);
+
+	for (int i = 0; i < vm->nativeModules.count; i++) {
+		NativeModule module = vm->nativeModules.modules[i];
+		freeTable(vm, module.names);
+		FREE(vm, char, module.name);
+		FREE(vm, Table, module.names);
+	}
+	FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity);
+	
 	vm->initString = NULL;
 	freeObjects(vm);
+	
 	if (vm->enclosing != NULL) {
 		free(vm);
 	}

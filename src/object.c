@@ -2,6 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/time.h>
+#endif
 
 #include "memory.h"
 #include "object.h"
@@ -308,6 +315,13 @@ void printObject(Value value) {
 			printf("<result>");
 			break;
 		}
+		case OBJECT_RANDOM: {
+			printf("<random>");
+			break;
+		}
+		case OBJECT_NATIVE_INFALLIBLE_METHOD:
+			printf("<native infallible method>");
+			break;
 	}
 }
 
@@ -536,6 +550,11 @@ ObjectString *toString(VM *vm, Value value) {
 				return copyString(vm, "<Ok>", 4);
 			}
 			return copyString(vm, "<Err>", 5);
+		}
+
+		case OBJECT_RANDOM: {
+			ObjectRandom *random = AS_STL_RANDOM(value);
+			return copyString(vm, "<random>", 8);
 		}
 
 		default:
@@ -872,4 +891,16 @@ ObjectResult* stellaErr(VM *vm, ObjectError* error) {
 	result->isOk = false;
 	result->as.error = error;
 	return result;
+}
+
+ObjectRandom *newRandom(VM *vm) {
+	ObjectRandom *random = ALLOCATE_OBJECT(vm, ObjectRandom, OBJECT_RANDOM);
+	#ifdef _WIN32
+    random->seed = (uint64_t)time(NULL) ^ GetTickCount() ^ (uint64_t)GetCurrentProcessId();
+	#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    random->seed = tv.tv_sec ^ tv.tv_usec ^ (uint64_t)getpid();
+	#endif
+	return random;
 }
