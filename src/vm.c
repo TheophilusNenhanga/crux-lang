@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -567,6 +568,20 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 			break;
 		}
 
+		case OP_INT_DIVIDE: {
+			if (bNum == 0 || ((uint64_t) bNum) == 0) {
+				runtimePanic(vm, DIVISION_BY_ZERO, "Tried to perform integer division by integer 0.");
+				return false;
+			}
+
+			if (fabs(aNum) > INT64_MAX || fabs(bNum) > INT64_MAX) {
+				runtimePanic(vm, VALUE, "Division result would overflow.");
+				return false;
+			}
+			push(vm, NUMBER_VAL((int64_t) aNum / (int64_t) bNum));
+			break;
+		}
+
 		case OP_LESS_EQUAL: {
 			push(vm, BOOL_VAL(aNum <= bNum));
 			break;
@@ -836,6 +851,12 @@ static InterpretResult run(VM *vm) {
 				break;
 			}
 
+			case OP_INT_DIVIDE: {
+				if (!binaryOperation(vm, OP_INT_DIVIDE)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
 			case OP_MODULUS: {
 				if (!binaryOperation(vm, OP_MODULUS)) {
 					return INTERPRET_RUNTIME_ERROR;
