@@ -482,30 +482,34 @@ void initVM(VM *vm) {
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
 
-	if (
-			!defineMethods(vm, &vm->stringType.methods, stringMethods) ||
-			!defineMethods(vm, &vm->arrayType.methods, arrayMethods) ||
-			!defineInfallibleMethods(vm, &vm->arrayType.methods, arrayInfallibleMethods) ||
-			!defineMethods(vm, &vm->tableType.methods, tableMethods) ||
-			!defineMethods(vm, &vm->errorType.methods, errorMethods) ||
-			!defineMethods(vm, &vm->randomType.methods, randomMethods) ||
-			!defineInfallibleMethods(vm, &vm->randomType.methods, randomInfallibleMethods)
-	) {
-		runtimePanic(vm, RUNTIME, "Fatal: Failed to define object method on builtin type.");
+	if (!initializeStdLib(vm)) {
+		runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
 		exit(1);
 	}
-
-	defineNativeFunctions(vm, &vm->globals);
-	defineNativeInfallibleFunctions(vm, &vm->globals, builtinInfallibleCallables);
-	defineStandardLibrary(vm);
 }
 
 
 void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
+
+	freeTable(vm, &vm->stringType.methods);
+	freeTable(vm, &vm->arrayType.methods);
+	freeTable(vm, &vm->tableType.methods);
+	freeTable(vm, &vm->errorType.methods);
+	freeTable(vm, &vm->randomType.methods);
+
+	for (int i = 0; i < vm->nativeModules.count; i++) {
+		NativeModule module = vm->nativeModules.modules[i];
+		freeTable(vm, module.names);
+		FREE(vm, char, module.name);
+		FREE(vm, Table, module.names);
+	}
+	FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity);
+	
 	vm->initString = NULL;
 	freeObjects(vm);
+	
 	if (vm->enclosing != NULL) {
 		free(vm);
 	}
