@@ -4,7 +4,7 @@
 #define C 11
 
 // Linear Congruential Algorithm
-// Adapted from 
+// Adapted from https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
 ObjectResult* randomSeedMethod(VM* vm, int argCount, Value *args) {
     Value seed = args[1];
