@@ -387,6 +387,8 @@ Token scanToken() {
 			return makeToken(match('=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
 		case '/':
 			return makeToken(match('=') ? TOKEN_SLASH_EQUAL : TOKEN_SLASH);
+		case '\\':
+			return makeToken(TOKEN_BACKSLASH);
 		case '*':
 			return makeToken(match('=') ? TOKEN_STAR_EQUAL : TOKEN_STAR);
 		case '%':

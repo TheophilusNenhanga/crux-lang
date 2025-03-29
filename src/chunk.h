@@ -74,6 +74,7 @@ typedef enum {
 	OP_RESULT_MATCH_ERR,
 	OP_RESULT_BIND,
 	OP_GIVE,
+	OP_INT_DIVIDE,
 } OpCode;
 
 typedef struct {
