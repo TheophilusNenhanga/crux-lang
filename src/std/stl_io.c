@@ -323,7 +323,7 @@ ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, string);
 }
 
-ObjectResult* _openFile(VM *vm, int argCount, Value *args) {
+ObjectResult* openFileFunction(VM *vm, int argCount, Value *args) {
 	if (!IS_STL_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<file_path> must be of type 'string'.", 37), IO, false));
 	}
@@ -351,7 +351,20 @@ ObjectResult* _openFile(VM *vm, int argCount, Value *args) {
 }
 
 static bool isReadable(ObjectString* mode) {
-	return strcmp(mode->chars, "r") == 0 || strcmp(mode->chars, "rb") == 0 || strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
+	return strcmp(mode->chars, "r") == 0 || strcmp(mode->chars, "rb") == 0 || strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0
+	|| strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0;
+}
+
+static bool isWritable(ObjectString* mode) {
+	return strcmp(mode->chars, "w") == 0 || strcmp(mode->chars, "wb") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0
+	|| strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 
+	|| strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
+}
+
+static bool isAppendable(ObjectString* mode) {
+	return strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0
+	|| strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0
+	|| strcmp(mode->chars, "rb") == 0;
 }
 
 ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
@@ -364,7 +377,7 @@ ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
 	}
 
-	if (!isReadable(file->mode)) {
+	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
 	}
 
@@ -396,7 +409,7 @@ ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
 	}
 
-	if (!isReadable(file->mode)) {
+	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
 	}
 
@@ -431,3 +444,54 @@ ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, NIL_VAL);
 }
 
+ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
+	}
+
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
+	}
+
+	ObjectString* content = AS_STL_STRING(args[1]);
+
+	fwrite(content->chars, sizeof(char), content->length, file->file);
+	file->position += content->length;
+	return stellaOk(vm, NIL_VAL);
+}	
+
+ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
+	}
+	
+	if (!IS_STL_STRING(args[1])){
+		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
+	}
+
+	ObjectString* content = AS_STL_STRING(args[1]);
+	fwrite(content->chars, sizeof(char), content->length, file->file);
+	fwrite("\n", sizeof(char), 1, file->file);
+	file->position += content->length + 1;
+	return stellaOk(vm, NIL_VAL);
+}

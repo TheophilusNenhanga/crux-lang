@@ -228,6 +228,13 @@ static void blackenObject(VM *vm, Object *object) {
 			break;
 		}
 
+		case OBJECT_FILE: {
+			ObjectFile *file = (ObjectFile *) object;
+			markObject(vm, (Object *) file->path);
+			markObject(vm, (Object *) file->mode);
+			break;
+		}
+
 		case OBJECT_STRING: {
 			// Strings are primitives in terms of GC reachability in this implementation
 			break;
@@ -345,6 +352,13 @@ static void freeObject(VM *vm, Object *object) {
 		case OBJECT_RANDOM: {
 			ObjectRandom *random = (ObjectRandom *) object;
 			FREE(vm, ObjectRandom, object);
+			break;
+		}
+
+		case OBJECT_FILE: {
+			ObjectFile *file = (ObjectFile *) object;
+			fclose(file->file);
+			FREE(vm, ObjectFile, object);
 			break;
 		}
 	}

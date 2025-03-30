@@ -76,6 +76,9 @@ static InfallibleCallable randomInfallibleMethodsArray[] = {
 static Callable fileMethodsArray[] = {
 	{"readln", readlnFileMethod, 1},
 	{"read_all", readAllFileMethod, 1},
+	{"write", writeFileMethod, 2},
+	{"writeln", writelnFileMethod, 2},
+	{"close", closeFileMethod, 1},
 	{NULL, NULL, 0}
 };
 
@@ -135,7 +138,7 @@ static Callable ioFunctionsArray[] = {
 	{"scanln_from", _scanlnFrom, 1},
 	{"nscan", _nscan, 1},
 	{"nscan_from", _nscanFrom, 2},
-	{"open_file", _openFile, 2},
+	{"open_file", openFileFunction, 2},
 	{NULL, NULL, 0}
 };
 

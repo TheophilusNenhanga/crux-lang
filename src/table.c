@@ -88,7 +88,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPubli
 	entry->isPublic = isPublic;
 	entry->key = key;
 	entry->value = value;
-	return isNewKey;
+		return isNewKey || !isNilValue ? true : false;
 }
 
 
@@ -96,7 +96,6 @@ bool tableDelete(Table *table, ObjectString *key) {
 	if (table->count == 0)
 		return false;
 
-	// Find the entry
 	Entry *entry = findEntry(table->entries, table->capacity, key);
 	if (entry->key == NULL)
 		return false;
@@ -332,6 +331,28 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 			ObjectError *error = AS_STL_ERROR(value);
 			ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
 			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
+			trackCopy(ctx, object, (Object *) copy);
+			return OBJECT_VAL(copy);
+		}
+
+		case OBJECT_RANDOM:{
+			ObjectRandom *random = AS_STL_RANDOM(value);
+			ObjectRandom *copy = newRandom(ctx->toVM);
+			copy->seed = random->seed;
+			trackCopy(ctx, object, (Object *) copy);
+			return OBJECT_VAL(copy);
+		}
+
+		case OBJECT_FILE:{
+			ObjectFile *file = AS_STL_FILE(value);
+			ObjectFile *copy = newObjectFile(ctx->toVM, file->path, file->mode);
+			copy->file = fopen(file->path->chars, file->mode->chars);
+			if (copy->file == NULL) {
+				return NIL_VAL;
+			}
+			copy->isOpen = file->isOpen;
+			copy->position = file->position;
+			fseek(copy->file, file->position, SEEK_SET);
 			trackCopy(ctx, object, (Object *) copy);
 			return OBJECT_VAL(copy);
 		}
