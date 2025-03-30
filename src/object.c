@@ -629,6 +629,16 @@ void freeObjectTable(VM *vm, ObjectTable *table) {
 	table->size = 0;
 }
 
+ObjectFile* newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
+	ObjectFile* file = ALLOCATE_OBJECT(vm,ObjectFile, OBJECT_FILE);
+	file->path = path;
+
+
+
+	file->file = fopen(path->chars, mode->chars);
+	return file;
+}
+
 /**
  * @brief Finds an entry in an object table.
  *

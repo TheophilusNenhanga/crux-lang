@@ -320,3 +320,34 @@ ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 	FREE_ARRAY(vm, char, buffer, n + 1);
 	return stellaOk(vm, string);
 }
+
+ObjectResult* _openFile(VM *vm, int argCount, Value *args) {
+	if (!IS_STL_STRING(args[0])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<file_path> must be of type 'string'.", 37), IO, false));
+	}
+
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<file_mode> must be of type 'string'.", 37), IO, false));
+	}
+
+	ObjectString* path = AS_STL_STRING(args[0]);
+	ObjectString* mode = AS_STL_STRING(args[1]);
+
+	char* resolvedPath = resolvePath(vm->module->path->chars, path->chars);
+	if (resolvedPath == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not resolve path to file.", 31), IO, false));
+	}
+
+	ObjectString* newPath = takeString(vm, resolvedPath, strlen(resolvedPath));
+
+	ObjectFile* file = newFile(vm, newPath, mode);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to open file.", 20), IO, false));
+	}
+
+	return stellaOk(vm, OBJECT_VAL(file));
+}
+
+ObjectResult* _readln(VM *vm, int argCount, Value *args) {
+
+}

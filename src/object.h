@@ -23,6 +23,7 @@
 #define IS_STL_NATIVE_INFALLIBLE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
 #define IS_STL_NATIVE_INFALLIBLE_METHOD(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
 #define IS_STL_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
+#define IS_STL_FILE(value) isObjectType(value, OBJECT_FILE)
 
 #define AS_STL_STRING(value) ((ObjectString *) AS_STL_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *) AS_STL_OBJECT(value))->chars)
@@ -40,6 +41,7 @@
 #define AS_STL_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_STL_OBJECT(value))
 #define AS_STL_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_STL_OBJECT(value))
 #define AS_STL_RANDOM(value) ((ObjectRandom *) AS_STL_OBJECT(value))
+#define AS_STL_FILE(value) ((ObjectFile *) AS_STL_OBJECT(value)
 
 typedef enum {
 	OBJECT_STRING,
@@ -59,6 +61,7 @@ typedef enum {
 	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
 	OBJECT_NATIVE_INFALLIBLE_METHOD,
 	OBJECT_RANDOM,
+	OBJECT_FILE,
 } ObjectType;
 
 struct Object {
@@ -235,6 +238,14 @@ struct ObjectModule{
 	ModuleState state;
 	int vmDepth;
 };
+
+typedef struct {
+	Object object;
+	ObjectString *path;
+	ObjectString *mode;
+	FILE *file;
+} ObjectFile;
+
 
 static bool isObjectType(Value value, ObjectType type) { return IS_STL_OBJECT(value) && AS_STL_OBJECT(value)->type == type; }
 
@@ -679,5 +690,7 @@ void freeImportSet(VM *vm, ImportSet *set);
  * @return A pointer to the newly created ObjectRandom.
  */
 ObjectRandom *newRandom(VM *vm);
+
+ObjectFile* newFile(VM *vm, ObjectString *path, ObjectString *mode);
 
 #endif
