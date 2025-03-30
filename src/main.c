@@ -71,7 +71,7 @@ int main(const int argc, const char *argv[]) {
 	VM *vm = newVM();
 	
 	if (argc == 1) {
-		vm->module = newModule(vm, "<repl>");
+		vm->module = newModule(vm, "./");
 		repl(vm);
 	} else if (argc == 2) {
 		vm->module = newModule(vm, argv[1]);

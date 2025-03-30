@@ -279,6 +279,15 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 			return false;
 		}
 
+		if (IS_STL_FILE(receiver)) {
+			Value value;
+			if (tableGet(&vm->fileType.methods, name, &value)) {
+				return handleInvoke(vm, argCount, receiver, original, value);
+			}
+			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+			return false;
+		}
+		
 		runtimePanic(vm, TYPE, "Only instances have methods.");
 		return false;
 	}
@@ -477,6 +486,7 @@ void initVM(VM *vm) {
 	initTable(&vm->tableType.methods);
 	initTable(&vm->errorType.methods);
 	initTable(&vm->randomType.methods);
+	initTable(&vm->fileType.methods);
 	initTable(&vm->strings);
 	initTable(&vm->globals);
 

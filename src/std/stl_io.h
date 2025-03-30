@@ -7,9 +7,6 @@
 ObjectResult* _openFile(VM*vm, int argCount, Value* args);			// opens a file and makes a new File Object
 ObjectResult* _closeFile(VM*vm, int argCount, Value* args);
 
-// File Reading functions
-ObjectResult* _readln(VM *vm, int argCount, Value *args);     // Read line from file
-
 // File Writing functions
 ObjectResult* _writeln(VM *vm, int argCount, Value *args);			// Write line to file
 
@@ -27,5 +24,7 @@ ObjectResult* _nscan(VM *vm, int argCount, Value *args);				// read n characters
 ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args);		// read n characters from specified channel
 
 ObjectResult* _openFile(VM *vm, int argCount, Value *args);
+ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args);
+ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args);
 
 #endif //STL_IO_H

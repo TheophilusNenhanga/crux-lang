@@ -1,6 +1,8 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdio.h>
+
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
@@ -41,7 +43,7 @@
 #define AS_STL_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_STL_OBJECT(value))
 #define AS_STL_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_STL_OBJECT(value))
 #define AS_STL_RANDOM(value) ((ObjectRandom *) AS_STL_OBJECT(value))
-#define AS_STL_FILE(value) ((ObjectFile *) AS_STL_OBJECT(value)
+#define AS_STL_FILE(value) ((ObjectFile *) AS_STL_OBJECT(value))
 
 typedef enum {
 	OBJECT_STRING,
@@ -244,6 +246,8 @@ typedef struct {
 	ObjectString *path;
 	ObjectString *mode;
 	FILE *file;
+	uint64_t position;
+	bool isOpen;
 } ObjectFile;
 
 
@@ -525,6 +529,8 @@ ObjectString *toString(VM *vm, Value value);
  */
 void printObject(Value value);
 
+void printType(Value value);
+
 /**
  * @brief Frees the memory associated with an object table.
  *
@@ -691,6 +697,6 @@ void freeImportSet(VM *vm, ImportSet *set);
  */
 ObjectRandom *newRandom(VM *vm);
 
-ObjectFile* newFile(VM *vm, ObjectString *path, ObjectString *mode);
+ObjectFile* newObjectFile(VM *vm, ObjectString *path, ObjectString *mode);
 
 #endif

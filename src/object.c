@@ -124,6 +124,56 @@ static uint32_t hashValue(Value value) {
 	return 0u;
 }
 
+void printType(Value value) {
+	if (!IS_STL_OBJECT(value)) {
+		printValue(value);
+		return;
+	}
+	switch (OBJECT_TYPE(value)) {
+		case OBJECT_STRING:
+			printf("'string'");
+			break;
+		case OBJECT_FUNCTION:
+		case OBJECT_NATIVE_FUNCTION:
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
+		case OBJECT_NATIVE_METHOD:
+		case OBJECT_NATIVE_INFALLIBLE_METHOD:
+		case OBJECT_CLOSURE:
+		case OBJECT_BOUND_METHOD:
+			printf("'function'");
+			break;
+		case OBJECT_UPVALUE:
+			printf("'upvalue'");
+			break;
+		case OBJECT_CLASS:
+			printf("'class'");
+			break;
+		case OBJECT_INSTANCE:
+			printf("'instance'");
+			break;
+		case OBJECT_ARRAY:
+			printf("'array'");
+			break;
+		case OBJECT_TABLE:
+			printf("'table'");
+			break;
+		case OBJECT_ERROR:
+			printf("'error'");
+			break;
+		case OBJECT_RESULT:
+			printf("'result'");
+			break;
+		case OBJECT_RANDOM:
+			printf("'random'");
+			break;
+		case OBJECT_FILE:
+			printf("'file'");
+			break;
+		default:
+			printf("'unknown'");
+	}
+}
+
 ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver, ObjectClosure *method) {
 	ObjectBoundMethod *bound = ALLOCATE_OBJECT(vm, ObjectBoundMethod, OBJECT_BOUND_METHOD);
 	bound->receiver = receiver;
@@ -317,6 +367,10 @@ void printObject(Value value) {
 		}
 		case OBJECT_RANDOM: {
 			printf("<random>");
+			break;
+		}
+		case OBJECT_FILE: {
+			printf("<file>");
 			break;
 		}
 		case OBJECT_NATIVE_INFALLIBLE_METHOD:
@@ -553,8 +607,11 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_RANDOM: {
-			ObjectRandom *random = AS_STL_RANDOM(value);
 			return copyString(vm, "<random>", 8);
+		}
+
+		case OBJECT_FILE: {
+			return copyString(vm, "<file>", 6);
 		}
 
 		default:
@@ -632,10 +689,10 @@ void freeObjectTable(VM *vm, ObjectTable *table) {
 ObjectFile* newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
 	ObjectFile* file = ALLOCATE_OBJECT(vm,ObjectFile, OBJECT_FILE);
 	file->path = path;
-
-
-
+	file->mode = mode;
 	file->file = fopen(path->chars, mode->chars);
+	file->isOpen = file->file != NULL;
+	file->position = 0;
 	return file;
 }
 

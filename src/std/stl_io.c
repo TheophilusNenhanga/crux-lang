@@ -8,6 +8,8 @@
 #include "../object.h"
 #include "../vm.h"
 
+#define MAX_LINE_LENGTH 4096
+
 
 static FILE *getChannel(const char *channel) {
 	if (strcmp(channel, "stdin") == 0)
@@ -81,7 +83,7 @@ void printTable(ObjectTable *table) {
 void printResult(ObjectResult* result) {
 	if (result->isOk) {
 			printf("Ok<");
-			printValue(result->as.value);
+			printType(result->as.value);
 			printf(">");
 	}
 	else {
@@ -340,7 +342,7 @@ ObjectResult* _openFile(VM *vm, int argCount, Value *args) {
 
 	ObjectString* newPath = takeString(vm, resolvedPath, strlen(resolvedPath));
 
-	ObjectFile* file = newFile(vm, newPath, mode);
+	ObjectFile* file = newObjectFile(vm, newPath, mode);
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Failed to open file.", 20), IO, false));
 	}
@@ -348,6 +350,84 @@ ObjectResult* _openFile(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(file));
 }
 
-ObjectResult* _readln(VM *vm, int argCount, Value *args) {
-
+static bool isReadable(ObjectString* mode) {
+	return strcmp(mode->chars, "r") == 0 || strcmp(mode->chars, "rb") == 0 || strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
 }
+
+ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isReadable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
+	}
+
+	char* buffer = ALLOCATE(vm, char, MAX_LINE_LENGTH);
+	if (buffer == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for file content.", 43), MEMORY, false));
+	}
+
+	int readCount = 0;
+	while (readCount < MAX_LINE_LENGTH) {
+		int ch = fgetc(file->file);
+		if (ch == EOF || ch == '\n') {
+			break;
+		}
+		buffer[readCount++] = ch;
+	}
+	buffer[readCount] = '\0';
+	file->position += readCount;
+	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, readCount)));
+}
+
+ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isReadable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
+	}
+
+	fseek(file->file, 0, SEEK_END);
+	long fileSize = ftell(file->file);
+	fseek(file->file, 0, SEEK_SET);
+
+	char* buffer = ALLOCATE(vm, char, fileSize + 1);
+	if (buffer == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for file content.", 43), MEMORY, false));
+	}
+
+	fread(buffer, 1, fileSize, file->file);
+	buffer[fileSize] = '\0';
+
+	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
+}
+
+ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not close file.", 21), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	fclose(file->file);	
+	file->isOpen = false;
+	file->position = 0;
+	return stellaOk(vm, NIL_VAL);
+}
+
