@@ -8,6 +8,8 @@
 #include "../object.h"
 #include "../vm.h"
 
+#define MAX_LINE_LENGTH 4096
+
 
 static FILE *getChannel(const char *channel) {
 	if (strcmp(channel, "stdin") == 0)
@@ -81,7 +83,7 @@ void printTable(ObjectTable *table) {
 void printResult(ObjectResult* result) {
 	if (result->isOk) {
 			printf("Ok<");
-			printValue(result->as.value);
+			printType(result->as.value);
 			printf(">");
 	}
 	else {
@@ -319,4 +321,177 @@ ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 	Value string =  OBJECT_VAL(copyString(vm, buffer, read));
 	FREE_ARRAY(vm, char, buffer, n + 1);
 	return stellaOk(vm, string);
+}
+
+ObjectResult* openFileFunction(VM *vm, int argCount, Value *args) {
+	if (!IS_STL_STRING(args[0])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<file_path> must be of type 'string'.", 37), IO, false));
+	}
+
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<file_mode> must be of type 'string'.", 37), IO, false));
+	}
+
+	ObjectString* path = AS_STL_STRING(args[0]);
+	ObjectString* mode = AS_STL_STRING(args[1]);
+
+	char* resolvedPath = resolvePath(vm->module->path->chars, path->chars);
+	if (resolvedPath == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not resolve path to file.", 31), IO, false));
+	}
+
+	ObjectString* newPath = takeString(vm, resolvedPath, strlen(resolvedPath));
+
+	ObjectFile* file = newObjectFile(vm, newPath, mode);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to open file.", 20), IO, false));
+	}
+
+	return stellaOk(vm, OBJECT_VAL(file));
+}
+
+static bool isReadable(ObjectString* mode) {
+	return strcmp(mode->chars, "r") == 0 || strcmp(mode->chars, "rb") == 0 || strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0
+	|| strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0;
+}
+
+static bool isWritable(ObjectString* mode) {
+	return strcmp(mode->chars, "w") == 0 || strcmp(mode->chars, "wb") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0
+	|| strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 
+	|| strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
+}
+
+static bool isAppendable(ObjectString* mode) {
+	return strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0
+	|| strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0
+	|| strcmp(mode->chars, "rb") == 0;
+}
+
+ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
+	}
+
+	char* buffer = ALLOCATE(vm, char, MAX_LINE_LENGTH);
+	if (buffer == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for file content.", 43), MEMORY, false));
+	}
+
+	int readCount = 0;
+	while (readCount < MAX_LINE_LENGTH) {
+		int ch = fgetc(file->file);
+		if (ch == EOF || ch == '\n') {
+			break;
+		}
+		buffer[readCount++] = ch;
+	}
+	buffer[readCount] = '\0';
+	file->position += readCount;
+	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, readCount)));
+}
+
+ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not readable.", 21), IO, false));
+	}
+
+	fseek(file->file, 0, SEEK_END);
+	long fileSize = ftell(file->file);
+	fseek(file->file, 0, SEEK_SET);
+
+	char* buffer = ALLOCATE(vm, char, fileSize + 1);
+	if (buffer == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for file content.", 43), MEMORY, false));
+	}
+
+	fread(buffer, 1, fileSize, file->file);
+	buffer[fileSize] = '\0';
+
+	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
+}
+
+ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not close file.", 21), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	fclose(file->file);	
+	file->isOpen = false;
+	file->position = 0;
+	return stellaOk(vm, NIL_VAL);
+}
+
+ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
+	}
+
+	if (!IS_STL_STRING(args[1])) {
+		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
+	}
+
+	ObjectString* content = AS_STL_STRING(args[1]);
+
+	fwrite(content->chars, sizeof(char), content->length, file->file);
+	file->position += content->length;
+	return stellaOk(vm, NIL_VAL);
+}	
+
+ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
+	ObjectFile* file = AS_STL_FILE(args[0]);
+	
+	if (file->file == NULL) {
+		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
+	}
+
+	if (!file->isOpen) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
+	}
+
+	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
+		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
+	}
+	
+	if (!IS_STL_STRING(args[1])){
+		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
+	}
+
+	ObjectString* content = AS_STL_STRING(args[1]);
+	fwrite(content->chars, sizeof(char), content->length, file->file);
+	fwrite("\n", sizeof(char), 1, file->file);
+	file->position += content->length + 1;
+	return stellaOk(vm, NIL_VAL);
 }

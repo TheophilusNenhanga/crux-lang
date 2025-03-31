@@ -64,6 +64,7 @@ struct VM {
 	NativeType arrayType;
 	NativeType tableType;
 	NativeType errorType;
+	NativeType fileType;
 	struct VM *enclosing;
 	int grayCapacity;
 	uint8_t previousInstruction; 
