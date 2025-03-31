@@ -625,6 +625,9 @@ static void binary(bool canAssign) {
 		case TOKEN_BACKSLASH:
 			emitByte(OP_INT_DIVIDE);
 			break;
+		case TOKEN_STAR_STAR:
+			emitByte(OP_POWER);
+			break;
 
 		default:
 			return; // unreachable
@@ -1678,6 +1681,7 @@ ParseRule rules[] = {
 		[TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_BACKSLASH] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
+		[TOKEN_STAR_STAR] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_PERCENT] = {NULL, binary, PREC_FACTOR},
 		[TOKEN_LEFT_SHIFT] = {NULL, binary, PREC_SHIFT},
 		[TOKEN_RIGHT_SHIFT] = {NULL, binary, PREC_SHIFT},

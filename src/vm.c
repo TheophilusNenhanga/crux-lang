@@ -578,6 +578,11 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 			break;
 		}
 
+		case OP_POWER: {
+			push(vm, NUMBER_VAL(pow(aNum, bNum)));
+			break;
+		}
+
 		case OP_INT_DIVIDE: {
 			if (bNum == 0 || ((uint64_t) bNum) == 0) {
 				runtimePanic(vm, DIVISION_BY_ZERO, "Tried to perform integer division by integer 0.");
@@ -849,6 +854,13 @@ static InterpretResult run(VM *vm) {
 
 			case OP_MULTIPLY: {
 				if (!binaryOperation(vm, OP_MULTIPLY)) {
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_POWER: {
+				if (!binaryOperation(vm, OP_POWER)) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				break;

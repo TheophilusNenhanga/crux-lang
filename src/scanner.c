@@ -390,7 +390,13 @@ Token scanToken() {
 		case '\\':
 			return makeToken(TOKEN_BACKSLASH);
 		case '*':
-			return makeToken(match('=') ? TOKEN_STAR_EQUAL : TOKEN_STAR);
+			if (match('*')) {
+				return makeToken(TOKEN_STAR_STAR);
+			}
+			if (match('=')) {
+				return makeToken(TOKEN_STAR_EQUAL);
+			}
+			return makeToken(TOKEN_STAR);
 		case '%':
 			return makeToken(TOKEN_PERCENT);
 		case '!':
