@@ -75,6 +75,7 @@ typedef enum {
 	OP_RESULT_BIND,
 	OP_GIVE,
 	OP_INT_DIVIDE,
+	OP_POWER,
 } OpCode;
 
 typedef struct {
