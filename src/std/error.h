@@ -4,16 +4,13 @@
 #include "../object.h"
 #include "../value.h"
 
-// std library functions
-ObjectResult* errorNative(VM *vm, int argCount, Value *args);
-ObjectResult* panicNative(VM *vm, int argCount, Value *args);
-ObjectResult* assertNative(VM *vm, int argCount, Value *args);
-
-// error type methods
+ObjectResult* errorFunction(VM *vm, int argCount, Value *args);
+ObjectResult* panicFunction(VM *vm, int argCount, Value *args);
+ObjectResult* assertFunction(VM *vm, int argCount, Value *args);
 ObjectResult* errorMessageMethod(VM *vm, int argCount, Value *args);
 ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args);
 
-ObjectResult* _err(VM *vm, int argCount, Value *args);
-ObjectResult* _ok(VM *vm, int argCount, Value *args);
+ObjectResult* errFunction(VM *vm, int argCount, Value *args);
+ObjectResult* okFunction(VM *vm, int argCount, Value *args);
 
 #endif // ERROR_H

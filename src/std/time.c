@@ -6,14 +6,14 @@
 #include <unistd.h>
 #endif
 
-#include "stl_time.h"
+#include "time.h"
 #include "../memory.h"
 
-Value _time_s(VM* vm, int argCount, Value* args) {
+Value timeSecondsFunction_(VM* vm, int argCount, Value* args) {
 	return NUMBER_VAL((double)time(NULL));
 }
 
-Value _time_ms(VM *vm, int argCount, Value *args) {
+Value timeMillisecondsFunction_(VM *vm, int argCount, Value *args) {
 #ifdef _WIN32
 	SYSTEMTIME st;
 	GetSystemTime(&st);
@@ -31,7 +31,7 @@ Value _time_ms(VM *vm, int argCount, Value *args) {
 	return NUMBER_VAL((double)ms);
 }
 
-ObjectResult* _sleep_s(VM *vm, int argCount, Value *args) {
+ObjectResult* sleepSecondsFunction(VM *vm, int argCount, Value *args) {
 		if (!IS_NUMBER(args[0])) {
 			return stellaErr(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, false));
 		}
@@ -50,7 +50,7 @@ ObjectResult* _sleep_s(VM *vm, int argCount, Value *args) {
     return stellaOk(vm, NIL_VAL);
 }
 
-ObjectResult* _sleep_ms(VM *vm, int argCount, Value *args) {
+ObjectResult* sleepMillisecondsFunction(VM *vm, int argCount, Value *args) {
 	if (!IS_NUMBER(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'number'.", 46), TYPE, false));
 	}
@@ -74,43 +74,43 @@ static time_t getCurrentTime() {
     return time(NULL);
 }
 
-Value _year(VM *vm, int argCount, Value *args) {
+Value yearFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_year + 1900);
 }
 
-Value _month(VM *vm, int argCount, Value *args) {
+Value monthFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_mon + 1);
 }
 
-Value _day(VM *vm, int argCount, Value *args) {
+Value dayFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_mday);
 }
 
-Value _hour(VM *vm, int argCount, Value *args) {
+Value hourFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_hour);
 }
 
-Value _minute(VM *vm, int argCount, Value *args) {
+Value minuteFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_min);
 }
 
-Value _second(VM *vm, int argCount, Value *args) {
+Value secondFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_sec);
 }
 
-Value _weekday(VM *vm, int argCount, Value *args) {
+Value weekdayFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     // 1 (Monday) - 7 (Sunday)
@@ -118,7 +118,7 @@ Value _weekday(VM *vm, int argCount, Value *args) {
     return NUMBER_VAL(weekday);
 }
 
-Value _day_of_year(VM *vm, int argCount, Value *args) {
+Value dayOfYearFunction_(VM *vm, int argCount, Value *args) {
     time_t t = getCurrentTime();
     struct tm *timeInfo = localtime(&t);
     return NUMBER_VAL(timeInfo->tm_yday + 1);

@@ -2,14 +2,14 @@
 
 #include "../memory.h"
 
-ObjectResult* errorNative(VM *vm, int argCount, Value *args) {
+ObjectResult* errorFunction(VM *vm, int argCount, Value *args) {
 	Value message = args[0];
 	ObjectString *errorMessage = toString(vm, message);
 	ObjectError *error = newError(vm, errorMessage, RUNTIME, false);
 	return stellaOk(vm, OBJECT_VAL(error));
 }
 
-ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
+ObjectResult* panicFunction(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 
 	if (IS_CRUX_ERROR(value)) {
@@ -22,7 +22,8 @@ ObjectResult* panicNative(VM *vm, int argCount, Value *args) {
 	return stellaErr(vm, error);
 }
 
-ObjectResult* assertNative(VM *vm, int argCount, Value *args) {	if (!IS_BOOL(args[0])) {
+ObjectResult* assertFunction(VM *vm, int argCount, Value *args) {	
+	if (!IS_BOOL(args[0])) {
 		ObjectError *error =
 				newError(vm, copyString(vm, "Failed to assert: <condition> must be of type 'bool'.", 53), TYPE, true);
 		return stellaErr(vm, error);
@@ -184,7 +185,7 @@ ObjectResult* errorTypeMethod(VM *vm, int argCount, Value *args) {
 	}
 }
 
-ObjectResult* _err(VM *vm, int argCount, Value *args) {
+ObjectResult* errFunction(VM *vm, int argCount, Value *args) {
 
 	if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
 		return stellaErr(vm, AS_CRUX_ERROR(args[0]));
@@ -195,6 +196,6 @@ ObjectResult* _err(VM *vm, int argCount, Value *args) {
 	return stellaErr(vm, error);
 }
 
-ObjectResult* _ok(VM *vm, int argCount, Value *args) {
+ObjectResult* okFunction(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, args[0]);
 }

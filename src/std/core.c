@@ -19,7 +19,7 @@ static Value getLength(Value value) {
 	return NIL_VAL;
 }
 
-ObjectResult* lengthNative(VM *vm, int argCount, Value *args) {
+ObjectResult* lengthFunction(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value length = getLength(value);
 	if (IS_NIL(length)) {
@@ -28,7 +28,7 @@ ObjectResult* lengthNative(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, length);
 }
 
-Value lengthNative_(VM *vm, int argCount, Value *args) {
+Value lengthFunction_(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	return getLength(value);
 }
@@ -41,7 +41,7 @@ Value lengthNative_(VM *vm, int argCount, Value *args) {
  * @param args Array of arguments
  * @return A string value representing the type
  */
-Value typeNative(VM *vm, int argCount, Value *args) {
+Value typeFunction_(VM *vm, int argCount, Value *args) {
     Value value = args[0];
     
     if (IS_NUMBER(value)) {
@@ -203,7 +203,7 @@ static Value castNumber(VM *vm, Value *args, bool* success) {
     return NIL_VAL;
 }
 
-ObjectResult* numberNative(VM *vm, int argCount, Value *args) {
+ObjectResult* numberFunction(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value value = castNumber(vm, args, &success);
     if (!success) {
@@ -212,12 +212,12 @@ ObjectResult* numberNative(VM *vm, int argCount, Value *args) {
     return stellaOk(vm, value);
 }
 
-ObjectResult* stringNative(VM *vm, int argCount, Value *args) {
+ObjectResult* stringFunction(VM *vm, int argCount, Value *args) {
     Value value = args[0];
     return stellaOk(vm, OBJECT_VAL(toString(vm, value)));
 }
 
-ObjectResult* arrayNative(VM *vm, int argCount, Value *args) {
+ObjectResult* arrayFunction(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value array = castArray(vm, args, &success);
     if (!success) {
@@ -226,20 +226,20 @@ ObjectResult* arrayNative(VM *vm, int argCount, Value *args) {
     return stellaOk(vm, OBJECT_VAL(array));
 }
 
-ObjectResult* tableNative(VM *vm, int argCount, Value *args) {
+ObjectResult* tableFunction(VM *vm, int argCount, Value *args) {
     return stellaOk(vm, castTable(vm, args));
 }
 
-Value numberNative_(VM *vm, int argCount, Value *args) {
+Value numberFunction_(VM *vm, int argCount, Value *args) {
     bool success = true;
     return castNumber(vm, args, &success);
 }
 
-Value stringNative_(VM *vm, int argCount, Value *args) {
+Value stringFunction_(VM *vm, int argCount, Value *args) {
     return OBJECT_VAL(toString(vm, args[0]));
 }
 
-Value arrayNative_(VM *vm, int argCount, Value *args) {
+Value arrayFunction_(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value array = castArray(vm, args, &success);
     if (!success) {
@@ -248,6 +248,6 @@ Value arrayNative_(VM *vm, int argCount, Value *args) {
     return OBJECT_VAL(array);
 }
 
-Value tableNative_(VM *vm, int argCount, Value *args) {
+Value tableFunction_(VM *vm, int argCount, Value *args) {
     return castTable(vm, args);
 }

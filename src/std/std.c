@@ -3,9 +3,9 @@
 #include "array.h"
 #include "core.h"
 #include "error.h"
-#include "stl_io.h"
-#include "stl_math.h"
-#include "stl_time.h"
+#include "io.h"
+#include "math.h"
+#include "time.h"
 #include "string.h"
 #include "tables.h"
 #include "random.h"
@@ -83,82 +83,82 @@ static Callable fileMethodsArray[] = {
 };
 
 static Callable coreFunctionsArray[] = {
-	{"scanln", _scanln, 0}, {"panic", panicNative, 1}, {"len", lengthNative, 1},
-	{"error", errorNative, 1}, {"assert", assertNative, 2}, {"err", _err, 1}, {"ok", _ok, 1},
-	{"number", numberNative, 1},
-	{"string", stringNative, 1},
-	{"table", tableNative, 1},
-	{"array", arrayNative, 1},
+	{"scanln", scanlnFunction, 0}, {"panic", panicFunction, 1}, {"len", lengthFunction, 1},
+	{"error", errorFunction, 1}, {"assert", assertFunction, 2}, {"err", errorFunction, 1}, {"ok", okFunction, 1},
+	{"number", numberFunction, 1},
+	{"string", stringFunction, 1},
+	{"table", tableFunction, 1},
+	{"array", arrayFunction, 1},
 	{NULL, NULL, 0}
 };
 
 static InfallibleCallable coreInfallibleFunctionsArray[] = {
-	{"_len", lengthNative_, 1},
-	{"println", _println, 1},
-	{"print", _print, 1},
-	{"type", typeNative, 1},
-	{"_number", numberNative_, 1},
-	{"_string", stringNative_, 1},
-	{"_table", tableNative_, 1},
-	{"_array", arrayNative_, 1},
+	{"_len", lengthFunction_, 1},
+	{"println", printlnFunction, 1},
+	{"print", printFunction, 1},
+	{"type", typeFunction_, 1},
+	{"_number", numberFunction_, 1},
+	{"_string", stringFunction_, 1},
+	{"_table", tableFunction_, 1},
+	{"_array", arrayFunction_, 1},
 	{NULL, NULL, 0}
 };
 
 
 static Callable mathFunctionsArray[] = {
-	{"pow", _pow, 2}, 
-	{"sqrt", _sqrt, 1}, 
-	{"ceil", _ceil, 1}, 
-	{"floor", _floor, 1},
-	{"abs", _abs, 1}, 
-	{"sin", _sin, 1}, 
-	{"cos", _cos, 1}, 
-	{"tan", _tan, 1},
-	{"atan", _atan, 1}, 
-	{"acos", _acos, 1}, 
-	{"asin", _asin, 1}, 
-	{"exp", _exp, 1},
-	{"ln", _ln, 1}, 
-	{"log", _log10, 1}, 
-	{"round", _round, 1},
+	{"pow", powFunction, 2}, 
+	{"sqrt", sqrtFunction, 1}, 
+	{"ceil", ceilFunction, 1}, 
+	{"floor", floorFunction, 1},
+	{"abs", absFunction, 1}, 
+	{"sin", sinFunction, 1}, 
+	{"cos", cosFunction, 1}, 
+	{"tan", tanFunction, 1},
+	{"atan", atanFunction, 1}, 
+	{"acos", acosFunction, 1}, 
+	{"asin", asinFunction, 1}, 
+	{"exp", expFunction, 1},
+	{"ln", lnFunction, 1}, 
+	{"log", log10Function, 1}, 
+	{"round", roundFunction, 1},
 	{NULL, NULL, 0}
 };
 
 static InfallibleCallable mathInfallibleFunctionsArray[] = {
-	{"_e", _e, 0},
-	{"_pi", _pi, 0},
+	{"_e", eFunction, 0},
+	{"_pi", piFunction, 0},
 	{NULL, NULL, 0}
 };
 
 static Callable ioFunctionsArray[] = {
-	{"print_to", _printTo, 2},
-	{"scan", _scan, 0},
-	{"scanln", _scanln, 0},
-	{"scan_from", _scanFrom, 1},
-	{"scanln_from", _scanlnFrom, 1},
-	{"nscan", _nscan, 1},
-	{"nscan_from", _nscanFrom, 2},
+	{"print_to", printToFunction, 2},
+	{"scan", scanFunction, 0},
+	{"scanln", scanlnFunction, 0},
+	{"scan_from", scanFromFunction, 1},
+	{"scanln_from", scanlnFromFunction, 1},
+	{"nscan", nscanFunction, 1},
+	{"nscan_from", nscanFromFunction, 2},
 	{"open_file", openFileFunction, 2},
 	{NULL, NULL, 0}
 };
 
 static Callable timeFunctionsArray[] = {
-	{"sleep_s", _sleep_s, 1},
-	{"sleep_ms", _sleep_ms, 1},
+	{"sleep_s", sleepSecondsFunction, 1},
+	{"sleep_ms", sleepMillisecondsFunction, 1},
 	{NULL, NULL, 0}
 };
 
 static InfallibleCallable timeInfallibleFunctionsArray[] = {
-	{"_time_s", _time_s, 0}, 
-	{"_time_ms", _time_ms, 0},
-	{"_year", _year, 0}, 
-	{"_month", _month, 0}, 
-	{"_day", _day, 0}, 
-	{"_hour", _hour, 0},
-	{"_minute", _minute, 0}, 
-	{"_second", _second, 0}, 
-	{"_weekday", _weekday, 0}, 
-	{"_day_of_year", _day_of_year, 0},
+	{"_time_s", timeSecondsFunction_, 0}, 
+	{"_time_ms", timeMillisecondsFunction_, 0},
+	{"_year", yearFunction_, 0}, 
+	{"_month", monthFunction_, 0}, 
+	{"_day", dayFunction_, 0}, 
+	{"_hour", hourFunction_, 0},
+	{"_minute", minuteFunction_, 0}, 
+	{"_second", secondFunction_, 0}, 
+	{"_weekday", weekdayFunction_, 0}, 
+	{"_day_of_year", dayOfYearFunction_, 0},
 	{NULL, NULL, 0}
 };
 

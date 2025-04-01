@@ -1,4 +1,4 @@
-#include "stl_io.h"
+#include "io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,18 +93,18 @@ void valuePrint(Value value) {
 }
 
 // Standard I/O Functions
-Value _print(VM *vm, int argCount, Value *args) {
+Value printFunction(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
 	return  NIL_VAL;
 }
 
-Value _println(VM* vm, int argCount, Value* args) {
-	_print(vm, argCount, args);
+Value printlnFunction(VM* vm, int argCount, Value* args) {
+	printFunction(vm, argCount, args);
 	printf("\n");
 	return NIL_VAL;
 }
 
-ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
+ObjectResult* printToFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel and content must be strings.", 36), TYPE, false));
@@ -125,7 +125,7 @@ ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, BOOL_VAL(true));
 }
 
-ObjectResult* _scan(VM *vm, int argCount, Value *args) {
+ObjectResult* scanFunction(VM *vm, int argCount, Value *args) {
 
 	int ch = getchar();
 	if (ch == EOF) {
@@ -139,7 +139,7 @@ ObjectResult* _scan(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
+ObjectResult* scanlnFunction(VM *vm, int argCount, Value *args) {
 
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
@@ -155,7 +155,7 @@ ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* scanFromFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
@@ -179,7 +179,7 @@ ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* scanlnFromFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
@@ -213,7 +213,7 @@ ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
+ObjectResult* nscanFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_NUMBER(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Number of characters must be a number.", 38), TYPE, false));
@@ -253,7 +253,7 @@ ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, string);
 }
 
-ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* nscanFromFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
