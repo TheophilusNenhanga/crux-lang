@@ -1419,7 +1419,7 @@ static InterpretResult run(VM *vm) {
 				}
 
 				if (modulePath->length > 4 && memcmp(modulePath->chars, "crux:", 5) == 0) {
-					char *moduleName = modulePath->chars + 4;
+					char *moduleName = modulePath->chars + 5;
 					int moduleIndex = -1;
 					for (int i = 0; i < vm->nativeModules.count; i++) {
 						if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
