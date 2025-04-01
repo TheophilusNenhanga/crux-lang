@@ -5,7 +5,7 @@
 
 
 ObjectResult* arrayPushMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	Value toAdd = args[1];
 
 	if (!arrayAdd(vm, array, toAdd, array->size)) {
@@ -16,7 +16,7 @@ ObjectResult* arrayPushMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayPopMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Cannot remove a value from an empty array.", 42), INDEX_OUT_OF_BOUNDS, false));
@@ -30,7 +30,7 @@ ObjectResult* arrayPopMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayInsertMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_NUMBER(args[2])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
@@ -57,7 +57,7 @@ ObjectResult* arrayInsertMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_NUMBER(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
@@ -80,13 +80,13 @@ ObjectResult* arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayConcatMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	if (!IS_STL_ARRAY(args[1])) {
+	if (!IS_CRUX_ARRAY(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<target> must be of type 'array'.", 33), TYPE, false));
 	}
 
-	ObjectArray *targetArray = AS_STL_ARRAY(args[1]);
+	ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
 	uint64_t combinedSize = targetArray->size + array->size;
 	if (combinedSize > MAX_ARRAY_SIZE) {
@@ -105,7 +105,7 @@ ObjectResult* arrayConcatMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arraySliceMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_NUMBER(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<start_index> must be of type 'number'.", 39), TYPE, false));
@@ -142,7 +142,7 @@ ObjectResult* arraySliceMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayReverseMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	Value *values = ALLOCATE(vm, Value, array->size);
 
@@ -164,7 +164,7 @@ ObjectResult* arrayReverseMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	Value target = args[1];
 
 	for (uint64_t i = 0; i < array->size; i++) {
@@ -176,7 +176,7 @@ ObjectResult* arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
 }
 
 Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	Value target = args[1];
 
 	for (uint64_t i = 0; i < array->size; i++) {
@@ -188,7 +188,7 @@ Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
 }
 
 Value arrayClearMethod(VM *vm, int argCount, Value *args) {
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	for (uint64_t i = 0; i < array->size; i++) {
 		array->array[i] = NIL_VAL;
@@ -199,12 +199,12 @@ Value arrayClearMethod(VM *vm, int argCount, Value *args) {
 }
 
 Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
-	if (!IS_STL_ARRAY(args[1])) {
+	if (!IS_CRUX_ARRAY(args[1])) {
 		return BOOL_VAL(false);
 	}
 
-	ObjectArray *array = AS_STL_ARRAY(args[0]);
-	ObjectArray *targetArray = AS_STL_ARRAY(args[1]);
+	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+	ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 	
 	if (array->size != targetArray->size) {
 		return BOOL_VAL(false);

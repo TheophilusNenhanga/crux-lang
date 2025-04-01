@@ -1,7 +1,7 @@
 #include "tables.h"
 
 ObjectResult* tableValuesMethod(VM *vm, int argCount, Value *args) {
-	ObjectTable *table = AS_STL_TABLE(args[0]);
+	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	ObjectArray *values = newArray(vm, table->size);
 
 	if (values == NULL) {
@@ -24,7 +24,7 @@ ObjectResult* tableValuesMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* tableKeysMethod(VM *vm, int argCount, Value *args) {
-	ObjectTable *table = AS_STL_TABLE(args[0]);
+	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
 	ObjectArray *keys = newArray(vm, table->size);
 
@@ -48,7 +48,7 @@ ObjectResult* tableKeysMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* tablePairsMethod(VM *vm, int argCount, Value *args) {
-	ObjectTable *table = AS_STL_TABLE(args[0]);
+	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
 	ObjectArray *pairs = newArray(vm, table->size);
 

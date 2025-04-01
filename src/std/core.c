@@ -7,14 +7,14 @@
 #include "../object.h"
 
 static Value getLength(Value value) {
-	if (IS_STL_ARRAY(value)) {
-		return NUMBER_VAL(AS_STL_ARRAY(value)->size);
+	if (IS_CRUX_ARRAY(value)) {
+		return NUMBER_VAL(AS_CRUX_ARRAY(value)->size);
 	}
-	if (IS_STL_STRING(value)) {
-		return NUMBER_VAL(AS_STL_STRING(value)->length);
+	if (IS_CRUX_STRING(value)) {
+		return NUMBER_VAL(AS_CRUX_STRING(value)->length);
 	}
-	if (IS_STL_TABLE(value)) {
-		return NUMBER_VAL(AS_STL_TABLE(value)->size);
+	if (IS_CRUX_TABLE(value)) {
+		return NUMBER_VAL(AS_CRUX_TABLE(value)->size);
 	}
 	return NIL_VAL;
 }
@@ -56,41 +56,41 @@ Value typeNative(VM *vm, int argCount, Value *args) {
         return OBJECT_VAL(copyString(vm, "nil", 3));
     }
     
-    if (IS_STL_STRING(value)) {
+    if (IS_CRUX_STRING(value)) {
         return OBJECT_VAL(copyString(vm, "string", 6));
     }
     
-    if (IS_STL_ARRAY(value)) {
+    if (IS_CRUX_ARRAY(value)) {
         return OBJECT_VAL(copyString(vm, "array", 5));
     }
     
-    if (IS_STL_TABLE(value)) {
+    if (IS_CRUX_TABLE(value)) {
         return OBJECT_VAL(copyString(vm, "table", 5));
     }
     
-    if (IS_STL_FUNCTION(value) || IS_STL_CLOSURE(value) || 
-        IS_STL_NATIVE_FUNCTION(value) || IS_STL_NATIVE_INFALLIBLE_FUNCTION(value)) {
+    if (IS_CRUX_FUNCTION(value) || IS_CRUX_CLOSURE(value) ||
+        IS_CRUX_NATIVE_FUNCTION(value) || IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)) {
         return OBJECT_VAL(copyString(vm, "function", 8));
     }
     
-    if (IS_STL_NATIVE_METHOD(value) || IS_STL_NATIVE_INFALLIBLE_METHOD(value) || 
-        IS_STL_BOUND_METHOD(value)) {
+    if (IS_CRUX_NATIVE_METHOD(value) || IS_CRUX_NATIVE_INFALLIBLE_METHOD(value) ||
+        IS_CRUX_BOUND_METHOD(value)) {
         return OBJECT_VAL(copyString(vm, "method", 6));
     }
     
-    if (IS_STL_CLASS(value)) {
+    if (IS_CRUX_CLASS(value)) {
         return OBJECT_VAL(copyString(vm, "class", 5));
     }
     
-    if (IS_STL_INSTANCE(value)) {
+    if (IS_CRUX_INSTANCE(value)) {
         return OBJECT_VAL(copyString(vm, "instance", 8));
     }
     
-    if (IS_STL_ERROR(value)) {
+    if (IS_CRUX_ERROR(value)) {
         return OBJECT_VAL(copyString(vm, "error", 5));
     }
     
-    if (IS_STL_RESULT(value)) {
+    if (IS_CRUX_RESULT(value)) {
         return OBJECT_VAL(copyString(vm, "result", 6));
     }
     
@@ -100,12 +100,12 @@ Value typeNative(VM *vm, int argCount, Value *args) {
 static Value castArray(VM *vm, Value *args, bool* success) {
     Value value = args[0];
 
-    if (IS_STL_ARRAY(value)) {
+    if (IS_CRUX_ARRAY(value)) {
         return value;
     }
 
-    if (IS_STL_STRING(value)) {
-        ObjectString* string = AS_STL_STRING(value);
+    if (IS_CRUX_STRING(value)) {
+        ObjectString* string = AS_CRUX_STRING(value);
         ObjectArray* array =  newArray(vm, string->length);
         for (int i = 0; i < string->length; i++) {
             if (!arrayAddBack(vm, array, OBJECT_VAL(copyString(vm, &string->chars[i], 1)))) {
@@ -116,8 +116,8 @@ static Value castArray(VM *vm, Value *args, bool* success) {
         return OBJECT_VAL(array);
     }
 
-    if (IS_STL_TABLE(value)) {
-        ObjectTable* table = AS_STL_TABLE(value);
+    if (IS_CRUX_TABLE(value)) {
+        ObjectTable* table = AS_CRUX_TABLE(value);
         ObjectArray* array = newArray(vm, table->size*2);
         int index = 0;
         for (int i = 0; i < table->capacity; i++) {
@@ -143,12 +143,12 @@ static Value castArray(VM *vm, Value *args, bool* success) {
 static Value castTable(VM *vm, Value *args) {
     Value value = args[0];
 
-    if (IS_STL_TABLE(value)) {
+    if (IS_CRUX_TABLE(value)) {
         return  value;
     }
 
-    if (IS_STL_ARRAY(value)) {
-        ObjectArray* array = AS_STL_ARRAY(value);
+    if (IS_CRUX_ARRAY(value)) {
+        ObjectArray* array = AS_CRUX_ARRAY(value);
         ObjectTable* table = newTable(vm, (int) array->size);
         for (int i = 0; i < array->size; i++) {
             Value k = NUMBER_VAL(i);
@@ -158,8 +158,8 @@ static Value castTable(VM *vm, Value *args) {
         return OBJECT_VAL(table);
     }
 
-    if (IS_STL_STRING(value)) {
-        ObjectString* string = AS_STL_STRING(value);
+    if (IS_CRUX_STRING(value)) {
+        ObjectString* string = AS_CRUX_STRING(value);
         ObjectTable* table = newTable(vm, string->length);
         for (int i = 0; i < string->length; i++) {
             objectTableSet(vm, table, NUMBER_VAL(i), OBJECT_VAL(copyString(vm, &string->chars[i], 1)));
@@ -179,7 +179,7 @@ static Value castNumber(VM *vm, Value *args, bool* success) {
         return value;
     }
 
-    if (IS_STL_STRING(value)) {
+    if (IS_CRUX_STRING(value)) {
         char* str = AS_C_STRING(value);
         char* end;
         double num = strtod(str, &end);

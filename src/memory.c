@@ -51,8 +51,8 @@ void markObject(VM *vm, Object *object) {
 }
 
 void markValue(VM *vm, Value value) {
-	if (IS_STL_OBJECT(value)) {
-		markObject(vm, AS_STL_OBJECT(value));
+	if (IS_CRUX_OBJECT(value)) {
+		markObject(vm, AS_CRUX_OBJECT(value));
 	}
 }
 

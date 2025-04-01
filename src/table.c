@@ -209,10 +209,10 @@ static void trackCopy(ModuleCopyContext *ctx, Object *original, Object *copy) {
 }
 
 static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
-	if (!IS_STL_OBJECT(value))
+	if (!IS_CRUX_OBJECT(value))
 		return value;
 
-	Object *object = AS_STL_OBJECT(value);
+	Object *object = AS_CRUX_OBJECT(value);
 
 	Object *existingCopy = findCopy(ctx, object);
 	if (existingCopy != NULL) {
@@ -221,14 +221,14 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 
 	switch (object->type) {
 		case OBJECT_STRING: {
-			ObjectString *string = AS_STL_STRING(value);
+			ObjectString *string = AS_CRUX_STRING(value);
 			ObjectString *copy = copyString(ctx->toVM, string->chars, string->length);
 			trackCopy(ctx, object, (Object *) copy);
 			return OBJECT_VAL(copy);
 		}
 
 		case OBJECT_FUNCTION: {
-			ObjectFunction *function = AS_STL_FUNCTION(value);
+			ObjectFunction *function = AS_CRUX_FUNCTION(value);
 			ObjectFunction *copy = newFunction(ctx->toVM);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -243,9 +243,9 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_CLOSURE: {
-			ObjectClosure *closure = AS_STL_CLOSURE(value);
+			ObjectClosure *closure = AS_CRUX_CLOSURE(value);
 			Value functionCopy = deepCopyValue(ctx, OBJECT_VAL(closure->function));
-			ObjectClosure *copy = newClosure(ctx->toVM, AS_STL_FUNCTION(functionCopy));
+			ObjectClosure *copy = newClosure(ctx->toVM, AS_CRUX_FUNCTION(functionCopy));
 			trackCopy(ctx, object, (Object *) copy);
 
 			for (int i = 0; i < closure->upvalueCount; i++) {
@@ -262,7 +262,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_CLASS: {
-			ObjectClass *klass = AS_STL_CLASS(value);
+			ObjectClass *klass = AS_CRUX_CLASS(value);
 			ObjectClass *copy = newClass(ctx->toVM, copyString(ctx->toVM, klass->name->chars, klass->name->length));
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -279,10 +279,10 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_INSTANCE: {
-			ObjectInstance *instance = AS_STL_INSTANCE(value);
+			ObjectInstance *instance = AS_CRUX_INSTANCE(value);
 
 			Value klassCopy = deepCopyValue(ctx, OBJECT_VAL(instance->klass));
-			ObjectInstance *copy = newInstance(ctx->toVM, AS_STL_CLASS(klassCopy));
+			ObjectInstance *copy = newInstance(ctx->toVM, AS_CRUX_CLASS(klassCopy));
 			trackCopy(ctx, object, (Object *) copy);
 
 			for (int i = 0; i < instance->fields.capacity; i++) {
@@ -298,7 +298,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_ARRAY: {
-			ObjectArray *array = AS_STL_ARRAY(value);
+			ObjectArray *array = AS_CRUX_ARRAY(value);
 			ObjectArray *copy = newArray(ctx->toVM, array->size);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -311,7 +311,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_TABLE: {
-			ObjectTable *table = AS_STL_TABLE(value);
+			ObjectTable *table = AS_CRUX_TABLE(value);
 			ObjectTable *copy = newTable(ctx->toVM, table->size);
 			trackCopy(ctx, object, (Object *) copy);
 
@@ -328,7 +328,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_ERROR: {
-			ObjectError *error = AS_STL_ERROR(value);
+			ObjectError *error = AS_CRUX_ERROR(value);
 			ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
 			ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
 			trackCopy(ctx, object, (Object *) copy);
@@ -336,7 +336,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_RANDOM:{
-			ObjectRandom *random = AS_STL_RANDOM(value);
+			ObjectRandom *random = AS_CRUX_RANDOM(value);
 			ObjectRandom *copy = newRandom(ctx->toVM);
 			copy->seed = random->seed;
 			trackCopy(ctx, object, (Object *) copy);
@@ -344,7 +344,7 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 		}
 
 		case OBJECT_FILE:{
-			ObjectFile *file = AS_STL_FILE(value);
+			ObjectFile *file = AS_CRUX_FILE(value);
 			ObjectFile *copy = newObjectFile(ctx->toVM, file->path, file->mode);
 			copy->file = fopen(file->path->chars, file->mode->chars);
 			if (copy->file == NULL) {
@@ -357,15 +357,8 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 			return OBJECT_VAL(copy);
 		}
 
-		// DO NOT COPY
-		case OBJECT_NATIVE_FUNCTION:
-		case OBJECT_NATIVE_METHOD:
-		case OBJECT_BOUND_METHOD:
-		case OBJECT_UPVALUE:
-		case OBJECT_MODULE:
-			return NIL_VAL;
 		case OBJECT_RESULT: {
-			ObjectResult *result = AS_STL_RESULT(value);
+			ObjectResult *result = AS_CRUX_RESULT(value);
 			ObjectResult* newResult;
 
 			if (result->isOk) {
@@ -377,8 +370,18 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 				newResult = stellaErr(ctx->toVM, copy);
 			}
 			trackCopy(ctx, object, (Object*) newResult);
+			return OBJECT_VAL(newResult);
 		}
-			break;
+
+		// DO NOT COPY
+		case OBJECT_NATIVE_FUNCTION:
+		case OBJECT_NATIVE_METHOD:
+		case OBJECT_BOUND_METHOD:
+		case OBJECT_UPVALUE:
+		case OBJECT_MODULE:
+		case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
+		case OBJECT_NATIVE_INFALLIBLE_METHOD:
+			return NIL_VAL;
 	}
 	return NIL_VAL;
 }

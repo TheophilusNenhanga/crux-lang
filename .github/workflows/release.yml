@@ -20,29 +20,29 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: amd64
-            artifact_name: StellaC
-            binary_path: build/StellaC
+            artifact_name: crux
+            binary_path: build/crux
             cmake_flags: ""
             
           - os: windows-latest
             platform: windows
             arch: amd64
-            artifact_name: StellaC.exe
-            binary_path: build/Release/StellaC.exe
+            artifact_name: crux.exe
+            binary_path: build/Release/crux.exe
             cmake_flags: ""
             
           - os: macos-latest
             platform: macos
             arch: amd64
-            artifact_name: StellaC
-            binary_path: build/StellaC
+            artifact_name: crux
+            binary_path: build/crux
             cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
             
           - os: macos-latest
             platform: macos
             arch: arm64
-            artifact_name: StellaC
-            binary_path: build/StellaC
+            artifact_name: crux
+            binary_path: build/crux
             cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
 
     steps:
@@ -61,17 +61,17 @@ jobs:
       - name: Rename binary
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}.exe
+            mv ${{ matrix.binary_path }} crux-${{ matrix.platform }}-${{ matrix.arch }}.exe
           else
-            mv ${{ matrix.binary_path }} stellac-${{ matrix.platform }}-${{ matrix.arch }}
+            mv ${{ matrix.binary_path }} crux-${{ matrix.platform }}-${{ matrix.arch }}
           fi
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stellac-${{ matrix.platform }}-${{ matrix.arch }}
-          path: stellac-${{ matrix.platform }}-${{ matrix.arch }}*
+          name: crux-${{ matrix.platform }}-${{ matrix.arch }}
+          path: crux-${{ matrix.platform }}-${{ matrix.arch }}*
           retention-days: 1
 
   create-release:
@@ -87,5 +87,5 @@ jobs:
           tag_name: v${{ inputs.version }}
           name: Release v${{ inputs.version }}
           files: |
-            stellac-*/*
+            crux-*/*
           token: ${{ secrets.GITHUB_TOKEN }}

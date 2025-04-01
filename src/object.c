@@ -103,8 +103,8 @@ static uint64_t calculateCollectionCapacity(uint64_t n) {
  * @return A 32-bit hash code for the Value.
  */
 static uint32_t hashValue(Value value) {
-	if (IS_STL_STRING(value)) {
-		return AS_STL_STRING(value)->hash;
+	if (IS_CRUX_STRING(value)) {
+		return AS_CRUX_STRING(value)->hash;
 	}
 	if (IS_NUMBER(value)) {
 		double num = AS_NUMBER(value);
@@ -125,7 +125,7 @@ static uint32_t hashValue(Value value) {
 }
 
 void printType(Value value) {
-	if (!IS_STL_OBJECT(value)) {
+	if (!IS_CRUX_OBJECT(value)) {
 		printValue(value);
 		return;
 	}
@@ -291,7 +291,7 @@ static void printFunction(ObjectFunction *function) {
 void printObject(Value value) {
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_CLASS: {
-			printf("'%s' <class>", AS_STL_CLASS(value)->name->chars);
+			printf("'%s' <class>", AS_CRUX_CLASS(value)->name->chars);
 			break;
 		}
 		case OBJECT_STRING: {
@@ -299,11 +299,11 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_FUNCTION: {
-			printFunction(AS_STL_FUNCTION(value));
+			printFunction(AS_CRUX_FUNCTION(value));
 			break;
 		}
 		case OBJECT_NATIVE_FUNCTION: {
-			ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(value);
+			ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
 			if (native->name != NULL) {
 				printf("<native fn %s>", native->name->chars);
 			} else {
@@ -312,7 +312,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_NATIVE_METHOD: {
-			ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(value);
+			ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
 			if (native->name != NULL) {
 				printf("<native method %s>", native->name->chars);
 			} else {
@@ -321,7 +321,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-			ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(value);
+			ObjectNativeInfallibleFunction *native = AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
 			if (native->name != NULL) {
 				printf("<native infallible fn %s>", native->name->chars);
 			} else {
@@ -330,7 +330,7 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_CLOSURE: {
-			printFunction(AS_STL_CLOSURE(value)->function);
+			printFunction(AS_CRUX_CLOSURE(value)->function);
 			break;
 		}
 		case OBJECT_UPVALUE: {
@@ -338,11 +338,11 @@ void printObject(Value value) {
 			break;
 		}
 		case OBJECT_INSTANCE: {
-			printf("'%s' <instance>", AS_STL_INSTANCE(value)->klass->name->chars);
+			printf("'%s' <instance>", AS_CRUX_INSTANCE(value)->klass->name->chars);
 			break;
 		}
 		case OBJECT_BOUND_METHOD: {
-			printFunction(AS_STL_BOUND_METHOD(value)->method->function);
+			printFunction(AS_CRUX_BOUND_METHOD(value)->method->function);
 			break;
 		}
 		case OBJECT_ARRAY: {
@@ -394,7 +394,7 @@ ObjectString *takeString(VM *vm, char *chars, uint64_t length) {
 
 
 ObjectString *toString(VM *vm, Value value) {
-	if (!IS_STL_OBJECT(value)) {
+	if (!IS_CRUX_OBJECT(value)) {
 		char buffer[32];
 		if (IS_NUMBER(value)) {
 			double num = AS_NUMBER(value);
@@ -413,10 +413,10 @@ ObjectString *toString(VM *vm, Value value) {
 
 	switch (OBJECT_TYPE(value)) {
 		case OBJECT_STRING:
-			return AS_STL_STRING(value);
+			return AS_CRUX_STRING(value);
 
 		case OBJECT_FUNCTION: {
-			ObjectFunction *function = AS_STL_FUNCTION(value);
+			ObjectFunction *function = AS_CRUX_FUNCTION(value);
 			if (function->name == NULL) {
 				return copyString(vm, "<script>", 8);
 			}
@@ -426,7 +426,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_NATIVE_FUNCTION: {
-			ObjectNativeFunction *native = AS_STL_NATIVE_FUNCTION(value);
+			ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
 			if (native->name != NULL) {
 				char *start = "<native fn ";
 				char *end = ">";
@@ -442,7 +442,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_NATIVE_METHOD: {
-			ObjectNativeMethod *native = AS_STL_NATIVE_METHOD(value);
+			ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
 			if (native->name != NULL) {
 				char *start = "<native method ";
 				char *end = ">";
@@ -458,7 +458,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-			ObjectNativeInfallibleFunction *native = AS_STL_NATIVE_INFALLIBLE_FUNCTION(value);
+			ObjectNativeInfallibleFunction *native = AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
 			if (native->name != NULL) {
 				char *start = "<native infallible fn ";
 				char *end = ">";
@@ -474,7 +474,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 		
 		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-			ObjectNativeInfallibleMethod *native = AS_STL_NATIVE_INFALLIBLE_METHOD(value);
+			ObjectNativeInfallibleMethod *native = AS_CRUX_NATIVE_INFALLIBLE_METHOD(value);
 			if (native->name != NULL) {
 				char *start = "<native infallible method ";
 				char *end = ">";
@@ -490,7 +490,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_CLOSURE: {
-			ObjectFunction *function = AS_STL_CLOSURE(value)->function;
+			ObjectFunction *function = AS_CRUX_CLOSURE(value)->function;
 			if (function->name == NULL) {
 				return copyString(vm, "<script>", 8);
 			}
@@ -504,28 +504,28 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_CLASS: {
-			ObjectClass *klass = AS_STL_CLASS(value);
+			ObjectClass *klass = AS_CRUX_CLASS(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_INSTANCE: {
-			ObjectInstance *instance = AS_STL_INSTANCE(value);
+			ObjectInstance *instance = AS_CRUX_INSTANCE(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "%s <instance>", instance->klass->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_BOUND_METHOD: {
-			ObjectBoundMethod *bound = AS_STL_BOUND_METHOD(value);
+			ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(value);
 			char buffer[256];
 			int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>", bound->method->function->name->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_ARRAY: {
-			ObjectArray *array = AS_STL_ARRAY(value);
+			ObjectArray *array = AS_CRUX_ARRAY(value);
 			size_t bufSize = 2; // [] minimum
 			for (int i = 0; i < array->size; i++) {
 				ObjectString *element = toString(vm, array->array[i]);
@@ -552,7 +552,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_TABLE: {
-			ObjectTable *table = AS_STL_TABLE(value);
+			ObjectTable *table = AS_CRUX_TABLE(value);
 			size_t bufSize = 2; // {} minimum
 			for (int i = 0; i < table->capacity; i++) {
 				if (table->entries[i].isOccupied) {
@@ -592,14 +592,14 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		case OBJECT_ERROR: {
-			ObjectError *error = AS_STL_ERROR(value);
+			ObjectError *error = AS_CRUX_ERROR(value);
 			char buffer[1024];
 			int length = snprintf(buffer, sizeof(buffer), "<error: %s>", error->message->chars);
 			return copyString(vm, buffer, length);
 		}
 
 		case OBJECT_RESULT: {
-			ObjectResult *result = AS_STL_RESULT(value);
+			ObjectResult *result = AS_CRUX_RESULT(value);
 			if (result->isOk) {
 				return copyString(vm, "<Ok>", 4);
 			}
@@ -792,9 +792,9 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
 		table->size++;
 	}
 
-	if (IS_STL_OBJECT(key))
+	if (IS_CRUX_OBJECT(key))
 		markValue(vm, key);
-	if (IS_STL_OBJECT(value))
+	if (IS_CRUX_OBJECT(value))
 		markValue(vm, value);
 
 	entry->key = key;
@@ -859,7 +859,7 @@ bool arraySet(VM *vm, ObjectArray *array, uint64_t index, Value value) {
 	if (index >= array->size) {
 		return false;
 	}
-	if (IS_STL_OBJECT(value)) {
+	if (IS_CRUX_OBJECT(value)) {
 		markValue(vm, value);
 	}
 	array->array[index] = value;
@@ -878,7 +878,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint64_t index) {
 	if (!ensureCapacity(vm, array, array->size + 1)) {
 		return false;
 	}
-	if (IS_STL_OBJECT(value)) {
+	if (IS_CRUX_OBJECT(value)) {
 		markValue(vm, value);
 	}
 	array->array[index] = value;

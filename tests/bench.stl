@@ -1,0 +1,37 @@
+use _time_ms from "stl:time";
+
+let max = 440000000;
+
+let cache = [0];
+
+for let i = 1; i < 10; i += 1 {
+    cache.push(i**i);
+}
+
+fn is_munchausen(number) {
+    let n = number;
+    let total = 0;
+
+    while n > 0 {
+        total += cache[n % 10];
+        if total > number {
+            return false;
+        }
+        n = n \ 10;
+    }
+    return total == number;
+}
+
+fn main() {
+    let time_start = _time_ms();
+    for let i = 0; i < max; i += 1 {
+        if is_munchausen(i) {
+            println(i);
+        }
+    }
+    let time_end = _time_ms();
+    let time_diff = time_end - time_start;
+    println("Time taken: " + time_diff + " seconds");
+}
+
+main();
