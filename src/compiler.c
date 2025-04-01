@@ -14,101 +14,41 @@
 #include "debug.h"
 #endif
 
+#ifdef DUMP_BYTECODE
+#include "debug.h"
+#endif
+
 
 Parser parser;
 
-/**
- * @brief Pointer to the currently active compiler.
- *
- * Used to track the current compilation context, especially when compiling nested functions.
- */
 Compiler *current = NULL;
 
-/**
- * @brief Pointer to the currently active class compiler.
- *
- * Used when compiling class declarations and methods.
- */
 ClassCompiler *currentClass = NULL;
 
-/**
- * @brief Pointer to the chunk of bytecode being currently compiled.
- *
- *  This is a convenience pointer to the chunk associated with the current compiler's function.
- */
 Chunk *compilingChunk;
 
 
 static void expression();
 
-/**
- * @brief Parses an expression based on its precedence.
- *
- * @param precedence The minimum precedence to parse.
- */
 static void parsePrecedence(Precedence precedence);
 
-/**
- * @brief Retrieves the parse rule for a given token type.
- *
- * @param type The token type to get the rule for.
- * @return A pointer to the ParseRule struct for the given token type.
- */
 static ParseRule *getRule(TokenType type);
 
-/**
- * @brief Parses a binary expression.
- *
- * @param canAssign Whether the binary expression can be the target of an assignment.
- */
 static void binary(bool canAssign);
 
-/**
- * @brief Parses a unary expression.
- *
- * @param canAssign Whether the unary expression can be the target of an assignment.
- */
 static void unary(bool canAssign);
 
-/**
- * @brief Parses a grouping expression (expression surrounded by parentheses).
- *
- * @param canAssign Whether the grouping expression can be the target of an assignment.
- */
 static void grouping(bool canAssign);
 
-/**
- * @brief Parses a number literal.
- *
- * @param canAssign Whether the number literal can be the target of an assignment (always false for literals).
- */
 static void number(bool canAssign);
 
-/**
- * @brief Parses a statement.
- *
- *  Statements are top-level constructs like if statements, while loops, and variable declarations.
- */
 static void statement();
 
-/**
- * @brief Parses a declaration (variable, function, or class).
- *
- * Declarations introduce new names into the current scope.
- */
 static void declaration();
 
 
-/**
- * Gets the current chunk
- * @return The current chunk
- */
 static Chunk *currentChunk() { return &current->function->chunk; }
 
-/**
- * moves to the next token from the source
- * Causes the compiler to panic if it encounters an error token
- */
 static void advance() {
 	parser.previous = parser.current;
 	for (;;) {
@@ -119,12 +59,6 @@ static void advance() {
 	}
 }
 
-/**
- * Checks if the current token is the same as the given token.
- * If it is, advances, if not causes the compiler to panic
- * @param type The type you are trying to check for
- * @param message The error message if the check fails
- */
 static void consume(TokenType type, const char *message) {
 	if (parser.current.type == type) {
 		advance();
@@ -133,20 +67,8 @@ static void consume(TokenType type, const char *message) {
 	compilerPanic(&parser, message, SYNTAX);
 }
 
-/**
- * Check if the current token is the same as the given token.
- * Does not advance.
- * @param type The token you are trying to check for.
- * @return true if the token matches false otherwise.
- */
 static bool check(TokenType type) { return parser.current.type == type; }
 
-/**
- * checks if the current token is the given token. If it is, advances.
- * Does not advance if the token does not match.
- * @param type The token you are trying to check for.
- * @return true if the token matched, false otherwise.
- */
 static bool match(TokenType type) {
 	if (!check(type))
 		return false;
@@ -154,17 +76,8 @@ static bool match(TokenType type) {
 	return true;
 }
 
-/**
- * Writes a byte to the current chunk
- * @param byte The byte to be written
- */
 static void emitByte(uint8_t byte) { writeChunk(current->owner, currentChunk(), byte, parser.previous.line); }
 
-/**
- * Writes two bytes consecutively to the current chunk
- * @param byte1 First byte to be written
- * @param byte2 Second byte to be written
- */
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
 	emitByte(byte1);
 	emitByte(byte2);
@@ -568,15 +481,27 @@ static ObjectFunction *endCompiler() {
 		disassembleChunk(currentChunk(), function->name != NULL ? function->name->chars : "<script>");
 	}
 #endif
+
+#ifdef DUMP_BYTECODE
+	if (!parser.hadError) {
+		char filename[256];
+		const char* name = function->name != NULL ? function->name->chars : "script";
+		snprintf(filename, sizeof(filename), "%s.stlbc", name);
+		FILE* file = fopen(filename, "w");
+		if (file != NULL) {
+			dumpBytecodeToFile(currentChunk(), name, file);
+			fclose(file);
+			printf("Bytecode dumped to %s\n", filename);
+		} else {
+			fprintf(stderr, "Could not open file %s for bytecode dump\n", filename);
+		}
+	}
+#endif
+
 	current = current->enclosing;
 	return function;
 }
 
-/**
- * Parses a binary operator expression.
- *
- * @param canAssign Whether the binary expression can be the target of an assignment.
- */
 static void binary(bool canAssign) {
 	TokenType operatorType = parser.previous.type;
 	ParseRule *rule = getRule(operatorType);
@@ -634,11 +559,6 @@ static void binary(bool canAssign) {
 	}
 }
 
-/**
- * Parses a function call expression.
- *
- * @param canAssign Whether the call expression can be the target of an assignment.
- */
 static void call(bool canAssign) {
 	uint8_t argCount = argumentList();
 	emitBytes(OP_CALL, argCount);
@@ -792,11 +712,6 @@ static void namedVariable(Token name, bool canAssign) {
 	emitBytes(getOp, arg);
 }
 
-/**
- * Parses a variable expression.
- *
- * @param canAssign Whether the variable expression can be the target of an assignment.
- */
 static void variable(bool canAssign) { namedVariable(parser.previous, canAssign); }
 
 /**
@@ -812,11 +727,6 @@ static Token syntheticToken(const char *text) {
 	return token;
 }
 
-/**
- * Parses a 'super' expression (for accessing superclass methods).
- *
- * @param canAssign Whether the 'super' expression can be the target of an assignment.
- */
 static void super_(bool canAssign) {
 	if (currentClass == NULL) {
 		compilerPanic(&parser, "Cannot use 'super' outside of a class", NAME);
@@ -841,9 +751,6 @@ static void super_(bool canAssign) {
 	}
 }
 
-/**
- * Parses a block statement (code enclosed in curly braces {}).
- */
 static void block() {
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		declaration();
@@ -852,11 +759,6 @@ static void block() {
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
-/**
- * Parses a function declaration or anonymous function expression.
- *
- * @param type The type of function being parsed (TYPE_FUNCTION for declarations, TYPE_ANONYMOUS for expressions, TYPE_METHOD for methods).
- */
 static void function(FunctionType type) {
 	Compiler compiler;
 	initCompiler(&compiler, type, current->owner);
@@ -888,9 +790,6 @@ static void function(FunctionType type) {
 	}
 }
 
-/**
- * Parses a method declaration within a class.
- */
 static void method() {
 	consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
 	consume(TOKEN_IDENTIFIER, "Expected method name.");
@@ -907,9 +806,6 @@ static void method() {
 	emitBytes(OP_METHOD, constant);
 }
 
-/**
- * Parses a class declaration.
- */
 static void classDeclaration() {
 	consume(TOKEN_IDENTIFIER, "Expected class name");
 	Token className = parser.previous;
@@ -959,9 +855,6 @@ static void classDeclaration() {
 	currentClass = classCompiler.enclosing;
 }
 
-/**
- * Parses a function declaration.
- */
 static void fnDeclaration() {
 	uint8_t global = parseVariable("Expected function name");
 	markInitialized();
@@ -969,11 +862,7 @@ static void fnDeclaration() {
 	defineVariable(global);
 }
 
-/**
- * Parses an anonymous function expression.
- *
- * @param canAssign Whether the anonymous function expression can be the target of an assignment.
- */
+
 static void anonymousFunction(bool canAssign) {
 	Compiler compiler;
 	initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
@@ -1001,11 +890,6 @@ static void anonymousFunction(bool canAssign) {
 	}
 }
 
-/**
- * Parses an array literal expression.
- *
- * @param canAssign Whether the array literal can be the target of an assignment.
- */
 static void arrayLiteral(bool canAssign) {
 	uint16_t elementCount = 0;
 
@@ -1023,11 +907,6 @@ static void arrayLiteral(bool canAssign) {
 	emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-/**
- * Parses a table literal expression.
- *
- * @param canAssign Whether the table literal can be the target of an assignment.
- */
 static void tableLiteral(bool canAssign) {
 	uint16_t elementCount = 0;
 
@@ -1053,7 +932,7 @@ static void tableLiteral(bool canAssign) {
  * @param canAssign Whether the collection index expression can be the target of an assignment.
  */
 static void collectionIndex(bool canAssign) {
-	expression(); // array index
+	expression();
 	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
 
 	if (canAssign && match(TOKEN_EQUAL)) {
@@ -1064,9 +943,6 @@ static void collectionIndex(bool canAssign) {
 	}
 }
 
-/**
- * Parses a variable declaration statement (using 'let').
- */
 static void varDeclaration() {
 	uint8_t global = parseVariable("Expected Variable Name.");
 
@@ -1080,18 +956,12 @@ static void varDeclaration() {
 	defineVariable(global);
 }
 
-/**
- * Parses an expression statement (an expression followed by a semicolon).
- */
 static void expressionStatement() {
 	expression();
 	consume(TOKEN_SEMICOLON, "Expected ';' after expression");
 	emitByte(OP_POP);
 }
 
-/**
- * Parses a while loop statement.
- */
 static void whileStatement() {
 	beginScope();
 	int loopStart = currentChunk()->count;
@@ -1109,9 +979,6 @@ static void whileStatement() {
 	endScope();
 }
 
-/**
- * Parses a for loop statement.
- */
 static void forStatement() {
 	beginScope();
 
@@ -1155,9 +1022,6 @@ static void forStatement() {
 	endScope();
 }
 
-/**
- * Parses an if statement.
- */
 static void ifStatement() {
 	expression();
 	int thenJump = emitJump(OP_JUMP_IF_FALSE);
@@ -1173,9 +1037,6 @@ static void ifStatement() {
 	patchJump(elseJump);
 }
 
-/**
- * Parses a return statement.
- */
 static void returnStatement() {
 	if (current->type == TYPE_SCRIPT) {
 		compilerPanic(&parser, "Cannot use <return> outside of a function", SYNTAX);
@@ -1193,9 +1054,6 @@ static void returnStatement() {
 	}
 }
 
-/**
- * Parses a use statement for importing modules.
- */
 static void useStatement() {
 	bool hasParen = false;
 	if (parser.current.type == TOKEN_LEFT_PAREN) {
@@ -1277,9 +1135,7 @@ static void synchronize() {
 	}
 }
 
-/**
- * Parses a public declaration (using 'pub').
- */
+
 static void publicDeclaration() {
 	if (current->scopeDepth > 0) {
 		compilerPanic(&parser, "Cannot declare public members in a local scope.", SYNTAX);
@@ -1296,9 +1152,6 @@ static void publicDeclaration() {
 	}
 }
 
-/**
- * Begins a match statement scope.
- */
 static void beginMatchScope() {
 	if (current->matchDepth > 0) {
 		compilerPanic(&parser, "Nesting match statements is not allowed.", SYNTAX);
@@ -1306,14 +1159,9 @@ static void beginMatchScope() {
 	current->matchDepth++;
 }
 
-/**
- * Ends a match statement scope.
- */
 static void endMatchScope() { current->matchDepth--; }
 
-/**
- * Parses a give statement.
- */
+
 static void giveStatement() {
 	if (current->matchDepth == 0) {
 		compilerPanic(&parser, "'give' can only be used inside a match expression.", SYNTAX);

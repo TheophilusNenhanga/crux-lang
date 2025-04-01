@@ -2,6 +2,7 @@
 #define DEBUG_H
 
 #include "chunk.h"
+#include <stdio.h>
 
 /**
  * @brief Disassembles and prints all instructions in a chunk
@@ -29,4 +30,17 @@ void disassembleChunk(Chunk *chunk, const char *name);
  * @return The byte offset of the next instruction
  */
 int disassembleInstruction(Chunk *chunk, int offset);
+
+/**
+ * @brief Dumps bytecode to a text file
+ * 
+ * Writes a text representation of the bytecode to the specified file.
+ * Similar to disassembleChunk but writes to a file instead of stdout.
+ * 
+ * @param chunk Pointer to the Chunk to dump
+ * @param name Name of the chunk for identification in output
+ * @param file File pointer to write to (must be opened for writing)
+ */
+void dumpBytecodeToFile(Chunk *chunk, const char *name, FILE *file);
+
 #endif // DEBUG_H
