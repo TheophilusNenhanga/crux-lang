@@ -8,42 +8,42 @@
 #include "table.h"
 #include "value.h"
 
-#define OBJECT_TYPE(value) (AS_STL_OBJECT(value)->type)
+#define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
-#define IS_STL_STRING(value) isObjectType(value, OBJECT_STRING)
-#define IS_STL_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
-#define IS_STL_NATIVE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_FUNCTION)
-#define IS_STL_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
-#define IS_STL_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
-#define IS_STL_CLASS(value) isObjectType(value, OBJECT_CLASS)
-#define IS_STL_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
-#define IS_STL_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
-#define IS_STL_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
-#define IS_STL_TABLE(value) isObjectType(value, OBJECT_TABLE)
-#define IS_STL_ERROR(value) isObjectType(value, OBJECT_ERROR)
-#define IS_STL_RESULT(value) isObjectType(value, OBJECT_RESULT)
-#define IS_STL_NATIVE_INFALLIBLE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
-#define IS_STL_NATIVE_INFALLIBLE_METHOD(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
-#define IS_STL_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
-#define IS_STL_FILE(value) isObjectType(value, OBJECT_FILE)
+#define IS_CRUX_STRING(value) isObjectType(value, OBJECT_STRING)
+#define IS_CRUX_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
+#define IS_CRUX_NATIVE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_FUNCTION)
+#define IS_CRUX_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
+#define IS_CRUX_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
+#define IS_CRUX_CLASS(value) isObjectType(value, OBJECT_CLASS)
+#define IS_CRUX_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
+#define IS_CRUX_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
+#define IS_CRUX_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
+#define IS_CRUX_TABLE(value) isObjectType(value, OBJECT_TABLE)
+#define IS_CRUX_ERROR(value) isObjectType(value, OBJECT_ERROR)
+#define IS_CRUX_RESULT(value) isObjectType(value, OBJECT_RESULT)
+#define IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
+#define IS_CRUX_NATIVE_INFALLIBLE_METHOD(value) isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
+#define IS_CRUX_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
+#define IS_CRUX_FILE(value) isObjectType(value, OBJECT_FILE)
 
-#define AS_STL_STRING(value) ((ObjectString *) AS_STL_OBJECT(value))
-#define AS_C_STRING(value) (((ObjectString *) AS_STL_OBJECT(value))->chars)
-#define AS_STL_FUNCTION(value) ((ObjectFunction *) AS_STL_OBJECT(value))
-#define AS_STL_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_STL_OBJECT(value))
-#define AS_STL_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_STL_OBJECT(value))
-#define AS_STL_CLOSURE(value) ((ObjectClosure *) AS_STL_OBJECT(value))
-#define AS_STL_CLASS(value) ((ObjectClass *) AS_STL_OBJECT(value))
-#define AS_STL_INSTANCE(value) ((ObjectInstance *) AS_STL_OBJECT(value))
-#define AS_STL_BOUND_METHOD(value) ((ObjectBoundMethod *) AS_STL_OBJECT(value))
-#define AS_STL_ARRAY(value) ((ObjectArray *) AS_STL_OBJECT(value))
-#define AS_STL_TABLE(value) ((ObjectTable *) AS_STL_OBJECT(value))
-#define AS_STL_ERROR(value) ((ObjectError *) AS_STL_OBJECT(value))
-#define AS_STL_RESULT(value) ((ObjectResult *) AS_STL_OBJECT(value))
-#define AS_STL_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_STL_OBJECT(value))
-#define AS_STL_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_STL_OBJECT(value))
-#define AS_STL_RANDOM(value) ((ObjectRandom *) AS_STL_OBJECT(value))
-#define AS_STL_FILE(value) ((ObjectFile *) AS_STL_OBJECT(value))
+#define AS_CRUX_STRING(value) ((ObjectString *) AS_CRUX_OBJECT(value))
+#define AS_C_STRING(value) (((ObjectString *) AS_CRUX_OBJECT(value))->chars)
+#define AS_CRUX_FUNCTION(value) ((ObjectFunction *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_FUNCTION(value) ((ObjectNativeFunction *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_METHOD(value) ((ObjectNativeMethod *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_CLOSURE(value) ((ObjectClosure *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_CLASS(value) ((ObjectClass *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_INSTANCE(value) ((ObjectInstance *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_ARRAY(value) ((ObjectArray *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_TABLE(value) ((ObjectTable *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_ERROR(value) ((ObjectError *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_RESULT(value) ((ObjectResult *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value) ((ObjectNativeInfallibleFunction *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_INFALLIBLE_METHOD(value) ((ObjectNativeInfallibleMethod *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_RANDOM(value) ((ObjectRandom *) AS_CRUX_OBJECT(value))
+#define AS_CRUX_FILE(value) ((ObjectFile *) AS_CRUX_OBJECT(value))
 
 typedef enum {
 	OBJECT_STRING,
@@ -251,7 +251,7 @@ typedef struct {
 } ObjectFile;
 
 
-static bool isObjectType(Value value, ObjectType type) { return IS_STL_OBJECT(value) && AS_STL_OBJECT(value)->type == type; }
+static bool isObjectType(Value value, ObjectType type) { return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type; }
 
 /**
  * @brief Creates a new error object.

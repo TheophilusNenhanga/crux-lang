@@ -1,4 +1,4 @@
-#include "stl_io.h"
+#include "io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,26 +19,6 @@ static FILE *getChannel(const char *channel) {
 	if (strcmp(channel, "stderr") == 0)
 		return stderr;
 	return NULL;
-}
-
-static bool isValidMode(const char *mode) {
-	char* modes[] = {"r", "rb", "w", "wb", "a", "ab", "r+", "rb+", "w+", "wb+", "a+", "ab+"};
-	int modeLength = 12;
-	for (int i = 0; i < modeLength; i++) {
-		if (strcmp(modes[i], mode) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-
-static bool isMode(char **desiredMode, const char *givenMode, int length) {
-	for (int i = 0; i < length; i++) {
-		if (strcmp(desiredMode[i], givenMode) == 0) {
-			return true;
-		}
-	}
-	return false;
 }
 
 void valuePrint(Value value);
@@ -101,32 +81,32 @@ void valuePrint(Value value) {
 		printf("nil");
 	} else if (IS_NUMBER(value)) {
 		printNumber(value);
-	} else if (IS_STL_ARRAY(value)) {
-		printArray(AS_STL_ARRAY(value));
-	} else if (IS_STL_TABLE(value)) {
-		printTable(AS_STL_TABLE(value));
-	}else if (IS_STL_RESULT(value)) {
-		printResult(AS_STL_RESULT(value));
-	} else if (IS_STL_OBJECT(value)) {
+	} else if (IS_CRUX_ARRAY(value)) {
+		printArray(AS_CRUX_ARRAY(value));
+	} else if (IS_CRUX_TABLE(value)) {
+		printTable(AS_CRUX_TABLE(value));
+	}else if (IS_CRUX_RESULT(value)) {
+		printResult(AS_CRUX_RESULT(value));
+	} else if (IS_CRUX_OBJECT(value)) {
 		printObject(value);
 	}
 }
 
 // Standard I/O Functions
-Value _print(VM *vm, int argCount, Value *args) {
+Value printFunction(VM *vm, int argCount, Value *args) {
 	valuePrint(args[0]);
 	return  NIL_VAL;
 }
 
-Value _println(VM* vm, int argCount, Value* args) {
-	_print(vm, argCount, args);
+Value printlnFunction(VM* vm, int argCount, Value* args) {
+	printFunction(vm, argCount, args);
 	printf("\n");
 	return NIL_VAL;
 }
 
-ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
+ObjectResult* printToFunction(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STL_STRING(args[0]) || !IS_STL_STRING(args[1])) {
+	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel and content must be strings.", 36), TYPE, false));
 	}
 
@@ -145,7 +125,7 @@ ObjectResult* _printTo(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, BOOL_VAL(true));
 }
 
-ObjectResult* _scan(VM *vm, int argCount, Value *args) {
+ObjectResult* scanFunction(VM *vm, int argCount, Value *args) {
 
 	int ch = getchar();
 	if (ch == EOF) {
@@ -159,7 +139,7 @@ ObjectResult* _scan(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
+ObjectResult* scanlnFunction(VM *vm, int argCount, Value *args) {
 
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
@@ -175,9 +155,9 @@ ObjectResult* _scanln(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* scanFromFunction(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STL_STRING(args[0])) {
+	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
@@ -199,9 +179,9 @@ ObjectResult* _scanFrom(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* scanlnFromFunction(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STL_STRING(args[0])) {
+	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
@@ -233,7 +213,7 @@ ObjectResult* _scanlnFrom(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
+ObjectResult* nscanFunction(VM *vm, int argCount, Value *args) {
 
 	if (!IS_NUMBER(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Number of characters must be a number.", 38), TYPE, false));
@@ -273,9 +253,9 @@ ObjectResult* _nscan(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, string);
 }
 
-ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
+ObjectResult* nscanFromFunction(VM *vm, int argCount, Value *args) {
 
-	if (!IS_STL_STRING(args[0])) {
+	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Channel must be a string.", 25), TYPE, false));
 	}
 
@@ -324,16 +304,16 @@ ObjectResult* _nscanFrom(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* openFileFunction(VM *vm, int argCount, Value *args) {
-	if (!IS_STL_STRING(args[0])) {
+	if (!IS_CRUX_STRING(args[0])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<file_path> must be of type 'string'.", 37), IO, false));
 	}
 
-	if (!IS_STL_STRING(args[1])) {
+	if (!IS_CRUX_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<file_mode> must be of type 'string'.", 37), IO, false));
 	}
 
-	ObjectString* path = AS_STL_STRING(args[0]);
-	ObjectString* mode = AS_STL_STRING(args[1]);
+	ObjectString* path = AS_CRUX_STRING(args[0]);
+	ObjectString* mode = AS_CRUX_STRING(args[1]);
 
 	char* resolvedPath = resolvePath(vm->module->path->chars, path->chars);
 	if (resolvedPath == NULL) {
@@ -368,7 +348,7 @@ static bool isAppendable(ObjectString* mode) {
 }
 
 ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
-	ObjectFile* file = AS_STL_FILE(args[0]);
+	ObjectFile* file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
 	}
@@ -400,7 +380,7 @@ ObjectResult* readlnFileMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
-	ObjectFile* file = AS_STL_FILE(args[0]);
+	ObjectFile* file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Could not read file.", 20), IO, false));
 	}
@@ -429,7 +409,7 @@ ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
-	ObjectFile* file = AS_STL_FILE(args[0]);
+	ObjectFile* file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Could not close file.", 21), IO, false));
 	}
@@ -445,13 +425,13 @@ ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
-	ObjectFile* file = AS_STL_FILE(args[0]);
+	ObjectFile* file = AS_CRUX_FILE(args[0]);
 	
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
 	}
 
-	if (!IS_STL_STRING(args[1])) {
+	if (!IS_CRUX_STRING(args[1])) {
 		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
 	}
 
@@ -463,7 +443,7 @@ ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
 	}
 
-	ObjectString* content = AS_STL_STRING(args[1]);
+	ObjectString* content = AS_CRUX_STRING(args[1]);
 
 	fwrite(content->chars, sizeof(char), content->length, file->file);
 	file->position += content->length;
@@ -471,7 +451,7 @@ ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
 }	
 
 ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
-	ObjectFile* file = AS_STL_FILE(args[0]);
+	ObjectFile* file = AS_CRUX_FILE(args[0]);
 	
 	if (file->file == NULL) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
@@ -485,11 +465,11 @@ ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
 	}
 	
-	if (!IS_STL_STRING(args[1])){
+	if (!IS_CRUX_STRING(args[1])){
 		return stellaErr(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
 	}
 
-	ObjectString* content = AS_STL_STRING(args[1]);
+	ObjectString* content = AS_CRUX_STRING(args[1]);
 	fwrite(content->chars, sizeof(char), content->length, file->file);
 	fwrite("\n", sizeof(char), 1, file->file);
 	file->position += content->length + 1;

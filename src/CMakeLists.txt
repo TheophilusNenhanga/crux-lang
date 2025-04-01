@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(StellaC C)
+project(crux-lang C)
 
 set(CMAKE_C_STANDARD 11)
 
@@ -22,14 +22,14 @@ file(GLOB HEADERS
     "std/*.h"
 )
 
-add_executable(StellaC ${SOURCES} ${HEADERS})
+add_executable(crux ${SOURCES} ${HEADERS})
 
 if (UNIX)
 find_library(MATH_LIBRARY m)
-target_link_libraries(StellaC PRIVATE ${MATH_LIBRARY})
+target_link_libraries(crux PRIVATE ${MATH_LIBRARY})
 endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Profile")
-    target_compile_options(StellaC PRIVATE -pg)
-    target_link_options(StellaC PRIVATE -pg)
+    target_compile_options(crux PRIVATE -pg)
+    target_link_options(crux PRIVATE -pg)
 endif ()

@@ -15,7 +15,7 @@ ObjectResult* randomSeedMethod(VM* vm, int argCount, Value *args) {
     double seedDouble = AS_NUMBER(seed);
     uint64_t seedInt = (uint64_t) seedDouble;
 
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     random->seed = seedInt;
     return stellaOk(vm, NIL_VAL);
 }
@@ -34,7 +34,7 @@ double getNext(ObjectRandom *random) {
 }
 
 Value randomNextMethod(VM* vm, int argCount, Value *args) {
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     return NUMBER_VAL(getNext(random));
 }   
 
@@ -62,7 +62,7 @@ ObjectResult* randomIntMethod(VM* vm, int argCount, Value *args) {
         return stellaErr(vm, newError(vm, copyString(vm, "Min must be less than or equal to max", 37), RUNTIME, false));
     }
 
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     double r = getNext(random);
     int result = minInt + (int)(r * (maxInt - minInt + 1));
     
@@ -90,7 +90,7 @@ ObjectResult* randomDoubleMethod(VM* vm, int argCount, Value *args) {
         return stellaErr(vm, newError(vm, copyString(vm, "Parameter <min> must be less than or equal to parameter <max>.", 62), RUNTIME, false));
     }
 
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     double r = getNext(random);
     double result = minDouble + r * (maxDouble - minDouble);
     
@@ -109,7 +109,7 @@ ObjectResult* randomBoolMethod(VM* vm, int argCount, Value *args) {
         return stellaErr(vm, newError(vm, copyString(vm, "Probability must be between 0 and 1", 37), RUNTIME, false));
     }
 
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     double r = getNext(random);
     
     return stellaOk(vm, BOOL_VAL(r < prob));
@@ -118,16 +118,16 @@ ObjectResult* randomBoolMethod(VM* vm, int argCount, Value *args) {
 // Returns a random element from the array
 ObjectResult* randomChoiceMethod(VM* vm, int argCount, Value *args) {
     Value array = args[1];
-    if (!IS_STL_ARRAY(array)) {
+    if (!IS_CRUX_ARRAY(array)) {
         return stellaErr(vm, newError(vm, copyString(vm, "Argument must be an array", 25), RUNTIME, false));
     }
 
-    ObjectArray *arr = AS_STL_ARRAY(array);
+    ObjectArray *arr = AS_CRUX_ARRAY(array);
     if (arr->size == 0) {
         return stellaErr(vm, newError(vm, copyString(vm, "Array cannot be empty", 20), RUNTIME, false));
     }
 
-    ObjectRandom *random = AS_STL_RANDOM(args[0]);
+    ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
     double r = getNext(random);
     int index = (int)(r * arr->size);
     

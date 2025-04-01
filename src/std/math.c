@@ -1,4 +1,4 @@
-#include "stl_math.h"
+#include "math.h"
 #include <math.h>
 
 static bool numberArgs(Value* args, int argCount) {
@@ -10,7 +10,7 @@ static bool numberArgs(Value* args, int argCount) {
 	return true;
 }
 
-ObjectResult* _pow(VM *vm, int argCount, Value *args) {
+ObjectResult* powFunction(VM *vm, int argCount, Value *args) {
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Both arguments must be of type 'number'.", 40), TYPE, false));
@@ -22,7 +22,7 @@ ObjectResult* _pow(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, NUMBER_VAL(pow(base, exponent)));
 }
 
-ObjectResult* _sqrt(VM *vm, int argCount, Value *args){
+ObjectResult* sqrtFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -39,7 +39,7 @@ ObjectResult* _sqrt(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _abs(VM *vm, int argCount, Value *args){
+ObjectResult* absFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -49,7 +49,7 @@ ObjectResult* _abs(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _sin(VM *vm, int argCount, Value *args){
+ObjectResult* sinFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -58,7 +58,7 @@ ObjectResult* _sin(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _cos(VM *vm, int argCount, Value *args){
+ObjectResult* cosFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -67,7 +67,7 @@ ObjectResult* _cos(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _tan(VM *vm, int argCount, Value *args){
+ObjectResult* tanFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -76,7 +76,7 @@ ObjectResult* _tan(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _asin(VM *vm, int argCount, Value *args){
+ObjectResult* asinFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -93,7 +93,7 @@ ObjectResult* _asin(VM *vm, int argCount, Value *args){
 	return stellaOk(vm, NUMBER_VAL(asin(num)));
 }
 
-ObjectResult* _acos(VM *vm, int argCount, Value *args){
+ObjectResult* acosFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -109,7 +109,7 @@ ObjectResult* _acos(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _atan(VM *vm, int argCount, Value *args){
+ObjectResult* atanFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -118,7 +118,7 @@ ObjectResult* _atan(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _exp(VM *vm, int argCount, Value *args){
+ObjectResult* expFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -126,7 +126,7 @@ ObjectResult* _exp(VM *vm, int argCount, Value *args){
 	return stellaOk(vm, NUMBER_VAL(exp(AS_NUMBER(args[0]))));
 }
 
-ObjectResult* _ln(VM *vm, int argCount, Value *args){
+ObjectResult* lnFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -140,7 +140,7 @@ ObjectResult* _ln(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _log10(VM *vm, int argCount, Value *args){
+ObjectResult* log10Function(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -155,7 +155,7 @@ ObjectResult* _log10(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _ceil(VM *vm, int argCount, Value *args){
+ObjectResult* ceilFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -164,7 +164,7 @@ ObjectResult* _ceil(VM *vm, int argCount, Value *args){
 
 }
 
-ObjectResult* _floor(VM *vm, int argCount, Value *args){
+ObjectResult* floorFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -172,7 +172,7 @@ ObjectResult* _floor(VM *vm, int argCount, Value *args){
 	return stellaOk(vm, NUMBER_VAL(floor(AS_NUMBER(args[0]))));
 }
 
-ObjectResult* _round(VM *vm, int argCount, Value *args){
+ObjectResult* roundFunction(VM *vm, int argCount, Value *args){
 
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
@@ -181,10 +181,10 @@ ObjectResult* _round(VM *vm, int argCount, Value *args){
 
 }
 
-Value _pi(VM *vm, int argCount, Value *args){
+Value piFunction(VM *vm, int argCount, Value *args){
 	return NUMBER_VAL(3.14159265358979323846);
 }
 
-Value _e(VM *vm, int argCount, Value *args){
+Value eFunction(VM *vm, int argCount, Value *args){
 	return NUMBER_VAL(2.71828182845904523536);
 }

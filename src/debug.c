@@ -166,13 +166,13 @@ static void fileWriteValue(Value value, FILE *file) {
 			fprintf(file, "nil");
 		} else if (IS_NUMBER(value)) {
 			fprintf(file, "%g", AS_NUMBER(value));
-		} else if (IS_STL_OBJECT(value)) {
+		} else if (IS_CRUX_OBJECT(value)) {
 			switch (OBJECT_TYPE(value)) {
 				case OBJECT_STRING:
 					fprintf(file, "%s", AS_C_STRING(value));
 					break;
 				case OBJECT_FUNCTION: {
-					ObjectFunction *function = AS_STL_FUNCTION(value);
+					ObjectFunction *function = AS_CRUX_FUNCTION(value);
 					if (function->name == NULL) {
 						fprintf(file, "<script>");
 					} else {
@@ -358,7 +358,7 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
 			fileWriteValue(chunk->constants.values[constant], file);
 			fprintf(file, "\n");
 
-			ObjectFunction *function = AS_STL_FUNCTION(chunk->constants.values[constant]);
+			ObjectFunction *function = AS_CRUX_FUNCTION(chunk->constants.values[constant]);
 			for (int j = 0; j < function->upvalueCount; j++) {
 				int isLocal = chunk->code[offset++];
 				int index = chunk->code[offset++];
@@ -541,7 +541,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 			printValue(chunk->constants.values[constant]);
 			printf("\n");
 
-			ObjectFunction *function = AS_STL_FUNCTION(chunk->constants.values[constant]);
+			ObjectFunction *function = AS_CRUX_FUNCTION(chunk->constants.values[constant]);
 			for (int j = 0; j < function->upvalueCount; j++) {
 				int isLocal = chunk->code[offset++];
 				int index = chunk->code[offset++];
