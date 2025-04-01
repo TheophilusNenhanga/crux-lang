@@ -1418,7 +1418,7 @@ static InterpretResult run(VM *vm) {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 
-				if (modulePath->length > 4 && memcmp(modulePath->chars, "stl:", 4) == 0) {
+				if (modulePath->length > 4 && memcmp(modulePath->chars, "crux:", 5) == 0) {
 					char *moduleName = modulePath->chars + 4;
 					int moduleIndex = -1;
 					for (int i = 0; i < vm->nativeModules.count; i++) {

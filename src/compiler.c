@@ -486,7 +486,7 @@ static ObjectFunction *endCompiler() {
 	if (!parser.hadError) {
 		char filename[256];
 		const char* name = function->name != NULL ? function->name->chars : "script";
-		snprintf(filename, sizeof(filename), "%s.stlbc", name);
+		snprintf(filename, sizeof(filename), "%s.cruxbc", name);
 		FILE* file = fopen(filename, "w");
 		if (file != NULL) {
 			dumpBytecodeToFile(currentChunk(), name, file);

@@ -1,4 +1,4 @@
-use _time_ms from "stl:time";
+use _time_ms from "crux:time";
 
 let max = 440000000;
 
