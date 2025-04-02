@@ -32,15 +32,21 @@ typedef uint64_t Value;
 #define NUMBER_VAL(num) numToValue(num)
 
 static inline double valueToNum(Value value) {
-	double num;
-	memcpy(&num, &value, sizeof(Value));
-	return num;
+	union {
+		Value v;
+		double d;
+	} u;
+	u.v = value;
+	return u.d;
 }
 
 static inline Value numToValue(double num) {
-	Value value;
-	memcpy(&value, &num, sizeof(double));
-	return value;
+	union {
+		double d;
+		Value v;
+	} u;
+	u.d = num;
+	return u.v;
 }
 
 typedef struct {

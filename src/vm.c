@@ -39,10 +39,14 @@ void push(VM *vm, Value value) {
 	vm->stackTop++; // stack top points just past the last used element, at the next available one
 }
 
-
 Value pop(VM *vm) {
 	vm->stackTop--; // Move the stack pointer back to get the most recent slot in the array
 	return *vm->stackTop;
+}
+
+static inline void popTwo(VM *vm) {
+	pop(vm);
+	pop(vm);
 }
 
 /**
@@ -51,7 +55,7 @@ Value pop(VM *vm) {
  * @param distance How far from the top of the stack to look (0 is the top)
  * @return The value at the specified distance from the top
  */
-static Value peek(VM *vm, int distance) { return vm->stackTop[-1 - distance]; }
+static inline Value peek(VM *vm, int distance) { return vm->stackTop[-1 - distance]; }
 
 /**
  * Calls a function closure with the given arguments.
@@ -99,7 +103,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 
 				ObjectResult *result = native->function(vm, argCount, vm->stackTop - argCount);
 
-				vm->stackTop -= argCount+1;
+				vm->stackTop -= argCount + 1;
 
 				if (!result->isOk) {
 					if (result->as.error->isPanic) {
@@ -153,7 +157,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
 				}
 
 				Value result = native->function(vm, argCount, vm->stackTop - argCount);
-				vm->stackTop -= argCount+1;
+				vm->stackTop -= argCount + 1;
 				push(vm, result);
 				return true;
 			}
@@ -194,30 +198,30 @@ static bool callValue(VM *vm, Value callee, int argCount) {
  */
 static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
                             int argCount) {
-  Value method;
-  if (tableGet(&klass->methods, name, &method)) {
-    return call(vm, AS_CRUX_CLOSURE(method), argCount);
-  }
-  runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
-  return false;
+	Value method;
+	if (tableGet(&klass->methods, name, &method)) {
+		return call(vm, AS_CRUX_CLOSURE(method), argCount);
+	}
+	runtimePanic(vm, NAME, "Undefined property '%s'.", name->chars);
+	return false;
 }
 
 static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
                          Value value) {
-  Value result;
-  // Save original stack order
-  vm->stackTop[-argCount - 1] = value;
-  vm->stackTop[-argCount] = receiver;
+	Value result;
+	// Save original stack order
+	vm->stackTop[-argCount - 1] = value;
+	vm->stackTop[-argCount] = receiver;
 
-  if (!callValue(vm, value, argCount)) {
-    return false;
-  }
+	if (!callValue(vm, value, argCount)) {
+		return false;
+	}
 
-  // restore the caller and put the result in the right place
-  result = pop(vm);
-  push(vm, original);
-  push(vm, result);
-  return true;
+	// restore the caller and put the result in the right place
+	result = pop(vm);
+	push(vm, original);
+	push(vm, result);
+	return true;
 }
 
 /**
@@ -237,7 +241,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 			Value value;
 			if (tableGet(&vm->stringType.methods, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original,
-                                              value);
+				                    value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
@@ -287,7 +291,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
 			return false;
 		}
-		
+
 		runtimePanic(vm, TYPE, "Only instances have methods.");
 		return false;
 	}
@@ -299,11 +303,11 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		Value result;
 		// Save original stack order
 		vm->stackTop[-argCount - 1] = value;
-		
+
 		if (!callValue(vm, value, argCount)) {
 			return false;
 		}
-		
+
 		// After the call, restore the original caller and put the result in the right place
 		result = pop(vm);
 		push(vm, original);
@@ -319,7 +323,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		push(vm, result);
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -407,7 +411,7 @@ static void defineMethod(VM *vm, ObjectString *name) {
  * @param value The value to check
  * @return true if the value is falsy, false otherwise
  */
-static bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
+static inline bool isFalsy(Value value) { return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)); }
 
 /**
  * Concatenates two values as strings.
@@ -455,8 +459,7 @@ static bool concatenate(VM *vm) {
 
 	ObjectString *result = takeString(vm, chars, length);
 
-	pop(vm);
-	pop(vm);
+	popTwo(vm);
 	push(vm, OBJECT_VAL(result));
 	return true;
 }
@@ -470,7 +473,6 @@ void initVM(VM *vm) {
 	vm->grayCount = 0;
 	vm->grayCapacity = 0;
 	vm->grayStack = NULL;
-	vm->previousInstruction = 0;
 	vm->enclosing = NULL;
 	vm->module = NULL;
 	vm->nativeModules = (NativeModules){.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
@@ -517,10 +519,10 @@ void freeVM(VM *vm) {
 		FREE(vm, Table, module.names);
 	}
 	FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity);
-	
+
 	vm->initString = NULL;
 	freeObjects(vm);
-	
+
 	if (vm->enclosing != NULL) {
 		free(vm);
 	}
@@ -536,22 +538,31 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
-	// Check if both operands are numbers
-	if (!IS_NUMBER(a)) {
-		runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "number"));
-		return false;
-	}
-	
-	if (!IS_NUMBER(b)) {
-		runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "number"));
-		return false;
+	if (!IS_NUMBER(a) || !IS_NUMBER(b)) {
+		if (!IS_NUMBER(a)) {
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "number"));
+			return false;
+		}
+
+		if (!IS_NUMBER(b)) {
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "number"));
+			return false;
+		}
 	}
 
-	pop(vm);
-	pop(vm);
+	popTwo(vm);
 
 	double aNum = AS_NUMBER(a);
 	double bNum = AS_NUMBER(b);
+
+	if (bNum == 0 && (operation == OP_DIVIDE || operation == OP_INT_DIVIDE)) {
+		if (operation == OP_DIVIDE) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Tried to divide by zero.");
+		} else {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Tried to perform integer division by integer 0.");
+		}
+		return false;
+	}
 
 	switch (operation) {
 		case OP_ADD: {
@@ -570,10 +581,6 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 		}
 
 		case OP_DIVIDE: {
-			if (bNum == 0) {
-				runtimePanic(vm, DIVISION_BY_ZERO, "Tried to divide by zero.");
-				return false;
-			}
 			push(vm, NUMBER_VAL(aNum / bNum));
 			break;
 		}
@@ -584,16 +591,11 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 		}
 
 		case OP_INT_DIVIDE: {
-			if (bNum == 0 || ((uint64_t) bNum) == 0) {
-				runtimePanic(vm, DIVISION_BY_ZERO, "Tried to perform integer division by integer 0.");
-				return false;
-			}
-
 			if (fabs(aNum) > INT64_MAX || fabs(bNum) > INT64_MAX) {
 				runtimePanic(vm, VALUE, "Division result would overflow.");
 				return false;
 			}
-			push(vm, NUMBER_VAL((int64_t) aNum / (int64_t) bNum));
+			push(vm, NUMBER_VAL((int64_t)aNum / (int64_t)bNum));
 			break;
 		}
 
@@ -617,15 +619,15 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 			break;
 		}
 		case OP_MODULUS: {
-			push(vm, NUMBER_VAL((int64_t) aNum % (int64_t) bNum));
+			push(vm, NUMBER_VAL((int64_t)aNum % (int64_t)bNum));
 			break;
 		}
 		case OP_LEFT_SHIFT: {
-			push(vm, NUMBER_VAL((int64_t) aNum << (int64_t) bNum));
+			push(vm, NUMBER_VAL((int64_t)aNum << (int64_t)bNum));
 			break;
 		}
 		case OP_RIGHT_SHIFT: {
-			push(vm, NUMBER_VAL((int64_t) aNum >> (int64_t) bNum));
+			push(vm, NUMBER_VAL((int64_t)aNum >> (int64_t)bNum));
 			break;
 		}
 		default: {
@@ -1236,8 +1238,7 @@ static InterpretResult run(VM *vm) {
 					runtimePanic(vm, TYPE, "Value is not a mutable collection type.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				pop(vm); // collection
-				pop(vm); // indexValue
+				popTwo(vm); // collection, indexValue
 				push(vm, indexValue);
 				break;
 			}
@@ -1604,7 +1605,6 @@ static InterpretResult run(VM *vm) {
 				break;
 			}
 		}
-		vm->previousInstruction = instruction;
 	}
 #undef READ_BYTE
 #undef READ_CONSTANT
@@ -1613,6 +1613,7 @@ static InterpretResult run(VM *vm) {
 #undef READ_STRING
 #undef READ_SHORT
 }
+
 
 InterpretResult interpret(VM *vm, char *source) {
 	ObjectFunction *function = compile(vm, source);

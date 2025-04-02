@@ -60,7 +60,7 @@ static Callable errorMethodsArray[] = {
 };
 
 static Callable randomMethodsArray[] = {
-	{"seed", randomSeedMethod, 1},
+	{"seed", randomSeedMethod, 2},
 	{"int", randomIntMethod, 3},
 	{"double", randomDoubleMethod, 3},
 	{"bool", randomBoolMethod, 2},
