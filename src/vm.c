@@ -17,7 +17,7 @@
 
 
 VM *newVM() {
-	VM *vm = (VM *) malloc(sizeof(VM));
+	VM *vm = malloc(sizeof(VM));
 	if (vm == NULL) {
 		fprintf(stderr, "Stella Fatal Error: Could not allocate memory for VM\n");
 		exit(1);
@@ -543,149 +543,332 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 	Value b = peek(vm, 0);
 	Value a = peek(vm, 1);
 
-	if (!IS_NUMBER(a) || !IS_NUMBER(b)) {
-		if (!IS_NUMBER(a)) {
-			runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "number"));
-			return false;
-		}
+	bool aIsInt = IS_INT(a);
+	bool bIsInt = IS_INT(b);
+	bool aIsFloat = IS_FLOAT(a);
+	bool bIsFloat = IS_FLOAT(b);
 
-		if (!IS_NUMBER(b)) {
-			runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "number"));
-			return false;
-		}
-	}
-
-	popTwo(vm);
-
-	double aNum = AS_NUMBER(a);
-	double bNum = AS_NUMBER(b);
-
-	if (bNum == 0 && (operation == OP_DIVIDE || operation == OP_INT_DIVIDE)) {
-		if (operation == OP_DIVIDE) {
-			runtimePanic(vm, DIVISION_BY_ZERO, "Tried to divide by zero.");
+	if (!((aIsInt || aIsFloat) && (bIsInt || bIsFloat))) {
+		if (!(aIsInt || aIsFloat)) {
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, a, "'int' or 'float'"));
 		} else {
-			runtimePanic(vm, DIVISION_BY_ZERO, "Tried to perform integer division by integer 0.");
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, b, "'int' or 'float'"));
 		}
 		return false;
 	}
 
-	switch (operation) {
-		case OP_ADD: {
-			push(vm, NUMBER_VAL(aNum + bNum));
-			break;
-		}
+	if (aIsInt && bIsInt) {
+		int32_t intA = AS_INT(a);
+		int32_t intB = AS_INT(b);
 
-		case OP_SUBTRACT: {
-			push(vm, NUMBER_VAL(aNum - bNum));
-			break;
-		}
+		switch (operation) {
+			case OP_ADD: {
+				int64_t result = (int64_t) intA + (int64_t) intB;
+				popTwo(vm);
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					push(vm, INT_VAL((int32_t)result));
+				} else {
+					push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+				}
+				break;
+			}
+			case OP_SUBTRACT: {
+				int64_t result = (int64_t) intA - (int64_t) intB;
+				popTwo(vm);
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					push(vm, INT_VAL((int32_t)result));
+				} else {
+					push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+				}
+				break;
+			}
+			case OP_MULTIPLY: {
+				int64_t result = (int64_t) intA * (int64_t) intB;
+				popTwo(vm);
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					push(vm, INT_VAL((int32_t)result));
+				} else {
+					push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+				}
+				break;
+			}
+			case OP_DIVIDE: {
+				if (intB == 0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero.");
+					return false;
+				}
+				popTwo(vm);
+				push(vm, FLOAT_VAL((double)intA / (double)intB));
+				break;
+			}
+			case OP_INT_DIVIDE: {
+				if (intB == 0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Integer division by zero.");
+					return false;
+				}
+				// Edge case: INT32_MIN / -1 overflows int32_t
+				if (intA == INT32_MIN && intB == -1) {
+					popTwo(vm);
+					push(vm, FLOAT_VAL(-(double)INT32_MIN)); // Promote
+				} else {
+					popTwo(vm);
+					push(vm, INT_VAL(intA / intB));
+				}
+				break;
+			}
+			case OP_MODULUS: {
+				if (intB == 0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Modulo by zero.");
+					return false;
+				}
 
-		case OP_MULTIPLY: {
-			push(vm, NUMBER_VAL(aNum * bNum));
-			break;
-		}
+				if (intA == INT32_MIN && intB == -1) {
+					popTwo(vm);
+					push(vm, INT_VAL(0));
+				} else {
+					popTwo(vm);
+					push(vm, INT_VAL(intA % intB));
+				}
+				break;
+			}
+			case OP_LEFT_SHIFT: {
+				if (intB < 0 || intB >= 32) {
+					runtimePanic(vm, RUNTIME, "Invalid shift amount (%d) for <<.", intB);
+					return false;
+				}
+				popTwo(vm);
+				push(vm, INT_VAL(intA << intB));
+				break;
+			}
+			case OP_RIGHT_SHIFT: {
+				if (intB < 0 || intB >= 32) {
+					runtimePanic(vm, RUNTIME, "Invalid shift amount (%d) for >>.", intB);
+					return false;
+				}
+				popTwo(vm);
+				push(vm, INT_VAL(intA >> intB));
+				break;
+			}
+			case OP_POWER: {
+				// Promote int^int to float
+				popTwo(vm);
+				push(vm, FLOAT_VAL(pow((double)intA, (double)intB)));
+				break;
+			}
+			case OP_LESS: popTwo(vm);
+				push(vm, BOOL_VAL(intA < intB));
+				break;
+			case OP_LESS_EQUAL: popTwo(vm);
+				push(vm, BOOL_VAL(intA <= intB));
+				break;
+			case OP_GREATER: popTwo(vm);
+				push(vm, BOOL_VAL(intA > intB));
+				break;
+			case OP_GREATER_EQUAL: popTwo(vm);
+				push(vm, BOOL_VAL(intA >= intB));
+				break;
 
-		case OP_DIVIDE: {
-			push(vm, NUMBER_VAL(aNum / bNum));
-			break;
+			default:
+				runtimePanic(vm, RUNTIME, "Unknown binary operation %d for int, int.", operation);
+				return false;
 		}
+	} else {
+		double doubleA = aIsFloat ? AS_FLOAT(a) : (double) AS_INT(a);
+		double doubleB = bIsFloat ? AS_FLOAT(b) : (double) AS_INT(b);
 
-		case OP_POWER: {
-			push(vm, NUMBER_VAL(pow(aNum, bNum)));
-			break;
-		}
+		switch (operation) {
+			case OP_ADD: popTwo(vm);
+				push(vm, FLOAT_VAL(doubleA + doubleB));
+				break;
+			case OP_SUBTRACT: popTwo(vm);
+				push(vm, FLOAT_VAL(doubleA - doubleB));
+				break;
+			case OP_MULTIPLY: popTwo(vm);
+				push(vm, FLOAT_VAL(doubleA * doubleB));
+				break;
+			case OP_DIVIDE: {
+				if (doubleB == 0.0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero.");
+					return false;
+				}
+				popTwo(vm);
+				push(vm, FLOAT_VAL(doubleA / doubleB));
+				break;
+			}
+			case OP_POWER: {
+				popTwo(vm);
+				push(vm, FLOAT_VAL(pow(doubleA, doubleB)));
+				break;
+			}
 
-		case OP_INT_DIVIDE: {
-			if (fabs(aNum) > INT64_MAX || fabs(bNum) > INT64_MAX) {
-				runtimePanic(vm, VALUE, "Division result would overflow.");
+			case OP_LESS: popTwo(vm);
+				push(vm, BOOL_VAL(doubleA < doubleB));
+				break;
+			case OP_LESS_EQUAL: popTwo(vm);
+				push(vm, BOOL_VAL(doubleA <= doubleB));
+				break;
+			case OP_GREATER: popTwo(vm);
+				push(vm, BOOL_VAL(doubleA > doubleB));
+				break;
+			case OP_GREATER_EQUAL: popTwo(vm);
+				push(vm, BOOL_VAL(doubleA >= doubleB));
+				break;
+
+			case OP_INT_DIVIDE:
+			case OP_MODULUS:
+			case OP_LEFT_SHIFT:
+			case OP_RIGHT_SHIFT: {
+				runtimePanic(vm, TYPE, "Operands for integer operation must both be integers.");
 				return false;
 			}
-			push(vm, NUMBER_VAL((int64_t)aNum / (int64_t)bNum));
-			break;
-		}
 
-		case OP_LESS_EQUAL: {
-			push(vm, BOOL_VAL(aNum <= bNum));
-			break;
-		}
-
-		case OP_GREATER_EQUAL: {
-			push(vm, BOOL_VAL(aNum >= bNum));
-			break;
-		}
-
-		case OP_LESS: {
-			push(vm, BOOL_VAL(aNum < bNum));
-			break;
-		}
-
-		case OP_GREATER: {
-			push(vm, BOOL_VAL(aNum > bNum));
-			break;
-		}
-		case OP_MODULUS: {
-			push(vm, NUMBER_VAL((int64_t)aNum % (int64_t)bNum));
-			break;
-		}
-		case OP_LEFT_SHIFT: {
-			push(vm, NUMBER_VAL((int64_t)aNum << (int64_t)bNum));
-			break;
-		}
-		case OP_RIGHT_SHIFT: {
-			push(vm, NUMBER_VAL((int64_t)aNum >> (int64_t)bNum));
-			break;
-		}
-		default: {
+			default:
+				runtimePanic(vm, RUNTIME, "Unknown binary operation %d for float/mixed.", operation);
+				return false;
 		}
 	}
 	return true;
 }
 
-/**
- * Performs a compound assignment operation on a global variable.
- * @param vm The virtual machine
- * @param name The name of the global variable
- * @param opcode The operation code to perform
- * @param operation String representation of the operation for error messages
- * @return The interpretation result
- */
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name, OpCode opcode, char *operation) {
 	Value currentValue;
 	if (!tableGet(&vm->globals, name, &currentValue)) {
-		runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
+		runtimePanic(vm, NAME, "Undefined variable '%s' for compound assignment.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-		runtimePanic(vm, TYPE, "Operands must be ot type 'number' for '%s' operator.", operation);
+
+	Value operandValue = peek(vm, 0);
+
+	bool currentIsInt = IS_INT(currentValue);
+	bool currentIsFloat = IS_FLOAT(currentValue);
+	bool operandIsInt = IS_INT(operandValue);
+	bool operandIsFloat = IS_FLOAT(operandValue);
+
+	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+		if (!(currentIsInt || currentIsFloat)) {
+			runtimePanic(vm, TYPE, "Variable '%s' is not a number for '%s' operator.", name->chars, operation);
+		} else {
+			runtimePanic(vm, TYPE, "Right-hand operand for '%s' must be an 'int' or 'float'.", operation);
+		}
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	switch (opcode) {
-		case OP_SET_GLOBAL_SLASH: {
-			if (AS_NUMBER(peek(vm, 0)) != 0.0) {
-				double result = AS_NUMBER(currentValue) / AS_NUMBER(peek(vm, 0));
-				tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
+
+	Value resultValue;
+
+	if (currentIsInt && operandIsInt) {
+		int32_t icurrent = AS_INT(currentValue);
+		int32_t ioperand = AS_INT(operandValue);
+
+		switch (opcode) {
+			case OP_SET_GLOBAL_PLUS: {
+				// +=
+				int64_t result = (int64_t) icurrent + (int64_t) ioperand;
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					resultValue = INT_VAL((int32_t)result);
+				} else {
+					resultValue = FLOAT_VAL((double)result);
+				}
 				break;
 			}
-			runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero error: '%s'.", name->chars);
-			return INTERPRET_RUNTIME_ERROR;
+			case OP_SET_GLOBAL_MINUS: {
+				int64_t result = (int64_t) icurrent - (int64_t) ioperand;
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					resultValue = INT_VAL((int32_t)result);
+				} else {
+					resultValue = FLOAT_VAL((double)result);
+				}
+				break;
+			}
+			case OP_SET_GLOBAL_STAR: {
+				int64_t result = (int64_t) icurrent * (int64_t) ioperand;
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					resultValue = INT_VAL((int32_t)result);
+				} else {
+					resultValue = FLOAT_VAL((double)result);
+				}
+				break;
+			}
+			case OP_SET_GLOBAL_SLASH: {
+				if (ioperand == 0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '%s %s'.", name->chars, operation);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				resultValue = FLOAT_VAL((double)icurrent / (double)ioperand);
+				break;
+			}
+
+			case OP_SET_GLOBAL_INT_DIVIDE: {
+				if (ioperand == 0) {
+					runtimePanic(vm, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				if (icurrent == INT32_MIN && ioperand == -1) {
+					resultValue = FLOAT_VAL(-(double)INT32_MIN); // Overflow
+				} else {
+					resultValue = INT_VAL(icurrent / ioperand);
+				}
+				break;
+			}
+
+			case OP_SET_GLOBAL_MODULUS: {
+				if (ioperand == 0) {
+					runtimePanic(vm, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				if (icurrent == INT32_MIN && ioperand == -1) {
+					resultValue = INT_VAL(0);
+				} else {
+					resultValue = INT_VAL(icurrent % ioperand);
+				}
+				break;
+			}
+
+			default:
+				runtimePanic(vm, RUNTIME, "Unsupported compound assignment opcode %d for int/int.", opcode);
+				return INTERPRET_RUNTIME_ERROR;
 		}
-		case OP_SET_GLOBAL_STAR: {
-			double result = AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
-			break;
+	} else {
+		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+		double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+
+		switch (opcode) {
+			case OP_SET_GLOBAL_PLUS: {
+				resultValue = FLOAT_VAL(dcurrent + doperand);
+				break;
+			}
+			case OP_SET_GLOBAL_MINUS: {
+				resultValue = FLOAT_VAL(dcurrent - doperand);
+				break;
+			}
+			case OP_SET_GLOBAL_STAR: {
+				resultValue = FLOAT_VAL(dcurrent * doperand);
+				break;
+			}
+			case OP_SET_GLOBAL_SLASH: {
+				if (doperand == 0.0) {
+					runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '%s %s'.", name->chars, operation);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				resultValue = FLOAT_VAL(dcurrent / doperand);
+				break;
+			}
+
+			case OP_SET_GLOBAL_INT_DIVIDE:
+			case OP_SET_GLOBAL_MODULUS: {
+				runtimePanic(vm, TYPE, "Operands for integer compound assignment '%s' must both be integers.", operation);
+				return INTERPRET_RUNTIME_ERROR;
+			}
+			default:
+				runtimePanic(vm, RUNTIME, "Unsupported compound assignment opcode %d for float/mixed.", opcode);
+				return INTERPRET_RUNTIME_ERROR;
 		}
-		case OP_SET_GLOBAL_PLUS: {
-			double result = AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
-			break;
-		}
-		case OP_SET_GLOBAL_MINUS: {
-			double result = AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0));
-			tableSet(vm, &vm->globals, name, NUMBER_VAL(result), false);
-			break;
-		}
-		default: ;
 	}
+
+	if (!tableSet(vm, &vm->globals, name, resultValue, false)) {
+		runtimePanic(vm, RUNTIME, "Failed to set global variable '%s' after compound assignment.", name->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
 	return INTERPRET_OK;
 }
 
@@ -703,7 +886,6 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo, OpCo
 	}
 	return *(current - (instructionsAgo + 2)) == instruction; // +2 to account for offset
 }
-
 
 /**
  * Executes bytecode in the virtual machine.
@@ -790,6 +972,12 @@ static InterpretResult run(VM *vm) {
 		&& OP_GIVE,
 		&& OP_INT_DIVIDE,
 		&& OP_POWER,
+		&& OP_SET_GLOBAL_INT_DIVIDE,
+		&& OP_SET_GLOBAL_MODULUS,
+		&& OP_SET_LOCAL_INT_DIVIDE,
+		&& OP_SET_LOCAL_MODULUS,
+		&& OP_SET_UPVALUE_INT_DIVIDE,
+		&& OP_SET_UPVALUE_MODULUS,
 		&& end
 	};
 
@@ -836,11 +1024,21 @@ OP_FALSE: {
 
 OP_NEGATE: {
 		Value operand = peek(vm, 0);
-		if (IS_NUMBER(operand)) {
-			push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
-			goto* dispatchTable[endIndex];
+		if (IS_INT(operand)) {
+			int32_t iVal = AS_INT(operand);
+			if (iVal == INT32_MIN) {
+				popPush(vm, FLOAT_VAL(-(double)INT32_MIN));
+			} else {
+				popPush(vm, INT_VAL(-iVal));
+			}
+		} else if (IS_FLOAT(operand)) {
+			popPush(vm, FLOAT_VAL(-AS_FLOAT(operand)));
+		} else {
+			pop(vm);
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "'int' | 'float'"));
+			return INTERPRET_RUNTIME_ERROR;
 		}
-		runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "number"));
+		runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "'int' | 'float'"));
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1168,7 +1366,7 @@ OP_GET_COLLECTION: {
 		}
 		switch (AS_CRUX_OBJECT(peek(vm, 0))->type) {
 			case OBJECT_TABLE: {
-				if (IS_CRUX_STRING(indexValue) || IS_NUMBER(indexValue)) {
+				if (IS_CRUX_STRING(indexValue) || IS_INT(indexValue)) {
 					ObjectTable *table = AS_CRUX_TABLE(peek(vm, 0));
 					Value value;
 					if (!objectTableGet(table, indexValue, &value)) {
@@ -1183,11 +1381,11 @@ OP_GET_COLLECTION: {
 				goto* dispatchTable[endIndex];
 			}
 			case OBJECT_ARRAY: {
-				if (!IS_NUMBER(indexValue)) {
-					runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+				if (!IS_INT(indexValue)) {
+					runtimePanic(vm, TYPE, "Index must be of type 'int'.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				int index = AS_NUMBER(indexValue);
+				int index = AS_INT(indexValue);
 				ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 0));
 				Value value;
 				if (index < 0 || index >= array->size) {
@@ -1202,11 +1400,11 @@ OP_GET_COLLECTION: {
 				goto* dispatchTable[endIndex];
 			}
 			case OBJECT_STRING: {
-				if (!IS_NUMBER(indexValue)) {
-					runtimePanic(vm, TYPE, "Index must be of type 'number'.");
+				if (!IS_INT(indexValue)) {
+					runtimePanic(vm, TYPE, "Index must be of type 'int'.");
 					return INTERPRET_RUNTIME_ERROR;
 				}
-				int index = AS_NUMBER(indexValue);
+				int index = AS_INT(indexValue);
 				ObjectString *string = AS_CRUX_STRING(peek(vm, 0));
 				ObjectString *ch;
 				if (index < 0 || index >= string->length) {
@@ -1232,7 +1430,7 @@ OP_SET_COLLECTION: {
 
 		if (IS_CRUX_TABLE(peek(vm, 1))) {
 			ObjectTable *table = AS_CRUX_TABLE(peek(vm, 1));
-			if (IS_NUMBER(indexValue) || IS_CRUX_STRING(indexValue)) {
+			if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
 				if (!objectTableSet(vm, table, indexValue, value)) {
 					runtimePanic(vm, COLLECTION_GET, "Failed to set value in table");
 					return INTERPRET_RUNTIME_ERROR;
@@ -1243,7 +1441,7 @@ OP_SET_COLLECTION: {
 			}
 		} else if (IS_CRUX_ARRAY(peek(vm, 1))) {
 			ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 1));
-			int index = AS_NUMBER(indexValue);
+			int index = AS_INT(indexValue);
 			if (!arraySet(vm, array, index, value)) {
 				runtimePanic(vm, COLLECTION_SET, "Failed to set value in array");
 				return INTERPRET_RUNTIME_ERROR;
@@ -1281,115 +1479,301 @@ OP_RIGHT_SHIFT: {
 OP_SET_LOCAL_SLASH: {
 		uint8_t slot = READ_BYTE();
 		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0); // Right-hand side
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '/=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '/=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		double divisor = AS_NUMBER(peek(vm, 0));
+		Value resultValue;
 
-		if (divisor == 0.0) {
-			runtimePanic(vm, DIVISION_BY_ZERO, "Divisor must be non-zero.");
+		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+		double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+
+		if (doperand == 0.0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '/=' assignment.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) / divisor);
+		resultValue = FLOAT_VAL(dcurrent / doperand);
+		frame->slots[slot] = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_LOCAL_STAR: {
 		uint8_t slot = READ_BYTE();
 		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '*=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '*=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0)));
+
+		Value resultValue;
+
+		if (currentIsInt && operandIsInt) {
+			int32_t icurrent = AS_INT(currentValue);
+			int32_t ioperand = AS_INT(operandValue);
+			int64_t result = (int64_t) icurrent * (int64_t) ioperand;
+			if (result >= INT32_MIN && result <= INT32_MAX) {
+				resultValue = INT_VAL((int32_t)result);
+			} else {
+				resultValue = FLOAT_VAL((double)result); // Promote
+			}
+		} else {
+			double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+			double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+			resultValue = FLOAT_VAL(dcurrent * doperand);
+		}
+
+		frame->slots[slot] = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_LOCAL_PLUS: {
 		uint8_t slot = READ_BYTE();
 		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '+=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
+			push(vm, currentValue);
+			if (!concatenate(vm)) {
+				pop(vm);
+
+				return INTERPRET_RUNTIME_ERROR;
+			}
+
+			frame->slots[slot] = peek(vm, 0);
+		}
+
+		else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
+			Value resultValue;
+			if (currentIsInt && operandIsInt) {
+				int32_t icurrent = AS_INT(currentValue);
+				int32_t ioperand = AS_INT(operandValue);
+				int64_t result = (int64_t) icurrent + (int64_t) ioperand;
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					resultValue = INT_VAL((int32_t)result);
+				} else {
+					resultValue = FLOAT_VAL((double)result); // Promote
+				}
+			} else {
+				double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+				double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+				resultValue = FLOAT_VAL(dcurrent + doperand);
+			}
+			frame->slots[slot] = resultValue;
+		}
+
+		else {
+			runtimePanic(vm, TYPE, "Operands for '+=' must be of type 'float' | 'int' | 'string'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0)));
+
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_LOCAL_MINUS: {
 		uint8_t slot = READ_BYTE();
 		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '-=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '-=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		frame->slots[slot] = NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0)));
+
+		Value resultValue;
+
+		if (currentIsInt && operandIsInt) {
+			int32_t icurrent = AS_INT(currentValue);
+			int32_t ioperand = AS_INT(operandValue);
+			int64_t result = (int64_t) icurrent - (int64_t) ioperand;
+			if (result >= INT32_MIN && result <= INT32_MAX) {
+				resultValue = INT_VAL((int32_t)result);
+			} else {
+				resultValue = FLOAT_VAL((double)result);
+			}
+		} else {
+			double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+			double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+			resultValue = FLOAT_VAL(dcurrent - doperand);
+		}
+
+		frame->slots[slot] = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_UPVALUE_SLASH: {
 		uint8_t slot = READ_BYTE();
-		Value currentValue = *frame->closure->upvalues[slot]->location;
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '/=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '/=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		double divisor = AS_NUMBER(peek(vm, 0));
-		if (divisor == 0.0) {
-			runtimePanic(vm, DIVISION_BY_ZERO, "Divisor must be non-zero.");
+
+		Value resultValue;
+
+		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+		double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+
+		if (doperand == 0.0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '/=' assignment.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		*frame->closure->upvalues[slot]->location = NUMBER_VAL(AS_NUMBER(currentValue) / divisor);
 
+		resultValue = FLOAT_VAL(dcurrent / doperand);
+		*location = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_UPVALUE_STAR: {
 		uint8_t slot = READ_BYTE();
-		Value currentValue = *frame->closure->upvalues[slot]->location;
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '*=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '*=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		*frame->closure->upvalues[slot]->location =
-				NUMBER_VAL(AS_NUMBER(currentValue) * AS_NUMBER(peek(vm, 0)));
+
+		Value resultValue;
+
+		if (currentIsInt && operandIsInt) {
+			int32_t icurrent = AS_INT(currentValue);
+			int32_t ioperand = AS_INT(operandValue);
+			int64_t result = (int64_t) icurrent * (int64_t) ioperand;
+			if (result >= INT32_MIN && result <= INT32_MAX) {
+				resultValue = INT_VAL((int32_t)result);
+			} else {
+				resultValue = FLOAT_VAL((double)result);
+			}
+		} else {
+			double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+			double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+			resultValue = FLOAT_VAL(dcurrent * doperand);
+		}
+
+		*location = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_UPVALUE_PLUS: {
 		uint8_t slot = READ_BYTE();
-		Value currentValue = *frame->closure->upvalues[slot]->location;
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '+=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
+			push(vm, currentValue);
+			if (!concatenate(vm)) {
+				pop(vm);
+				return INTERPRET_RUNTIME_ERROR;
+			}
+			*location = peek(vm, 0);
+		}
+
+		else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
+			Value resultValue;
+			if (currentIsInt && operandIsInt) {
+				int32_t icurrent = AS_INT(currentValue);
+				int32_t ioperand = AS_INT(operandValue);
+				int64_t result = (int64_t) icurrent + (int64_t) ioperand;
+				if (result >= INT32_MIN && result <= INT32_MAX) {
+					resultValue = INT_VAL((int32_t)result);
+				} else {
+					resultValue = FLOAT_VAL((double)result);
+				}
+			} else {
+				double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+				double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+				resultValue = FLOAT_VAL(dcurrent + doperand);
+			}
+			*location = resultValue;
+		}
+		else {
+			runtimePanic(vm, TYPE, "Operands for '+=' must be numbers or strings.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		*frame->closure->upvalues[slot]->location =
-				NUMBER_VAL(AS_NUMBER(currentValue) + AS_NUMBER(peek(vm, 0)));
 
 		goto* dispatchTable[endIndex];
 	}
 
 OP_SET_UPVALUE_MINUS: {
 		uint8_t slot = READ_BYTE();
-		Value currentValue = *frame->closure->upvalues[slot]->location;
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
 
-		if (!(IS_NUMBER(currentValue) && IS_NUMBER(peek(vm, 0)))) {
-			runtimePanic(vm, TYPE, "Both operands must be of type 'number' for the '-=' operator");
+		bool currentIsInt = IS_INT(currentValue);
+		bool currentIsFloat = IS_FLOAT(currentValue);
+		bool operandIsInt = IS_INT(operandValue);
+		bool operandIsFloat = IS_FLOAT(operandValue);
+
+		if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+			runtimePanic(vm, TYPE, "Operands for '-=' must be numbers.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		*frame->closure->upvalues[slot]->location =
-				NUMBER_VAL(AS_NUMBER(currentValue) - AS_NUMBER(peek(vm, 0)));
+		Value resultValue;
+
+		if (currentIsInt && operandIsInt) {
+			int32_t icurrent = AS_INT(currentValue);
+			int32_t ioperand = AS_INT(operandValue);
+			int64_t result = (int64_t) icurrent - (int64_t) ioperand;
+			if (result >= INT32_MIN && result <= INT32_MAX) {
+				resultValue = INT_VAL((int32_t)result);
+			} else {
+				resultValue = FLOAT_VAL((double)result);
+			}
+		} else {
+			double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double) AS_INT(currentValue);
+			double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double) AS_INT(operandValue);
+			resultValue = FLOAT_VAL(dcurrent - doperand);
+		}
+
+		*location = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
@@ -1431,7 +1815,7 @@ OP_TABLE: {
 		for (int i = elementCount - 1; i >= 0; i--) {
 			Value value = pop(vm);
 			Value key = pop(vm);
-			if (IS_NUMBER(key) || IS_CRUX_STRING(key)) {
+			if (IS_INT(key) || IS_CRUX_STRING(key) || IS_FLOAT(key)) {
 				if (!objectTableSet(vm, table, key, value)) {
 					runtimePanic(vm, COLLECTION_SET, "Failed to set value in table");
 					return INTERPRET_RUNTIME_ERROR;
@@ -1673,6 +2057,138 @@ OP_POWER: {
 		if (!binaryOperation(vm, OP_POWER)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+		goto* dispatchTable[endIndex];
+	}
+
+OP_SET_GLOBAL_INT_DIVIDE: {
+		ObjectString *name = READ_STRING();
+		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_INT_DIVIDE, "\\=") == INTERPRET_RUNTIME_ERROR) {
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		goto* dispatchTable[endIndex];
+	}
+
+OP_SET_GLOBAL_MODULUS: {
+		ObjectString *name = READ_STRING();
+		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_MODULUS, "%=") == INTERPRET_RUNTIME_ERROR) {
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		goto* dispatchTable[endIndex];
+	}
+
+OP_SET_LOCAL_INT_DIVIDE: {
+		uint8_t slot = READ_BYTE();
+		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0);
+
+		if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
+			runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		int32_t icurrent = AS_INT(currentValue);
+		int32_t ioperand = AS_INT(operandValue);
+
+		if (ioperand == 0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Integer division by zero in '//=' assignment.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		Value resultValue;
+		if (icurrent == INT32_MIN && ioperand == -1) {
+			resultValue = FLOAT_VAL(-(double)INT32_MIN); // Promote
+		} else {
+			resultValue = INT_VAL(icurrent / ioperand);
+		}
+
+		frame->slots[slot] = resultValue;
+		goto* dispatchTable[endIndex];
+	}
+OP_SET_LOCAL_MODULUS: {
+		uint8_t slot = READ_BYTE();
+		Value currentValue = frame->slots[slot];
+		Value operandValue = peek(vm, 0);
+
+		if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
+			runtimePanic(vm, TYPE, "Operands for '%=' must both be integers.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		int32_t icurrent = AS_INT(currentValue);
+		int32_t ioperand = AS_INT(operandValue);
+
+		if (ioperand == 0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Modulo by zero in '%=' assignment.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		Value resultValue;
+		if (icurrent == INT32_MIN && ioperand == -1) {
+			resultValue = INT_VAL(0);
+		} else {
+			resultValue = INT_VAL(icurrent % ioperand);
+		}
+
+		frame->slots[slot] = resultValue;
+		goto* dispatchTable[endIndex];
+	}
+OP_SET_UPVALUE_INT_DIVIDE: {
+		uint8_t slot = READ_BYTE();
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
+
+		if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
+			runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		int32_t icurrent = AS_INT(currentValue);
+		int32_t ioperand = AS_INT(operandValue);
+
+		if (ioperand == 0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Integer division by zero in '//=' assignment.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		Value resultValue;
+		if (icurrent == INT32_MIN && ioperand == -1) {
+			resultValue = FLOAT_VAL(-(double)INT32_MIN); // Promote
+		} else {
+			resultValue = INT_VAL(icurrent / ioperand);
+		}
+
+		*location = resultValue;
+		goto* dispatchTable[endIndex];
+	}
+
+OP_SET_UPVALUE_MODULUS: {
+		uint8_t slot = READ_BYTE();
+		Value *location = frame->closure->upvalues[slot]->location;
+		Value currentValue = *location;
+		Value operandValue = peek(vm, 0);
+
+		if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
+			runtimePanic(vm, TYPE, "Operands for '%=' must both be of type 'int'.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		int32_t icurrent = AS_INT(currentValue);
+		int32_t ioperand = AS_INT(operandValue);
+
+		if (ioperand == 0) {
+			runtimePanic(vm, DIVISION_BY_ZERO, "Modulo by zero in '%=' assignment.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		Value resultValue;
+		if (ioperand == -1 && icurrent == INT32_MIN) {
+			resultValue = INT_VAL(0);
+		} else {
+			resultValue = INT_VAL(icurrent % ioperand);
+		}
+
+		*location = resultValue;
 		goto* dispatchTable[endIndex];
 	}
 
