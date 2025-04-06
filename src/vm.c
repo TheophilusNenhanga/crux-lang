@@ -998,28 +998,53 @@ OP_RETURN: {
 		vm->stackTop = frame->slots;
 		push(vm, result);
 		frame = &vm->frames[vm->frameCount - 1];
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_CONSTANT: {
 		Value constant = READ_CONSTANT();
 		push(vm, constant);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_NIL: {
 		push(vm, NIL_VAL);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_TRUE: {
 		push(vm, BOOL_VAL(true));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_FALSE: {
 		push(vm, BOOL_VAL(false));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_NEGATE: {
@@ -1046,42 +1071,72 @@ OP_EQUAL: {
 		Value b = pop(vm);
 		Value a = pop(vm);
 		push(vm, BOOL_VAL(valuesEqual(a, b)));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GREATER: {
 		if (!binaryOperation(vm, OP_GREATER)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_LESS: {
 		if (!binaryOperation(vm, OP_LESS)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_LESS_EQUAL: {
 		if (!binaryOperation(vm, OP_LESS_EQUAL)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GREATER_EQUAL: {
 		if (!binaryOperation(vm, OP_GREATER_EQUAL)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_NOT_EQUAL: {
 		Value b = pop(vm);
 		Value a = pop(vm);
 		push(vm, BOOL_VAL(!valuesEqual(a, b)));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_ADD: {
@@ -1089,43 +1144,78 @@ OP_ADD: {
 			if (!concatenate(vm)) {
 				return INTERPRET_RUNTIME_ERROR;
 			}
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 		if (!binaryOperation(vm, OP_ADD)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_NOT: {
 		push(vm, BOOL_VAL(isFalsy(pop(vm))));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SUBTRACT: {
 		if (!binaryOperation(vm, OP_SUBTRACT)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_MULTIPLY: {
 		if (!binaryOperation(vm, OP_MULTIPLY)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_DIVIDE: {
 		if (!binaryOperation(vm, OP_DIVIDE)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_POP: {
 		pop(vm);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_DEFINE_GLOBAL: {
@@ -1136,7 +1226,12 @@ OP_DEFINE_GLOBAL: {
 		}
 		if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 			pop(vm);
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 		runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
@@ -1147,7 +1242,12 @@ OP_GET_GLOBAL: {
 		Value value;
 		if (tableGet(&vm->globals, name, &value)) {
 			push(vm, value);
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 		runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
@@ -1160,40 +1260,75 @@ OP_SET_GLOBAL: {
 			             name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GET_LOCAL: {
 		uint8_t slot = READ_BYTE();
 		push(vm, frame->slots[slot]);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL: {
 		uint8_t slot = READ_BYTE();
 		frame->slots[slot] = peek(vm, 0);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_JUMP_IF_FALSE: {
 		uint16_t offset = READ_SHORT();
 		if (isFalsy(peek(vm, 0))) {
 			frame->ip += offset;
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_JUMP: {
 		uint16_t offset = READ_SHORT();
 		frame->ip += offset;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_LOOP: {
 		uint16_t offset = READ_SHORT();
 		frame->ip -= offset;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_CALL: {
@@ -1202,7 +1337,12 @@ OP_CALL: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		frame = &vm->frames[vm->frameCount - 1];
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_CLOSURE: {
@@ -1220,30 +1360,55 @@ OP_CLOSURE: {
 				closure->upvalues[i] = frame->closure->upvalues[index];
 			}
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GET_UPVALUE: {
 		uint8_t slot = READ_BYTE();
 		push(vm, *frame->closure->upvalues[slot]->location);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE: {
 		uint8_t slot = READ_BYTE();
 		*frame->closure->upvalues[slot]->location = peek(vm, 0);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_CLOSE_UPVALUE: {
 		closeUpvalues(vm, vm->stackTop - 1);
 		pop(vm);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_CLASS: {
 		push(vm, OBJECT_VAL(newClass(vm, READ_STRING())));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GET_PROPERTY: {
@@ -1264,7 +1429,12 @@ OP_GET_PROPERTY: {
 			pop(vm);
 			push(vm, value);
 			fieldFound = true;
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 
 		if (!fieldFound) {
@@ -1273,7 +1443,12 @@ OP_GET_PROPERTY: {
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_PROPERTY: {
@@ -1292,7 +1467,12 @@ OP_SET_PROPERTY: {
 		if (tableSet(vm, &instance->fields, name, peek(vm, 0), false)) {
 			Value value = pop(vm);
 			popPush(vm, value);
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 		runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
@@ -1305,12 +1485,22 @@ OP_INVOKE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		frame = &vm->frames[vm->frameCount - 1];
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_METHOD: {
 		defineMethod(vm, READ_STRING());
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_INHERIT: {
@@ -1324,7 +1514,12 @@ OP_INHERIT: {
 		ObjectClass *subClass = AS_CRUX_CLASS(peek(vm, 0));
 		tableAddAll(vm, &AS_CRUX_CLASS(superClass)->methods, &subClass->methods);
 		pop(vm);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GET_SUPER: {
@@ -1334,7 +1529,12 @@ OP_GET_SUPER: {
 		if (!bindMethod(vm, superClass, name)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SUPER_INVOKE: {
@@ -1345,7 +1545,12 @@ OP_SUPER_INVOKE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		frame = &vm->frames[vm->frameCount - 1];
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_ARRAY: {
@@ -1355,7 +1560,12 @@ OP_ARRAY: {
 			arrayAdd(vm, array, pop(vm), i);
 		}
 		push(vm, OBJECT_VAL(array));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GET_COLLECTION: {
@@ -1378,7 +1588,12 @@ OP_GET_COLLECTION: {
 					runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
 					return INTERPRET_RUNTIME_ERROR;
 				}
+#ifdef DEBUG_TRACE_EXECUTION
 				goto* dispatchTable[endIndex];
+#else
+				instruction = READ_BYTE();
+				goto* dispatchTable[instruction];
+#endif
 			}
 			case OBJECT_ARRAY: {
 				if (!IS_INT(indexValue)) {
@@ -1397,7 +1612,12 @@ OP_GET_COLLECTION: {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				popPush(vm, value); // pop the array off the stack // push the value onto the stack
+#ifdef DEBUG_TRACE_EXECUTION
 				goto* dispatchTable[endIndex];
+#else
+				instruction = READ_BYTE();
+				goto* dispatchTable[instruction];
+#endif
 			}
 			case OBJECT_STRING: {
 				if (!IS_INT(indexValue)) {
@@ -1414,14 +1634,24 @@ OP_GET_COLLECTION: {
 				// Only single character indexing
 				ch = copyString(vm, string->chars + index, 1);
 				popPush(vm, OBJECT_VAL(ch));
+#ifdef DEBUG_TRACE_EXECUTION
 				goto* dispatchTable[endIndex];
+#else
+				instruction = READ_BYTE();
+				goto* dispatchTable[instruction];
+#endif
 			}
 			default: {
 				runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_COLLECTION: {
@@ -1452,28 +1682,48 @@ OP_SET_COLLECTION: {
 		}
 		popTwo(vm); // indexValue and collection
 		push(vm, indexValue);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_MODULUS: {
 		if (!binaryOperation(vm, OP_MODULUS)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_LEFT_SHIFT: {
 		if (!binaryOperation(vm, OP_LEFT_SHIFT)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_RIGHT_SHIFT: {
 		if (!binaryOperation(vm, OP_RIGHT_SHIFT)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL_SLASH: {
@@ -1503,7 +1753,12 @@ OP_SET_LOCAL_SLASH: {
 
 		resultValue = FLOAT_VAL(dcurrent / doperand);
 		frame->slots[slot] = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL_STAR: {
@@ -1539,7 +1794,12 @@ OP_SET_LOCAL_STAR: {
 		}
 
 		frame->slots[slot] = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL_PLUS: {
@@ -1561,9 +1821,7 @@ OP_SET_LOCAL_PLUS: {
 			}
 
 			frame->slots[slot] = peek(vm, 0);
-		}
-
-		else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
+		} else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
 			Value resultValue;
 			if (currentIsInt && operandIsInt) {
 				int32_t icurrent = AS_INT(currentValue);
@@ -1580,14 +1838,17 @@ OP_SET_LOCAL_PLUS: {
 				resultValue = FLOAT_VAL(dcurrent + doperand);
 			}
 			frame->slots[slot] = resultValue;
-		}
-
-		else {
+		} else {
 			runtimePanic(vm, TYPE, "Operands for '+=' must be of type 'float' | 'int' | 'string'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL_MINUS: {
@@ -1623,7 +1884,12 @@ OP_SET_LOCAL_MINUS: {
 		}
 
 		frame->slots[slot] = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE_SLASH: {
@@ -1654,7 +1920,12 @@ OP_SET_UPVALUE_SLASH: {
 
 		resultValue = FLOAT_VAL(dcurrent / doperand);
 		*location = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE_STAR: {
@@ -1691,7 +1962,12 @@ OP_SET_UPVALUE_STAR: {
 		}
 
 		*location = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE_PLUS: {
@@ -1712,9 +1988,7 @@ OP_SET_UPVALUE_PLUS: {
 				return INTERPRET_RUNTIME_ERROR;
 			}
 			*location = peek(vm, 0);
-		}
-
-		else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
+		} else if ((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat)) {
 			Value resultValue;
 			if (currentIsInt && operandIsInt) {
 				int32_t icurrent = AS_INT(currentValue);
@@ -1731,13 +2005,17 @@ OP_SET_UPVALUE_PLUS: {
 				resultValue = FLOAT_VAL(dcurrent + doperand);
 			}
 			*location = resultValue;
-		}
-		else {
+		} else {
 			runtimePanic(vm, TYPE, "Operands for '+=' must be numbers or strings.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE_MINUS: {
@@ -1774,7 +2052,12 @@ OP_SET_UPVALUE_MINUS: {
 		}
 
 		*location = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_SLASH: {
@@ -1782,7 +2065,12 @@ OP_SET_GLOBAL_SLASH: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_SLASH, "/=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_STAR: {
@@ -1790,7 +2078,12 @@ OP_SET_GLOBAL_STAR: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_STAR, "*=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_PLUS: {
@@ -1798,7 +2091,12 @@ OP_SET_GLOBAL_PLUS: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_PLUS, "+=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_MINUS: {
@@ -1806,7 +2104,12 @@ OP_SET_GLOBAL_MINUS: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_MINUS, "-=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_TABLE: {
@@ -1826,7 +2129,12 @@ OP_TABLE: {
 			}
 		}
 		push(vm, OBJECT_VAL(table));
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_ANON_FUNCTION: {
@@ -1843,7 +2151,12 @@ OP_ANON_FUNCTION: {
 				closure->upvalues[i] = frame->closure->upvalues[index];
 			}
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_USE: {
@@ -1904,7 +2217,12 @@ OP_USE: {
 				pop(vm);
 			}
 			importSetAdd(vm, &vm->module->importedModules, modulePath);
+#ifdef DEBUG_TRACE_EXECUTION
 			goto* dispatchTable[endIndex];
+#else
+			instruction = READ_BYTE();
+			goto* dispatchTable[instruction];
+#endif
 		}
 
 		char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
@@ -1972,18 +2290,33 @@ OP_USE: {
 
 		importSetAdd(vm, &vm->module->importedModules, modulePath);
 		freeVM(newModuleVM);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_PUB: {
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_MATCH: {
 		Value target = peek(vm, 0);
 		vm->matchHandler.matchTarget = target;
 		vm->matchHandler.isMatchTarget = true;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_MATCH_JUMP: {
@@ -1993,7 +2326,12 @@ OP_MATCH_JUMP: {
 		if (!valuesEqual(pattern, target)) {
 			frame->ip += offset;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_MATCH_END: {
@@ -2004,7 +2342,12 @@ OP_MATCH_END: {
 		vm->matchHandler.matchBind = NIL_VAL;
 		vm->matchHandler.isMatchBind = false;
 		vm->matchHandler.isMatchTarget = false;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_RESULT_MATCH_OK: {
@@ -2016,7 +2359,12 @@ OP_RESULT_MATCH_OK: {
 			Value value = AS_CRUX_RESULT(target)->as.value;
 			popPush(vm, value);
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_RESULT_MATCH_ERR: {
@@ -2028,7 +2376,12 @@ OP_RESULT_MATCH_ERR: {
 			Value error = OBJECT_VAL(AS_CRUX_RESULT(target)->as.error);
 			popPush(vm, error);
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_RESULT_BIND: {
@@ -2037,27 +2390,47 @@ OP_RESULT_BIND: {
 		vm->matchHandler.matchBind = bind;
 		vm->matchHandler.isMatchBind = true;
 		frame->slots[slot] = bind;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_GIVE: {
 		Value result = pop(vm);
 		popPush(vm, result);
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_INT_DIVIDE: {
 		if (!binaryOperation(vm, OP_INT_DIVIDE)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_POWER: {
 		if (!binaryOperation(vm, OP_POWER)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_INT_DIVIDE: {
@@ -2065,7 +2438,12 @@ OP_SET_GLOBAL_INT_DIVIDE: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_INT_DIVIDE, "\\=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_GLOBAL_MODULUS: {
@@ -2073,7 +2451,12 @@ OP_SET_GLOBAL_MODULUS: {
 		if (globalCompoundOperation(vm, name, OP_SET_GLOBAL_MODULUS, "%=") == INTERPRET_RUNTIME_ERROR) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_LOCAL_INT_DIVIDE: {
@@ -2102,7 +2485,12 @@ OP_SET_LOCAL_INT_DIVIDE: {
 		}
 
 		frame->slots[slot] = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 OP_SET_LOCAL_MODULUS: {
 		uint8_t slot = READ_BYTE();
@@ -2130,7 +2518,12 @@ OP_SET_LOCAL_MODULUS: {
 		}
 
 		frame->slots[slot] = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 OP_SET_UPVALUE_INT_DIVIDE: {
 		uint8_t slot = READ_BYTE();
@@ -2159,7 +2552,12 @@ OP_SET_UPVALUE_INT_DIVIDE: {
 		}
 
 		*location = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_SET_UPVALUE_MODULUS: {
@@ -2189,11 +2587,15 @@ OP_SET_UPVALUE_MODULUS: {
 		}
 
 		*location = resultValue;
+#ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
 	}
 
 end: {
-#ifdef DEBUG_TRACE_EXECUTION
 		printf("        ");
 		for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
 			printf("[");
@@ -2203,8 +2605,7 @@ end: {
 		printf("\n");
 
 		disassembleInstruction(&frame->closure->function->chunk,
-													 (int) (frame->ip - frame->closure->function->chunk.code));
-#endif
+		                       (int) (frame->ip - frame->closure->function->chunk.code));
 
 		instruction = READ_BYTE();
 		goto* dispatchTable[instruction];

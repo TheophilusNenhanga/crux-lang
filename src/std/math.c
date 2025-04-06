@@ -36,12 +36,19 @@ ObjectResult *sqrtFunction(VM *vm, int argCount, Value *args) {
 	return stellaOk(vm, FLOAT_VAL(sqrt(number)));
 }
 
+static inline int32_t absoluteValue(int32_t x) {
+	if (x < 0) {
+		return -x;
+	}
+	return x;
+}
+
 ObjectResult *absFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
 	}
 	if (IS_INT(args[0])) {
-		return stellaOk(vm, INT_VAL(abs(AS_INT(args[0]))));
+		return stellaOk(vm, INT_VAL(absoluteValue(AS_INT(args[0]))));
 	}
 	return stellaOk(vm, FLOAT_VAL(fabs(AS_FLOAT(args[0]))));
 }

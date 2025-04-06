@@ -10,6 +10,7 @@
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
+#include "errno.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
