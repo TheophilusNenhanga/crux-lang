@@ -395,7 +395,7 @@ ObjectResult* readAllFileMethod(VM *vm, int argCount, Value *args) {
 		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for file content.", 43), MEMORY, false));
 	}
 
-	fread(buffer, 1, fileSize, file->file);
+	size_t _ = fread(buffer, 1, fileSize, file->file);
 	buffer[fileSize] = '\0';
 
 	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
