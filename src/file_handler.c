@@ -18,7 +18,7 @@ static char *dirName(char *path) {
 		return NULL;
 	}
 
-	char *pathCopy = _strdup(path);
+	char *pathCopy = strdup(path);
 	if (pathCopy == NULL) {
 		return NULL;
 	}
@@ -26,7 +26,7 @@ static char *dirName(char *path) {
 	size_t pathLen = strlen(pathCopy);
 	if (pathLen == 0) {
 		free(pathCopy);
-		return _strdup(".");
+		return strdup(".");
 	}
 
 	while (pathLen > 1 && (pathCopy[pathLen - 1] == '/' || pathCopy[pathLen - 1] == '\\')) {
@@ -42,16 +42,16 @@ static char *dirName(char *path) {
 #endif
 	if (lastSlash == NULL) {
 		free(pathCopy);
-		return _strdup(".");
+		return strdup(".");
 	}
 
 	if (lastSlash == pathCopy) {
 #ifdef _WIN32
 		char *result;
 		if (pathCopy[1] == ':') {
-			result = _strdup(pathCopy);
+			result = strdup(pathCopy);
 		} else {
-			result = _strdup("\\");
+			result = strdup("\\");
 		}
 #else
 		char *result = strdup("/");
@@ -75,7 +75,7 @@ static char *dirName(char *path) {
 	}
 #endif
 	*lastSlash = '\0';
-	char *result = _strdup(pathCopy);
+	char *result = strdup(pathCopy);
 	free(pathCopy);
 	return result;
 }
@@ -95,7 +95,7 @@ static char *getDirectoryFromPath(const char *path) {
 		return NULL;
 	}
 
-	char *pathCopy = _strdup(path);
+	char *pathCopy = strdup(path);
 	if (pathCopy == NULL) {
 		return NULL;
 	}
@@ -106,7 +106,7 @@ static char *getDirectoryFromPath(const char *path) {
 		return NULL;
 	}
 
-	char *result = _strdup(dir);
+	char *result = strdup(dir);
 	free(pathCopy);
 	free(dir);
 	return result;
@@ -131,7 +131,7 @@ static char *combinePaths(const char *base, const char *relative) {
 			|| (strlen(relative) > 2 && relative[1] == ':')
 #endif
 	) {
-		return _strdup(relative);
+		return strdup(relative);
 	}
 
 	size_t baseLen = strlen(base);
@@ -175,9 +175,9 @@ char *resolvePath(const char *basePath, const char *importPath) {
 #else
 		char resolvedPath[MAX_PATH_LENGTH];
 		if (realpath(importPath, resolvedPath) == NULL) {
-			return _strdup(importPath);
+			return strdup(importPath);
 		}
-		return _strdup(resolvedPath);
+		return strdup(resolvedPath);
 #endif
 	}
 
@@ -203,7 +203,7 @@ char *resolvePath(const char *basePath, const char *importPath) {
 	char resolvedPath[MAX_PATH_LENGTH];
 	if (realpath(combinedPath, resolvedPath) == NULL) {
 		free(combinedPath);
-		return _strdup(combinedPath);
+		return strdup(combinedPath);
 	}
 	free(combinedPath);
 	return strdup(resolvedPath);
@@ -229,7 +229,7 @@ FileResult readFile(const char *path) {
 
 	result.content = (char *) malloc(fileSize + 1);
 	if (result.content == NULL) {
-		result.error = _strdup("Not enough memory to read file");
+		result.error = strdup("Not enough memory to read file");
 		fclose(file);
 		return result;
 	}
@@ -238,7 +238,7 @@ FileResult readFile(const char *path) {
 	if (bytesRead < fileSize) {
 		free(result.content);
 		result.content = NULL;
-		result.error = _strdup("Could not read file completely");
+		result.error = strdup("Could not read file completely");
 		fclose(file);
 		return result;
 	}

@@ -7,7 +7,7 @@
 
 ObjectFunction *compile(VM *vm, char *source);
 
-void markCompilerRoots();
+void markCompilerRoots(VM* vm);
 
 /**
  * @brief Parser state used during compilation.
