@@ -6,8 +6,7 @@ A memory managed, interpreted programming language.
 
 ### Windows 
 
-To build from source on windows you need to have mingw (for gcc) installed, and in your PATH. 
-
+To build from source on Windows you need to have mingw (for gcc) installed, and in your PATH.
 you can get mingw [here](https://www.mingw-w64.org/).
 
 ```shell
