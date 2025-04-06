@@ -69,9 +69,14 @@ jobs:
 
       - name: Install MinGW (Windows)
         if: matrix.os == 'windows-latest'
-        uses: egor-tensin/setup-mingw@v2
+        uses: msys2/setup-msys2@v2
         with:
-          platform: x64
+          msystem: mingw64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            make
 
       - name: Setup GCC environment (Windows)
         if: matrix.os == 'windows-latest'
@@ -89,10 +94,11 @@ jobs:
 
       - name: Build Windows
         if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../src
+          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../src
           cmake --build . --config Release
 
       - name: Rename binary
