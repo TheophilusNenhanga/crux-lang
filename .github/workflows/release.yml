@@ -29,7 +29,7 @@ jobs:
             arch: amd64
             artifact_name: crux.exe
             binary_path: build/crux.exe
-            cmake_generator: "MinGW Makefiles"
+            cmake_generator: "MSYS Makefiles"
             cmake_flags: ""
             
           - os: macos-latest

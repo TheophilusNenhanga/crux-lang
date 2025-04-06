@@ -2,7 +2,6 @@
 #define COMPILER_H
 #include "object.h"
 #include "scanner.h"
-#include "vm.h"
 
 
 ObjectFunction *compile(VM *vm, char *source);
@@ -61,9 +60,11 @@ typedef struct {
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
 
-typedef struct {
+typedef struct Compiler Compiler;
+
+struct Compiler {
 	VM *owner;
-	struct Compiler *enclosing;
+	Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;
 	int localCount;
@@ -71,7 +72,7 @@ typedef struct {
 	int matchDepth;
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
-} Compiler;
+};
 
 typedef struct ClassCompiler {
 	struct ClassCompiler *enclosing;
