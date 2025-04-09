@@ -67,21 +67,19 @@ static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
  * @brief Calculates the next power of 2 capacity for a collection.
  *
  * This static helper function calculates the next power of 2 capacity for
- * collections like tables and arrays. It ensures efficient hash table
- * resizing and memory allocation by always using power-of-two capacities.
- * If the input `n` is close to `UINT16_MAX`, it returns `UINT16_MAX - 1` to avoid potential overflow.
+ * collections like tables and arrays.
  *
  * @param n The desired minimum capacity.
  *
  * @return The next power of 2 capacity greater than or equal to `n`, or `UINT16_MAX - 1` if `n` is close to the maximum.
  */
-static uint64_t calculateCollectionCapacity(uint64_t n) {
+static uint32_t calculateCollectionCapacity(uint32_t n) {
 	if (n >= UINT16_MAX - 1) {
 		return UINT16_MAX - 1;
 	}
 
-	if (n < 1)
-		return 1;
+	if (n < 8)
+		return 8;
 	n--;
 	n |= n >> 1;
 	n |= n >> 2;

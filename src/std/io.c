@@ -11,7 +11,7 @@
 #define MAX_LINE_LENGTH 4096
 
 
-static FILE *getChannel(const char *channel) {
+static inline FILE *getChannel(const char *channel) {
 	if (strcmp(channel, "stdin") == 0)
 		return stdin;
 	if (strcmp(channel, "stdout") == 0)
@@ -21,12 +21,12 @@ static FILE *getChannel(const char *channel) {
 	return NULL;
 }
 
-void valuePrint(Value value);
+static inline void valuePrint(Value value, bool inCollection);
 
-void printArray(ObjectArray *array) {
+static inline void printArray(ObjectArray *array) {
 	printf("[");
 	for (int i = 0; i < array->size; i++) {
-		valuePrint(array->array[i]);
+		valuePrint(array->array[i], true);
 		if (i != array->size - 1) {
 			printf(", ");
 		}
@@ -34,14 +34,14 @@ void printArray(ObjectArray *array) {
 	printf("]");
 }
 
-void printTable(ObjectTable *table) {
+static inline void printTable(ObjectTable *table) {
 	uint16_t printed = 0;
 	printf("{");
 	for (int i = 0; i < table->capacity; i++) {
 		if (table->entries[i].isOccupied) {
-			valuePrint(table->entries[i].key);
+			valuePrint(table->entries[i].key, true);
 			printf(":");
-			valuePrint(table->entries[i].value);
+			valuePrint(table->entries[i].value, true);
 			if (printed != table->size - 1) {
 				printf(", ");
 			}
@@ -51,7 +51,7 @@ void printTable(ObjectTable *table) {
 	printf("}");
 }
 
-void printResult(ObjectResult* result) {
+static inline void printResult(ObjectResult* result) {
 	if (result->isOk) {
 			printf("Ok<");
 			printType(result->as.value);
@@ -65,7 +65,7 @@ void printResult(ObjectResult* result) {
 	}
 }
 
-void valuePrint(Value value) {
+void valuePrint(Value value, bool inCollection) {
 	if (IS_BOOL(value)) {
 		printf(AS_BOOL(value) ? "true" : "false");
 	} else if (IS_NIL(value)) {
@@ -80,6 +80,13 @@ void valuePrint(Value value) {
 		printTable(AS_CRUX_TABLE(value));
 	}else if (IS_CRUX_RESULT(value)) {
 		printResult(AS_CRUX_RESULT(value));
+	} else if (IS_CRUX_STRING(value)) {
+		if (inCollection) {
+			printf("\"%s\"", AS_C_STRING(value));
+		}else {
+			printf("%s", AS_C_STRING(value));
+		}
+
 	} else if (IS_CRUX_OBJECT(value)) {
 		printObject(value);
 	}
@@ -87,7 +94,7 @@ void valuePrint(Value value) {
 
 // Standard I/O Functions
 Value printFunction(VM *vm, int argCount, Value *args) {
-	valuePrint(args[0]);
+	valuePrint(args[0], false);
 	return  NIL_VAL;
 }
 

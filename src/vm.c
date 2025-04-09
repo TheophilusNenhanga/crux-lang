@@ -1256,7 +1256,7 @@ OP_GET_GLOBAL: {
 OP_SET_GLOBAL: {
 		ObjectString *name = READ_STRING();
 		if (tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
-			runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined",
+			runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined\nDid you forget 'let'?",
 			             name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
@@ -1673,7 +1673,7 @@ OP_SET_COLLECTION: {
 			ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 1));
 			int index = AS_INT(indexValue);
 			if (!arraySet(vm, array, index, value)) {
-				runtimePanic(vm, COLLECTION_SET, "Failed to set value in array");
+				runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Cannot set a value in an empty array.");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		} else {
