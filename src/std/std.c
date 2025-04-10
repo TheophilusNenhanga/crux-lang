@@ -9,6 +9,7 @@
 #include "string.h"
 #include "tables.h"
 #include "random.h"
+#include "sys.h"
 
 
 static Callable stringMethodsArray[] = {
@@ -166,6 +167,11 @@ static InfallibleCallable timeInfallibleFunctionsArray[] = {
 
 static InfallibleCallable randomInfallibleFunctionsArray[] = {
 	{"Random", randomInitFunction, 0},
+	{NULL, NULL, 0}
+};
+
+static Callable systemFunctionsArray[] = {
+	{"args", argsFunction, 0},
 	{NULL, NULL, 0}
 };
 
@@ -358,6 +364,10 @@ bool initializeStdLib(VM *vm) {
 	}
 	
 	if (!initModule(vm, "random", NULL, randomInfallibleFunctionsArray)) {
+		return false;
+	}
+
+	if (!initModule(vm, "sys", systemFunctionsArray, NULL)) {
 		return false;
 	}
 	

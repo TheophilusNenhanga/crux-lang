@@ -16,13 +16,13 @@
 #include "value.h"
 
 
-VM *newVM() {
+VM *newVM(int argc, const char **argv) {
 	VM *vm = malloc(sizeof(VM));
 	if (vm == NULL) {
 		fprintf(stderr, "Stella Fatal Error: Could not allocate memory for VM\n");
 		exit(1);
 	}
-	initVM(vm);
+	initVM(vm, argc, argv);
 	return vm;
 }
 
@@ -470,7 +470,7 @@ static bool concatenate(VM *vm) {
 }
 
 
-void initVM(VM *vm) {
+void initVM(VM *vm, int argc, const char **argv) {
 	resetStack(vm);
 	vm->objects = NULL;
 	vm->bytesAllocated = 0;
@@ -499,6 +499,9 @@ void initVM(VM *vm) {
 
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
+
+	vm->args.argc = argc;
+	vm->args.argv = argv;
 
 	if (!initializeStdLib(vm)) {
 		runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
@@ -2251,7 +2254,7 @@ OP_USE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		VM *newModuleVM = newVM();
+		VM *newModuleVM = newVM(vm->args.argc, vm->args.argv);
 		newModuleVM->enclosing = vm;
 
 		newModuleVM->module = newModule(newModuleVM, modulePath->chars);

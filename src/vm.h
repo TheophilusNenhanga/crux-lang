@@ -45,6 +45,11 @@ typedef struct {
 	int capacity;
 }NativeModules;
 
+typedef struct {
+	const char** argv;
+	int argc;
+}Args;
+
 struct VM {
 	Value stack[STACK_MAX]; // always points just past the last item
 	Value *stackTop;
@@ -70,11 +75,12 @@ struct VM {
 	ObjectModule *module;
 	NativeModules nativeModules;
 	MatchHandler matchHandler;
+	Args args;
 };
 
-VM *newVM();
+VM *newVM(int argc, const char **argv);
 
-void initVM(VM *vm);
+void initVM(VM *vm, int argc, const char **argv);
 
 void freeVM(VM *vm);
 

@@ -52,7 +52,7 @@ static void runFile(VM *vm, const char *path) {
 */
 int main(const int argc, const char *argv[]) {
 
-	VM *vm = newVM();
+	VM *vm = newVM(argc, argv);
 	
 	if (argc == 1) {
 		vm->module = newModule(vm, "./");
