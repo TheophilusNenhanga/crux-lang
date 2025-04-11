@@ -36,7 +36,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
         "Check that all values in the operation are of the expected types",
     };
   case LIMIT: {
-    return (ErrorDetails){"Stella Limit Error",
+    return (ErrorDetails){"Limit Error",
                           "The program cannot handle this many constants"};
   }
   case NAME: {

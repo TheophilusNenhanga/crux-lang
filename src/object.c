@@ -612,7 +612,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		default:
-			return copyString(vm, "<stella object>", 15);
+			return copyString(vm, "<crux object>", 13);
 	}
 }
 
@@ -632,7 +632,7 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	return instance;
 }
 
-ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
+ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function, int arity, ObjectString *name) {
 	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -640,7 +640,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, i
 	return native;
 }
 
-ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
+ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity, ObjectString *name) {
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -648,7 +648,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int a
 	return native;
 }
 
-ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name) {
 	ObjectNativeInfallibleFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleFunction, OBJECT_NATIVE_INFALLIBLE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -656,7 +656,7 @@ ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfall
 	return native;
 }
 
-ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name) {
 	ObjectNativeInfallibleMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleMethod, OBJECT_NATIVE_INFALLIBLE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -943,14 +943,14 @@ void freeImportSet(VM* vm, ImportSet* set) {
 }
 
 
-ObjectResult* stellaOk(VM* vm, Value value) {
+ObjectResult* newOkResult(VM* vm, Value value) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = true;
 	result->as.value = value;
 	return result;
 }
 
-ObjectResult* stellaErr(VM *vm, ObjectError* error) {
+ObjectResult* newErrorResult(VM *vm, ObjectError* error) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = false;
 	result->as.error = error;

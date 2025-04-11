@@ -176,7 +176,7 @@ static Callable systemFunctionsArray[] = {
 };
 
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName, 
-						 StellaNativeCallable methodFunction, int arity) {
+						 CruxCallable methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
 	if (!tableSet(vm, methodTable, name, 
 		OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
@@ -186,7 +186,7 @@ bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
 }
 
 bool registerNativeInfallibleMethod(VM *vm, Table *methodTable, const char *methodName,
-								   StellaInfallibleCallable methodFunction, int arity) {
+								   CruxInfallibleCallable methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
 	if (!tableSet(vm, methodTable, name, 
 		OBJECT_VAL(newNativeInfallibleMethod(vm, methodFunction, arity, name)), false)) {
@@ -216,7 +216,7 @@ static bool registerInfallibleMethods(VM *vm, Table *methodTable, InfallibleCall
 }
 
 static bool registerNativeFunction(VM *vm, Table *functionTable, const char *functionName, 
-								 StellaNativeCallable function, int arity) {
+								 CruxCallable function, int arity) {
 	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
 	if (!tableSet(vm, functionTable, name, 
 		OBJECT_VAL(newNativeFunction(vm, function, arity, name)), false)) {
@@ -226,7 +226,7 @@ static bool registerNativeFunction(VM *vm, Table *functionTable, const char *fun
 }
 
 static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable, const char *functionName,
-										   StellaInfallibleCallable function, int arity) {
+										   CruxInfallibleCallable function, int arity) {
 	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
 	if (!tableSet(vm, functionTable, name, 
 		OBJECT_VAL(newNativeInfallibleFunction(vm, function, arity, name)), false)) {

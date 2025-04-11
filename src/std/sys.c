@@ -11,7 +11,7 @@ ObjectResult* argsFunction(VM *vm, int argCount, Value *args) {
 		if (arg == NULL) {
 			pop(vm);
 			pop(vm);
-			return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate memory for argument.", 39), MEMORY, false));
+			return newErrorResult(vm, newError(vm, copyString(vm, "Failed to allocate memory for argument.", 39), MEMORY, false));
 		}
 		ObjectString* argvString = takeString(vm, arg, strlen(arg));
 		arrayAddBack(vm, argvArray, OBJECT_VAL(argvString));
@@ -23,5 +23,5 @@ ObjectResult* argsFunction(VM *vm, int argCount, Value *args) {
 	pop(vm);
 	pop(vm);
 
-	return stellaOk(vm, OBJECT_VAL(resultArray));
+	return newOkResult(vm, OBJECT_VAL(resultArray));
 }

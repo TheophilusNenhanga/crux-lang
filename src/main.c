@@ -61,7 +61,12 @@ int main(const int argc, const char *argv[]) {
 		vm->module = newModule(vm, argv[1]);
 		runFile(vm, argv[1]);
 	} else {
-		fprintf(stderr, "Usage: stella [path]\n");
+#ifdef _WIN32
+		fprintf(stderr, "Usage: & .\\[crux.exe] [path]\n");
+#else
+		fprintf(stderr, "Usage: ./[crux] [path]\n");
+#endif
+
 		exit(64);
 	}
 

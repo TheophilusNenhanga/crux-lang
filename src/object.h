@@ -177,33 +177,33 @@ typedef struct {
 	} as;
 } ObjectResult;
 
-typedef ObjectResult* (*StellaNativeCallable)(VM *vm, int argCount, Value *args);
-typedef Value (*StellaInfallibleCallable)(VM *vm, int argCount, Value *args);
+typedef ObjectResult* (*CruxCallable)(VM *vm, int argCount, Value *args);
+typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, Value *args);
 
 typedef struct {
 	Object object;
-	StellaNativeCallable function;
+	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeFunction;
 
 typedef struct {
 	Object object;
-	StellaNativeCallable function;
+	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeMethod;
 
 typedef struct {
 	Object object;
-	StellaInfallibleCallable function;
+	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeInfallibleFunction;
 
 typedef struct {
 	Object object;
-	StellaInfallibleCallable function;
+	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeInfallibleMethod;
@@ -257,7 +257,7 @@ static bool isObjectType(Value value, ObjectType type) { return IS_CRUX_OBJECT(v
  * @brief Creates a new error object.
  *
  * This function allocates and initializes a new ObjectError, representing
- * an error in the Stella language.
+ * an error in the crux language.
  *
  * @param vm The virtual machine.
  * @param message The error message as an ObjectString.
@@ -313,7 +313,7 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
 /**
  * @brief Creates a new native function object.
  *
- * Native functions are implemented in C and callable from Stella code.
+ * Native functions are implemented in C and callable from crux code.
  * This function allocates and initializes a new ObjectNativeFunction.
  *
  * @param vm The virtual machine.
@@ -323,7 +323,7 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
-ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name);
+ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function, int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native method object.
@@ -338,12 +338,12 @@ ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, i
  *
  * @return A pointer to the newly created ObjectNativeMethod.
  */
-ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name);
+ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native infallible function object.
  *
- * Native infallible functions are implemented in C, callable from Stella code,
+ * Native infallible functions are implemented in C, callable from crux code,
  * and guaranteed not to return errors. This function allocates and initializes 
  * a new ObjectNativeInfallibleFunction.
  *
@@ -354,7 +354,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int a
  *
  * @return A pointer to the newly created ObjectNativeInfallibleFunction.
  */
-ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name);
+ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native infallible method object.
@@ -362,13 +362,13 @@ ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfall
  * Native infallible methods are similar to native infallible functions but are associated with classes.
  * This function allocates and initializes a new ObjectNativeInfallibleMethod.
  */
-ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name);
+ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name);
 
 /**
  * @brief Creates a new function object.
  *
  * This function allocates and initializes a new ObjectFunction, representing
- * a function in the Stella language. It sets default values for arity, name,
+ * a function in the crux language. It sets default values for arity, name,
  * and upvalue count, and initializes the function's chunk.
  *
  * @param vm The virtual machine.
@@ -381,7 +381,7 @@ ObjectFunction *newFunction(VM *vm);
  * @brief Creates a new class object.
  *
  * This function allocates and initializes a new ObjectClass, representing a class
- * in the Stella language. It initializes the class's method table and sets its name.
+ * in the crux language. It initializes the class's method table and sets its name.
  *
  * @param vm The virtual machine.
  * @param name The name of the class as an ObjectString.
@@ -394,7 +394,7 @@ ObjectClass *newClass(VM *vm, ObjectString *name);
  * @brief Creates a new instance object.
  *
  * This function allocates and initializes a new ObjectInstance, representing
- * an instance of a class in the Stella language. It associates the instance
+ * an instance of a class in the crux language. It associates the instance
  * with its class and initializes its field table.
  *
  * @param vm The virtual machine.
@@ -441,7 +441,7 @@ ObjectTable *newTable(VM *vm, int elementCount);
  *
  * @return A pointer to the result with the value.
  */
-ObjectResult* stellaOk(VM *vm, Value value);
+ObjectResult* newOkResult(VM *vm, Value value);
 
 /**
  * @brief Creates a new error result with a boxed error.
@@ -454,13 +454,13 @@ ObjectResult* stellaOk(VM *vm, Value value);
  *
  * @return A pointer to the result with the error.
  */
-ObjectResult* stellaErr(VM *vm, ObjectError *error);
+ObjectResult* newErrorResult(VM *vm, ObjectError *error);
 
 /**
  * @brief Creates a new array object.
  *
  * This function allocates and initializes a new ObjectArray, representing
- * a dynamic array in the Stella language. It allocates memory for the array
+ * a dynamic array in the crux language. It allocates memory for the array
  * elements and sets initial capacity and size.
  *
  * @param vm The virtual machine.
@@ -479,7 +479,7 @@ ObjectArray *newArray(VM *vm, uint32_t elementCount);
  * It also interns the string. If an identical string already exists in the string table,
  * the provided `chars` buffer is freed, and the existing interned string is returned.
  *
- * @param vm The Stella Virtual Machine.
+ * @param vm The crux Virtual Machine.
  * @param chars The character buffer to be owned by the ObjectString. This buffer will be freed if the string is interned or when the ObjectString is garbage collected.
  * @param length The length of the string.
  *
@@ -689,7 +689,7 @@ void freeImportSet(VM *vm, ImportSet *set);
  * @brief Creates a new random object.
  *
  * This function allocates and initializes a new ObjectRandom, representing
- * a random number generator in the Stella language.
+ * a random number generator in the crux language.
  *
  * @param vm The virtual machine.
  *

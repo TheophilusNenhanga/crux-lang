@@ -19,7 +19,7 @@
 VM *newVM(int argc, const char **argv) {
 	VM *vm = malloc(sizeof(VM));
 	if (vm == NULL) {
-		fprintf(stderr, "Stella Fatal Error: Could not allocate memory for VM\n");
+		fprintf(stderr, "Fatal Error: Could not allocate memory for VM\n");
 		exit(1);
 	}
 	initVM(vm, argc, argv);

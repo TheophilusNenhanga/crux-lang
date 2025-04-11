@@ -24,54 +24,54 @@ ObjectResult *stringFirstMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(value);
 
 	if (string->length == 0) {
-		return stellaErr(vm,
+		return newErrorResult(vm,
 		                 newError(vm, copyString(
 			                          vm, "'string' must have at least one character to get the first character.", 69), VALUE,
 		                          false));
 	}
 
-	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[0], 1)));
+	return newOkResult(vm, OBJECT_VAL(copyString(vm, &string->chars[0], 1)));
 }
 
 ObjectResult *stringLastMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	ObjectString *string = AS_CRUX_STRING(value);
 	if (string->length == 0) {
-		return stellaErr(vm, newError(
+		return newErrorResult(vm, newError(
 			                 vm, copyString(vm, "'string' must have at least one character to get the last character.", 68),
 			                 VALUE, false));
 	}
-	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1)));
+	return newOkResult(vm, OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1)));
 }
 
 ObjectResult *stringGetMethod(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value index = args[1];
 	if (!IS_INT(index)) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<index> must be of type 'number'.", 33), TYPE, false));
 	}
 	ObjectString *string = AS_CRUX_STRING(value);
 	if (AS_INT(index) < 0 || (uint32_t)AS_INT(index) >= string->length) {
-		return stellaErr(vm, newError(
+		return newErrorResult(vm, newError(
 			                 vm, copyString(
 				                 vm, "<index> must be a non negative number that is less than the length of the string.", 81),
 			                 INDEX_OUT_OF_BOUNDS, false));
 	}
 
 	if (string->length == 0) {
-		return stellaErr(vm, newError(
+		return newErrorResult(vm, newError(
 			                 vm, copyString(vm, "'string' must have at least one character to get a character.", 61), VALUE,
 			                 false));
 	}
 
-	return stellaOk(vm, OBJECT_VAL(copyString(vm, &string->chars[(uint32_t) AS_INT(index)], 1)));
+	return newOkResult(vm, OBJECT_VAL(copyString(vm, &string->chars[(uint32_t) AS_INT(index)], 1)));
 }
 
 ObjectResult *stringUpperMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		return stellaOk(vm, OBJECT_VAL(copyString(vm, "", 0)));
+		return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
 	}
 
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
@@ -84,14 +84,14 @@ ObjectResult *stringUpperMethod(VM *vm, int argCount, Value *args) {
 		}
 	}
 	buffer[string->length] = '\0';
-	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
+	return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
 }
 
 ObjectResult *stringLowerMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		return stellaOk(vm, OBJECT_VAL(copyString(vm, "", 0)));
+		return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
 	}
 
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
@@ -104,14 +104,14 @@ ObjectResult *stringLowerMethod(VM *vm, int argCount, Value *args) {
 		}
 	}
 	buffer[string->length] = '\0';
-	return stellaOk(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
+	return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
 }
 
 ObjectResult *stringStripMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		return stellaOk(vm, OBJECT_VAL(copyString(vm, "", 0)));
+		return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
 	}
 
 	uint32_t start = 0;
@@ -124,64 +124,64 @@ ObjectResult *stringStripMethod(VM *vm, int argCount, Value *args) {
 		end--;
 	}
 
-	return stellaOk(vm, OBJECT_VAL(copyString(vm, string->chars + start, end - start)));
+	return newOkResult(vm, OBJECT_VAL(copyString(vm, string->chars + start, end - start)));
 }
 
 ObjectResult *stringSubstringMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_INT(args[1])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<start> index must be of type 'int'.", 36), VALUE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<start> index must be of type 'int'.", 36), VALUE, false));
 	}
 	if (!IS_INT(args[2])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<end> index must be of type 'int'.", 34), VALUE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<end> index must be of type 'int'.", 34), VALUE, false));
 	}
 
 	int rawStartIndex = AS_INT(args[1]);
 	int rawEndIndex = AS_INT(args[2]);
 
 	if (rawStartIndex < 0) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<start> index cannot be negative.", 32), INDEX_OUT_OF_BOUNDS, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<start> index cannot be negative.", 32), INDEX_OUT_OF_BOUNDS, false));
 	}
 	if (rawEndIndex < 0) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<end> index cannot be negative.", 30), INDEX_OUT_OF_BOUNDS, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<end> index cannot be negative.", 30), INDEX_OUT_OF_BOUNDS, false));
 	}
 
 	uint32_t startIndex = (uint32_t)rawStartIndex;
 	uint32_t endIndex = (uint32_t)rawEndIndex;
 
 	if (startIndex > string->length || endIndex > string->length || startIndex > endIndex) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Index out of bounds.", 20), INDEX_OUT_OF_BOUNDS, false));
 	}
 
 	char *substring = string->chars + startIndex;
 	ObjectString *newSubstring = copyString(vm, substring, endIndex - startIndex);
 
-	return stellaOk(vm, OBJECT_VAL(newSubstring));
+	return newOkResult(vm, OBJECT_VAL(newSubstring));
 }
 
 ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_CRUX_STRING(args[1])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<delimiter> must be of type 'string'.", 37), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<delimiter> must be of type 'string'.", 37), TYPE, false));
 	}
 
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	ObjectString *delimiter = AS_CRUX_STRING(args[1]);
 
 	if (delimiter->length == 0) {
-		return stellaErr(vm, newError(vm, copyString(vm, "<delimiter> cannot be empty.", 28), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "<delimiter> cannot be empty.", 28), TYPE, false));
 	}
 
 	if (string->length == 0) {
 		ObjectArray *resultArray = newArray(vm, 1);
 		arrayAddBack(vm, resultArray, OBJECT_VAL(copyString(vm, "", 0)));
-		return stellaOk(vm, OBJECT_VAL(resultArray));
+		return newOkResult(vm, OBJECT_VAL(resultArray));
 	}
 
 	if (delimiter->length > string->length) {
 		ObjectArray *resultArray = newArray(vm, 1);
 		arrayAdd(vm, resultArray, OBJECT_VAL(string), 0);
-		return stellaOk(vm, OBJECT_VAL(resultArray));
+		return newOkResult(vm, OBJECT_VAL(resultArray));
 	}
 
 	uint32_t stringLength = string->length;
@@ -189,7 +189,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, delimiterLength);
 	if (prefixTable == NULL) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
 	}
 
 	buildPrefixTable(delimiter->chars, delimiterLength, prefixTable);
@@ -230,7 +230,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
 
 	FREE_ARRAY(vm, uint32_t, prefixTable, delimiterLength);
 
-	return stellaOk(vm, OBJECT_VAL(resultArray));
+	return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
 // KMP string-matching algorithm
@@ -238,20 +238,20 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41), TYPE, false));
 	}
 	ObjectString *goal = AS_CRUX_STRING(args[1]);
 
 	if (goal->length == 0) {
-		return stellaOk(vm, BOOL_VAL(true));
+		return newOkResult(vm, BOOL_VAL(true));
 	}
 
 	if (string->length == 0) {
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 	}
 
 	if (goal->length > string->length) {
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 	}
 
 	uint32_t stringLength = string->length;
@@ -260,7 +260,7 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
 
 	if (prefixTable == NULL) {
-		return stellaErr(vm,
+		return newErrorResult(vm,
 		                 newError(vm, copyString(vm, "Failed to allocate memory for string.contains().", 48), MEMORY,
 		                          false));
 	}
@@ -277,17 +277,17 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
 		}
 		if (j == goalLength) {
 			FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-			return stellaOk(vm, BOOL_VAL(true));
+			return newOkResult(vm, BOOL_VAL(true));
 		}
 	}
 
 	FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-	return stellaOk(vm, BOOL_VAL(false));
+	return newOkResult(vm, BOOL_VAL(false));
 }
 
 ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) || !IS_CRUX_STRING(args[2])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "All arguments must be strings.", 30), TYPE, false));
 	}
 
 	ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -295,7 +295,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *replacement = AS_CRUX_STRING(args[2]);
 
 	if (string->length == 0 || goal->length == 0) {
-		return stellaErr(vm,
+		return newErrorResult(vm,
 		                 newError(vm,
 		                          string->length == 0
 			                          ? copyString(vm, "Source string must have at least one character.", 47)
@@ -304,7 +304,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	}
 
 	if (goal->length > string->length) {
-		return stellaOk(vm, OBJECT_VAL(string));
+		return newOkResult(vm, OBJECT_VAL(string));
 	}
 
 	uint32_t stringLength = string->length;
@@ -315,7 +315,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
 	if (prefixTable == NULL) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
 	}
 
 	buildPrefixTable(goal->chars, goalLength, prefixTable);
@@ -324,7 +324,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	uint32_t *matchIndices = ALLOCATE(vm, uint32_t, stringLength);
 	if (matchIndices == NULL) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
 	}
 
 	uint32_t j = 0;
@@ -344,7 +344,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (matchCount == 0) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return stellaOk(vm, OBJECT_VAL(string));
+		return newOkResult(vm, OBJECT_VAL(string));
 	}
 
 	int64_t lengthDiff = (int64_t)replacementLength - (int64_t)goalLength;
@@ -353,7 +353,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (newLength_64 < 0 || newLength_64 > UINT32_MAX) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return stellaErr(vm, newError(vm, copyString(vm, "Resulting string length exceeds maximum.", 40), VALUE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Resulting string length exceeds maximum.", 40), VALUE, false));
 	}
 	uint32_t newStringLength = (uint32_t)newLength_64;
 
@@ -361,7 +361,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	if (newStringChars == NULL) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return stellaErr(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Memory allocation failed.", 25), MEMORY, false));
 	}
 
 	uint32_t writeIndex = 0;
@@ -387,58 +387,58 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
 	FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 	FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
 
-	return stellaOk(vm, OBJECT_VAL(newString));
+	return newOkResult(vm, OBJECT_VAL(newString));
 }
 
 ObjectResult *stringStartsWithMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "First argument <char> must be of type 'string'.", 47), TYPE, false));
 	}
 
 	ObjectString *prefix = AS_CRUX_STRING(args[1]); // Renamed 'goal' to 'prefix'
 
 	if (prefix->length == 0) {
-		return stellaOk(vm, BOOL_VAL(true));
+		return newOkResult(vm, BOOL_VAL(true));
 	}
 
 	if (string->length == 0) {
-		return stellaOk(vm, BOOL_VAL(false)); // prefix is non-empty here
+		return newOkResult(vm, BOOL_VAL(false)); // prefix is non-empty here
 	}
 
 	if (prefix->length > string->length) {
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 	}
 
 	if (memcmp(string->chars, prefix->chars, prefix->length) == 0) {
-		return stellaOk(vm, BOOL_VAL(true));
+		return newOkResult(vm, BOOL_VAL(true));
 	}
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 
 }
 
 ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "First argument must be of type 'string'.", 40), TYPE, false));
 	}
 	ObjectString *suffix = AS_CRUX_STRING(args[1]);
 
 	if (suffix->length == 0) {
-		return stellaOk(vm, BOOL_VAL(true));
+		return newOkResult(vm, BOOL_VAL(true));
 	}
 
 	if (string->length == 0) {
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 	}
 	if (suffix->length > string->length) {
-		return stellaOk(vm, BOOL_VAL(false));
+		return newOkResult(vm, BOOL_VAL(false));
 	}
 
 	uint32_t stringStart = string->length - suffix->length;
 
 	if (memcmp(string->chars + stringStart, suffix->chars, suffix->length) == 0) {
-		return stellaOk(vm, BOOL_VAL(true));
+		return newOkResult(vm, BOOL_VAL(true));
 	}
-	return stellaOk(vm, BOOL_VAL(false));
+	return newOkResult(vm, BOOL_VAL(false));
 }

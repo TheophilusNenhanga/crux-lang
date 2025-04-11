@@ -362,12 +362,12 @@ static Value deepCopyValue(ModuleCopyContext *ctx, Value value) {
 			ObjectResult* newResult;
 
 			if (result->isOk) {
-				newResult = stellaOk(ctx->toVM, deepCopyValue(ctx, result->as.value));
+				newResult = newOkResult(ctx->toVM, deepCopyValue(ctx, result->as.value));
 			}else {
 				ObjectError* error = result->as.error;
 				ObjectString *messageCopy = copyString(ctx->toVM, error->message->chars, error->message->length);
 				ObjectError *copy = newError(ctx->toVM, messageCopy, error->type, error->isPanic);
-				newResult = stellaErr(ctx->toVM, copy);
+				newResult = newErrorResult(ctx->toVM, copy);
 			}
 			trackCopy(ctx, object, (Object*) newResult);
 			return OBJECT_VAL(newResult);

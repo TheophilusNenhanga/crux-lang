@@ -5,7 +5,7 @@ ObjectResult* tableValuesMethod(VM *vm, int argCount, Value *args) {
 	ObjectArray *values = newArray(vm, table->size);
 
 	if (values == NULL) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <values> array.", 52), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <values> array.", 52), MEMORY, false));
 	}
 
 	uint16_t lastInsert = 0;
@@ -20,7 +20,7 @@ ObjectResult* tableValuesMethod(VM *vm, int argCount, Value *args) {
 
 	values->size = lastInsert;
 
-	return stellaOk(vm, OBJECT_VAL(values));
+	return newOkResult(vm, OBJECT_VAL(values));
 }
 
 ObjectResult* tableKeysMethod(VM *vm, int argCount, Value *args) {
@@ -29,7 +29,7 @@ ObjectResult* tableKeysMethod(VM *vm, int argCount, Value *args) {
 	ObjectArray *keys = newArray(vm, table->size);
 
 	if (keys == NULL) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <keys> array.", 50), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <keys> array.", 50), MEMORY, false));
 	}
 
 	uint16_t lastInsert = 0;
@@ -44,7 +44,7 @@ ObjectResult* tableKeysMethod(VM *vm, int argCount, Value *args) {
 
 	keys->size = lastInsert;
 
-	return stellaOk(vm, OBJECT_VAL(keys));
+	return newOkResult(vm, OBJECT_VAL(keys));
 }
 
 ObjectResult* tablePairsMethod(VM *vm, int argCount, Value *args) {
@@ -53,7 +53,7 @@ ObjectResult* tablePairsMethod(VM *vm, int argCount, Value *args) {
 	ObjectArray *pairs = newArray(vm, table->size);
 
 	if (pairs == NULL) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <pairs> array.", 51), MEMORY, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for <pairs> array.", 51), MEMORY, false));
 	}
 
 	uint16_t lastInsert = 0;
@@ -64,7 +64,7 @@ ObjectResult* tablePairsMethod(VM *vm, int argCount, Value *args) {
 			ObjectArray *pair = newArray(vm, 2);
 
 			if (pair == NULL) {
-				return stellaErr(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for pair array.", 48), MEMORY, false));
+				return newErrorResult(vm, newError(vm, copyString(vm, "Failed to allocate enough memory for pair array.", 48), MEMORY, false));
 			}
 
 			pair->array[0] = entry.key;
@@ -78,5 +78,5 @@ ObjectResult* tablePairsMethod(VM *vm, int argCount, Value *args) {
 
 	pairs->size = lastInsert;
 
-	return stellaOk(vm, OBJECT_VAL(pairs));
+	return newOkResult(vm, OBJECT_VAL(pairs));
 }

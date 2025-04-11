@@ -1,5 +1,5 @@
-#ifndef STELLA_STD_H
-#define STELLA_STD_H
+#ifndef STD_H
+#define STD_H
 
 #include "../object.h"
 #include "../table.h"
@@ -7,13 +7,13 @@
 
 typedef struct {
 	const char *name;
-	StellaNativeCallable function;
+	CruxCallable function;
 	int arity;
 } Callable;
 
 typedef struct {
 	const char *name;
-	StellaInfallibleCallable function;
+	CruxInfallibleCallable function;
 	int arity;
 } InfallibleCallable;
 
@@ -22,10 +22,10 @@ bool initializeStdLib(VM *vm);
 
 
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName, 
-						 StellaNativeCallable methodFunction, int arity);
+						 CruxCallable methodFunction, int arity);
 
 
 bool registerNativeInfallibleMethod(VM *vm, Table *methodTable, const char *methodName,
-								   StellaInfallibleCallable methodFunction, int arity);
+								   CruxInfallibleCallable methodFunction, int arity);
 
-#endif // STELLA_STD_H
+#endif // STD_H

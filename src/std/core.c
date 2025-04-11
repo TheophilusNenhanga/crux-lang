@@ -23,9 +23,9 @@ ObjectResult* lengthFunction(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value length = getLength(value);
 	if (IS_NIL(length)) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Expected either a collection type ('string', 'array', 'table').", 46), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Expected either a collection type ('string', 'array', 'table').", 46), TYPE, false));
 	}
-	return stellaOk(vm, length);
+	return newOkResult(vm, length);
 }
 
 Value lengthFunction_(VM *vm, int argCount, Value *args) {
@@ -244,36 +244,36 @@ ObjectResult* intFunction(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value value = castInt(vm, args, &success);
     if (!success) {
-    return stellaErr(vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30), TYPE, false));
+    return newErrorResult(vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30), TYPE, false));
     }
-    return stellaOk(vm, value);
+    return newOkResult(vm, value);
 }
 
 ObjectResult* floatFunction(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value value = castFloat(vm, args, &success);
     if (!success) {
-        return stellaErr(vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30), TYPE, false));
+        return newErrorResult(vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30), TYPE, false));
     }
-    return stellaOk(vm, value);
+    return newOkResult(vm, value);
 }
 
 ObjectResult* stringFunction(VM *vm, int argCount, Value *args) {
     Value value = args[0];
-    return stellaOk(vm, OBJECT_VAL(toString(vm, value)));
+    return newOkResult(vm, OBJECT_VAL(toString(vm, value)));
 }
 
 ObjectResult* arrayFunction(VM *vm, int argCount, Value *args) {
     bool success = true;
     Value array = castArray(vm, args, &success);
     if (!success) {
-        return stellaErr(vm, newError(vm, copyString(vm, "Failed to convert value to array.", 33), RUNTIME, false));
+        return newErrorResult(vm, newError(vm, copyString(vm, "Failed to convert value to array.", 33), RUNTIME, false));
     }
-    return stellaOk(vm, OBJECT_VAL(array));
+    return newOkResult(vm, OBJECT_VAL(array));
 }
 
 ObjectResult* tableFunction(VM *vm, int argCount, Value *args) {
-    return stellaOk(vm, castTable(vm, args));
+    return newOkResult(vm, castTable(vm, args));
 }
 
 Value intFunction_(VM *vm, int argCount, Value *args) {
