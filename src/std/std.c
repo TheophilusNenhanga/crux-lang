@@ -326,27 +326,27 @@ bool initializeStdLib(VM *vm) {
 	}
 	
 
-	if (!initTypeMethodTable(vm, &vm->stringType.methods, stringMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->stringType, stringMethodsArray, NULL)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->arrayType.methods, arrayMethodsArray, arrayInfallibleMethodsArray)) {
+	if (!initTypeMethodTable(vm, &vm->arrayType, arrayMethodsArray, arrayInfallibleMethodsArray)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->tableType.methods, tableMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->tableType, tableMethodsArray, NULL)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->errorType.methods, errorMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->errorType, errorMethodsArray, NULL)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->randomType.methods, randomMethodsArray, randomInfallibleMethodsArray)) {
+	if (!initTypeMethodTable(vm, &vm->randomType, randomMethodsArray, randomInfallibleMethodsArray)) {
 		return false;
 	}
 
-	if (!initTypeMethodTable(vm, &vm->fileType.methods, fileMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->fileType, fileMethodsArray, NULL)) {
 		return false;
 	}
 	

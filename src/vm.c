@@ -244,7 +244,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		argCount++; // for the value that the method will act upon
 		if (IS_CRUX_STRING(receiver)) {
 			Value value;
-			if (tableGet(&vm->stringType.methods, name, &value)) {
+			if (tableGet(&vm->stringType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original,
 				                    value);
 			}
@@ -254,7 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_ARRAY(receiver)) {
 			Value value;
-			if (tableGet(&vm->arrayType.methods, name, &value)) {
+			if (tableGet(&vm->arrayType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -263,7 +263,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_ERROR(receiver)) {
 			Value value;
-			if (tableGet(&vm->errorType.methods, name, &value)) {
+			if (tableGet(&vm->errorType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -272,7 +272,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_TABLE(receiver)) {
 			Value value;
-			if (tableGet(&vm->tableType.methods, name, &value)) {
+			if (tableGet(&vm->tableType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -281,7 +281,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_RANDOM(receiver)) {
 			Value value;
-			if (tableGet(&vm->randomType.methods, name, &value)) {
+			if (tableGet(&vm->randomType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -290,7 +290,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_FILE(receiver)) {
 			Value value;
-			if (tableGet(&vm->fileType.methods, name, &value)) {
+			if (tableGet(&vm->fileType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -471,6 +471,9 @@ static bool concatenate(VM *vm) {
 
 
 void initVM(VM *vm, int argc, const char **argv) {
+	vm->stack = malloc(sizeof (Value) * STACK_MAX);
+	vm->frames = malloc(sizeof (CallFrame) * FRAMES_MAX);
+
 	resetStack(vm);
 	vm->objects = NULL;
 	vm->bytesAllocated = 0;
@@ -488,12 +491,12 @@ void initVM(VM *vm, int argc, const char **argv) {
 	vm->matchHandler.matchBind = NIL_VAL;
 	vm->matchHandler.matchTarget = NIL_VAL;
 
-	initTable(&vm->stringType.methods);
-	initTable(&vm->arrayType.methods);
-	initTable(&vm->tableType.methods);
-	initTable(&vm->errorType.methods);
-	initTable(&vm->randomType.methods);
-	initTable(&vm->fileType.methods);
+	initTable(&vm->stringType);
+	initTable(&vm->arrayType);
+	initTable(&vm->tableType);
+	initTable(&vm->errorType);
+	initTable(&vm->randomType);
+	initTable(&vm->fileType);
 	initTable(&vm->strings);
 	initTable(&vm->globals);
 
@@ -514,11 +517,11 @@ void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
 
-	freeTable(vm, &vm->stringType.methods);
-	freeTable(vm, &vm->arrayType.methods);
-	freeTable(vm, &vm->tableType.methods);
-	freeTable(vm, &vm->errorType.methods);
-	freeTable(vm, &vm->randomType.methods);
+	freeTable(vm, &vm->stringType);
+	freeTable(vm, &vm->arrayType);
+	freeTable(vm, &vm->tableType);
+	freeTable(vm, &vm->errorType);
+	freeTable(vm, &vm->randomType);
 
 	for (int i = 0; i < vm->nativeModules.count; i++) {
 		NativeModule module = vm->nativeModules.modules[i];
@@ -530,6 +533,9 @@ void freeVM(VM *vm) {
 
 	vm->initString = NULL;
 	freeObjects(vm);
+
+	free(vm->frames);
+	free(vm->stack);
 
 	if (vm->enclosing != NULL) {
 		free(vm);
@@ -987,8 +993,9 @@ static InterpretResult run(VM *vm) {
 	uint8_t instruction;
 	instruction = READ_BYTE();
 	goto* dispatchTable[instruction];
+#ifdef DEBUG_TRACE_EXECUTION
 	static uint8_t endIndex = sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
-
+#endif
 
 OP_RETURN: {
 		Value result = pop(vm);
