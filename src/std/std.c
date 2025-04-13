@@ -172,7 +172,17 @@ static InfallibleCallable randomInfallibleFunctionsArray[] = {
 
 static Callable systemFunctionsArray[] = {
 	{"args", argsFunction, 0},
+	{"get_env", getEnvFunction, 1},
+	{"sleep", sleepFunction, 1},
 	{NULL, NULL, 0}
+};
+
+static InfallibleCallable systemInfallibleFunctionsArray[] = {
+	{"platform", platformFunction, 0},
+	{"arch", archFunction, 0},
+	{"pid", pidFunction, 0},
+	{"exit", exitFunction, 1},
+	{NULL, NULL, 0},
 };
 
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName, 
@@ -367,7 +377,7 @@ bool initializeStdLib(VM *vm) {
 		return false;
 	}
 
-	if (!initModule(vm, "sys", systemFunctionsArray, NULL)) {
+	if (!initModule(vm, "sys", systemFunctionsArray, systemInfallibleFunctionsArray)) {
 		return false;
 	}
 	
