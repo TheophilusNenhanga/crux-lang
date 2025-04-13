@@ -28,6 +28,17 @@ static Callable stringMethodsArray[] = {
 	{NULL, NULL, 0}
 };
 
+static InfallibleCallable stringInfallibleMethodsArray[] = {
+	{"_is_empty", stringIsEmptyMethod, 1},
+	{"_is_alpha", stringIsAlphaMethod, 1},
+	{"_is_digit", stringIsDigitMethod, 1},
+	{"_is_lower", stringIsLowerMethod, 1},
+	{"_is_upper", stringIsUpperMethod, 1},
+	{"_is_space", stringIsSpaceMethod, 1},
+	{"_is_alnum", stringIsAlNumMethod, 1},
+	{NULL, NULL, 0}
+};
+
 static Callable arrayMethodsArray[] = {
 	{"pop", arrayPopMethod, 1},
 	{"push", arrayPushMethod, 2},
@@ -336,7 +347,7 @@ bool initializeStdLib(VM *vm) {
 	}
 	
 
-	if (!initTypeMethodTable(vm, &vm->stringType, stringMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->stringType, stringMethodsArray, stringInfallibleMethodsArray)) {
 		return false;
 	}
 	

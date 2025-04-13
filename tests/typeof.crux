@@ -12,6 +12,7 @@ let g = fn (test) { return test; };
 class Test {}
 let h = Test();
 let j = len(e);
+let k = 1.0;
 
 let aType = type(a);
 let bType = type(b);
@@ -23,23 +24,19 @@ let gType = type(g);
 let hType = type(h);
 let iType = type(Test);
 let jType = type(j);
+let kType = type(k);
 
-fn a (condition, message) {
-    if not condition {
-        print(message);
-    }
-}
-
-a(aType == "string", "aType is not string");
-a(bType == "number", "bType is not number");
-a(cType == "boolean", "cType is not boolean");
-a(dType == "nil", "dType is not nil");
-a(eType == "array", "eType is not array");
-a(fType == "table", "fType is not table");
-a(gType == "function", "gType is not function");
-a(hType == "instance", "hType is not instance");
-a(iType == "class", "iType is not class");
-a(jType == "result", "jType is not result");
+assert(aType == "string", "aType is not string");
+assert(bType == "int", "bType is not an integer");
+assert(cType == "boolean", "cType is not boolean");
+assert(dType == "nil", "dType is not nil");
+assert(eType == "array", "eType is not array");
+assert(fType == "table", "fType is not table");
+assert(gType == "function", "gType is not function");
+assert(hType == "instance", "hType is not instance");
+assert(iType == "class", "iType is not class");
+assert(jType == "result", "jType is not result");
+assert(kType == "float", "k is not a float");
 
 println("aType: " + aType);
 println("bType: " + bType);

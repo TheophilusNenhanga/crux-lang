@@ -76,6 +76,10 @@ ObjectResult *stringUpperMethod(VM *vm, int argCount, Value *args) {
 
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
 
+	if (buffer == NULL) {
+		return newErrorResult(vm, newError(vm, copyString(vm, "Memory allocation failed.", 26), MEMORY, false));
+	}
+
 	for (uint32_t i = 0; i < string->length; i++) {
 		if (islower(string->chars[i])) {
 			buffer[i] = toupper(string->chars[i]);
@@ -441,4 +445,69 @@ ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
 		return newOkResult(vm, BOOL_VAL(true));
 	}
 	return newOkResult(vm, BOOL_VAL(false));
+}
+
+Value stringIsAlNumMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!isalnum(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsAlphaMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!isalpha(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsDigitMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!isdigit(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsLowerMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!islower(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsUpperMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!isupper(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsSpaceMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	for (uint32_t i = 0; i < string->length; i++) {
+		if (!isspace(string->chars[i])) {
+			return BOOL_VAL(false);
+		}
+	}
+	return BOOL_VAL(true);
+}
+
+Value stringIsEmptyMethod(VM* vm, int argCount, Value* args){
+	ObjectString* string = AS_CRUX_STRING(args[0]);
+	return BOOL_VAL(string->length == 0);
 }

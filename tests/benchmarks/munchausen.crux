@@ -1,5 +1,3 @@
-use _time_ms from "crux:time";
-
 let max = 440000000;
 
 let cache = [0];
@@ -22,16 +20,12 @@ fn is_munchausen(number) {
     return total == number;
 }
 
-fn main() {
-    let time_start = _time_ms();
+fn main() 
     for let i = 0; i < max; i += 1 {
         if is_munchausen(i) {
             println(i);
         }
     }
-    let time_end = _time_ms();
-    let time_diff = time_end - time_start;
-    println("Time taken: " + time_diff + " seconds");
 }
 
 main();

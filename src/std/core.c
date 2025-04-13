@@ -23,7 +23,7 @@ ObjectResult* lengthFunction(VM *vm, int argCount, Value *args) {
 	Value value = args[0];
 	Value length = getLength(value);
 	if (IS_NIL(length)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Expected either a collection type ('string', 'array', 'table').", 46), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Expected either a collection type ('string', 'array', 'table').", 64), TYPE, false));
 	}
 	return newOkResult(vm, length);
 }
