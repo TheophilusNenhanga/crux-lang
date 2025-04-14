@@ -1,6 +1,7 @@
 #include "sys.h"
-
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <unistd.h>
 
 ObjectResult *argsFunction(VM *vm, int argCount, Value *args) {
