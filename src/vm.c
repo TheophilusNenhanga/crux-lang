@@ -16,13 +16,13 @@
 #include "value.h"
 
 
-VM *newVM() {
+VM *newVM(int argc, const char **argv) {
 	VM *vm = malloc(sizeof(VM));
 	if (vm == NULL) {
-		fprintf(stderr, "Stella Fatal Error: Could not allocate memory for VM\n");
+		fprintf(stderr, "Fatal Error: Could not allocate memory for VM\n");
 		exit(1);
 	}
-	initVM(vm);
+	initVM(vm, argc, argv);
 	return vm;
 }
 
@@ -244,7 +244,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 		argCount++; // for the value that the method will act upon
 		if (IS_CRUX_STRING(receiver)) {
 			Value value;
-			if (tableGet(&vm->stringType.methods, name, &value)) {
+			if (tableGet(&vm->stringType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original,
 				                    value);
 			}
@@ -254,7 +254,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_ARRAY(receiver)) {
 			Value value;
-			if (tableGet(&vm->arrayType.methods, name, &value)) {
+			if (tableGet(&vm->arrayType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -263,7 +263,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_ERROR(receiver)) {
 			Value value;
-			if (tableGet(&vm->errorType.methods, name, &value)) {
+			if (tableGet(&vm->errorType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -272,7 +272,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_TABLE(receiver)) {
 			Value value;
-			if (tableGet(&vm->tableType.methods, name, &value)) {
+			if (tableGet(&vm->tableType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -281,7 +281,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_RANDOM(receiver)) {
 			Value value;
-			if (tableGet(&vm->randomType.methods, name, &value)) {
+			if (tableGet(&vm->randomType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -290,7 +290,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
 		if (IS_CRUX_FILE(receiver)) {
 			Value value;
-			if (tableGet(&vm->fileType.methods, name, &value)) {
+			if (tableGet(&vm->fileType, name, &value)) {
 				return handleInvoke(vm, argCount, receiver, original, value);
 			}
 			runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
@@ -470,7 +470,10 @@ static bool concatenate(VM *vm) {
 }
 
 
-void initVM(VM *vm) {
+void initVM(VM *vm, int argc, const char **argv) {
+	vm->stack = malloc(sizeof (Value) * STACK_MAX);
+	vm->frames = malloc(sizeof (CallFrame) * FRAMES_MAX);
+
 	resetStack(vm);
 	vm->objects = NULL;
 	vm->bytesAllocated = 0;
@@ -488,17 +491,20 @@ void initVM(VM *vm) {
 	vm->matchHandler.matchBind = NIL_VAL;
 	vm->matchHandler.matchTarget = NIL_VAL;
 
-	initTable(&vm->stringType.methods);
-	initTable(&vm->arrayType.methods);
-	initTable(&vm->tableType.methods);
-	initTable(&vm->errorType.methods);
-	initTable(&vm->randomType.methods);
-	initTable(&vm->fileType.methods);
+	initTable(&vm->stringType);
+	initTable(&vm->arrayType);
+	initTable(&vm->tableType);
+	initTable(&vm->errorType);
+	initTable(&vm->randomType);
+	initTable(&vm->fileType);
 	initTable(&vm->strings);
 	initTable(&vm->globals);
 
 	vm->initString = NULL;
 	vm->initString = copyString(vm, "init", 4);
+
+	vm->args.argc = argc;
+	vm->args.argv = argv;
 
 	if (!initializeStdLib(vm)) {
 		runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
@@ -511,11 +517,11 @@ void freeVM(VM *vm) {
 	freeTable(vm, &vm->strings);
 	freeTable(vm, &vm->globals);
 
-	freeTable(vm, &vm->stringType.methods);
-	freeTable(vm, &vm->arrayType.methods);
-	freeTable(vm, &vm->tableType.methods);
-	freeTable(vm, &vm->errorType.methods);
-	freeTable(vm, &vm->randomType.methods);
+	freeTable(vm, &vm->stringType);
+	freeTable(vm, &vm->arrayType);
+	freeTable(vm, &vm->tableType);
+	freeTable(vm, &vm->errorType);
+	freeTable(vm, &vm->randomType);
 
 	for (int i = 0; i < vm->nativeModules.count; i++) {
 		NativeModule module = vm->nativeModules.modules[i];
@@ -527,6 +533,9 @@ void freeVM(VM *vm) {
 
 	vm->initString = NULL;
 	freeObjects(vm);
+
+	free(vm->frames);
+	free(vm->stack);
 
 	if (vm->enclosing != NULL) {
 		free(vm);
@@ -984,8 +993,9 @@ static InterpretResult run(VM *vm) {
 	uint8_t instruction;
 	instruction = READ_BYTE();
 	goto* dispatchTable[instruction];
+#ifdef DEBUG_TRACE_EXECUTION
 	static uint8_t endIndex = sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
-
+#endif
 
 OP_RETURN: {
 		Value result = pop(vm);
@@ -1256,7 +1266,7 @@ OP_GET_GLOBAL: {
 OP_SET_GLOBAL: {
 		ObjectString *name = READ_STRING();
 		if (tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
-			runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined",
+			runtimePanic(vm, NAME, "Cannot give variable '%s' a value because it has not been defined\nDid you forget 'let'?",
 			             name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
@@ -1673,7 +1683,7 @@ OP_SET_COLLECTION: {
 			ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 1));
 			int index = AS_INT(indexValue);
 			if (!arraySet(vm, array, index, value)) {
-				runtimePanic(vm, COLLECTION_SET, "Failed to set value in array");
+				runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Cannot set a value in an empty array.");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		} else {
@@ -2251,7 +2261,7 @@ OP_USE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		VM *newModuleVM = newVM();
+		VM *newModuleVM = newVM(vm->args.argc, vm->args.argv);
 		newModuleVM->enclosing = vm;
 
 		newModuleVM->module = newModule(newModuleVM, modulePath->chars);

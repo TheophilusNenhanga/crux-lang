@@ -24,10 +24,6 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
-	Table methods;
-} NativeType;
-
-typedef struct {
 	char *name;
 	Table *names;
 } NativeModule;
@@ -45,36 +41,46 @@ typedef struct {
 	int capacity;
 }NativeModules;
 
+typedef struct {
+	const char** argv;
+	int argc;
+}Args;
+
 struct VM {
-	Value stack[STACK_MAX]; // always points just past the last item
+	Value* stack; // always points just past the last item
 	Value *stackTop;
+	CallFrame *frames;
+	int frameCount;
+
 	Object *objects;
 	Table strings;
 	Table globals;
-	CallFrame frames[FRAMES_MAX];
-	int frameCount;
-	int grayCount;
 	ObjectUpvalue *openUpvalues;
+
+	int grayCount;
 	size_t bytesAllocated;
 	size_t nextGC;
 	Object **grayStack;
-	ObjectString *initString;
-	NativeType randomType;
-	NativeType stringType;
-	NativeType arrayType;
-	NativeType tableType;
-	NativeType errorType;
-	NativeType fileType;
-	struct VM *enclosing;
 	int grayCapacity;
-	ObjectModule *module;
+
+	ObjectString *initString;
+	Table randomType;
+	Table stringType;
+	Table arrayType;
+	Table tableType;
+	Table errorType;
+	Table fileType;
+
 	NativeModules nativeModules;
+	struct VM *enclosing;
+	ObjectModule *module;
 	MatchHandler matchHandler;
+	Args args;
 };
 
-VM *newVM();
+VM *newVM(int argc, const char **argv);
 
-void initVM(VM *vm);
+void initVM(VM *vm, int argc, const char **argv);
 
 void freeVM(VM *vm);
 

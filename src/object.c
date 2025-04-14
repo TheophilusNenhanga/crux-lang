@@ -67,21 +67,19 @@ static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
  * @brief Calculates the next power of 2 capacity for a collection.
  *
  * This static helper function calculates the next power of 2 capacity for
- * collections like tables and arrays. It ensures efficient hash table
- * resizing and memory allocation by always using power-of-two capacities.
- * If the input `n` is close to `UINT16_MAX`, it returns `UINT16_MAX - 1` to avoid potential overflow.
+ * collections like tables and arrays.
  *
  * @param n The desired minimum capacity.
  *
  * @return The next power of 2 capacity greater than or equal to `n`, or `UINT16_MAX - 1` if `n` is close to the maximum.
  */
-static uint64_t calculateCollectionCapacity(uint64_t n) {
+static uint32_t calculateCollectionCapacity(uint32_t n) {
 	if (n >= UINT16_MAX - 1) {
 		return UINT16_MAX - 1;
 	}
 
-	if (n < 1)
-		return 1;
+	if (n < 8)
+		return 8;
 	n--;
 	n |= n >> 1;
 	n |= n >> 2;
@@ -614,7 +612,7 @@ ObjectString *toString(VM *vm, Value value) {
 		}
 
 		default:
-			return copyString(vm, "<stella object>", 15);
+			return copyString(vm, "<crux object>", 13);
 	}
 }
 
@@ -634,7 +632,7 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
 	return instance;
 }
 
-ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
+ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function, int arity, ObjectString *name) {
 	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -642,7 +640,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, StellaNativeCallable function, i
 	return native;
 }
 
-ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int arity, ObjectString *name) {
+ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity, ObjectString *name) {
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -650,7 +648,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, StellaNativeCallable function, int a
 	return native;
 }
 
-ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name) {
 	ObjectNativeInfallibleFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleFunction, OBJECT_NATIVE_INFALLIBLE_FUNCTION);
 	native->function = function;
 	native->arity = arity;
@@ -658,7 +656,7 @@ ObjectNativeInfallibleFunction *newNativeInfallibleFunction(VM *vm, StellaInfall
 	return native;
 }
 
-ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, StellaInfallibleCallable function, int arity, ObjectString *name) {
+ObjectNativeInfallibleMethod *newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity, ObjectString *name) {
 	ObjectNativeInfallibleMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeInfallibleMethod, OBJECT_NATIVE_INFALLIBLE_METHOD);
 	native->function = function;
 	native->arity = arity;
@@ -945,14 +943,14 @@ void freeImportSet(VM* vm, ImportSet* set) {
 }
 
 
-ObjectResult* stellaOk(VM* vm, Value value) {
+ObjectResult* newOkResult(VM* vm, Value value) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = true;
 	result->as.value = value;
 	return result;
 }
 
-ObjectResult* stellaErr(VM *vm, ObjectError* error) {
+ObjectResult* newErrorResult(VM *vm, ObjectError* error) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = false;
 	result->as.error = error;

@@ -16,4 +16,12 @@ ObjectResult* stringContainsMethod(VM *vm, int argCount, Value *args);
 ObjectResult* stringStartsWithMethod(VM *vm, int argCount, Value *args);
 ObjectResult* stringEndsWithMethod(VM *vm, int argCount, Value *args);
 
+Value stringIsAlNumMethod(VM* vm, int argCount, Value* args);
+Value stringIsAlphaMethod(VM* vm, int argCount, Value* args);
+Value stringIsDigitMethod(VM* vm, int argCount, Value* args);
+Value stringIsLowerMethod(VM* vm, int argCount, Value* args);
+Value stringIsUpperMethod(VM* vm, int argCount, Value* args);
+Value stringIsSpaceMethod(VM* vm, int argCount, Value* args);
+Value stringIsEmptyMethod(VM* vm, int argCount, Value* args);
+
 #endif // STRING_H

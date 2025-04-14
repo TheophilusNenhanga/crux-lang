@@ -33,13 +33,13 @@ Value timeMillisecondsFunction_(VM *vm, int argCount, Value *args) {
 
 ObjectResult *sleepSecondsFunction(VM *vm, int argCount, Value *args) {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'int' | 'float'.", 54), TYPE,
+		return newErrorResult(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'int' | 'float'.", 54), TYPE,
 		                              false));
 	}
 
 	double seconds = AS_FLOAT(args[0]);
 	if (seconds < 0) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, false));
 	}
 
 #ifdef _WIN32
@@ -48,18 +48,18 @@ ObjectResult *sleepSecondsFunction(VM *vm, int argCount, Value *args) {
         sleep((unsigned int)seconds);
 #endif
 
-	return stellaOk(vm, NIL_VAL);
+	return newOkResult(vm, NIL_VAL);
 }
 
 ObjectResult *sleepMillisecondsFunction(VM *vm, int argCount, Value *args) {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'int' | 'float'.", 54), TYPE,
+		return newErrorResult(vm, newError(vm, copyString(vm, "Parameter <duration> must be of type 'int' | 'float'.", 54), TYPE,
 		                              false));
 	}
 
 	double milliseconds = AS_FLOAT(args[0]);
 	if (milliseconds < 0) {
-		return stellaErr(vm, newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Sleep duration cannot be negative.", 34), VALUE, false));
 	}
 
 #ifdef _WIN32
@@ -68,7 +68,7 @@ ObjectResult *sleepMillisecondsFunction(VM *vm, int argCount, Value *args) {
         usleep((useconds_t)(milliseconds * 1000));
 #endif
 
-	return stellaOk(vm, NIL_VAL);
+	return newOkResult(vm, NIL_VAL);
 }
 
 static time_t getCurrentTime() {

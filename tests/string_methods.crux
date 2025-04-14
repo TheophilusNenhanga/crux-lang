@@ -1,0 +1,142 @@
+let test_string = "Hello, World!";
+
+// string first
+
+let first = match test_string.first() {
+	Ok(c) => give c;
+	Err(e) => panic("Failed to get the first character: " + e.message() );
+};
+
+assert(first == "H", "Failed to get the first character");
+
+// string last
+
+let last = match test_string.last() {
+	Ok(c) => give c;
+	Err(e) => panic("Failed to get the last character: " + e.message() );
+};
+
+assert(last == "!", "Failed to get the last character");
+
+// string get
+
+let get = match test_string.get(1) {
+	Ok(c) => give c;
+	Err(e) => panic("Failed to get the character at index 1: " + e.message() );
+};
+assert(get == "e", "Failed to get the character at index 1");
+
+// string upper
+let upper = match test_string.upper() {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to convert string to upper case: " + e.message() );
+};
+assert(upper == "HELLO, WORLD!", "Failed to convert string to upper case");
+
+
+// string lower
+let lower = match test_string.lower() {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to convert string to lower case: " + e.message() );
+};
+assert(lower == "hello, world!", "Failed to convert string to lower case");
+
+// string strip
+let strip_string = "   Hello, World!   ";
+
+let strip = match strip_string.strip() {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to strip string: " + e.message() );
+};
+assert(strip == "Hello, World!", "Failed to strip string");
+
+// string substring
+let substring = match test_string.substring(0, 5) {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to get substring: " + e.message() );
+};
+assert(substring == "Hello", "Failed to get substring");
+
+// string replace
+let replace = match test_string.replace("World", "Crux") {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to replace string: " + e.message() );
+};
+assert(replace == "Hello, Crux!", "Failed to replace string");
+
+// string split
+let split = match test_string.split(", ") {
+	Ok(s) => give s;
+	Err(e) => panic("Failed to split string: " + e.message() );
+};
+assert(split == ["Hello", "World!"], "Failed to split string");
+
+// string contains
+let contains = match test_string.contains("World") {
+	Ok(b) => give b;
+	Err(e) => panic("Failed to check if string contains 'World': " + e.message() );
+};
+assert(contains == true, "Failed to check if string contains 'World'");
+
+let not_contains = match test_string.contains("world") {
+	Ok(b) => give b;
+	Err(e) => panic("Failed to check if string contains 'world': " + e.message() );
+};
+assert(not_contains == false, "Failed to check if string contains 'world'");
+
+// string starts_with
+let starts_with = match test_string.starts_with("Hello") {
+	Ok(b) => give b;
+	Err(e) => panic("Failed to check if string starts with 'Hello': " + e.message() );
+};
+assert(starts_with == true, "Failed to check if string starts with 'Hello'");
+
+// string ends_with
+let ends_with = match test_string.ends_with("World!") {
+	Ok(b) => give b;
+	Err(e) => panic("Failed to check if string ends with 'World!': " + e.message() );
+};
+assert(ends_with == true, "Failed to check if string ends with 'World!'");
+
+// string is_alphanumeric
+let alphanumeric_string = "Hello123";
+assert(alphanumeric_string._is_alnum() == true, "Failed to check if string is alphanumeric");
+let non_alphanumeric_string = "Hello@123";
+assert(non_alphanumeric_string._is_alnum() == false, "Failed to check if string is alphanumeric");
+
+// string is_digit
+let digit_string = "12345";
+assert(digit_string._is_digit() == true, "Failed to check if string is digit");
+let non_digit_string = "123a45";
+assert(non_digit_string._is_digit() == false, "Failed to check if string is digit");
+
+// string is_alpha
+let alpha_string = "Hello";
+assert(alpha_string._is_alpha() == true, "Failed to check if string is alpha");
+let non_alpha_string = "Hello123";
+assert(non_alpha_string._is_alpha() == false, "Failed to check if string is alpha");
+
+// string is_lower
+let lower_string = "hello";
+assert(lower_string._is_lower() == true, "Failed to check if string is lower");
+let non_lower_string = "Hello";
+assert(non_lower_string._is_lower() == false, "Failed to check if string is lower");
+
+// string is_upper
+let upper_string = "HELLO";
+assert(upper_string._is_upper() == true, "Failed to check if string is upper");
+let non_upper_string = "Hello";
+assert(non_upper_string._is_upper() == false, "Failed to check if string is upper");
+
+// string is_space
+let space_string = "   ";
+assert(space_string._is_space() == true, "Failed to check if string is space");
+let non_space_string = "Hello";
+assert(non_space_string.is_space() == false, "Failed to check if string is space");
+
+// string is_empty
+
+let empty_string = "";
+assert(empty_string._is_empty() == true, "Failed to check if string is empty");
+let non_empty_string = "Hello";
+assert(non_empty_string.is_empty() == false, "Failed to check if string is empty");

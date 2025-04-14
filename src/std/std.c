@@ -9,6 +9,7 @@
 #include "string.h"
 #include "tables.h"
 #include "random.h"
+#include "sys.h"
 
 
 static Callable stringMethodsArray[] = {
@@ -24,6 +25,17 @@ static Callable stringMethodsArray[] = {
 	{"replace", stringReplaceMethod, 3},
 	{"split", stringSplitMethod, 2},
 	{"substring", stringSubstringMethod, 3},
+	{NULL, NULL, 0}
+};
+
+static InfallibleCallable stringInfallibleMethodsArray[] = {
+	{"_is_empty", stringIsEmptyMethod, 1},
+	{"_is_alpha", stringIsAlphaMethod, 1},
+	{"_is_digit", stringIsDigitMethod, 1},
+	{"_is_lower", stringIsLowerMethod, 1},
+	{"_is_upper", stringIsUpperMethod, 1},
+	{"_is_space", stringIsSpaceMethod, 1},
+	{"_is_alnum", stringIsAlNumMethod, 1},
 	{NULL, NULL, 0}
 };
 
@@ -169,8 +181,23 @@ static InfallibleCallable randomInfallibleFunctionsArray[] = {
 	{NULL, NULL, 0}
 };
 
+static Callable systemFunctionsArray[] = {
+	{"args", argsFunction, 0},
+	{"get_env", getEnvFunction, 1},
+	{"sleep", sleepFunction, 1},
+	{NULL, NULL, 0}
+};
+
+static InfallibleCallable systemInfallibleFunctionsArray[] = {
+	{"platform", platformFunction, 0},
+	{"arch", archFunction, 0},
+	{"pid", pidFunction, 0},
+	{"exit", exitFunction, 1},
+	{NULL, NULL, 0},
+};
+
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName, 
-						 StellaNativeCallable methodFunction, int arity) {
+						 CruxCallable methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
 	if (!tableSet(vm, methodTable, name, 
 		OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
@@ -180,7 +207,7 @@ bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
 }
 
 bool registerNativeInfallibleMethod(VM *vm, Table *methodTable, const char *methodName,
-								   StellaInfallibleCallable methodFunction, int arity) {
+								   CruxInfallibleCallable methodFunction, int arity) {
 	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
 	if (!tableSet(vm, methodTable, name, 
 		OBJECT_VAL(newNativeInfallibleMethod(vm, methodFunction, arity, name)), false)) {
@@ -210,7 +237,7 @@ static bool registerInfallibleMethods(VM *vm, Table *methodTable, InfallibleCall
 }
 
 static bool registerNativeFunction(VM *vm, Table *functionTable, const char *functionName, 
-								 StellaNativeCallable function, int arity) {
+								 CruxCallable function, int arity) {
 	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
 	if (!tableSet(vm, functionTable, name, 
 		OBJECT_VAL(newNativeFunction(vm, function, arity, name)), false)) {
@@ -220,7 +247,7 @@ static bool registerNativeFunction(VM *vm, Table *functionTable, const char *fun
 }
 
 static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable, const char *functionName,
-										   StellaInfallibleCallable function, int arity) {
+										   CruxInfallibleCallable function, int arity) {
 	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
 	if (!tableSet(vm, functionTable, name, 
 		OBJECT_VAL(newNativeInfallibleFunction(vm, function, arity, name)), false)) {
@@ -320,27 +347,27 @@ bool initializeStdLib(VM *vm) {
 	}
 	
 
-	if (!initTypeMethodTable(vm, &vm->stringType.methods, stringMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->stringType, stringMethodsArray, stringInfallibleMethodsArray)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->arrayType.methods, arrayMethodsArray, arrayInfallibleMethodsArray)) {
+	if (!initTypeMethodTable(vm, &vm->arrayType, arrayMethodsArray, arrayInfallibleMethodsArray)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->tableType.methods, tableMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->tableType, tableMethodsArray, NULL)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->errorType.methods, errorMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->errorType, errorMethodsArray, NULL)) {
 		return false;
 	}
 	
-	if (!initTypeMethodTable(vm, &vm->randomType.methods, randomMethodsArray, randomInfallibleMethodsArray)) {
+	if (!initTypeMethodTable(vm, &vm->randomType, randomMethodsArray, randomInfallibleMethodsArray)) {
 		return false;
 	}
 
-	if (!initTypeMethodTable(vm, &vm->fileType.methods, fileMethodsArray, NULL)) {
+	if (!initTypeMethodTable(vm, &vm->fileType, fileMethodsArray, NULL)) {
 		return false;
 	}
 	
@@ -358,6 +385,10 @@ bool initializeStdLib(VM *vm) {
 	}
 	
 	if (!initModule(vm, "random", NULL, randomInfallibleFunctionsArray)) {
+		return false;
+	}
+
+	if (!initModule(vm, "sys", systemFunctionsArray, systemInfallibleFunctionsArray)) {
 		return false;
 	}
 	
