@@ -3,7 +3,7 @@
 
 static bool numberArgs(Value *args, int argCount) {
 	for (int i = 0; i < argCount; i++) {
-		if (!IS_INT(args[i]) || IS_FLOAT(args[i])) {
+		if (!IS_INT(args[i]) && !IS_FLOAT(args[i])) {
 			return false;
 		}
 	}
@@ -12,7 +12,7 @@ static bool numberArgs(Value *args, int argCount) {
 
 ObjectResult *powFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Both arguments must be of type 'number'.", 40), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Both arguments must be of type 'int' | 'float'.", 40), TYPE, false));
 	}
 
 	double base = AS_FLOAT(args[0]);
@@ -23,7 +23,7 @@ ObjectResult *powFunction(VM *vm, int argCount, Value *args) {
 
 ObjectResult *sqrtFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	double number = AS_FLOAT(args[0]);
 	if (number < 0) {
@@ -45,7 +45,7 @@ static inline int32_t absoluteValue(int32_t x) {
 
 ObjectResult *absFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	if (IS_INT(args[0])) {
 		return newOkResult(vm, INT_VAL(absoluteValue(AS_INT(args[0]))));
@@ -55,28 +55,28 @@ ObjectResult *absFunction(VM *vm, int argCount, Value *args) {
 
 ObjectResult *sinFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(sin(FLOAT_VAL(args[0]))));
 }
 
 ObjectResult *cosFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(cos(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *tanFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(tan(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *asinFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 
 	double num = AS_FLOAT(args[0]);
@@ -92,7 +92,7 @@ ObjectResult *asinFunction(VM *vm, int argCount, Value *args) {
 
 ObjectResult *acosFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
@@ -106,21 +106,21 @@ ObjectResult *acosFunction(VM *vm, int argCount, Value *args) {
 
 ObjectResult *atanFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(atan(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *expFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(exp(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *lnFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 
 	double number = AS_FLOAT(args[0]);
@@ -133,7 +133,7 @@ ObjectResult *lnFunction(VM *vm, int argCount, Value *args) {
 
 ObjectResult *log10Function(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 
 	double number = AS_FLOAT(args[0]);
@@ -147,21 +147,21 @@ ObjectResult *log10Function(VM *vm, int argCount, Value *args) {
 
 ObjectResult *ceilFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *floorFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(floor(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *roundFunction(VM *vm, int argCount, Value *args) {
 	if (!numberArgs(args, argCount)) {
-		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'number'.", 34), TYPE, false));
+		return newErrorResult(vm, newError(vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34), TYPE, false));
 	}
 	return newOkResult(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
 }

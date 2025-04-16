@@ -120,20 +120,20 @@ static InfallibleCallable coreInfallibleFunctionsArray[] = {
 
 
 static Callable mathFunctionsArray[] = {
-	{"pow", powFunction, 2}, 
-	{"sqrt", sqrtFunction, 1}, 
-	{"ceil", ceilFunction, 1}, 
+	{"pow", powFunction, 2},
+	{"sqrt", sqrtFunction, 1},
+	{"ceil", ceilFunction, 1},
 	{"floor", floorFunction, 1},
-	{"abs", absFunction, 1}, 
-	{"sin", sinFunction, 1}, 
-	{"cos", cosFunction, 1}, 
+	{"abs", absFunction, 1},
+	{"sin", sinFunction, 1},
+	{"cos", cosFunction, 1},
 	{"tan", tanFunction, 1},
-	{"atan", atanFunction, 1}, 
-	{"acos", acosFunction, 1}, 
-	{"asin", asinFunction, 1}, 
+	{"atan", atanFunction, 1},
+	{"acos", acosFunction, 1},
+	{"asin", asinFunction, 1},
 	{"exp", expFunction, 1},
-	{"ln", lnFunction, 1}, 
-	{"log", log10Function, 1}, 
+	{"ln", lnFunction, 1},
+	{"log", log10Function, 1},
 	{"round", roundFunction, 1},
 	{NULL, NULL, 0}
 };
@@ -163,15 +163,15 @@ static Callable timeFunctionsArray[] = {
 };
 
 static InfallibleCallable timeInfallibleFunctionsArray[] = {
-	{"_time_s", timeSecondsFunction_, 0}, 
+	{"_time_s", timeSecondsFunction_, 0},
 	{"_time_ms", timeMillisecondsFunction_, 0},
-	{"_year", yearFunction_, 0}, 
-	{"_month", monthFunction_, 0}, 
-	{"_day", dayFunction_, 0}, 
+	{"_year", yearFunction_, 0},
+	{"_month", monthFunction_, 0},
+	{"_day", dayFunction_, 0},
 	{"_hour", hourFunction_, 0},
-	{"_minute", minuteFunction_, 0}, 
-	{"_second", secondFunction_, 0}, 
-	{"_weekday", weekdayFunction_, 0}, 
+	{"_minute", minuteFunction_, 0},
+	{"_second", secondFunction_, 0},
+	{"_weekday", weekdayFunction_, 0},
 	{"_day_of_year", dayOfYearFunction_, 0},
 	{NULL, NULL, 0}
 };
@@ -196,21 +196,21 @@ static InfallibleCallable systemInfallibleFunctionsArray[] = {
 	{NULL, NULL, 0},
 };
 
-bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName, 
-						 CruxCallable methodFunction, int arity) {
-	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
-	if (!tableSet(vm, methodTable, name, 
-		OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
+bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
+                          CruxCallable methodFunction, int arity) {
+	ObjectString *name = copyString(vm, methodName, (int) strlen(methodName));
+	if (!tableSet(vm, methodTable, name,
+	              OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)), false)) {
 		return false;
 	}
 	return true;
 }
 
 bool registerNativeInfallibleMethod(VM *vm, Table *methodTable, const char *methodName,
-								   CruxInfallibleCallable methodFunction, int arity) {
-	ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
-	if (!tableSet(vm, methodTable, name, 
-		OBJECT_VAL(newNativeInfallibleMethod(vm, methodFunction, arity, name)), false)) {
+                                    CruxInfallibleCallable methodFunction, int arity) {
+	ObjectString *name = copyString(vm, methodName, (int) strlen(methodName));
+	if (!tableSet(vm, methodTable, name,
+	              OBJECT_VAL(newNativeInfallibleMethod(vm, methodFunction, arity, name)), false)) {
 		return false;
 	}
 	return true;
@@ -236,23 +236,36 @@ static bool registerInfallibleMethods(VM *vm, Table *methodTable, InfallibleCall
 	return true;
 }
 
-static bool registerNativeFunction(VM *vm, Table *functionTable, const char *functionName, 
-								 CruxCallable function, int arity) {
-	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
-	if (!tableSet(vm, functionTable, name, 
-		OBJECT_VAL(newNativeFunction(vm, function, arity, name)), false)) {
+static bool registerNativeFunction(VM *vm, Table *functionTable, const char *functionName,
+                                   CruxCallable function, int arity) {
+	ObjectString *name = copyString(vm, functionName, (int) strlen(functionName));
+	push(vm, OBJECT_VAL(name));
+	Value func = OBJECT_VAL(newNativeFunction(vm, function, arity, name));
+	push(vm, func);
+	bool success = tableSet(vm, functionTable, name, func
+	                        , false);
+
+	pop(vm);
+	pop(vm);
+
+	if (!success) {
 		return false;
 	}
 	return true;
 }
 
 static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable, const char *functionName,
-										   CruxInfallibleCallable function, int arity) {
-	ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
-	if (!tableSet(vm, functionTable, name, 
-		OBJECT_VAL(newNativeInfallibleFunction(vm, function, arity, name)), false)) {
+                                             CruxInfallibleCallable function, int arity) {
+	ObjectString *name = copyString(vm, functionName, (int) strlen(functionName));
+	push(vm, OBJECT_VAL(name));
+	Value func = OBJECT_VAL(newNativeInfallibleFunction(vm, function, arity, name));
+	push(vm, func);
+
+	bool success = tableSet(vm, functionTable, name, func, false);
+	if (!success) {
 		return false;
 	}
+
 	return true;
 }
 
@@ -266,24 +279,23 @@ static bool registerNativeFunctions(VM *vm, Table *functionTable, Callable *func
 	return true;
 }
 
-static bool registerNativeInfallibleFunctions(VM *vm, Table *functionTable, 
-											InfallibleCallable *functions) {
+static bool registerNativeInfallibleFunctions(VM *vm, Table *functionTable,
+                                              InfallibleCallable *functions) {
 	for (int i = 0; functions[i].name != NULL; i++) {
 		InfallibleCallable function = functions[i];
-		if (!registerNativeInfallibleFunction(vm, functionTable, function.name, 
-											function.function, function.arity)) {
+		if (!registerNativeInfallibleFunction(vm, functionTable, function.name,
+		                                      function.function, function.arity)) {
 			return false;
 		}
 	}
 	return true;
 }
 
-static bool initModule(VM *vm, const char *moduleName, Callable *functions, 
-					  InfallibleCallable *infallibles) {
-
+static bool initModule(VM *vm, const char *moduleName, Callable *functions,
+                       InfallibleCallable *infallibles) {
 	Table *moduleTable = ALLOCATE(vm, Table, 1);
 	if (moduleTable == NULL) return false;
-	
+
 	initTable(moduleTable);
 
 	if (functions != NULL) {
@@ -300,40 +312,40 @@ static bool initModule(VM *vm, const char *moduleName, Callable *functions,
 
 	if (vm->nativeModules.count + 1 > vm->nativeModules.capacity) {
 		int newCapacity = vm->nativeModules.capacity == 0 ? 8 : vm->nativeModules.capacity * 2;
-		GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules, 
-				  vm->nativeModules.capacity, newCapacity);
+		GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules,
+		           vm->nativeModules.capacity, newCapacity);
 		vm->nativeModules.capacity = newCapacity;
 	}
-	
+
 
 	char *nameCopy = ALLOCATE(vm, char, strlen(moduleName) + 1);
 	if (nameCopy == NULL) return false;
 	strcpy(nameCopy, moduleName);
-	
+
 	// Add the module to the VM
 	vm->nativeModules.modules[vm->nativeModules.count] = (NativeModule){
 		.name = nameCopy,
 		.names = moduleTable
 	};
 	vm->nativeModules.count++;
-	
+
 	return true;
 }
 
-static bool initTypeMethodTable(VM *vm, Table *methodTable, Callable *methods, 
-							  InfallibleCallable *infallibleMethods) {
+static bool initTypeMethodTable(VM *vm, Table *methodTable, Callable *methods,
+                                InfallibleCallable *infallibleMethods) {
 	if (methods != NULL) {
 		if (!registerMethods(vm, methodTable, methods)) {
 			return false;
 		}
 	}
-	
+
 	if (infallibleMethods != NULL) {
 		if (!registerInfallibleMethods(vm, methodTable, infallibleMethods)) {
 			return false;
 		}
 	}
-	
+
 	return true;
 }
 
@@ -341,28 +353,28 @@ bool initializeStdLib(VM *vm) {
 	if (!registerNativeFunctions(vm, &vm->globals, coreFunctionsArray)) {
 		return false;
 	}
-	
+
 	if (!registerNativeInfallibleFunctions(vm, &vm->globals, coreInfallibleFunctionsArray)) {
 		return false;
 	}
-	
+
 
 	if (!initTypeMethodTable(vm, &vm->stringType, stringMethodsArray, stringInfallibleMethodsArray)) {
 		return false;
 	}
-	
+
 	if (!initTypeMethodTable(vm, &vm->arrayType, arrayMethodsArray, arrayInfallibleMethodsArray)) {
 		return false;
 	}
-	
+
 	if (!initTypeMethodTable(vm, &vm->tableType, tableMethodsArray, NULL)) {
 		return false;
 	}
-	
+
 	if (!initTypeMethodTable(vm, &vm->errorType, errorMethodsArray, NULL)) {
 		return false;
 	}
-	
+
 	if (!initTypeMethodTable(vm, &vm->randomType, randomMethodsArray, randomInfallibleMethodsArray)) {
 		return false;
 	}
@@ -370,20 +382,20 @@ bool initializeStdLib(VM *vm) {
 	if (!initTypeMethodTable(vm, &vm->fileType, fileMethodsArray, NULL)) {
 		return false;
 	}
-	
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctionsArray, mathInfallibleFunctionsArray)) {
 		return false;
 	}
-	
+
 	if (!initModule(vm, "io", ioFunctionsArray, NULL)) {
 		return false;
 	}
-	
+
 	if (!initModule(vm, "time", timeFunctionsArray, timeInfallibleFunctionsArray)) {
 		return false;
 	}
-	
+
 	if (!initModule(vm, "random", NULL, randomInfallibleFunctionsArray)) {
 		return false;
 	}
@@ -391,6 +403,6 @@ bool initializeStdLib(VM *vm) {
 	if (!initModule(vm, "sys", systemFunctionsArray, systemInfallibleFunctionsArray)) {
 		return false;
 	}
-	
+
 	return true;
 }

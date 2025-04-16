@@ -1070,11 +1070,15 @@ OP_NEGATE: {
 			popPush(vm, FLOAT_VAL(-AS_FLOAT(operand)));
 		} else {
 			pop(vm);
-			runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "'int' | 'float'"));
+			runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "int' | 'float"));
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "'int' | 'float'"));
-		return INTERPRET_RUNTIME_ERROR;
+#ifdef DEBUG_TRACE_EXECUTION
+	goto* dispatchTable[endIndex];
+#else
+	instruction = READ_BYTE();
+	goto* dispatchTable[instruction];
+#endif
 	}
 
 OP_EQUAL: {
