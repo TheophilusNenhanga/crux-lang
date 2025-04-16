@@ -471,8 +471,8 @@ static bool concatenate(VM *vm) {
 
 
 void initVM(VM *vm, int argc, const char **argv) {
-	vm->stack = malloc(sizeof (Value) * STACK_MAX);
-	vm->frames = malloc(sizeof (CallFrame) * FRAMES_MAX);
+	vm->stack = malloc(sizeof(Value) * STACK_MAX);
+	vm->frames = malloc(sizeof(CallFrame) * FRAMES_MAX);
 
 	resetStack(vm);
 	vm->objects = NULL;
@@ -2212,12 +2212,7 @@ OP_USE: {
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				push(vm, OBJECT_VAL(value));
-				bool setSuccess = false;
-				if (aliases[i] != NULL) {
-					setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
-				} else {
-					setSuccess = tableSet(vm, &vm->globals, names[i], value, false);
-				}
+				bool setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
 
 				if (!setSuccess) {
 					runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
@@ -2281,19 +2276,15 @@ OP_USE: {
 		// add the imported names to the current module (deep copy)
 		bool success = true;
 		for (int i = 0; i < nameCount; i++) {
-			if (aliases[i] != NULL && IS_CRUX_STRING(OBJECT_VAL(aliases[i]))) {
-				success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
-				                        aliases[i]);
-			} else {
-				success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
-				                        names[i]);
-			}
+			success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
+			                        aliases[i]);
 			if (!success) {
 				for (int j = 0; j < i; j++) {
 					tableDelete(&vm->globals, names[j]);
 				}
 				runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars,
 				             modulePath->chars);
+				freeVM(newModuleVM);
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		}
