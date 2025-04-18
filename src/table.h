@@ -18,15 +18,6 @@ typedef struct {
 	Entry *entries;
 } Table;
 
-typedef struct {
-	Object **objects;
-	Object **copies;
-	int count;
-	int capacity;
-	VM *fromVM;
-	VM *toVM;
-} ModuleCopyContext;
-
 /**
  * Initializes a new, empty hash table.
  *
@@ -120,19 +111,5 @@ void tableRemoveWhite(Table *table);
  * @param table Pointer to the table to mark.
  */
 void markTable(VM *vm, Table *table);
-
-/**
- * Creates a deep copy of a table entry from one VM to another.
- * Only copies entries marked as public.
- *
- * @param fromVM Source VM containing the original table.
- * @param toVM Destination VM where the copy will be stored.
- * @param fromTable Source table to copy from.
- * @param toTable Destination table to copy to.
- * @param key Key in the source table to copy.
- * @param newKey Key to use in the destination table.
- * @return true if the copy was successful, false otherwise.
- */
-bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key, ObjectString* newKey);
 
 #endif

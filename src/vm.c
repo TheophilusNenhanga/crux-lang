@@ -1237,6 +1237,7 @@ OP_DEFINE_GLOBAL: {
 		bool isPublic = false;
 		if (checkPreviousInstruction(frame, 3, OP_PUB)) {
 			isPublic = true;
+			printf("This is public");
 		}
 		if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 			pop(vm);
@@ -2246,55 +2247,7 @@ OP_USE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		if (vm->module->state == IN_PROGRESS) {
-			freeFileResult(source);
-			free(resolvedPath);
-			runtimePanic(vm, IMPORT, "Circular import detected in \"%s\".", modulePath->chars);
-			return INTERPRET_RUNTIME_ERROR;
-		}
-
-		if (vm->module->vmDepth > MAX_VM_DEPTH) {
-			freeFileResult(source);
-			free(resolvedPath);
-			runtimePanic(vm, IMPORT, "Maximum import depth exceeded.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-
-		VM *newModuleVM = newVM(vm->args.argc, vm->args.argv);
-		newModuleVM->enclosing = vm;
-
-		newModuleVM->module = newModule(newModuleVM, modulePath->chars);
-		newModuleVM->module->state = IN_PROGRESS;
-		newModuleVM->module->vmDepth = vm->module->vmDepth + 1;
-
-		InterpretResult result = interpret(newModuleVM, source.content);
-		freeFileResult(source);
-		free(resolvedPath);
-		if (result != INTERPRET_OK) {
-			freeVM(newModuleVM);
-			return result;
-		}
-
-		newModuleVM->module->state = IMPORTED;
-
-		// add the imported names to the current module (deep copy)
-		bool success = true;
-		for (int i = 0; i < nameCount; i++) {
-			success = tableDeepCopy(newModuleVM, vm, &newModuleVM->globals, &vm->globals, names[i],
-			                        aliases[i]);
-			if (!success) {
-				for (int j = 0; j < i; j++) {
-					tableDelete(&vm->globals, names[j]);
-				}
-				runtimePanic(vm, NAME, "Failed to import '%s' from module '%s'.", names[i]->chars,
-				             modulePath->chars);
-				freeVM(newModuleVM);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-		}
-
-		importSetAdd(vm, &vm->module->importedModules, modulePath);
-		freeVM(newModuleVM);
+		// Rest of file import goes here
 #ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
 #else
