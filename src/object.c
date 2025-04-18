@@ -355,10 +355,6 @@ void printObject(Value value) {
 			printf("<error>");
 			break;
 		}
-		case OBJECT_MODULE: {
-			printf("<module>");
-			break;
-		}
 		case OBJECT_RESULT: {
 			printf("<result>");
 			break;
@@ -469,7 +465,7 @@ ObjectString *toString(VM *vm, Value value) {
 			}
 			return copyString(vm, "<native infallible fn>", 21);
 		}
-		
+
 		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
 			ObjectNativeInfallibleMethod *native = AS_CRUX_NATIVE_INFALLIBLE_METHOD(value);
 			if (native->name != NULL) {
@@ -898,15 +894,6 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPani
 	error->type = type;
 	error->isPanic = isPanic;
 	return error;
-}
-
-ObjectModule *newModule(VM *vm, const char *path) {
-	ObjectModule *module = ALLOCATE_OBJECT(vm, ObjectModule, OBJECT_MODULE);
-	module->path = copyString(vm, path, strlen(path));
-	module->state = INITIAL;
-	module->vmDepth = 0;
-	initImportSet(&module->importedModules);
-	return module;
 }
 
 void initImportSet(ImportSet* set) {

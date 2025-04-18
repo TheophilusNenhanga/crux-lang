@@ -481,8 +481,6 @@ void initVM(VM *vm, int argc, const char **argv) {
 	vm->grayCount = 0;
 	vm->grayCapacity = 0;
 	vm->grayStack = NULL;
-	vm->enclosing = NULL;
-	vm->module = NULL;
 	vm->nativeModules = (NativeModules){.modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
 	vm->matchHandler.isMatchBind = false;
@@ -536,10 +534,7 @@ void freeVM(VM *vm) {
 
 	free(vm->frames);
 	free(vm->stack);
-
-	if (vm->enclosing != NULL) {
-		free(vm);
-	}
+	free(vm);
 }
 
 /**
@@ -1237,7 +1232,6 @@ OP_DEFINE_GLOBAL: {
 		bool isPublic = false;
 		if (checkPreviousInstruction(frame, 3, OP_PUB)) {
 			isPublic = true;
-			printf("This is public");
 		}
 		if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
 			pop(vm);
@@ -2175,79 +2169,13 @@ OP_ANON_FUNCTION: {
 	}
 
 OP_USE: {
-		uint8_t nameCount = READ_BYTE();
-		ObjectString *names[UINT8_MAX];
-		ObjectString *aliases[UINT8_MAX];
-		for (int i = 0; i < nameCount; i++) {
-			names[i] = READ_STRING();
-		}
-		for (int i = 0; i < nameCount; i++) {
-			aliases[i] = READ_STRING();
-		}
-		ObjectString *modulePath = READ_STRING();
+		// Resolve the file path
+		// compile the source code
+		// execute the compiled code in the current VM
+	 	// store the exported  names
+	 	// add the imported names to the vm's globals table
 
-		if (importSetContains(&vm->module->importedModules, modulePath)) {
-			runtimePanic(vm, IMPORT,
-			             "Module '%s' has already been imported. All imports must be done in a single 'use' statement.",
-			             modulePath->chars);
-			return INTERPRET_RUNTIME_ERROR;
-		}
 
-		if (modulePath->length > 4 && memcmp(modulePath->chars, "crux:", 5) == 0) {
-			char *moduleName = modulePath->chars + 5;
-			int moduleIndex = -1;
-			for (int i = 0; i < vm->nativeModules.count; i++) {
-				if (memcmp(moduleName, vm->nativeModules.modules[i].name, strlen(moduleName)) == 0) {
-					moduleIndex = i;
-					break;
-				}
-			}
-			if (moduleIndex == -1) {
-				runtimePanic(vm, IMPORT, "Module '%s' does not exist.", modulePath->chars);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-
-			Table *moduleTable = vm->nativeModules.modules[moduleIndex].names;
-			for (int i = 0; i < nameCount; i++) {
-				Value value;
-				bool getSuccess = tableGet(moduleTable, names[i], &value);
-				if (!getSuccess) {
-					runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
-					             modulePath->chars);
-					return INTERPRET_RUNTIME_ERROR;
-				}
-				push(vm, OBJECT_VAL(value));
-				bool setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
-
-				if (!setSuccess) {
-					runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
-					             modulePath->chars);
-					return INTERPRET_RUNTIME_ERROR;
-				}
-				pop(vm);
-			}
-			importSetAdd(vm, &vm->module->importedModules, modulePath);
-#ifdef DEBUG_TRACE_EXECUTION
-			goto* dispatchTable[endIndex];
-#else
-			instruction = READ_BYTE();
-			goto* dispatchTable[instruction];
-#endif
-		}
-
-		char *resolvedPath = resolvePath(vm->module->path->chars, modulePath->chars);
-		if (resolvedPath == NULL) {
-			runtimePanic(vm, IO, "Could not resolve path to module.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-
-		FileResult source = readFile(resolvedPath);
-		if (source.error != NULL) {
-			runtimePanic(vm, IO, source.error);
-			return INTERPRET_RUNTIME_ERROR;
-		}
-
-		// Rest of file import goes here
 #ifdef DEBUG_TRACE_EXECUTION
 		goto* dispatchTable[endIndex];
 #else

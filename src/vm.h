@@ -6,7 +6,6 @@
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
-typedef struct ObjectModule ObjectModule;
 
 #define MAX_VM_DEPTH 64
 #define FRAMES_MAX 64
@@ -72,8 +71,6 @@ struct VM {
 	Table fileType;
 
 	NativeModules nativeModules;
-	struct VM *enclosing;
-	ObjectModule *module;
 	MatchHandler matchHandler;
 	Args args;
 };

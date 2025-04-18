@@ -58,7 +58,6 @@ typedef enum {
 	OBJECT_ARRAY,
 	OBJECT_TABLE,
 	OBJECT_ERROR,
-	OBJECT_MODULE,
 	OBJECT_RESULT,
 	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
 	OBJECT_NATIVE_INFALLIBLE_METHOD,
@@ -228,18 +227,10 @@ typedef struct {
 } ObjectTable;
 
 typedef enum {
-	IMPORTED, 
-	IN_PROGRESS,
-	INITIAL,
+	STATE_LOADING,
+	STATE_LOADED,
+	STATE_ERROR,
 } ModuleState;
-
-struct ObjectModule{
-	Object object;
-	ObjectString *path;
-	ImportSet importedModules;
-	ModuleState state;
-	int vmDepth;
-};
 
 typedef struct {
 	Object object;
@@ -344,7 +335,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity, Ob
  * @brief Creates a new native infallible function object.
  *
  * Native infallible functions are implemented in C, callable from crux code,
- * and guaranteed not to return errors. This function allocates and initializes 
+ * and guaranteed not to return errors. This function allocates and initializes
  * a new ObjectNativeInfallibleFunction.
  *
  * @param vm The virtual machine.
@@ -404,18 +395,6 @@ ObjectClass *newClass(VM *vm, ObjectString *name);
  */
 ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
 
-/**
- * @brief Creates a new module object.
- *
- * Modules encapsulate code and data for separate compilation and organization.
- * This function allocates and initializes a new ObjectModule.
- *
- * @param vm The virtual machine.
- * @param path The module path as a C-style string.
- *
- * @return A pointer to the newly created ObjectModule.
- */
-ObjectModule *newModule(VM *vm, const char* path);
 
 /**
  * @brief Creates a new object table.
