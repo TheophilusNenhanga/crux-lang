@@ -82,6 +82,7 @@ typedef enum {
 	OP_SET_LOCAL_MODULUS,
 	OP_SET_UPVALUE_INT_DIVIDE,
 	OP_SET_UPVALUE_MODULUS,
+	OP_USE_NATIVE
 } OpCode;
 
 typedef struct {

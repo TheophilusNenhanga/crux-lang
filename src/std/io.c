@@ -315,7 +315,7 @@ ObjectResult* openFileFunction(VM *vm, int argCount, Value *args) {
 	ObjectString* path = AS_CRUX_STRING(args[0]);
 	ObjectString* mode = AS_CRUX_STRING(args[1]);
 
-	char* resolvedPath = resolvePath(vm->module->path->chars, path->chars);
+	char* resolvedPath = "./";  // resolvePath(vm->module->path->chars, path->chars);
 	if (resolvedPath == NULL) {
 		return newErrorResult(vm, newError(vm, copyString(vm, "Could not resolve path to file.", 31), IO, false));
 	}
@@ -337,7 +337,7 @@ static bool isReadable(ObjectString* mode) {
 
 static bool isWritable(ObjectString* mode) {
 	return strcmp(mode->chars, "w") == 0 || strcmp(mode->chars, "wb") == 0 || strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0
-	|| strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 
+	|| strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 || strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0
 	|| strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
 }
 
@@ -418,7 +418,7 @@ ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
 		return newErrorResult(vm, newError(vm, copyString(vm, "File is not open.", 17), IO, false));
 	}
 
-	fclose(file->file);	
+	fclose(file->file);
 	file->isOpen = false;
 	file->position = 0;
 	return newOkResult(vm, NIL_VAL);
@@ -426,7 +426,7 @@ ObjectResult* closeFileMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
 	ObjectFile* file = AS_CRUX_FILE(args[0]);
-	
+
 	if (file->file == NULL) {
 		return newErrorResult(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
 	}
@@ -448,11 +448,11 @@ ObjectResult* writeFileMethod(VM *vm, int argCount, Value *args) {
 	fwrite(content->chars, sizeof(char), content->length, file->file);
 	file->position += content->length;
 	return newOkResult(vm, NIL_VAL);
-}	
+}
 
 ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
 	ObjectFile* file = AS_CRUX_FILE(args[0]);
-	
+
 	if (file->file == NULL) {
 		return newErrorResult(vm, newError(vm, copyString(vm, "Could not write to file.", 21), IO, false));
 	}
@@ -464,7 +464,7 @@ ObjectResult* writelnFileMethod(VM *vm, int argCount, Value *args) {
 	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
 		return newErrorResult(vm, newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
 	}
-	
+
 	if (!IS_CRUX_STRING(args[1])){
 		return newErrorResult(vm, newError(vm, copyString(vm, "<content> must be of type 'string'.", 37), IO, false));
 	}

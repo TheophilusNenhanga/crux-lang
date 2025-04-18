@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "chunk.h"
 #include "value.h"
 
 #include <stdio.h>
@@ -154,12 +155,12 @@ static int fileJumpInstruction(const char *name, int sign, Chunk *chunk, int off
  * @brief Writes a value to a file
  *
  * Similar to printValue but writes to a file instead of stdout
- * 
+ *
  * @param value The value to write
  * @param file The file to write to
  */
 static void fileWriteValue(Value value, FILE *file) {
-	
+
 		if (IS_BOOL(value)) {
 			fprintf(file, AS_BOOL(value) ? "true" : "false");
 		} else if (IS_NIL(value)) {
@@ -217,9 +218,6 @@ static void fileWriteValue(Value value, FILE *file) {
 					break;
 				case OBJECT_ERROR:
 					fprintf(file, "<error>");
-					break;
-				case OBJECT_MODULE:
-					fprintf(file, "<module>");
 					break;
 				case OBJECT_RESULT:
 					fprintf(file, "<result>");
@@ -460,6 +458,8 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
 			return fileSimpleInstruction("OP_INT_DIVIDE", offset, file);
 		case OP_POWER:
 			return fileSimpleInstruction("OP_POWER", offset, file);
+		case OP_USE_NATIVE:
+			return fileSimpleInstruction("OP_USE_NATIVE", offset, file);
 		default:
 			fprintf(file, "Unknown opcode %d\n", instruction);
 			return offset + 1;
@@ -683,6 +683,9 @@ int disassembleInstruction(Chunk *chunk, int offset) {
 		}
 		case OP_POWER: {
 			return simpleInstruction("OP_POWER", offset);
+		}
+		case OP_USE_NATIVE: {
+			return simpleInstruction("OP_USE_NATIVE", offset);
 		}
 		default:
 			printf("Unknown opcode %d\n", instruction);

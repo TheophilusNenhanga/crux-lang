@@ -713,9 +713,9 @@ static void namedVariable(Token name, bool canAssign) {
 			op = COMPOUND_OP_STAR;
 		} else if (match(TOKEN_SLASH_EQUAL)) {
 			op = COMPOUND_OP_SLASH;
-		}else if (match(TOKEN_BACK_SLASH_EQUAL)) {
+		} else if (match(TOKEN_BACK_SLASH_EQUAL)) {
 			op = COMPOUND_OP_BACK_SLASH;
-		}else if (match(TOKEN_PERCENT_EQUAL)) {
+		} else if (match(TOKEN_PERCENT_EQUAL)) {
 			op = COMPOUND_OP_PERCENT;
 		} else {
 			isCompoundAssignment = false;
@@ -1086,7 +1086,7 @@ static void useStatement() {
 		if (nameCount >= UINT8_MAX) {
 			compilerPanic(&parser, "Cannot import more than 255 names from another module.", IMPORT_EXTENT);
 		}
-		consume(TOKEN_IDENTIFIER, "Expected name to import from external module");
+		consume(TOKEN_IDENTIFIER, "Expected name to import from module");
 
 		uint8_t name;
 		if (parser.current.type == TOKEN_AS) {
@@ -1109,9 +1109,23 @@ static void useStatement() {
 
 	consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
 	consume(TOKEN_STRING, "Expected string literal for module name");
-	uint8_t module =
-			makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
-	emitBytes(OP_USE, nameCount);
+
+	// check if the module is native
+	bool isNative = false;
+	if (memcmp(parser.previous.start, "\"crux:", 6) == 0) {
+		isNative = true;
+	}
+
+	uint8_t module;
+	if (isNative) {
+		module = makeConstant(OBJECT_VAL(copyString(current->owner, parser.previous.start + 6, parser.previous.length -7)));
+		emitBytes(OP_USE_NATIVE, nameCount);
+	} else {
+		module = makeConstant(
+			OBJECT_VAL(copyString(current->owner, parser.previous.start + 1, parser.previous.length - 2)));
+		emitBytes(OP_USE, nameCount);
+	}
+
 	for (uint8_t i = 0; i < nameCount; i++) {
 		emitByte(names[i]);
 	}
@@ -1380,10 +1394,10 @@ static void grouping(bool canAssign) {
 }
 
 static void number(bool canAssign) {
-	char* end;
+	char *end;
 	errno = 0;
 
-	const char* numberStart = parser.previous.start;
+	const char *numberStart = parser.previous.start;
 	double number = strtod(numberStart, &end);
 
 	if (end == numberStart) {
@@ -1397,10 +1411,10 @@ static void number(bool canAssign) {
 	if (!isfinite(number)) {
 		emitConstant(FLOAT_VAL(number));
 	}
-	int32_t integer = (int32_t)number;
-	if ((double)integer == number) {
+	int32_t integer = (int32_t) number;
+	if ((double) integer == number) {
 		emitConstant(INT_VAL(integer));
-	}else {
+	} else {
 		emitConstant(FLOAT_VAL(number));
 	}
 }

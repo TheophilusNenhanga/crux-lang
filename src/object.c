@@ -896,40 +896,6 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type, bool isPani
 	return error;
 }
 
-void initImportSet(ImportSet* set) {
-	set->paths = NULL;
-	set->count = 0;
-	set->capacity = 0;
-}
-
-bool importSetContains(ImportSet* set, ObjectString* path) {
-	if (set->count == 0) {
-		return false;
-	}
-	for (int i = 0; i < set->count; i++) {
-		if (path == set->paths[i]) {
-			return true;
-		}
-	}
-	return false;
-}
-
-bool importSetAdd(VM* vm, ImportSet* set, ObjectString* path) {
-	if (set->count + 1 > set->capacity) {
-		int oldCapacity = set->capacity;
-		set->capacity = GROW_CAPACITY(oldCapacity);
-		set->paths = GROW_ARRAY(vm, ObjectString*, set->paths, oldCapacity, set->capacity);
-	}
-	set->paths[set->count++] = path;
-	return true;
-}
-
-void freeImportSet(VM* vm, ImportSet* set) {
-	FREE_ARRAY(vm, ObjectString*, set->paths, set->capacity);
-	initImportSet(set);
-}
-
-
 ObjectResult* newOkResult(VM* vm, Value value) {
 	ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
 	result->isOk = true;

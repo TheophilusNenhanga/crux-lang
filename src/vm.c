@@ -1,5 +1,6 @@
 #include "vm.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -982,6 +983,7 @@ static InterpretResult run(VM *vm) {
 		&& OP_SET_LOCAL_MODULUS,
 		&& OP_SET_UPVALUE_INT_DIVIDE,
 		&& OP_SET_UPVALUE_MODULUS,
+		&& OP_USE_NATIVE,
 		&& end
 	};
 
@@ -1069,10 +1071,10 @@ OP_NEGATE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 #ifdef DEBUG_TRACE_EXECUTION
-	goto* dispatchTable[endIndex];
+		goto* dispatchTable[endIndex];
 #else
-	instruction = READ_BYTE();
-	goto* dispatchTable[instruction];
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
 #endif
 	}
 
@@ -2172,8 +2174,8 @@ OP_USE: {
 		// Resolve the file path
 		// compile the source code
 		// execute the compiled code in the current VM
-	 	// store the exported  names
-	 	// add the imported names to the vm's globals table
+		// store the exported  names
+		// add the imported names to the vm's globals table
 
 
 #ifdef DEBUG_TRACE_EXECUTION
@@ -2480,6 +2482,60 @@ OP_SET_UPVALUE_MODULUS: {
 		goto* dispatchTable[instruction];
 #endif
 	}
+
+OP_USE_NATIVE: {
+		uint8_t nameCount = READ_BYTE();
+		ObjectString *names[UINT8_MAX];
+		ObjectString *aliases[UINT8_MAX];
+
+		for (uint8_t i = 0; i < nameCount; i++) {
+			names[i] = READ_STRING();
+		}
+		for (uint8_t i = 0; i < nameCount; i++) {
+			aliases[i] = READ_STRING();
+		}
+
+		ObjectString *moduleName = READ_STRING();
+		int moduleIndex = -1;
+		for (int i = 0; i < vm->nativeModules.count; i++) {
+			if (memcmp(moduleName->chars, vm->nativeModules.modules[i].name, moduleName->length) == 0) {
+				moduleIndex = i;
+				break;
+			}
+		}
+		if (moduleIndex == -1) {
+			runtimePanic(vm, IMPORT, "Module '%s' not found.", moduleName->chars);
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		Table *moduleTable = vm->nativeModules.modules[moduleIndex].names;
+		for (int i = 0; i < nameCount; i++) {
+			Value value;
+			bool getSuccess = tableGet(moduleTable, names[i], &value);
+			if (!getSuccess) {
+				runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+				             moduleName->chars);
+				return INTERPRET_RUNTIME_ERROR;
+			}
+			push(vm, OBJECT_VAL(value));
+			bool setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
+
+			if (!setSuccess) {
+				runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+				             moduleName->chars);
+				return INTERPRET_RUNTIME_ERROR;
+			}
+			pop(vm);
+		}
+
+#ifdef DEBUG_TRACE_EXECUTION
+		goto* dispatchTable[endIndex];
+#else
+		instruction = READ_BYTE();
+		goto* dispatchTable[instruction];
+#endif
+	}
+
 
 end: {
 		printf("        ");

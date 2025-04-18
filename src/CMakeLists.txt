@@ -11,10 +11,22 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_C_FLAGS_RELEASE "-O2")
+# set(CMAKE_C_FLAGS "-Wall")
 
-file(GLOB SOURCES 
-    "*.c" 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_C_FLAGS_RELEASE "-O2")
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Profile")
+    set(CMAKE_C_FLAGS_PROFILE "-pg")
+endif()
+
+file(GLOB SOURCES
+    "*.c"
     "std/*.c"
 )
 

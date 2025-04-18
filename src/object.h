@@ -213,11 +213,6 @@ typedef struct {
 	bool isOccupied;
 } ObjectTableEntry;
 
-typedef struct {
-	ObjectString **paths; // module paths
-	int count;
-	int capacity;
-} ImportSet;
 
 typedef struct {
 	Object object;
@@ -617,52 +612,6 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint32_t index);
  * It ensures sufficient capacity before adding the element.
  */
 bool arrayAddBack(VM *vm, ObjectArray *array, Value value);
-
-/**
- * @brief Checks if an import set contains a path.
- *
- * This function checks if a given module path is already present in an ImportSet.
- *
- * @param set The ImportSet to search.
- * @param path The ObjectString representing the module path to check for.
- *
- * @return true if the path is in the set, false otherwise.
- */
-bool importSetContains(ImportSet *set, ObjectString *path);
-
-/**
- * @brief Adds a path to an import set.
- *
- * This function adds a module path to an ImportSet, tracking imported modules.
- * It resizes the set's path array if necessary.
- *
- * @param vm The virtual machine.
- * @param set The ImportSet to modify.
- * @param path The ObjectString representing the module path to add.
- *
- * @return true if the path was added successfully, false otherwise (e.g., memory allocation failure during resizing).
- */
-bool importSetAdd(VM *vm, ImportSet *set, ObjectString *path);
-
-/**
- * @brief Initializes an import set.
- *
- * An import set tracks modules that have been imported to prevent cyclic imports.
- * This function initializes an ImportSet struct.
- *
- * @param set The ImportSet to initialize.
- */
-void initImportSet(ImportSet *set);
-
-/**
- * @brief Frees the memory associated with an import set.
- *
- * This function frees the memory allocated for the path array in an ImportSet.
- *
- * @param vm The virtual machine.
- * @param set The ImportSet to free.
- */
-void freeImportSet(VM *vm, ImportSet *set);
 
 /**
  * @brief Creates a new random object.

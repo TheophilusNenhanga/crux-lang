@@ -8,8 +8,5 @@
 /src/cmake-build-debug
 /src/out
 src/CMakeSettings.json
-/docs/node_modules
-/docs/.astro
-/docs/.vscode
 *.exe
 /src/build
