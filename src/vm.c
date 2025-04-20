@@ -565,19 +565,6 @@ void initVM(VM *vm, int argc, const char **argv) {
   initTable(&vm->moduleCache);
   initImportStack(vm);
 
-  ObjectString *path;
-  if (argc > 1) {
-    path = copyString(vm, argv[1], strlen(argv[1]));
-  } else {
-#ifdef _WIN32
-    path = copyString(vm, ".\\", 2);
-#else
-    path = copyString(vm, "./", 2);
-#endif
-  }
-
-  vm->currentModuleRecord = newObjectModuleRecord(vm, path);
-
   initTable(&vm->stringType);
   initTable(&vm->arrayType);
   initTable(&vm->tableType);
@@ -592,6 +579,19 @@ void initVM(VM *vm, int argc, const char **argv) {
 
   vm->args.argc = argc;
   vm->args.argv = argv;
+
+  ObjectString *path;
+  if (argc > 1) {
+    path = copyString(vm, argv[1], strlen(argv[1]));
+  } else {
+#ifdef _WIN32
+    path = copyString(vm, ".\\", 2);
+#else
+    path = copyString(vm, "./", 2);
+#endif
+  }
+
+  vm->currentModuleRecord = newObjectModuleRecord(vm, path);
 
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
            OBJECT_VAL(vm->currentModuleRecord), false);
