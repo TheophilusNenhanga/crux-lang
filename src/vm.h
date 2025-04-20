@@ -6,6 +6,7 @@
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
+typedef struct ObjectModuleRecord ObjectModuleRecord;
 
 #define MAX_VM_DEPTH 64
 #define FRAMES_MAX 64
@@ -45,6 +46,12 @@ typedef struct {
 	int argc;
 }Args;
 
+typedef struct {
+	ObjectString** paths; // reolved module path strings
+	uint32_t count;
+	uint32_t capacity;
+} ImportStack;
+
 struct VM {
 	Value* stack; // always points just past the last item
 	Value *stackTop;
@@ -55,6 +62,10 @@ struct VM {
 	Table strings;
 	Table globals;
 	ObjectUpvalue *openUpvalues;
+
+	Table moduleCache;
+	ObjectModuleRecord* currentModuleRecord;
+	ImportStack importStack;
 
 	int grayCount;
 	size_t bytesAllocated;
@@ -88,5 +99,16 @@ InterpretResult interpret(VM *vm, char *source);
 void push(VM *vm, Value value);
 
 Value pop(VM *vm);
+
+void initImportStack(VM* vm);
+
+void freeImportStack(VM* vm);
+
+// Returns false on allocation error
+bool pushImportStack(VM* vm, ObjectString* path);
+
+void popImportStack(VM* vm);
+
+bool isInImportStack(VM* vm, ObjectString* path);
 
 #endif // VM_H
