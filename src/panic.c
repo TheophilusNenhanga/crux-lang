@@ -267,9 +267,9 @@ char *typeErrorMessage(VM *vm, Value value, const char *expectedType) {
   static char buffer[256];
 
   Value typeValue = typeFunction_(vm, 1, &value);
-  char* actualType = AS_C_STRING(typeValue);
+  char *actualType = AS_C_STRING(typeValue);
 
-  snprintf(buffer, sizeof(buffer),
-           "Expected type '%s', but got '%s'.", expectedType, actualType);
+  snprintf(buffer, sizeof(buffer), "Expected type '%s', but got '%s'.",
+           expectedType, actualType);
   return buffer;
 }

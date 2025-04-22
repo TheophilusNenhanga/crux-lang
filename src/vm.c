@@ -477,7 +477,7 @@ static void closeUpvalues(VM *vm, Value *last) {
 static void defineMethod(VM *vm, ObjectString *name) {
   Value method = peek(vm, 0);
   ObjectClass *klass = AS_CRUX_CLASS(peek(vm, 1));
-  if (tableSet(vm, &klass->methods, name, method, false)) {
+  if (tableSet(vm, &klass->methods, name, method)) {
     pop(vm);
   }
 }
@@ -572,7 +572,6 @@ void initVM(VM *vm, int argc, const char **argv) {
   initTable(&vm->randomType);
   initTable(&vm->fileType);
   initTable(&vm->strings);
-  initTable(&vm->globals);
 
   vm->initString = NULL;
   vm->initString = copyString(vm, "init", 4);
@@ -592,9 +591,9 @@ void initVM(VM *vm, int argc, const char **argv) {
   }
 
   vm->currentModuleRecord = newObjectModuleRecord(vm, path);
-
+  initTable(&vm->currentModuleRecord->globals);
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
-           OBJECT_VAL(vm->currentModuleRecord), false);
+           OBJECT_VAL(vm->currentModuleRecord));
 
   if (!initializeStdLib(vm)) {
     runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
@@ -604,7 +603,7 @@ void initVM(VM *vm, int argc, const char **argv) {
 
 void freeVM(VM *vm) {
   freeTable(vm, &vm->strings);
-  freeTable(vm, &vm->globals);
+  freeTable(vm, &vm->currentModuleRecord->globals);
 
   freeTable(vm, &vm->stringType);
   freeTable(vm, &vm->arrayType);
@@ -847,7 +846,7 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
                                         OpCode opcode, char *operation) {
   Value currentValue;
-  if (!tableGet(&vm->globals, name, &currentValue)) {
+  if (!tableGet(&vm->currentModuleRecord->globals, name, &currentValue)) {
     runtimePanic(vm, NAME, "Undefined variable '%s' for compound assignment.",
                  name->chars);
     return INTERPRET_RUNTIME_ERROR;
@@ -996,7 +995,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
   }
 
-  if (!tableSet(vm, &vm->globals, name, resultValue, false)) {
+  if (!tableSet(vm, &vm->currentModuleRecord->globals, name, resultValue)) {
     runtimePanic(
         vm, RUNTIME,
         "Failed to set global variable '%s' after compound assignment.",
@@ -1367,8 +1366,12 @@ OP_DEFINE_GLOBAL: {
   if (checkPreviousInstruction(frame, 3, OP_PUB)) {
     isPublic = true;
   }
-  if (tableSet(vm, &vm->globals, name, peek(vm, 0), isPublic)) {
+  if (tableSet(vm, &vm->currentModuleRecord->globals, name, peek(vm, 0))) {
     pop(vm);
+
+    if (isPublic) {
+      tableSet(vm, &vm->currentModuleRecord->publics, name, peek(vm, 0));
+    }
 #ifdef DEBUG_TRACE_EXECUTION
     goto *dispatchTable[endIndex];
 #else
@@ -1384,7 +1387,7 @@ OP_DEFINE_GLOBAL: {
 OP_GET_GLOBAL: {
   ObjectString *name = READ_STRING();
   Value value;
-  if (tableGet(&vm->globals, name, &value)) {
+  if (tableGet(&vm->currentModuleRecord->globals, name, &value)) {
     push(vm, value);
 #ifdef DEBUG_TRACE_EXECUTION
     goto *dispatchTable[endIndex];
@@ -1399,7 +1402,7 @@ OP_GET_GLOBAL: {
 
 OP_SET_GLOBAL: {
   ObjectString *name = READ_STRING();
-  if (tableSet(vm, &vm->globals, name, peek(vm, 0), false)) {
+  if (tableSet(vm, &vm->currentModuleRecord->globals, name, peek(vm, 0))) {
     runtimePanic(vm, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
@@ -1609,7 +1612,7 @@ OP_SET_PROPERTY: {
   ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
 
-  if (tableSet(vm, &instance->fields, name, peek(vm, 0), false)) {
+  if (tableSet(vm, &instance->fields, name, peek(vm, 0))) {
     Value value = pop(vm);
     popPush(vm, value);
 #ifdef DEBUG_TRACE_EXECUTION
@@ -2683,7 +2686,8 @@ OP_USE_NATIVE: {
       return INTERPRET_RUNTIME_ERROR;
     }
     push(vm, OBJECT_VAL(value));
-    bool setSuccess = tableSet(vm, &vm->globals, aliases[i], value, false);
+    bool setSuccess =
+        tableSet(vm, &vm->currentModuleRecord->globals, aliases[i], value);
 
     if (!setSuccess) {
       runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.",

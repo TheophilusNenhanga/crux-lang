@@ -253,7 +253,6 @@ struct ObjectModuleRecord {
   Table globals;
   Table publics;
   ObjectClosure *moduleClosure;
-  ObjectError *moduleError;
 };
 
 static bool isObjectType(Value value, ObjectType type) {

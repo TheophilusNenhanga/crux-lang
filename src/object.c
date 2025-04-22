@@ -235,7 +235,7 @@ static ObjectString *allocateString(VM *vm, char *chars, uint32_t length,
   string->hash = hash;
   // intern the string
   push(vm, OBJECT_VAL(string));
-  tableSet(vm, &vm->strings, string, NIL_VAL, false);
+  tableSet(vm, &vm->strings, string, NIL_VAL);
   pop(vm);
   return string;
 }
@@ -376,9 +376,15 @@ void printObject(Value value) {
     printf("<file>");
     break;
   }
-  case OBJECT_NATIVE_INFALLIBLE_METHOD:
+  case OBJECT_NATIVE_INFALLIBLE_METHOD: {
     printf("<native infallible method>");
     break;
+  }
+
+  case OBJECT_MODULE_RECORD: {
+    printf("<module record>");
+    break;
+  }
   }
 }
 
@@ -727,8 +733,9 @@ ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
  *
  * This static helper function finds an entry in an ObjectTable's entry array
  * based on a given key. It uses open addressing with quadratic probing to
- * resolve collisions. It also handles tombstones (entries that were previously
- * occupied but are now deleted) to allow for rehashing after deletions.
+ * resolve collisions. It also handles tombstones (entries that were
+ * previously occupied but are now deleted) to allow for rehashing after
+ * deletions.
  *
  * @param entries The array of ObjectTableEntry.
  * @param capacity The capacity of the table's entry array.
@@ -965,6 +972,5 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   initTable(&moduleRecord->publics);
   moduleRecord->state = STATE_LOADING;
   moduleRecord->moduleClosure = NULL;
-  moduleRecord->moduleError = NULL;
   return moduleRecord;
 }

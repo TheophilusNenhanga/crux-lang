@@ -20,7 +20,8 @@ void disassembleChunk(Chunk *chunk, const char *name);
  *
  * Prints the byte offset, source line number, and a human-readable
  * representation of the instruction at the given offset in the chunk.
- * Line numbers are displayed as "|" if they match the previous instruction's line.
+ * Line numbers are displayed as "|" if they match the previous instruction's
+ * line.
  *
  * The function dispatches to specialized formatting functions based on the
  * instruction type (simple, constant, byte, jump, or invoke instructions).
@@ -33,10 +34,10 @@ int disassembleInstruction(Chunk *chunk, int offset);
 
 /**
  * @brief Dumps bytecode to a text file
- * 
+ *
  * Writes a text representation of the bytecode to the specified file.
  * Similar to disassembleChunk but writes to a file instead of stdout.
- * 
+ *
  * @param chunk Pointer to the Chunk to dump
  * @param name Name of the chunk for identification in output
  * @param file File pointer to write to (must be opened for writing)

@@ -243,7 +243,6 @@ static void blackenObject(VM *vm, Object *object) {
     ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
     markObject(vm, (Object *)moduleRecord->path);
     markObject(vm, (Object *)moduleRecord->moduleClosure);
-    markObject(vm, (Object *)moduleRecord->moduleError);
     markTable(vm, &moduleRecord->globals);
     markTable(vm, &moduleRecord->publics);
     break;
@@ -413,7 +412,6 @@ void markRoots(VM *vm) {
     markTable(vm, vm->nativeModules.modules[i].names);
   }
 
-  markTable(vm, &vm->globals);
   markTable(vm, &vm->randomType);
   markTable(vm, &vm->stringType);
   markTable(vm, &vm->arrayType);

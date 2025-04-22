@@ -64,7 +64,6 @@ int main(const int argc, const char *argv[]) {
 #else
     fprintf(stderr, "Usage: ./[crux] [path]\n");
 #endif
-
     exit(64);
   }
 
