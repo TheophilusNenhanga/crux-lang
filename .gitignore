@@ -10,3 +10,4 @@
 src/CMakeSettings.json
 *.exe
 /src/build
+/src/cmake-build-release

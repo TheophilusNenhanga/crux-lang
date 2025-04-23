@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "file_handler.h"
-#include "object.h"
 #include "vm.h"
 
 /**
