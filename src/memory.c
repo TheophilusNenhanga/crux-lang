@@ -141,6 +141,7 @@ static void blackenObject(VM *vm, Object *object) {
   case OBJECT_FUNCTION: {
     ObjectFunction *function = (ObjectFunction *)object;
     markObject(vm, (Object *)function->name);
+    markObject(vm, (Object *)function->moduleRecord);
     markArray(vm, &function->chunk.constants);
     break;
   }

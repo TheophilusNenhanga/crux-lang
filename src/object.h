@@ -7,6 +7,7 @@
 #include "common.h"
 #include "table.h"
 #include "value.h"
+#include "vm.h"
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
@@ -95,6 +96,7 @@ typedef struct {
   int upvalueCount;
   Chunk chunk;
   ObjectString *name;
+  ObjectModuleRecord *moduleRecord;
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {

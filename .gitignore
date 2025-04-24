@@ -1,13 +1,11 @@
-/cmake-build-debug
 /.idea
 /build
 /.vscode
 /.cache
 /out
 /.vs
-/src/cmake-build-debug
 /src/out
 src/CMakeSettings.json
 *.exe
 /src/build
-/src/cmake-build-release
+/src/cmake-build-*

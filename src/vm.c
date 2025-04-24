@@ -14,6 +14,7 @@
 #include "object.h"
 #include "panic.h"
 #include "std/std.h"
+#include "table.h"
 #include "value.h"
 
 void initImportStack(VM *vm) {
@@ -2335,11 +2336,144 @@ OP_ANON_FUNCTION: {
 }
 
 OP_USE: {
-  // Resolve the file path
-  // compile the source code
-  // execute the compiled code in the current VM
-  // store the exported  names
-  // add the imported names to the vm's globals table
+  uint8_t nameCount = READ_BYTE();
+  ObjectString *names[UINT8_MAX];
+  ObjectString *aliases[UINT8_MAX];
+
+  for (uint8_t i = 0; i < nameCount; i++) {
+    names[i] = READ_STRING();
+  }
+  for (uint8_t i = 0; i < nameCount; i++) {
+    aliases[i] = READ_STRING();
+  }
+
+  ObjectString *moduleName = READ_STRING();
+  char *resolvedPathChars =
+      resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
+  if (resolvedPathChars == NULL) {
+    vm->currentModuleRecord->state = STATE_ERROR;
+    runtimePanic(vm, IMPORT, "Failed to resolve module path for path: %s",
+                 moduleName->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  ObjectString *path =
+      copyString(vm, resolvedPathChars, strlen(resolvedPathChars));
+  free(resolvedPathChars);
+
+  Value recordValue;
+  ObjectModuleRecord *moduleRecord = NULL;
+
+  if (tableGet(&vm->moduleCache, path, &recordValue)) {
+    if (!IS_CRUX_MODULE_RECORD(recordValue)) {
+      runtimePanic(
+          vm, RUNTIME,
+          "Internal Error: Invalid object found in module cache for path '%s'.",
+          path->chars);
+    }
+
+    moduleRecord = AS_CRUX_MODULE_RECORD(recordValue);
+
+    if (moduleRecord->state == STATE_LOADING) {
+      runtimePanic(vm, IMPORT, "Circular dependency detected importing '%s'.",
+                   path->chars);
+      return INTERPRET_RUNTIME_ERROR;
+    } else if (moduleRecord->state == STATE_ERROR) {
+      runtimePanic(vm, IMPORT, "Module '%s' previously failed to load.",
+                   path->chars);
+      return INTERPRET_RUNTIME_ERROR;
+    } else if (moduleRecord->state == STATE_LOADED) {
+    }
+  } else {
+    if (isInImportStack(vm, path)) {
+      runtimePanic(vm, IMPORT, "Circular dependency detected importing '%s'.",
+                   path->chars);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    if (!pushImportStack(vm, path)) {
+      runtimePanic(vm, MEMORY, "Failed to allocate memory for import process.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    moduleRecord = newObjectModuleRecord(vm, path);
+    tableSet(vm, &vm->moduleCache, path, OBJECT_VAL(moduleRecord));
+
+    FileResult fileResult = readFile(path->chars);
+    if (fileResult.error != NULL) {
+      moduleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      runtimePanic(vm, IO, "Could not read module '%s': %s", path->chars,
+                   fileResult.error);
+      freeFileResult(fileResult);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    ObjectFunction *moduleFunction = compile(vm, fileResult.content);
+    freeFileResult(fileResult);
+    if (moduleFunction == NULL) {
+      moduleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      return INTERPRET_COMPILE_ERROR;
+    }
+
+    ObjectClosure *moduleClosure = newClosure(vm, moduleFunction);
+    moduleRecord->moduleClosure = moduleClosure;
+
+    ObjectModuleRecord *previousModule = vm->currentModuleRecord;
+    vm->currentModuleRecord = moduleRecord;
+
+    push(vm, OBJECT_VAL(moduleClosure));
+    bool callOk = call(vm, moduleClosure, 0);
+
+    vm->currentModuleRecord = previousModule;
+
+    if (!callOk) {
+      moduleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    pop(vm);
+    moduleRecord->state = STATE_LOADED;
+    popImportStack(vm);
+  }
+
+  ObjectModuleRecord *importerRecord =
+      vm->frames[vm->frameCount - 1].closure->function->moduleRecord;
+
+  if (moduleRecord->state != STATE_LOADED) {
+    runtimePanic(vm, RUNTIME,
+                 "Internal Error: Module '%s' is not in LOADED state after "
+                 "import attempt.",
+                 path->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  Table *exportsTable = &moduleRecord->publics;
+  Table *importerGlobals = &importerRecord->globals;
+
+  for (uint8_t i = 0; i < nameCount; i++) {
+    ObjectString *name = names[i];
+    ObjectString *alias = aliases[i];
+
+    Value valueToImport;
+    if (!tableGet(exportsTable, name, &valueToImport)) {
+      runtimePanic(vm, NAME, "Symbol '%s' is not exported by module '%s'.",
+                   name->chars, path->chars);
+      // could clean up here
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    if (!tableSet(vm, importerGlobals, alias, valueToImport)) {
+      runtimePanic(vm, NAME,
+                   "Cannot import '%s' as '%s', name already defined in "
+                   "importing module '%s'.",
+                   name->chars, alias->chars, importerRecord->path->chars);
+      // could clean up here
+      return INTERPRET_RUNTIME_ERROR;
+    }
+  }
 
 #ifdef DEBUG_TRACE_EXECUTION
   goto *dispatchTable[endIndex];

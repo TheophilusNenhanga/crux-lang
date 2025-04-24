@@ -1748,6 +1748,7 @@ ObjectFunction *compile(VM *vm, char *source) {
   }
 
   ObjectFunction *function = endCompiler();
+  function->moduleRecord = vm->currentModuleRecord;
   return parser.hadError ? NULL : function;
 }
 
