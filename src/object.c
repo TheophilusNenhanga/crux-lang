@@ -972,5 +972,6 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   initTable(&moduleRecord->publics);
   moduleRecord->state = STATE_LOADING;
   moduleRecord->moduleClosure = NULL;
+  moduleRecord->enclosingModule = NULL;
   return moduleRecord;
 }

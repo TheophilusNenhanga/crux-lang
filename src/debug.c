@@ -440,9 +440,9 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
     return fileSimpleInstruction("OP_SET_UPVALUE_MODULUS", offset, file);
   case OP_ANON_FUNCTION:
     return fileConstantInstruction("OP_ANON_FUNCTION", chunk, offset, file);
-  case OP_USE: {
+  case OP_IMPORT_MODULE: {
     uint8_t nameCount = chunk->code[offset + 1];
-    fprintf(file, "%-16s %4d name(s) from ", "OP_USE", nameCount);
+    fprintf(file, "%-16s %4d name(s) from ", "OP_IMPORT_MODULE", nameCount);
     fileWriteValue(chunk->constants.values[chunk->code[offset + nameCount + 2]],
                    file);
     fprintf(file, "\n");
@@ -470,6 +470,8 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
     return fileSimpleInstruction("OP_POWER", offset, file);
   case OP_USE_NATIVE:
     return fileSimpleInstruction("OP_USE_NATIVE", offset, file);
+  case OP_FINISH_IMPORT:
+    return fileSimpleInstruction("OP_FINISH_IMPORT", offset, file);
   default:
     fprintf(file, "Unknown opcode %d\n", instruction);
     return offset + 1;
@@ -660,9 +662,9 @@ int disassembleInstruction(Chunk *chunk, int offset) {
   case OP_ANON_FUNCTION: {
     return constantInstruction("OP_ANON_FUNCTION", chunk, offset);
   }
-  case OP_USE: {
+  case OP_IMPORT_MODULE: {
     uint8_t nameCount = chunk->code[offset + 1];
-    printf("%-16s %4d name(s) from ", "OP_USE", nameCount);
+    printf("%-16s %4d name(s) from ", "OP_IMPORT_MODULE", nameCount);
     printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]]);
     printf("\n");
     return offset + nameCount + 3;
@@ -699,6 +701,9 @@ int disassembleInstruction(Chunk *chunk, int offset) {
   }
   case OP_USE_NATIVE: {
     return simpleInstruction("OP_USE_NATIVE", offset);
+  }
+  case OP_FINISH_IMPORT: {
+    return simpleInstruction("OP_FINISH_IMPORT", offset);
   }
   default:
     printf("Unknown opcode %d\n", instruction);

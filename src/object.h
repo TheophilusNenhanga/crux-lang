@@ -255,6 +255,7 @@ struct ObjectModuleRecord {
   Table globals;
   Table publics;
   ObjectClosure *moduleClosure;
+  ObjectModuleRecord *enclosingModule;
 };
 
 static bool isObjectType(Value value, ObjectType type) {

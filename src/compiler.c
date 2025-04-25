@@ -1168,24 +1168,36 @@ static void useStatement() {
         OBJECT_VAL(copyString(current->owner, parser.previous.start + 6,
                               parser.previous.length - 7)));
     emitBytes(OP_USE_NATIVE, nameCount);
+    for (uint8_t i = 0; i < nameCount; i++) {
+      emitByte(names[i]);
+    }
+    for (uint8_t i = 0; i < nameCount; i++) {
+      if (aliasPresence[i]) {
+        emitByte(aliases[i]);
+      } else {
+        emitByte(names[i]);
+      }
+    }
+    emitByte(module);
   } else {
     module = makeConstant(
         OBJECT_VAL(copyString(current->owner, parser.previous.start + 1,
                               parser.previous.length - 2)));
-    emitBytes(OP_USE, nameCount);
-  }
+    emitBytes(OP_IMPORT_MODULE, module);
 
-  for (uint8_t i = 0; i < nameCount; i++) {
-    emitByte(names[i]);
-  }
-  for (uint8_t i = 0; i < nameCount; i++) {
-    if (aliasPresence[i]) {
-      emitByte(aliases[i]);
-    } else {
+    emitBytes(OP_FINISH_IMPORT, nameCount);
+    for (uint8_t i = 0; i < nameCount; i++) {
       emitByte(names[i]);
     }
+    for (uint8_t i = 0; i < nameCount; i++) {
+      if (aliasPresence[i]) {
+        emitByte(aliases[i]);
+      } else {
+        emitByte(names[i]);
+      }
+    }
   }
-  emitByte(module);
+
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
@@ -1748,7 +1760,9 @@ ObjectFunction *compile(VM *vm, char *source) {
   }
 
   ObjectFunction *function = endCompiler();
-  function->moduleRecord = vm->currentModuleRecord;
+  if (function != NULL) {
+    function->moduleRecord = vm->currentModuleRecord;
+  }
   return parser.hadError ? NULL : function;
 }
 

@@ -242,6 +242,8 @@ static void blackenObject(VM *vm, Object *object) {
 
   case OBJECT_MODULE_RECORD: {
     ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
+    if (moduleRecord->enclosingModule)
+      markObject(vm, (Object *)moduleRecord->enclosingModule);
     markObject(vm, (Object *)moduleRecord->path);
     markObject(vm, (Object *)moduleRecord->moduleClosure);
     markTable(vm, &moduleRecord->globals);

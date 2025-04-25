@@ -17,6 +17,14 @@
 #include "table.h"
 #include "value.h"
 
+#ifdef DEBUG_TRACE_EXECUTION
+#define DISPATCH() goto *dispatchTable[endIndex]
+#else
+#define DISPATCH()                                                             \
+  instruction = READ_BYTE();                                                   \
+  goto *dispatchTable[instruction]
+#endif
+
 void initImportStack(VM *vm) {
   vm->importStack.paths = NULL;
   vm->importStack.count = 0;
@@ -1098,7 +1106,6 @@ static InterpretResult run(VM *vm) {
                                   &&OP_SET_GLOBAL_MINUS,
                                   &&OP_TABLE,
                                   &&OP_ANON_FUNCTION,
-                                  &&OP_USE,
                                   &&OP_PUB,
                                   &&OP_MATCH,
                                   &&OP_MATCH_JUMP,
@@ -1116,11 +1123,12 @@ static InterpretResult run(VM *vm) {
                                   &&OP_SET_UPVALUE_INT_DIVIDE,
                                   &&OP_SET_UPVALUE_MODULUS,
                                   &&OP_USE_NATIVE,
+                                  &&OP_IMPORT_MODULE,
+                                  &&OP_FINISH_IMPORT,
                                   &&end};
 
   uint8_t instruction;
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
+  DISPATCH();
 #ifdef DEBUG_TRACE_EXECUTION
   static uint8_t endIndex =
       sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
@@ -1128,62 +1136,47 @@ static InterpretResult run(VM *vm) {
 
 OP_RETURN: {
   Value result = pop(vm);
+  ObjectModuleRecord *returningModule = frame->closure->function->moduleRecord;
+
   closeUpvalues(vm, frame->slots);
+
+  if (returningModule != NULL && returningModule->state == STATE_LOADING) {
+    returningModule->state = STATE_LOADED;
+    popImportStack(vm);
+    vm->currentModuleRecord = returningModule->enclosingModule;
+  }
+
   vm->frameCount--;
   if (vm->frameCount == 0) {
     pop(vm);
     return INTERPRET_OK;
   }
+
   vm->stackTop = frame->slots;
   push(vm, result);
   frame = &vm->frames[vm->frameCount - 1];
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_CONSTANT: {
   Value constant = READ_CONSTANT();
   push(vm, constant);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_NIL: {
   push(vm, NIL_VAL);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_TRUE: {
   push(vm, BOOL_VAL(true));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_FALSE: {
   push(vm, BOOL_VAL(false));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_NEGATE: {
@@ -1202,84 +1195,49 @@ OP_NEGATE: {
     runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "int' | 'float"));
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_EQUAL: {
   Value b = pop(vm);
   Value a = pop(vm);
   push(vm, BOOL_VAL(valuesEqual(a, b)));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GREATER: {
   if (!binaryOperation(vm, OP_GREATER)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_LESS: {
   if (!binaryOperation(vm, OP_LESS)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_LESS_EQUAL: {
   if (!binaryOperation(vm, OP_LESS_EQUAL)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GREATER_EQUAL: {
   if (!binaryOperation(vm, OP_GREATER_EQUAL)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_NOT_EQUAL: {
   Value b = pop(vm);
   Value a = pop(vm);
   push(vm, BOOL_VAL(!valuesEqual(a, b)));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_ADD: {
@@ -1287,78 +1245,43 @@ OP_ADD: {
     if (!concatenate(vm)) {
       return INTERPRET_RUNTIME_ERROR;
     }
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   if (!binaryOperation(vm, OP_ADD)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_NOT: {
   push(vm, BOOL_VAL(isFalsy(pop(vm))));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SUBTRACT: {
   if (!binaryOperation(vm, OP_SUBTRACT)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_MULTIPLY: {
   if (!binaryOperation(vm, OP_MULTIPLY)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_DIVIDE: {
   if (!binaryOperation(vm, OP_DIVIDE)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_POP: {
   pop(vm);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_DEFINE_GLOBAL: {
@@ -1373,12 +1296,7 @@ OP_DEFINE_GLOBAL: {
     if (isPublic) {
       tableSet(vm, &vm->currentModuleRecord->publics, name, peek(vm, 0));
     }
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
                name->chars);
@@ -1390,12 +1308,7 @@ OP_GET_GLOBAL: {
   Value value;
   if (tableGet(&vm->currentModuleRecord->globals, name, &value)) {
     push(vm, value);
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
   return INTERPRET_RUNTIME_ERROR;
@@ -1410,75 +1323,40 @@ OP_SET_GLOBAL: {
                  name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GET_LOCAL: {
   uint8_t slot = READ_BYTE();
   push(vm, frame->slots[slot]);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL: {
   uint8_t slot = READ_BYTE();
   frame->slots[slot] = peek(vm, 0);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_JUMP_IF_FALSE: {
   uint16_t offset = READ_SHORT();
   if (isFalsy(peek(vm, 0))) {
     frame->ip += offset;
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH(); 
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_JUMP: {
   uint16_t offset = READ_SHORT();
   frame->ip += offset;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_LOOP: {
   uint16_t offset = READ_SHORT();
   frame->ip -= offset;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_CALL: {
@@ -1487,12 +1365,7 @@ OP_CALL: {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &vm->frames[vm->frameCount - 1];
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_CLOSURE: {
@@ -1510,55 +1383,30 @@ OP_CLOSURE: {
       closure->upvalues[i] = frame->closure->upvalues[index];
     }
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GET_UPVALUE: {
   uint8_t slot = READ_BYTE();
   push(vm, *frame->closure->upvalues[slot]->location);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE: {
   uint8_t slot = READ_BYTE();
   *frame->closure->upvalues[slot]->location = peek(vm, 0);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_CLOSE_UPVALUE: {
   closeUpvalues(vm, vm->stackTop - 1);
   pop(vm);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_CLASS: {
   push(vm, OBJECT_VAL(newClass(vm, READ_STRING())));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GET_PROPERTY: {
@@ -1579,12 +1427,7 @@ OP_GET_PROPERTY: {
     pop(vm);
     push(vm, value);
     fieldFound = true;
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
 
   if (!fieldFound) {
@@ -1593,12 +1436,7 @@ OP_GET_PROPERTY: {
       return INTERPRET_RUNTIME_ERROR;
     }
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_PROPERTY: {
@@ -1616,12 +1454,7 @@ OP_SET_PROPERTY: {
   if (tableSet(vm, &instance->fields, name, peek(vm, 0))) {
     Value value = pop(vm);
     popPush(vm, value);
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
   return INTERPRET_RUNTIME_ERROR;
@@ -1634,22 +1467,12 @@ OP_INVOKE: {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &vm->frames[vm->frameCount - 1];
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_METHOD: {
   defineMethod(vm, READ_STRING());
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_INHERIT: {
@@ -1663,12 +1486,7 @@ OP_INHERIT: {
   ObjectClass *subClass = AS_CRUX_CLASS(peek(vm, 0));
   tableAddAll(vm, &AS_CRUX_CLASS(superClass)->methods, &subClass->methods);
   pop(vm);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GET_SUPER: {
@@ -1678,12 +1496,7 @@ OP_GET_SUPER: {
   if (!bindMethod(vm, superClass, name)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SUPER_INVOKE: {
@@ -1694,12 +1507,7 @@ OP_SUPER_INVOKE: {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &vm->frames[vm->frameCount - 1];
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_ARRAY: {
@@ -1709,12 +1517,7 @@ OP_ARRAY: {
     arrayAdd(vm, array, pop(vm), i);
   }
   push(vm, OBJECT_VAL(array));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GET_COLLECTION: {
@@ -1737,12 +1540,7 @@ OP_GET_COLLECTION: {
       runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
       return INTERPRET_RUNTIME_ERROR;
     }
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   case OBJECT_ARRAY: {
     if (!IS_INT(indexValue)) {
@@ -1763,12 +1561,7 @@ OP_GET_COLLECTION: {
     popPush(
         vm,
         value); // pop the array off the stack // push the value onto the stack
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   case OBJECT_STRING: {
     if (!IS_INT(indexValue)) {
@@ -1785,24 +1578,14 @@ OP_GET_COLLECTION: {
     // Only single character indexing
     ch = copyString(vm, string->chars + index, 1);
     popPush(vm, OBJECT_VAL(ch));
-#ifdef DEBUG_TRACE_EXECUTION
-    goto *dispatchTable[endIndex];
-#else
-    instruction = READ_BYTE();
-    goto *dispatchTable[instruction];
-#endif
+DISPATCH();
   }
   default: {
     runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_COLLECTION: {
@@ -1834,48 +1617,28 @@ OP_SET_COLLECTION: {
   }
   popTwo(vm); // indexValue and collection
   push(vm, indexValue);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_MODULUS: {
   if (!binaryOperation(vm, OP_MODULUS)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_LEFT_SHIFT: {
   if (!binaryOperation(vm, OP_LEFT_SHIFT)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_RIGHT_SHIFT: {
   if (!binaryOperation(vm, OP_RIGHT_SHIFT)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL_SLASH: {
@@ -1907,12 +1670,7 @@ OP_SET_LOCAL_SLASH: {
 
   resultValue = FLOAT_VAL(dcurrent / doperand);
   frame->slots[slot] = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL_STAR: {
@@ -1950,12 +1708,7 @@ OP_SET_LOCAL_STAR: {
   }
 
   frame->slots[slot] = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL_PLUS: {
@@ -2004,12 +1757,7 @@ OP_SET_LOCAL_PLUS: {
     return INTERPRET_RUNTIME_ERROR;
   }
 
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL_MINUS: {
@@ -2047,12 +1795,7 @@ OP_SET_LOCAL_MINUS: {
   }
 
   frame->slots[slot] = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE_SLASH: {
@@ -2085,12 +1828,7 @@ OP_SET_UPVALUE_SLASH: {
 
   resultValue = FLOAT_VAL(dcurrent / doperand);
   *location = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE_STAR: {
@@ -2129,12 +1867,7 @@ OP_SET_UPVALUE_STAR: {
   }
 
   *location = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE_PLUS: {
@@ -2180,12 +1913,7 @@ OP_SET_UPVALUE_PLUS: {
     return INTERPRET_RUNTIME_ERROR;
   }
 
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE_MINUS: {
@@ -2224,12 +1952,7 @@ OP_SET_UPVALUE_MINUS: {
   }
 
   *location = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_SLASH: {
@@ -2238,12 +1961,7 @@ OP_SET_GLOBAL_SLASH: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_STAR: {
@@ -2252,12 +1970,7 @@ OP_SET_GLOBAL_STAR: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_PLUS: {
@@ -2266,12 +1979,7 @@ OP_SET_GLOBAL_PLUS: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_MINUS: {
@@ -2280,12 +1988,7 @@ OP_SET_GLOBAL_MINUS: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_TABLE: {
@@ -2305,12 +2008,7 @@ OP_TABLE: {
     }
   }
   push(vm, OBJECT_VAL(table));
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_ANON_FUNCTION: {
@@ -2327,181 +2025,16 @@ OP_ANON_FUNCTION: {
       closure->upvalues[i] = frame->closure->upvalues[index];
     }
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
-OP_USE: {
-  uint8_t nameCount = READ_BYTE();
-  ObjectString *names[UINT8_MAX];
-  ObjectString *aliases[UINT8_MAX];
-
-  for (uint8_t i = 0; i < nameCount; i++) {
-    names[i] = READ_STRING();
-  }
-  for (uint8_t i = 0; i < nameCount; i++) {
-    aliases[i] = READ_STRING();
-  }
-
-  ObjectString *moduleName = READ_STRING();
-  char *resolvedPathChars =
-      resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
-  if (resolvedPathChars == NULL) {
-    vm->currentModuleRecord->state = STATE_ERROR;
-    runtimePanic(vm, IMPORT, "Failed to resolve module path for path: %s",
-                 moduleName->chars);
-    return INTERPRET_RUNTIME_ERROR;
-  }
-
-  ObjectString *path =
-      copyString(vm, resolvedPathChars, strlen(resolvedPathChars));
-  free(resolvedPathChars);
-
-  Value recordValue;
-  ObjectModuleRecord *moduleRecord = NULL;
-
-  if (tableGet(&vm->moduleCache, path, &recordValue)) {
-    if (!IS_CRUX_MODULE_RECORD(recordValue)) {
-      runtimePanic(
-          vm, RUNTIME,
-          "Internal Error: Invalid object found in module cache for path '%s'.",
-          path->chars);
-    }
-
-    moduleRecord = AS_CRUX_MODULE_RECORD(recordValue);
-
-    if (moduleRecord->state == STATE_LOADING) {
-      runtimePanic(vm, IMPORT, "Circular dependency detected importing '%s'.",
-                   path->chars);
-      return INTERPRET_RUNTIME_ERROR;
-    } else if (moduleRecord->state == STATE_ERROR) {
-      runtimePanic(vm, IMPORT, "Module '%s' previously failed to load.",
-                   path->chars);
-      return INTERPRET_RUNTIME_ERROR;
-    } else if (moduleRecord->state == STATE_LOADED) {
-    }
-  } else {
-    if (isInImportStack(vm, path)) {
-      runtimePanic(vm, IMPORT, "Circular dependency detected importing '%s'.",
-                   path->chars);
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    if (!pushImportStack(vm, path)) {
-      runtimePanic(vm, MEMORY, "Failed to allocate memory for import process.");
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    moduleRecord = newObjectModuleRecord(vm, path);
-    tableSet(vm, &vm->moduleCache, path, OBJECT_VAL(moduleRecord));
-
-    FileResult fileResult = readFile(path->chars);
-    if (fileResult.error != NULL) {
-      moduleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      runtimePanic(vm, IO, "Could not read module '%s': %s", path->chars,
-                   fileResult.error);
-      freeFileResult(fileResult);
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    ObjectFunction *moduleFunction = compile(vm, fileResult.content);
-    freeFileResult(fileResult);
-    if (moduleFunction == NULL) {
-      moduleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      return INTERPRET_COMPILE_ERROR;
-    }
-
-    ObjectClosure *moduleClosure = newClosure(vm, moduleFunction);
-    moduleRecord->moduleClosure = moduleClosure;
-
-    ObjectModuleRecord *previousModule = vm->currentModuleRecord;
-    vm->currentModuleRecord = moduleRecord;
-
-    push(vm, OBJECT_VAL(moduleClosure));
-    bool callOk = call(vm, moduleClosure, 0);
-
-    vm->currentModuleRecord = previousModule;
-
-    if (!callOk) {
-      moduleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    pop(vm);
-    moduleRecord->state = STATE_LOADED;
-    popImportStack(vm);
-  }
-
-  ObjectModuleRecord *importerRecord =
-      vm->frames[vm->frameCount - 1].closure->function->moduleRecord;
-
-  if (moduleRecord->state != STATE_LOADED) {
-    runtimePanic(vm, RUNTIME,
-                 "Internal Error: Module '%s' is not in LOADED state after "
-                 "import attempt.",
-                 path->chars);
-    return INTERPRET_RUNTIME_ERROR;
-  }
-
-  Table *exportsTable = &moduleRecord->publics;
-  Table *importerGlobals = &importerRecord->globals;
-
-  for (uint8_t i = 0; i < nameCount; i++) {
-    ObjectString *name = names[i];
-    ObjectString *alias = aliases[i];
-
-    Value valueToImport;
-    if (!tableGet(exportsTable, name, &valueToImport)) {
-      runtimePanic(vm, NAME, "Symbol '%s' is not exported by module '%s'.",
-                   name->chars, path->chars);
-      // could clean up here
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    if (!tableSet(vm, importerGlobals, alias, valueToImport)) {
-      runtimePanic(vm, NAME,
-                   "Cannot import '%s' as '%s', name already defined in "
-                   "importing module '%s'.",
-                   name->chars, alias->chars, importerRecord->path->chars);
-      // could clean up here
-      return INTERPRET_RUNTIME_ERROR;
-    }
-  }
-
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
-}
-
-OP_PUB: {
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
-}
+OP_PUB: { DISPATCH(); }
 
 OP_MATCH: {
   Value target = peek(vm, 0);
   vm->matchHandler.matchTarget = target;
   vm->matchHandler.isMatchTarget = true;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_MATCH_JUMP: {
@@ -2511,12 +2044,7 @@ OP_MATCH_JUMP: {
   if (!valuesEqual(pattern, target)) {
     frame->ip += offset;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_MATCH_END: {
@@ -2527,12 +2055,7 @@ OP_MATCH_END: {
   vm->matchHandler.matchBind = NIL_VAL;
   vm->matchHandler.isMatchBind = false;
   vm->matchHandler.isMatchTarget = false;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_RESULT_MATCH_OK: {
@@ -2544,12 +2067,7 @@ OP_RESULT_MATCH_OK: {
     Value value = AS_CRUX_RESULT(target)->as.value;
     popPush(vm, value);
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_RESULT_MATCH_ERR: {
@@ -2561,12 +2079,7 @@ OP_RESULT_MATCH_ERR: {
     Value error = OBJECT_VAL(AS_CRUX_RESULT(target)->as.error);
     popPush(vm, error);
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_RESULT_BIND: {
@@ -2575,47 +2088,27 @@ OP_RESULT_BIND: {
   vm->matchHandler.matchBind = bind;
   vm->matchHandler.isMatchBind = true;
   frame->slots[slot] = bind;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_GIVE: {
   Value result = pop(vm);
   popPush(vm, result);
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_INT_DIVIDE: {
   if (!binaryOperation(vm, OP_INT_DIVIDE)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_POWER: {
   if (!binaryOperation(vm, OP_POWER)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_INT_DIVIDE: {
@@ -2624,12 +2117,7 @@ OP_SET_GLOBAL_INT_DIVIDE: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_GLOBAL_MODULUS: {
@@ -2638,12 +2126,7 @@ OP_SET_GLOBAL_MODULUS: {
       INTERPRET_RUNTIME_ERROR) {
     return INTERPRET_RUNTIME_ERROR;
   }
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_LOCAL_INT_DIVIDE: {
@@ -2673,12 +2156,7 @@ OP_SET_LOCAL_INT_DIVIDE: {
   }
 
   frame->slots[slot] = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 OP_SET_LOCAL_MODULUS: {
   uint8_t slot = READ_BYTE();
@@ -2706,12 +2184,7 @@ OP_SET_LOCAL_MODULUS: {
   }
 
   frame->slots[slot] = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 OP_SET_UPVALUE_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
@@ -2741,12 +2214,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   }
 
   *location = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_SET_UPVALUE_MODULUS: {
@@ -2776,12 +2244,7 @@ OP_SET_UPVALUE_MODULUS: {
   }
 
   *location = resultValue;
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
 }
 
 OP_USE_NATIVE: {
@@ -2831,12 +2294,164 @@ OP_USE_NATIVE: {
     pop(vm);
   }
 
-#ifdef DEBUG_TRACE_EXECUTION
-  goto *dispatchTable[endIndex];
-#else
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
-#endif
+  DISPATCH();
+}
+
+OP_IMPORT_MODULE: {
+
+  ObjectString *modulePathString = READ_STRING();
+
+  if (vm->currentModuleRecord == NULL ||
+      vm->currentModuleRecord->path == NULL) { /* panic */
+  }
+  char *resolvedPathChars = resolvePath(vm->currentModuleRecord->path->chars,
+                                        modulePathString->chars);
+  if (resolvedPathChars == NULL) { /* panic */
+  }
+  ObjectString *resolvedPath =
+      copyString(vm, resolvedPathChars, strlen(resolvedPathChars));
+  free(resolvedPathChars);
+
+  ObjectModuleRecord *importerRecord = vm->currentModuleRecord;
+
+  Value recordValue;
+  ObjectModuleRecord *targetModuleRecord = NULL;
+  if (tableGet(&vm->moduleCache, resolvedPath, &recordValue)) {
+    if (!IS_CRUX_MODULE_RECORD(recordValue)) { /* panic */
+    }
+    targetModuleRecord = AS_CRUX_MODULE_RECORD(recordValue);
+
+    if (targetModuleRecord->state == STATE_LOADING) { /* panic cycle */
+    }
+    if (targetModuleRecord->state == STATE_ERROR) { /* panic error */
+    }
+
+    push(vm, OBJECT_VAL(targetModuleRecord));
+    DISPATCH();
+  } else {
+    if (isInImportStack(vm, resolvedPath)) { /* panic cycle */
+    }
+    if (!pushImportStack(vm, resolvedPath)) { /* panic memory */
+    }
+
+    targetModuleRecord =
+        newObjectModuleRecord(vm, resolvedPath); // State is LOADING
+    targetModuleRecord->enclosingModule =
+        importerRecord; // <<< Store importer context
+    tableSet(vm, &vm->moduleCache, resolvedPath,
+             OBJECT_VAL(targetModuleRecord));
+
+    FileResult source = readFile(resolvedPath->chars);
+    if (source.error != NULL) {
+      targetModuleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      /* panic IO */
+      freeFileResult(source);
+      return INTERPRET_RUNTIME_ERROR; // Or specific error code
+    }
+
+    ObjectFunction *moduleFunction = compile(vm, source.content);
+    freeFileResult(source);
+    if (moduleFunction == NULL) {
+      targetModuleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      return INTERPRET_COMPILE_ERROR; // Compiler should have panicked
+    }
+
+    ObjectClosure *moduleClosure = newClosure(vm, moduleFunction);
+    targetModuleRecord->moduleClosure = moduleClosure;
+
+    // --- Push target record for OP_FINISH_IMPORT ---
+    // It needs to be below the closure we are about to call
+    push(vm, OBJECT_VAL(targetModuleRecord));
+    push(vm, OBJECT_VAL(moduleClosure)); // Push closure to call
+
+    // --- Set Context & Call ---
+    vm->currentModuleRecord = targetModuleRecord; // Switch context
+
+    if (!call(vm, moduleClosure, 0)) { // Setup call frame
+      // Handle call setup error
+      pop(vm); // Pop closure
+      pop(vm); // Pop target record
+      targetModuleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      vm->currentModuleRecord = importerRecord; // Restore context
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    // Context remains targetModuleRecord. Do NOT restore here.
+    // Do NOT pop import stack here.
+    // Execution continues in the module via run() loop.
+    DISPATCH();
+  }
+}
+
+OP_FINISH_IMPORT: {
+  uint8_t nameCount = READ_BYTE();
+  ObjectString *names[UINT8_MAX];
+  ObjectString *aliases[UINT8_MAX];
+  for (int i = 0; i < nameCount; i++)
+    names[i] = READ_STRING();
+  for (int i = 0; i < nameCount; i++)
+    aliases[i] = READ_STRING();
+
+  // Target module record was pushed by OP_IMPORT_MODULE
+  Value targetRecordValue = peek(vm, 0);
+  if (!IS_CRUX_MODULE_RECORD(targetRecordValue)) {
+    runtimePanic(
+        vm, RUNTIME,
+        "Internal Error: Expected module record on stack for linking.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  ObjectModuleRecord *targetModuleRecord =
+      AS_CRUX_MODULE_RECORD(targetRecordValue);
+
+  // Module should be loaded by now (either previously, or just finished)
+  if (targetModuleRecord->state != STATE_LOADED) {
+    runtimePanic(vm, IMPORT,
+                 "Module '%s' failed to load correctly, cannot import symbols.",
+                 targetModuleRecord->path->chars);
+    pop(vm); // Pop the failed/unexpected record
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  // Context should have been restored to the importer by OP_RETURN
+  ObjectModuleRecord *importerRecord = vm->currentModuleRecord;
+  if (importerRecord == NULL || importerRecord == targetModuleRecord) {
+    runtimePanic(vm, RUNTIME,
+                 "Internal Error: Invalid importer context during linking.");
+    pop(vm); // Pop the target record
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  Table *exportsTable = &targetModuleRecord->publics;
+  Table *importerGlobals = &importerRecord->globals;
+
+  // --- Perform Linking ---
+  for (uint8_t i = 0; i < nameCount; i++) {
+    ObjectString *name = names[i];
+    ObjectString *alias = aliases[i];
+
+    Value valueToImport;
+    if (!tableGet(exportsTable, name, &valueToImport)) {
+      runtimePanic(vm, NAME, "Symbol '%s' is not exported by module '%s'.",
+                   name->chars, targetModuleRecord->path->chars);
+      pop(vm); // Pop the target record before returning
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    if (!tableSet(vm, importerGlobals, alias, valueToImport)) {
+      runtimePanic(vm, NAME,
+                   "Cannot import '%s' as '%s', name already defined in "
+                   "importing module '%s'.",
+                   name->chars, alias->chars, importerRecord->path->chars);
+      pop(vm); // Pop the target record before returning
+      return INTERPRET_RUNTIME_ERROR;
+    }
+  }
+
+  pop(vm); 
+
+  DISPATCH();
 }
 
 end: {
@@ -2879,10 +2494,6 @@ InterpretResult interpret(VM *vm, char *source) {
   call(vm, closure, 0);
 
   InterpretResult result = run(vm);
-  if (result == INTERPRET_OK) {
-    vm->currentModuleRecord->state = STATE_LOADED;
-  } else {
-    vm->currentModuleRecord->state = STATE_ERROR;
-  }
+
   return result;
 }
