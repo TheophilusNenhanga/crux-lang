@@ -1136,22 +1136,12 @@ static InterpretResult run(VM *vm) {
 
 OP_RETURN: {
   Value result = pop(vm);
-  ObjectModuleRecord *returningModule = frame->closure->function->moduleRecord;
-
   closeUpvalues(vm, frame->slots);
-
-  if (returningModule != NULL && returningModule->state == STATE_LOADING) {
-    returningModule->state = STATE_LOADED;
-    popImportStack(vm);
-    vm->currentModuleRecord = returningModule->enclosingModule;
-  }
-
   vm->frameCount--;
   if (vm->frameCount == 0) {
     pop(vm);
     return INTERPRET_OK;
   }
-
   vm->stackTop = frame->slots;
   push(vm, result);
   frame = &vm->frames[vm->frameCount - 1];
@@ -2298,159 +2288,10 @@ OP_USE_NATIVE: {
 }
 
 OP_IMPORT_MODULE: {
-
-  ObjectString *modulePathString = READ_STRING();
-
-  if (vm->currentModuleRecord == NULL ||
-      vm->currentModuleRecord->path == NULL) { /* panic */
-  }
-  char *resolvedPathChars = resolvePath(vm->currentModuleRecord->path->chars,
-                                        modulePathString->chars);
-  if (resolvedPathChars == NULL) { /* panic */
-  }
-  ObjectString *resolvedPath =
-      copyString(vm, resolvedPathChars, strlen(resolvedPathChars));
-  free(resolvedPathChars);
-
-  ObjectModuleRecord *importerRecord = vm->currentModuleRecord;
-
-  Value recordValue;
-  ObjectModuleRecord *targetModuleRecord = NULL;
-  if (tableGet(&vm->moduleCache, resolvedPath, &recordValue)) {
-    if (!IS_CRUX_MODULE_RECORD(recordValue)) { /* panic */
-    }
-    targetModuleRecord = AS_CRUX_MODULE_RECORD(recordValue);
-
-    if (targetModuleRecord->state == STATE_LOADING) { /* panic cycle */
-    }
-    if (targetModuleRecord->state == STATE_ERROR) { /* panic error */
-    }
-
-    push(vm, OBJECT_VAL(targetModuleRecord));
     DISPATCH();
-  } else {
-    if (isInImportStack(vm, resolvedPath)) { /* panic cycle */
-    }
-    if (!pushImportStack(vm, resolvedPath)) { /* panic memory */
-    }
-
-    targetModuleRecord =
-        newObjectModuleRecord(vm, resolvedPath); // State is LOADING
-    targetModuleRecord->enclosingModule =
-        importerRecord; // <<< Store importer context
-    tableSet(vm, &vm->moduleCache, resolvedPath,
-             OBJECT_VAL(targetModuleRecord));
-
-    FileResult source = readFile(resolvedPath->chars);
-    if (source.error != NULL) {
-      targetModuleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      /* panic IO */
-      freeFileResult(source);
-      return INTERPRET_RUNTIME_ERROR; // Or specific error code
-    }
-
-    ObjectFunction *moduleFunction = compile(vm, source.content);
-    freeFileResult(source);
-    if (moduleFunction == NULL) {
-      targetModuleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      return INTERPRET_COMPILE_ERROR; // Compiler should have panicked
-    }
-
-    ObjectClosure *moduleClosure = newClosure(vm, moduleFunction);
-    targetModuleRecord->moduleClosure = moduleClosure;
-
-    // --- Push target record for OP_FINISH_IMPORT ---
-    // It needs to be below the closure we are about to call
-    push(vm, OBJECT_VAL(targetModuleRecord));
-    push(vm, OBJECT_VAL(moduleClosure)); // Push closure to call
-
-    // --- Set Context & Call ---
-    vm->currentModuleRecord = targetModuleRecord; // Switch context
-
-    if (!call(vm, moduleClosure, 0)) { // Setup call frame
-      // Handle call setup error
-      pop(vm); // Pop closure
-      pop(vm); // Pop target record
-      targetModuleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      vm->currentModuleRecord = importerRecord; // Restore context
-      return INTERPRET_RUNTIME_ERROR;
-    }
-    // Context remains targetModuleRecord. Do NOT restore here.
-    // Do NOT pop import stack here.
-    // Execution continues in the module via run() loop.
-    DISPATCH();
-  }
 }
 
 OP_FINISH_IMPORT: {
-  uint8_t nameCount = READ_BYTE();
-  ObjectString *names[UINT8_MAX];
-  ObjectString *aliases[UINT8_MAX];
-  for (int i = 0; i < nameCount; i++)
-    names[i] = READ_STRING();
-  for (int i = 0; i < nameCount; i++)
-    aliases[i] = READ_STRING();
-
-  // Target module record was pushed by OP_IMPORT_MODULE
-  Value targetRecordValue = peek(vm, 0);
-  if (!IS_CRUX_MODULE_RECORD(targetRecordValue)) {
-    runtimePanic(
-        vm, RUNTIME,
-        "Internal Error: Expected module record on stack for linking.");
-    return INTERPRET_RUNTIME_ERROR;
-  }
-  ObjectModuleRecord *targetModuleRecord =
-      AS_CRUX_MODULE_RECORD(targetRecordValue);
-
-  // Module should be loaded by now (either previously, or just finished)
-  if (targetModuleRecord->state != STATE_LOADED) {
-    runtimePanic(vm, IMPORT,
-                 "Module '%s' failed to load correctly, cannot import symbols.",
-                 targetModuleRecord->path->chars);
-    pop(vm); // Pop the failed/unexpected record
-    return INTERPRET_RUNTIME_ERROR;
-  }
-
-  // Context should have been restored to the importer by OP_RETURN
-  ObjectModuleRecord *importerRecord = vm->currentModuleRecord;
-  if (importerRecord == NULL || importerRecord == targetModuleRecord) {
-    runtimePanic(vm, RUNTIME,
-                 "Internal Error: Invalid importer context during linking.");
-    pop(vm); // Pop the target record
-    return INTERPRET_RUNTIME_ERROR;
-  }
-
-  Table *exportsTable = &targetModuleRecord->publics;
-  Table *importerGlobals = &importerRecord->globals;
-
-  // --- Perform Linking ---
-  for (uint8_t i = 0; i < nameCount; i++) {
-    ObjectString *name = names[i];
-    ObjectString *alias = aliases[i];
-
-    Value valueToImport;
-    if (!tableGet(exportsTable, name, &valueToImport)) {
-      runtimePanic(vm, NAME, "Symbol '%s' is not exported by module '%s'.",
-                   name->chars, targetModuleRecord->path->chars);
-      pop(vm); // Pop the target record before returning
-      return INTERPRET_RUNTIME_ERROR;
-    }
-
-    if (!tableSet(vm, importerGlobals, alias, valueToImport)) {
-      runtimePanic(vm, NAME,
-                   "Cannot import '%s' as '%s', name already defined in "
-                   "importing module '%s'.",
-                   name->chars, alias->chars, importerRecord->path->chars);
-      pop(vm); // Pop the target record before returning
-      return INTERPRET_RUNTIME_ERROR;
-    }
-  }
-
-  pop(vm); 
-
   DISPATCH();
 }
 
