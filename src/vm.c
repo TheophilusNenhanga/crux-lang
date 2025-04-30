@@ -2288,10 +2288,87 @@ OP_USE_NATIVE: {
 }
 
 OP_IMPORT_MODULE: {
-    DISPATCH();
+  ObjectString *moduleName = READ_STRING();
+
+  if (isInImportStack(vm, moduleName)) {
+    runtimePanic(vm, IMPORT, "Circular dependency detected when importing: %s", moduleName->chars);
+    vm->currentModuleRecord->state = STATE_ERROR;
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  char* resolvedPathChars = resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
+  if (resolvedPathChars == NULL) {
+    runtimePanic(vm, IMPORT, "Failed to resolve import path");
+    vm->currentModuleRecord->state = STATE_ERROR;
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  ObjectString* resolvedPath = takeString(vm, resolvedPathChars, strlen(resolvedPathChars));
+
+  Value cachedModule;
+  if (tableGet(&vm->moduleCache, resolvedPath, &cachedModule)) {
+    // we have the module cached get the names
+  } else {
+    FileResult file = readFile(resolvedPath->chars);
+    if (file.error != NULL) {
+      runtimePanic(vm, IO, file.error);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    pushImportStack(vm, resolvedPath);
+
+    ObjectModuleRecord* moduleRecord = newObjectModuleRecord(vm, resolvedPath);
+    moduleRecord->enclosingModule = vm->currentModuleRecord;
+    vm->currentModuleRecord = moduleRecord;
+
+    ObjectFunction* function = compile(vm, file.content);
+    if (function == NULL) {
+      moduleRecord->state = STATE_ERROR;
+      runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
+      return INTERPRET_COMPILE_ERROR;
+    }
+    push(vm, OBJECT_VAL(function));
+    ObjectClosure* closure = newClosure(vm, function);
+    pop(vm);
+    push(vm, OBJECT_VAL(closure));
+    call(vm, closure, 0);
+  }
+  DISPATCH();
 }
 
 OP_FINISH_IMPORT: {
+  uint8_t nameCount = READ_BYTE();
+  ObjectString *names[UINT8_MAX];
+  ObjectString *aliases[UINT8_MAX];
+  for (int i = 0; i < nameCount; i++) {
+    names[i] = READ_STRING();
+  }
+  for (int i = 0; i < nameCount; i++) {
+    aliases[i] = READ_STRING();
+  }
+
+  // copy names
+  for (uint8_t i = 0; i < nameCount; i++) {
+    ObjectString* name = names[i];
+    ObjectString* alias = aliases[i];
+
+    Value value;
+    if (!tableGet(&vm->currentModuleRecord->publics, name, &value)) {
+      runtimePanic(vm, IMPORT, "'%s' is not an exported name.", name->chars);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    if (!tableSet(vm, &vm->currentModuleRecord->enclosingModule->globals, alias, value)) {
+      runtimePanic(vm, IMPORT, "Failed to import '%s'.", name->chars);
+      return INTERPRET_RUNTIME_ERROR;
+    }
+  }
+
+  vm->currentModuleRecord->state = STATE_LOADED;
+  popImportStack(vm);
+  vm->currentModuleRecord = vm->currentModuleRecord->enclosingModule;
+
+  // TODO: change the frame here, to the frame we set up during call()
+
   DISPATCH();
 }
 
