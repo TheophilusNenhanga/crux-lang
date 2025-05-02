@@ -2306,7 +2306,7 @@ OP_IMPORT_MODULE: {
 
   Value cachedModule;
   if (tableGet(&vm->moduleCache, resolvedPath, &cachedModule)) {
-    // we have the module cached get the names
+    push(vm, cachedModule);
   } else {
     FileResult file = readFile(resolvedPath->chars);
     if (file.error != NULL) {
@@ -2314,23 +2314,59 @@ OP_IMPORT_MODULE: {
       return INTERPRET_RUNTIME_ERROR;
     }
 
-    pushImportStack(vm, resolvedPath);
-
     ObjectModuleRecord* moduleRecord = newObjectModuleRecord(vm, resolvedPath);
     moduleRecord->enclosingModule = vm->currentModuleRecord;
+    pushImportStack(vm, resolvedPath);
+
+    ObjectModuleRecord* previousModuleRecord = vm->currentModuleRecord;
     vm->currentModuleRecord = moduleRecord;
 
     ObjectFunction* function = compile(vm, file.content);
+    freeFileResult(file);
+
     if (function == NULL) {
       moduleRecord->state = STATE_ERROR;
       runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
+      popImportStack(vm);
+      vm->currentModuleRecord = previousModuleRecord;
       return INTERPRET_COMPILE_ERROR;
     }
     push(vm, OBJECT_VAL(function));
     ObjectClosure* closure = newClosure(vm, function);
     pop(vm);
     push(vm, OBJECT_VAL(closure));
-    call(vm, closure, 0);
+
+    moduleRecord->moduleClosure = closure;
+
+    tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(moduleRecord));
+
+    // save the frame state so we can restore it
+    int currentFrameIndex = vm->frameCount;
+
+    if (!call(vm, closure, 0)) {
+      moduleRecord->state = STATE_ERROR;
+      runtimePanic(vm, RUNTIME, "Failed to call module.");
+      popImportStack(vm);
+      vm->currentModuleRecord = previousModuleRecord;
+      return INTERPRET_RUNTIME_ERROR;
+    }
+
+    InterpretResult result = run(vm);
+    if (result != INTERPRET_OK) {
+      moduleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      vm->currentModuleRecord = previousModuleRecord;
+      return result;
+    }
+
+    moduleRecord->state = STATE_LOADED;
+
+    // restore the frame state
+    vm->frameCount = currentFrameIndex;
+
+    popImportStack(vm);
+    vm->currentModuleRecord = previousModuleRecord;
+    push(vm, OBJECT_VAL(moduleRecord));
   }
   DISPATCH();
 }
@@ -2339,6 +2375,7 @@ OP_FINISH_IMPORT: {
   uint8_t nameCount = READ_BYTE();
   ObjectString *names[UINT8_MAX];
   ObjectString *aliases[UINT8_MAX];
+
   for (int i = 0; i < nameCount; i++) {
     names[i] = READ_STRING();
   }
@@ -2346,13 +2383,16 @@ OP_FINISH_IMPORT: {
     aliases[i] = READ_STRING();
   }
 
+  Value moduleValue = pop(vm);
+  ObjectModuleRecord* importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
+
   // copy names
   for (uint8_t i = 0; i < nameCount; i++) {
     ObjectString* name = names[i];
     ObjectString* alias = aliases[i];
 
     Value value;
-    if (!tableGet(&vm->currentModuleRecord->publics, name, &value)) {
+    if (!tableGet(&importedModule->publics, name, &value)) {
       runtimePanic(vm, IMPORT, "'%s' is not an exported name.", name->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
@@ -2362,13 +2402,6 @@ OP_FINISH_IMPORT: {
       return INTERPRET_RUNTIME_ERROR;
     }
   }
-
-  vm->currentModuleRecord->state = STATE_LOADED;
-  popImportStack(vm);
-  vm->currentModuleRecord = vm->currentModuleRecord->enclosingModule;
-
-  // TODO: change the frame here, to the frame we set up during call()
-
   DISPATCH();
 }
 
