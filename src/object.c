@@ -973,5 +973,26 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   moduleRecord->state = STATE_LOADING;
   moduleRecord->moduleClosure = NULL;
   moduleRecord->enclosingModule = NULL;
+
+  moduleRecord->stackBase = NULL;
+  moduleRecord->stackTop = NULL;
+
+  moduleRecord->frames = NULL;
+  moduleRecord->frameCount = 0;
+  moduleRecord->frameCapacity = 0;
+
   return moduleRecord;
+}
+
+/**
+ * Frees ObjectModuleRecord
+ * NOTE: Calls FREE()
+ * @param vm The VM
+ * @param record The ObjectModuleRecord to free
+ */
+void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
+  FREE_ARRAY(vm, CallFrame, record->frames, record->frameCapacity);
+  freeTable(vm, &record->globals);
+  freeTable(vm, &record->publics);
+  FREE(vm, ObjectModuleRecord, record);
 }

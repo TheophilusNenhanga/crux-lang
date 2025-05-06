@@ -235,8 +235,15 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
     fprintf(stderr, "\n%s[frame %d]%s ", CYAN, vm->frameCount - i, RESET);
     fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
 
-    if (function->name == NULL) {
-      fprintf(stderr, "%s<script>%s", CYAN, RESET);
+    bool hasPath = vm->currentModuleRecord->path != NULL;
+
+    if (hasPath && function->name == NULL) {
+      if (memcmp("./", function->moduleRecord->path->chars, 2) == 0) {
+        fprintf(stderr, "%s\"repl\"%s", CYAN, RESET);
+      } else {
+        fprintf(stderr, "%s\"%s\"%s", CYAN, function->moduleRecord->path->chars,
+                RESET);
+      }
     } else {
       fprintf(stderr, "%s%s()%s", CYAN, function->name->chars, RESET);
     }

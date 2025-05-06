@@ -256,7 +256,15 @@ struct ObjectModuleRecord {
   Table publics;
   ObjectClosure *moduleClosure;
   ObjectModuleRecord *enclosingModule;
+
+  Value* stackBase;
+  Value* stackTop;
+
+  CallFrame *frames;
+  uint32_t frameCount;
+  uint32_t frameCapacity;
 };
+
 
 static bool isObjectType(Value value, ObjectType type) {
   return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
@@ -563,6 +571,8 @@ void printType(Value value);
  * @param table The ObjectTable to free.
  */
 void freeObjectTable(VM *vm, ObjectTable *table);
+
+void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record);
 
 /**
  * @brief Sets a key-value pair in an object table.

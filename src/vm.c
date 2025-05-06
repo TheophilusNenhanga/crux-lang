@@ -601,6 +601,7 @@ void initVM(VM *vm, int argc, const char **argv) {
 
   vm->currentModuleRecord = newObjectModuleRecord(vm, path);
   initTable(&vm->currentModuleRecord->globals);
+  initTable(&vm->currentModuleRecord->publics);
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
            OBJECT_VAL(vm->currentModuleRecord));
 
@@ -850,6 +851,10 @@ static bool binaryOperation(VM *vm, OpCode operation) {
     }
   }
   return true;
+}
+
+static void switchToModule(VM* vm, ObjectModuleRecord* module) {
+
 }
 
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
@@ -2320,6 +2325,15 @@ OP_IMPORT_MODULE: {
 
     ObjectModuleRecord* previousModuleRecord = vm->currentModuleRecord;
     vm->currentModuleRecord = moduleRecord;
+    initTable(&vm->currentModuleRecord->globals);
+    initTable(&vm->currentModuleRecord->publics);
+    if (!initializeStdLib(vm)) {
+      runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".", vm->currentModuleRecord->path->chars);
+      vm->currentModuleRecord->state = STATE_ERROR;
+      popImportStack(vm);
+      vm->currentModuleRecord = previousModuleRecord;
+      return INTERPRET_RUNTIME_ERROR;
+    }
 
     ObjectFunction* function = compile(vm, file.content);
     freeFileResult(file);
@@ -2350,6 +2364,8 @@ OP_IMPORT_MODULE: {
       vm->currentModuleRecord = previousModuleRecord;
       return INTERPRET_RUNTIME_ERROR;
     }
+    // move execution to new module
+    switchToModule(vm, moduleRecord);
 
     InterpretResult result = run(vm);
     if (result != INTERPRET_OK) {
@@ -2361,8 +2377,8 @@ OP_IMPORT_MODULE: {
 
     moduleRecord->state = STATE_LOADED;
 
-    // restore the frame state
-    vm->frameCount = currentFrameIndex;
+    // restore execution from new module
+    switchToModule(vm, previousModuleRecord);
 
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
@@ -2418,8 +2434,7 @@ end: {
       &frame->closure->function->chunk,
       (int)(frame->ip - frame->closure->function->chunk.code));
 
-  instruction = READ_BYTE();
-  goto *dispatchTable[instruction];
+  DISPATCH();
 }
 
 #undef READ_BYTE

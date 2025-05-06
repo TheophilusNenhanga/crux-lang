@@ -375,9 +375,7 @@ static void freeObject(VM *vm, Object *object) {
 
   case OBJECT_MODULE_RECORD: {
     ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
-    freeTable(vm, &moduleRecord->publics);
-    freeTable(vm, &moduleRecord->globals);
-    FREE(vm, ObjectModuleRecord, object);
+    freeObjectModuleRecord(vm, moduleRecord);
     break;
   }
   }
