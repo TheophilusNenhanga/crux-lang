@@ -226,13 +226,13 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 
   // Print stack trace
   fprintf(stderr, "\n\n%sStack trace:%s", CYAN, RESET);
-  for (int i = vm->frameCount - 1; i >= 0; i--) {
-    CallFrame *frame = &vm->frames[i];
+  for (int i = vm->currentModuleRecord->frameCount - 1; i >= 0; i--) {
+    CallFrame *frame = &vm->currentModuleRecord->frames[i];
     ObjectFunction *function = frame->closure->function;
     size_t instruction = frame->ip - function->chunk.code - 1;
 
     // Show more detailed frame information
-    fprintf(stderr, "\n%s[frame %d]%s ", CYAN, vm->frameCount - i, RESET);
+    fprintf(stderr, "\n%s[frame %d]%s ", CYAN, vm->currentModuleRecord->frameCount - i, RESET);
     fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
 
     bool hasPath = vm->currentModuleRecord->path != NULL;

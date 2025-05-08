@@ -8,7 +8,6 @@ typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 
-#define MAX_VM_DEPTH 64
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
@@ -51,16 +50,13 @@ typedef struct {
 } Args;
 
 typedef struct {
-  ObjectString **paths; // reolved module path strings
+  ObjectString **paths; // resolved module path strings
   uint32_t count;
   uint32_t capacity;
 } ImportStack;
 
 struct VM {
-  Value *stack; // always points just past the last item
-  Value *stackTop;
-  CallFrame *frames;
-  int frameCount;
+  Value *stack;
 
   Object *objects;
   Table strings;

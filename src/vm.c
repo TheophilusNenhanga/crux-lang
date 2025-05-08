@@ -93,22 +93,19 @@ VM *newVM(int argc, const char **argv) {
 }
 
 void resetStack(VM *vm) {
-  vm->stackTop = vm->stack;
-  vm->frameCount = 0;
+  vm->currentModuleRecord->stackTop = vm->currentModuleRecord->stackBase;
+  vm->currentModuleRecord->frameCount = 0;
   vm->openUpvalues = NULL;
 }
 
 void push(VM *vm, Value value) {
-  *vm->stackTop =
-      value;      // stores value in the array element at the top of the stack
-  vm->stackTop++; // stack top points just past the last used element, at the
-                  // next available one
+  *vm->currentModuleRecord->stackTop = value;
+  vm->currentModuleRecord->stackTop++;
 }
 
 Value pop(VM *vm) {
-  vm->stackTop--; // Move the stack pointer back to get the most recent slot in
-                  // the array
-  return *vm->stackTop;
+  vm->currentModuleRecord->stackTop--;
+  return *vm->currentModuleRecord->stackTop;
 }
 
 static inline void popTwo(VM *vm) {
@@ -128,7 +125,7 @@ static inline void popPush(VM *vm, Value value) {
  * @return The value at the specified distance from the top
  */
 static inline Value peek(VM *vm, int distance) {
-  return vm->stackTop[-1 - distance];
+  return vm->currentModuleRecord->stackTop[-1 - distance];
 }
 
 /**
@@ -145,15 +142,17 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
     return false;
   }
 
-  if (vm->frameCount == FRAMES_MAX) {
+  if (vm->currentModuleRecord->frameCount >= FRAMES_MAX) {
     runtimePanic(vm, STACK_OVERFLOW, "Stack overflow");
     return false;
   }
 
-  CallFrame *frame = &vm->frames[vm->frameCount++];
+  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
+
+  CallFrame *frame = &moduleRecord->frames[moduleRecord->frameCount++];
   frame->closure = closure;
   frame->ip = closure->function->chunk.code;
-  frame->slots = vm->stackTop - argCount - 1;
+  frame->slots = moduleRecord->stackTop - argCount - 1;
   return true;
 }
 
@@ -165,6 +164,7 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
  * @return true if the call succeeds, false otherwise
  */
 static bool callValue(VM *vm, Value callee, int argCount) {
+  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
   if (IS_CRUX_OBJECT(callee)) {
     switch (OBJECT_TYPE(callee)) {
     case OBJECT_CLOSURE:
@@ -178,9 +178,9 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       ObjectResult *result =
-          native->function(vm, argCount, vm->stackTop - argCount);
+          native->function(vm, argCount, moduleRecord->stackTop - argCount);
 
-      vm->stackTop -= argCount + 1;
+      moduleRecord->stackTop -= argCount + 1;
 
       if (!result->isOk) {
         if (result->as.error->isPanic) {
@@ -203,8 +203,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       ObjectResult *result =
-          native->function(vm, argCount, vm->stackTop - argCount);
-      vm->stackTop -= argCount + 1;
+          native->function(vm, argCount, moduleRecord->stackTop - argCount);
+      moduleRecord->stackTop -= argCount + 1;
 
       if (!result->isOk) {
         if (result->as.error->isPanic) {
@@ -226,8 +226,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount, vm->stackTop - argCount);
-      vm->stackTop -= argCount + 1;
+      Value result = native->function(vm, argCount, moduleRecord->stackTop - argCount);
+      moduleRecord->stackTop -= argCount + 1;
 
       push(vm, result);
       return true;
@@ -241,14 +241,14 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount, vm->stackTop - argCount);
-      vm->stackTop -= argCount + 1;
+      Value result = native->function(vm, argCount, moduleRecord->stackTop - argCount);
+      moduleRecord->stackTop -= argCount + 1;
       push(vm, result);
       return true;
     }
     case OBJECT_CLASS: {
       ObjectClass *klass = AS_CRUX_CLASS(callee);
-      vm->stackTop[-argCount - 1] = OBJECT_VAL(newInstance(vm, klass));
+      moduleRecord->stackTop[-argCount - 1] = OBJECT_VAL(newInstance(vm, klass));
       Value initializer;
 
       if (tableGet(&klass->methods, vm->initString, &initializer)) {
@@ -263,7 +263,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
     }
     case OBJECT_BOUND_METHOD: {
       ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
-      vm->stackTop[-argCount - 1] = bound->receiver;
+      moduleRecord->stackTop[-argCount - 1] = bound->receiver;
       return call(vm, bound->method, argCount);
     }
     default:
@@ -296,8 +296,8 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
                          Value value) {
   Value result;
   // Save original stack order
-  vm->stackTop[-argCount - 1] = value;
-  vm->stackTop[-argCount] = receiver;
+  vm->currentModuleRecord->stackTop[-argCount - 1] = value;
+  vm->currentModuleRecord->stackTop[-argCount] = receiver;
 
   if (!callValue(vm, value, argCount)) {
     return false;
@@ -387,7 +387,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
   if (tableGet(&instance->fields, name, &value)) {
     Value result;
     // Save original stack order
-    vm->stackTop[-argCount - 1] = value;
+    vm->currentModuleRecord->stackTop[-argCount - 1] = value;
 
     if (!callValue(vm, value, argCount)) {
       return false;
@@ -553,15 +553,40 @@ static bool concatenate(VM *vm) {
 
 void initVM(VM *vm, int argc, const char **argv) {
   vm->stack = malloc(sizeof(Value) * STACK_MAX);
-  vm->frames = malloc(sizeof(CallFrame) * FRAMES_MAX);
 
-  resetStack(vm);
   vm->objects = NULL;
   vm->bytesAllocated = 0;
   vm->nextGC = 1024 * 1024;
   vm->grayCount = 0;
   vm->grayCapacity = 0;
   vm->grayStack = NULL;
+
+  vm->currentModuleRecord = newObjectModuleRecord(vm, NULL);
+  vm->currentModuleRecord->stackBase = vm->stack;
+  resetStack(vm);
+
+  ObjectString *path;
+  if (argc > 1) {
+    path = copyString(vm, argv[1], strlen(argv[1]));
+  } else {
+#ifdef _WIN32
+    path = copyString(vm, ".\\", 2);
+#else
+    path = copyString(vm, "./", 2);
+#endif
+  }
+
+  vm->currentModuleRecord->path = path;
+
+  initTable(&vm->currentModuleRecord->globals);
+  initTable(&vm->currentModuleRecord->publics);
+  tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
+           OBJECT_VAL(vm->currentModuleRecord));
+
+  vm->currentModuleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
+
+  resetStack(vm);
+
   vm->nativeModules = (NativeModules){
       .modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
@@ -587,23 +612,6 @@ void initVM(VM *vm, int argc, const char **argv) {
 
   vm->args.argc = argc;
   vm->args.argv = argv;
-
-  ObjectString *path;
-  if (argc > 1) {
-    path = copyString(vm, argv[1], strlen(argv[1]));
-  } else {
-#ifdef _WIN32
-    path = copyString(vm, ".\\", 2);
-#else
-    path = copyString(vm, "./", 2);
-#endif
-  }
-
-  vm->currentModuleRecord = newObjectModuleRecord(vm, path);
-  initTable(&vm->currentModuleRecord->globals);
-  initTable(&vm->currentModuleRecord->publics);
-  tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
-           OBJECT_VAL(vm->currentModuleRecord));
 
   if (!initializeStdLib(vm)) {
     runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
@@ -635,9 +643,9 @@ void freeVM(VM *vm) {
   freeTable(vm, &vm->moduleCache);
 
   freeImportStack(vm);
+  freeObjectModuleRecord(vm, vm->currentModuleRecord);
 
   freeObjects(vm);
-  free(vm->frames);
   free(vm->stack);
   free(vm);
 }
@@ -1043,7 +1051,8 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo,
  * @return The interpretation result
  */
 static InterpretResult run(VM *vm) {
-  CallFrame *frame = &vm->frames[vm->frameCount - 1];
+  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
+  CallFrame* frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT()                                                        \
@@ -1142,14 +1151,14 @@ static InterpretResult run(VM *vm) {
 OP_RETURN: {
   Value result = pop(vm);
   closeUpvalues(vm, frame->slots);
-  vm->frameCount--;
-  if (vm->frameCount == 0) {
+  moduleRecord->frameCount--;
+  if (moduleRecord->frameCount == 0) {
     pop(vm);
     return INTERPRET_OK;
   }
-  vm->stackTop = frame->slots;
+  moduleRecord->stackTop = frame->slots;
   push(vm, result);
-  frame = &vm->frames[vm->frameCount - 1];
+  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -1359,7 +1368,7 @@ OP_CALL: {
   if (!callValue(vm, peek(vm, argCount), argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &vm->frames[vm->frameCount - 1];
+  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -1394,7 +1403,7 @@ OP_SET_UPVALUE: {
 }
 
 OP_CLOSE_UPVALUE: {
-  closeUpvalues(vm, vm->stackTop - 1);
+  closeUpvalues(vm, moduleRecord->stackTop - 1);
   pop(vm);
   DISPATCH();
 }
@@ -1461,7 +1470,7 @@ OP_INVOKE: {
   if (!invoke(vm, methodName, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &vm->frames[vm->frameCount - 1];
+  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -1501,7 +1510,7 @@ OP_SUPER_INVOKE: {
   if (!invokeFromClass(vm, superClass, method, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &vm->frames[vm->frameCount - 1];
+  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -2355,7 +2364,7 @@ OP_IMPORT_MODULE: {
     tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(moduleRecord));
 
     // save the frame state so we can restore it
-    int currentFrameIndex = vm->frameCount;
+    int currentFrameIndex = moduleRecord->frameCount;
 
     if (!call(vm, closure, 0)) {
       moduleRecord->state = STATE_ERROR;
@@ -2423,7 +2432,7 @@ OP_FINISH_IMPORT: {
 
 end: {
   printf("        ");
-  for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
+  for (Value *slot = vm->stack; slot < moduleRecord->stackTop; slot++) {
     printf("[");
     printValue(*slot);
     printf("]");
