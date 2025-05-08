@@ -1137,8 +1137,8 @@ static InterpretResult run(VM *vm) {
                                   &&OP_SET_UPVALUE_INT_DIVIDE,
                                   &&OP_SET_UPVALUE_MODULUS,
                                   &&OP_USE_NATIVE,
-                                  &&OP_IMPORT_MODULE,
-                                  &&OP_FINISH_IMPORT,
+                                  &&OP_USE_MODULE,
+                                  &&OP_FINISH_USE,
                                   &&end};
 
   uint8_t instruction;
@@ -1295,11 +1295,10 @@ OP_DEFINE_GLOBAL: {
     isPublic = true;
   }
   if (tableSet(vm, &vm->currentModuleRecord->globals, name, peek(vm, 0))) {
-    pop(vm);
-
     if (isPublic) {
       tableSet(vm, &vm->currentModuleRecord->publics, name, peek(vm, 0));
     }
+    pop(vm);
 DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
@@ -2301,7 +2300,7 @@ OP_USE_NATIVE: {
   DISPATCH();
 }
 
-OP_IMPORT_MODULE: {
+OP_USE_MODULE: {
   ObjectString *moduleName = READ_STRING();
 
   if (isInImportStack(vm, moduleName)) {
@@ -2316,7 +2315,7 @@ OP_IMPORT_MODULE: {
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
   }
-  ObjectString* resolvedPath = takeString(vm, resolvedPathChars, strlen(resolvedPathChars));
+  ObjectString* resolvedPath = takeString(vm, resolvedPathChars, strlen(resolvedPathChars)); // VM takes ownership
 
   Value cachedModule;
   if (tableGet(&vm->moduleCache, resolvedPath, &cachedModule)) {
@@ -2328,14 +2327,27 @@ OP_IMPORT_MODULE: {
       return INTERPRET_RUNTIME_ERROR;
     }
 
-    ObjectModuleRecord* moduleRecord = newObjectModuleRecord(vm, resolvedPath);
-    moduleRecord->enclosingModule = vm->currentModuleRecord;
+    ObjectModuleRecord* module = newObjectModuleRecord(vm, resolvedPath);
+    module->enclosingModule = vm->currentModuleRecord;
+    module->stackBase = vm->currentModuleRecord->stackTop;
+    module->stackTop = vm->currentModuleRecord->stackTop;
+    module->stackTop++;
+    module->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
+    if (module->frames == NULL) {
+      runtimePanic(vm, MEMORY, "Failed to allocate memory for new module from \"%s\".", resolvedPath->chars);
+      vm->currentModuleRecord->state = STATE_ERROR;
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    module->frameCapacity = FRAMES_MAX;
+
     pushImportStack(vm, resolvedPath);
 
     ObjectModuleRecord* previousModuleRecord = vm->currentModuleRecord;
-    vm->currentModuleRecord = moduleRecord;
+    vm->currentModuleRecord = module;
+
     initTable(&vm->currentModuleRecord->globals);
     initTable(&vm->currentModuleRecord->publics);
+
     if (!initializeStdLib(vm)) {
       runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".", vm->currentModuleRecord->path->chars);
       vm->currentModuleRecord->state = STATE_ERROR;
@@ -2348,7 +2360,7 @@ OP_IMPORT_MODULE: {
     freeFileResult(file);
 
     if (function == NULL) {
-      moduleRecord->state = STATE_ERROR;
+      module->state = STATE_ERROR;
       runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
       popImportStack(vm);
       vm->currentModuleRecord = previousModuleRecord;
@@ -2359,44 +2371,41 @@ OP_IMPORT_MODULE: {
     pop(vm);
     push(vm, OBJECT_VAL(closure));
 
-    moduleRecord->moduleClosure = closure;
+    module->moduleClosure = closure;
 
-    tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(moduleRecord));
-
-    // save the frame state so we can restore it
-    int currentFrameIndex = moduleRecord->frameCount;
+    tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(module));
 
     if (!call(vm, closure, 0)) {
-      moduleRecord->state = STATE_ERROR;
+      module->state = STATE_ERROR;
       runtimePanic(vm, RUNTIME, "Failed to call module.");
       popImportStack(vm);
       vm->currentModuleRecord = previousModuleRecord;
       return INTERPRET_RUNTIME_ERROR;
     }
     // move execution to new module
-    switchToModule(vm, moduleRecord);
+    switchToModule(vm, module);
 
     InterpretResult result = run(vm);
     if (result != INTERPRET_OK) {
-      moduleRecord->state = STATE_ERROR;
+      module->state = STATE_ERROR;
       popImportStack(vm);
       vm->currentModuleRecord = previousModuleRecord;
       return result;
     }
 
-    moduleRecord->state = STATE_LOADED;
+    module->state = STATE_LOADED;
 
     // restore execution from new module
     switchToModule(vm, previousModuleRecord);
 
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(moduleRecord));
+    push(vm, OBJECT_VAL(module));
   }
   DISPATCH();
 }
 
-OP_FINISH_IMPORT: {
+OP_FINISH_USE: {
   uint8_t nameCount = READ_BYTE();
   ObjectString *names[UINT8_MAX];
   ObjectString *aliases[UINT8_MAX];
@@ -2422,7 +2431,7 @@ OP_FINISH_IMPORT: {
       return INTERPRET_RUNTIME_ERROR;
     }
 
-    if (!tableSet(vm, &vm->currentModuleRecord->enclosingModule->globals, alias, value)) {
+    if (!tableSet(vm, &vm->currentModuleRecord->globals, alias, value)) {
       runtimePanic(vm, IMPORT, "Failed to import '%s'.", name->chars);
       return INTERPRET_RUNTIME_ERROR;
     }

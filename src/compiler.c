@@ -1183,9 +1183,9 @@ static void useStatement() {
     module = makeConstant(
         OBJECT_VAL(copyString(current->owner, parser.previous.start + 1,
                               parser.previous.length - 2)));
-    emitBytes(OP_IMPORT_MODULE, module);
+    emitBytes(OP_USE_MODULE, module);
 
-    emitBytes(OP_FINISH_IMPORT, nameCount);
+    emitBytes(OP_FINISH_USE, nameCount);
     for (uint8_t i = 0; i < nameCount; i++) {
       emitByte(names[i]);
     }
