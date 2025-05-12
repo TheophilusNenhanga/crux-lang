@@ -4,8 +4,6 @@
 #include "../object.h"
 #include "../value.h"
 
-#define MAX_ARRAY_SIZE UINT16_MAX - 1
-
 ObjectResult *lengthFunction(VM *vm, int argCount, Value *args);
 ObjectResult *intFunction(VM *vm, int argCount, Value *args);
 ObjectResult *floatFunction(VM *vm, int argCount, Value *args);

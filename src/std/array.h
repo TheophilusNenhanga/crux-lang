@@ -4,7 +4,6 @@
 #include "../object.h"
 #include "../value.h"
 
-#define MAX_ARRAY_SIZE UINT16_MAX - 1
 
 ObjectResult *arrayPushMethod(VM *vm, int argCount,
                               Value *args); // [1,2].push( 3) -> [1,2,3]

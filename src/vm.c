@@ -565,27 +565,10 @@ void initVM(VM *vm, int argc, const char **argv) {
   vm->currentModuleRecord->stackBase = vm->stack;
   resetStack(vm);
 
-  ObjectString *path;
-  if (argc > 1) {
-    path = copyString(vm, argv[1], strlen(argv[1]));
-  } else {
-#ifdef _WIN32
-    path = copyString(vm, ".\\", 2);
-#else
-    path = copyString(vm, "./", 2);
-#endif
-  }
-
-  vm->currentModuleRecord->path = path;
-
   initTable(&vm->currentModuleRecord->globals);
   initTable(&vm->currentModuleRecord->publics);
-  tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
-           OBJECT_VAL(vm->currentModuleRecord));
 
   vm->currentModuleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
-
-  resetStack(vm);
 
   vm->nativeModules = (NativeModules){
       .modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
@@ -617,8 +600,22 @@ void initVM(VM *vm, int argc, const char **argv) {
     runtimePanic(vm, RUNTIME, "Failed to initialize standard library.");
     exit(1);
   }
-}
 
+  ObjectString *path;
+  if (argc > 1) {
+    path = copyString(vm, argv[1], strlen(argv[1]));
+  } else {
+#ifdef _WIN32
+    path = copyString(vm, ".\\", 2);
+#else
+    path = copyString(vm, "./", 2);
+#endif
+  }
+
+  vm->currentModuleRecord->path = path;
+  tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
+           OBJECT_VAL(vm->currentModuleRecord));
+}
 void freeVM(VM *vm) {
   freeTable(vm, &vm->strings);
   freeTable(vm, &vm->currentModuleRecord->globals);

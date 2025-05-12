@@ -151,8 +151,7 @@ static void emitReturn() {
  */
 static uint8_t makeConstant(Value value) {
   int constant = addConstant(current->owner, currentChunk(), value);
-  // Add constant adds the given value to the end of the constant table and
-  // returns the index.
+  // adds the given value to the end of the constant array, returns the index.
   if (constant > UINT8_MAX) {
     // Only 256 constants can be stored and loaded in a chunk.
     // TODO: Add new instruction 'OP_CONSTANT_16' to store two byte operands
@@ -1125,6 +1124,13 @@ static void useStatement() {
   uint8_t names[UINT8_MAX];
   uint8_t aliases[UINT8_MAX];
   bool aliasPresence[UINT8_MAX];
+
+  for (int i = 0; i < UINT8_MAX; i++) {
+    names[i] = 0;
+    aliases[i] = 0;
+    aliasPresence[i] = false;
+  }
+
   do {
     if (nameCount >= UINT8_MAX) {
       compilerPanic(&parser,
@@ -1583,7 +1589,7 @@ static void string(bool canAssign) {
     }
   }
 
-  char *temp = realloc(processed, processedLength * sizeof(char));
+  char *temp = GROW_ARRAY(current->owner, char, processed, parser.previous.length, processedLength+1);
   if (temp == NULL) {
     compilerPanic(&parser, "Cannot allocate memory for string expression.",
                   MEMORY);

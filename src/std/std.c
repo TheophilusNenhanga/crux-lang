@@ -281,10 +281,9 @@ static bool initModule(VM *vm, const char *moduleName,
   }
 
   if (vm->nativeModules.count + 1 > vm->nativeModules.capacity) {
-    const int newCapacity =
-        vm->nativeModules.capacity == 0 ? 8 : vm->nativeModules.capacity * 2;
-    GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules,
-               vm->nativeModules.capacity, newCapacity);
+    const int newCapacity = vm->nativeModules.capacity == 0 ? 8 : vm->nativeModules.capacity * 2;
+    NativeModule* newModules = GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity, newCapacity);
+    vm->nativeModules.modules = newModules;
     vm->nativeModules.capacity = newCapacity;
   }
 

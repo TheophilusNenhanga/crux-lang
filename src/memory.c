@@ -27,8 +27,7 @@ void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize) {
     return NULL;
   }
 
-  void *result = realloc(
-      pointer, newSize); // When oldSize is zero this is equivalent to malloc
+  void *result = realloc(pointer, newSize);
   if (result == NULL) {
     fprintf(stderr, "Fatal error: Failed to reallocate %zu bytes.\n Exiting!",
             newSize);
