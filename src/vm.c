@@ -95,7 +95,7 @@ VM *newVM(int argc, const char **argv) {
 void resetStack(VM *vm) {
   vm->currentModuleRecord->stackTop = vm->currentModuleRecord->stackBase;
   vm->currentModuleRecord->frameCount = 0;
-  vm->openUpvalues = NULL;
+  vm->currentModuleRecord->openUpvalues = NULL;
 }
 
 void push(VM *vm, Value value) {
@@ -294,7 +294,6 @@ static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
 
 static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
                          Value value) {
-  Value result;
   // Save original stack order
   vm->currentModuleRecord->stackTop[-argCount - 1] = value;
   vm->currentModuleRecord->stackTop[-argCount] = receiver;
@@ -304,7 +303,7 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
   }
 
   // restore the caller and put the result in the right place
-  result = pop(vm);
+  Value result = pop(vm);
   push(vm, original);
   push(vm, result);
   return true;
@@ -385,7 +384,6 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
   Value value;
   if (tableGet(&instance->fields, name, &value)) {
-    Value result;
     // Save original stack order
     vm->currentModuleRecord->stackTop[-argCount - 1] = value;
 
@@ -395,7 +393,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
     // After the call, restore the original caller and put the result in the
     // right place
-    result = pop(vm);
+    Value result = pop(vm);
     push(vm, original);
     push(vm, result);
     return true;
@@ -442,7 +440,7 @@ static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
  */
 static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
   ObjectUpvalue *prevUpvalue = NULL;
-  ObjectUpvalue *upvalue = vm->openUpvalues;
+  ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
 
   while (upvalue != NULL && upvalue->location > local) {
     prevUpvalue = upvalue;
@@ -456,7 +454,7 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 
   createdUpvalue->next = upvalue;
   if (prevUpvalue == NULL) {
-    vm->openUpvalues = createdUpvalue;
+    vm->currentModuleRecord->openUpvalues = createdUpvalue;
   } else {
     prevUpvalue->next = createdUpvalue;
   }
@@ -470,11 +468,11 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
  * @param last Pointer to the last variable to close
  */
 static void closeUpvalues(VM *vm, Value *last) {
-  while (vm->openUpvalues != NULL && vm->openUpvalues->location >= last) {
-    ObjectUpvalue *upvalue = vm->openUpvalues;
+  while (vm->currentModuleRecord->openUpvalues != NULL && vm->currentModuleRecord->openUpvalues->location >= last) {
+    ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
-    vm->openUpvalues = upvalue->next;
+    vm->currentModuleRecord->openUpvalues = upvalue->next;
   }
 }
 
@@ -2186,6 +2184,7 @@ OP_SET_LOCAL_MODULUS: {
   frame->slots[slot] = resultValue;
   DISPATCH();
 }
+
 OP_SET_UPVALUE_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
@@ -2301,104 +2300,118 @@ OP_USE_MODULE: {
   ObjectString *moduleName = READ_STRING();
 
   if (isInImportStack(vm, moduleName)) {
-    runtimePanic(vm, IMPORT, "Circular dependency detected when importing: %s", moduleName->chars);
+    runtimePanic(vm, IMPORT, "Circular dependency detected when importing: %s",
+                 moduleName->chars);
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  char* resolvedPathChars = resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
+  char *resolvedPathChars =
+      resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
   if (resolvedPathChars == NULL) {
     runtimePanic(vm, IMPORT, "Failed to resolve import path");
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
   }
-  ObjectString* resolvedPath = takeString(vm, resolvedPathChars, strlen(resolvedPathChars)); // VM takes ownership
+  ObjectString *resolvedPath = takeString(
+      vm, resolvedPathChars, strlen(resolvedPathChars)); // VM takes ownership
 
   Value cachedModule;
   if (tableGet(&vm->moduleCache, resolvedPath, &cachedModule)) {
     push(vm, cachedModule);
-  } else {
-    FileResult file = readFile(resolvedPath->chars);
-    if (file.error != NULL) {
-      runtimePanic(vm, IO, file.error);
-      return INTERPRET_RUNTIME_ERROR;
-    }
+    DISPATCH();
+  }
 
-    ObjectModuleRecord* module = newObjectModuleRecord(vm, resolvedPath);
-    module->enclosingModule = vm->currentModuleRecord;
-    module->stackBase = vm->currentModuleRecord->stackTop;
-    module->stackTop = vm->currentModuleRecord->stackTop;
-    module->stackTop++;
-    module->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
-    if (module->frames == NULL) {
-      runtimePanic(vm, MEMORY, "Failed to allocate memory for new module from \"%s\".", resolvedPath->chars);
-      vm->currentModuleRecord->state = STATE_ERROR;
-      return INTERPRET_RUNTIME_ERROR;
-    }
-    module->frameCapacity = FRAMES_MAX;
+  if (vm->importCount + 1 > IMPORT_MAX) {
+    runtimePanic(vm, IMPORT, "Import limit reached");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  vm->importCount++;
 
-    pushImportStack(vm, resolvedPath);
+  FileResult file = readFile(resolvedPath->chars);
+  if (file.error != NULL) {
+    runtimePanic(vm, IO, file.error);
+    return INTERPRET_RUNTIME_ERROR;
+  }
 
-    ObjectModuleRecord* previousModuleRecord = vm->currentModuleRecord;
-    vm->currentModuleRecord = module;
+  ObjectModuleRecord *module = newObjectModuleRecord(vm, resolvedPath);
+  module->enclosingModule = vm->currentModuleRecord;
+  module->stackBase = vm->currentModuleRecord->stackTop;
+  module->stackTop = vm->currentModuleRecord->stackTop;
+  module->stackTop++;
+  module->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
+  if (module->frames == NULL) {
+    runtimePanic(vm, MEMORY,
+                 "Failed to allocate memory for new module from \"%s\".",
+                 resolvedPath->chars);
+    vm->currentModuleRecord->state = STATE_ERROR;
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  module->frameCapacity = FRAMES_MAX;
 
-    initTable(&vm->currentModuleRecord->globals);
-    initTable(&vm->currentModuleRecord->publics);
+  pushImportStack(vm, resolvedPath);
 
-    if (!initializeStdLib(vm)) {
-      runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".", vm->currentModuleRecord->path->chars);
-      vm->currentModuleRecord->state = STATE_ERROR;
-      popImportStack(vm);
-      vm->currentModuleRecord = previousModuleRecord;
-      return INTERPRET_RUNTIME_ERROR;
-    }
+  ObjectModuleRecord *previousModuleRecord = vm->currentModuleRecord;
+  vm->currentModuleRecord = module;
 
-    ObjectFunction* function = compile(vm, file.content);
-    freeFileResult(file);
+  initTable(&vm->currentModuleRecord->globals);
+  initTable(&vm->currentModuleRecord->publics);
 
-    if (function == NULL) {
-      module->state = STATE_ERROR;
-      runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
-      popImportStack(vm);
-      vm->currentModuleRecord = previousModuleRecord;
-      return INTERPRET_COMPILE_ERROR;
-    }
-    push(vm, OBJECT_VAL(function));
-    ObjectClosure* closure = newClosure(vm, function);
-    pop(vm);
-    push(vm, OBJECT_VAL(closure));
-
-    module->moduleClosure = closure;
-
-    tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(module));
-
-    if (!call(vm, closure, 0)) {
-      module->state = STATE_ERROR;
-      runtimePanic(vm, RUNTIME, "Failed to call module.");
-      popImportStack(vm);
-      vm->currentModuleRecord = previousModuleRecord;
-      return INTERPRET_RUNTIME_ERROR;
-    }
-    // move execution to new module
-    switchToModule(vm, module);
-
-    InterpretResult result = run(vm);
-    if (result != INTERPRET_OK) {
-      module->state = STATE_ERROR;
-      popImportStack(vm);
-      vm->currentModuleRecord = previousModuleRecord;
-      return result;
-    }
-
-    module->state = STATE_LOADED;
-
-    // restore execution from new module
-    switchToModule(vm, previousModuleRecord);
-
+  if (!initializeStdLib(vm)) {
+    runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".",
+                 vm->currentModuleRecord->path->chars);
+    vm->currentModuleRecord->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(module));
+    return INTERPRET_RUNTIME_ERROR;
   }
+
+  ObjectFunction *function = compile(vm, file.content);
+  freeFileResult(file);
+
+  if (function == NULL) {
+    module->state = STATE_ERROR;
+    runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
+    popImportStack(vm);
+    vm->currentModuleRecord = previousModuleRecord;
+    return INTERPRET_COMPILE_ERROR;
+  }
+  push(vm, OBJECT_VAL(function));
+  ObjectClosure *closure = newClosure(vm, function);
+  pop(vm);
+  push(vm, OBJECT_VAL(closure));
+
+  module->moduleClosure = closure;
+
+  tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(module));
+
+  if (!call(vm, closure, 0)) {
+    module->state = STATE_ERROR;
+    runtimePanic(vm, RUNTIME, "Failed to call module.");
+    popImportStack(vm);
+    vm->currentModuleRecord = previousModuleRecord;
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  // move execution to new module
+  switchToModule(vm, module);
+
+  InterpretResult result = run(vm);
+  if (result != INTERPRET_OK) {
+    module->state = STATE_ERROR;
+    popImportStack(vm);
+    vm->currentModuleRecord = previousModuleRecord;
+    return result;
+  }
+
+  module->state = STATE_LOADED;
+
+  // restore execution from new module
+  switchToModule(vm, previousModuleRecord);
+
+  popImportStack(vm);
+  vm->currentModuleRecord = previousModuleRecord;
+  push(vm, OBJECT_VAL(module));
+
   DISPATCH();
 }
 
@@ -2433,6 +2446,7 @@ OP_FINISH_USE: {
       return INTERPRET_RUNTIME_ERROR;
     }
   }
+  vm->importCount--;
   DISPATCH();
 }
 

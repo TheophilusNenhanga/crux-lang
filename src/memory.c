@@ -391,7 +391,8 @@ static void freeObject(VM *vm, Object *object) {
  */
 void markRoots(VM *vm) {
   if (vm->currentModuleRecord) {
-    for (Value *slot = vm->stack; slot < vm->currentModuleRecord->stackTop; slot++) {
+    for (Value *slot = vm->stack; slot < vm->currentModuleRecord->stackTop;
+         slot++) {
       markValue(vm, *slot);
     }
 
@@ -399,18 +400,16 @@ void markRoots(VM *vm) {
       markObject(vm, (Object *)vm->currentModuleRecord->frames[i].closure);
     }
     markObject(vm, (Object *)vm->currentModuleRecord);
-  }else {
+
+    for (ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
+         upvalue != NULL; upvalue = upvalue->next) {
+      markObject(vm, (Object *)upvalue);
+    }
+  } else {
     for (Value *slot = vm->stack; slot < vm->stack + STACK_MAX; slot++) {
       markValue(vm, *slot);
     }
   }
-
-
-  for (ObjectUpvalue *upvalue = vm->openUpvalues; upvalue != NULL;
-       upvalue = upvalue->next) {
-    markObject(vm, (Object *)upvalue);
-  }
-
 
   for (int i = 0; i < vm->importStack.count; i++) {
     markObject(vm, (Object *)vm->importStack.paths[i]);

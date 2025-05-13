@@ -256,6 +256,7 @@ struct ObjectModuleRecord {
   Table publics;
   ObjectClosure *moduleClosure;
   ObjectModuleRecord *enclosingModule;
+  ObjectUpvalue* openUpvalues;
 
   Value* stackBase;
   Value* stackTop;

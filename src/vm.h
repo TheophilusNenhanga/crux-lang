@@ -10,6 +10,7 @@ typedef struct ObjectModuleRecord ObjectModuleRecord;
 
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+#define IMPORT_MAX FRAMES_MAX / 2
 
 typedef enum {
   INTERPRET_OK,
@@ -60,17 +61,16 @@ struct VM {
 
   Object *objects;
   Table strings;
-  ObjectUpvalue *openUpvalues;
 
   Table moduleCache;
   ObjectModuleRecord *currentModuleRecord;
   ImportStack importStack;
 
-  int grayCount;
   size_t bytesAllocated;
   size_t nextGC;
   Object **grayStack;
   int grayCapacity;
+  int grayCount;
 
   ObjectString *initString;
   Table randomType;
@@ -83,6 +83,7 @@ struct VM {
   NativeModules nativeModules;
   MatchHandler matchHandler;
   Args args;
+  int importCount;
 };
 
 VM *newVM(int argc, const char **argv);

@@ -976,6 +976,7 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
 
   moduleRecord->stackBase = NULL;
   moduleRecord->stackTop = NULL;
+  moduleRecord->openUpvalues = NULL;
 
   moduleRecord->frames = NULL;
   moduleRecord->frameCount = 0;
