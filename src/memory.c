@@ -240,13 +240,22 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_MODULE_RECORD: {
-    ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
-    if (moduleRecord->enclosingModule)
-      markObject(vm, (Object *)moduleRecord->enclosingModule);
-    markObject(vm, (Object *)moduleRecord->path);
-    markObject(vm, (Object *)moduleRecord->moduleClosure);
-    markTable(vm, &moduleRecord->globals);
-    markTable(vm, &moduleRecord->publics);
+    ObjectModuleRecord* module = (ObjectModuleRecord*)object;
+    markObject(vm, (Object*)module->path);
+    markTable(vm, &module->globals);
+    markTable(vm, &module->publics);
+    markObject(vm, (Object*)module->moduleClosure);
+    markObject(vm, (Object*)module->enclosingModule); // Can be NULL
+
+    for (Value* slot = module->stack; slot < module->stackTop; slot++) {
+      markValue(vm, *slot);
+    }
+    for (int i = 0; i < module->frameCount; i++) {
+      markObject(vm, (Object*)module->frames[i].closure);
+    }
+    for (ObjectUpvalue* upvalue = module->openUpvalues; upvalue != NULL; upvalue = upvalue->next) {
+      markObject(vm, (Object*)upvalue);
+    }
     break;
   }
 
@@ -286,24 +295,18 @@ static void freeObject(VM *vm, Object *object) {
     break;
   }
   case OBJECT_NATIVE_FUNCTION: {
-    ObjectNativeFunction *native = (ObjectNativeFunction *)object;
     FREE(vm, ObjectNativeFunction, object);
     break;
   }
   case OBJECT_NATIVE_METHOD: {
-    ObjectNativeMethod *native = (ObjectNativeMethod *)object;
     FREE(vm, ObjectNativeMethod, object);
     break;
   }
   case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-    ObjectNativeInfallibleFunction *native =
-        (ObjectNativeInfallibleFunction *)object;
     FREE(vm, ObjectNativeInfallibleFunction, object);
     break;
   }
   case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-    ObjectNativeInfallibleMethod *native =
-        (ObjectNativeInfallibleMethod *)object;
     FREE(vm, ObjectNativeInfallibleMethod, object);
     break;
   }
@@ -354,13 +357,11 @@ static void freeObject(VM *vm, Object *object) {
   }
 
   case OBJECT_RESULT: {
-    ObjectResult *result = (ObjectResult *)object;
     FREE(vm, ObjectResult, object);
     break;
   }
 
   case OBJECT_RANDOM: {
-    ObjectRandom *random = (ObjectRandom *)object;
     FREE(vm, ObjectRandom, object);
     break;
   }
@@ -380,6 +381,34 @@ static void freeObject(VM *vm, Object *object) {
   }
 }
 
+void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
+  if (moduleRecord->enclosingModule != NULL) {
+    markModuleRoots(vm, moduleRecord->enclosingModule);
+  }
+
+  markObject(vm, (Object*) moduleRecord->path);
+  markTable(vm, &moduleRecord->globals);
+  markTable(vm, &moduleRecord->publics);
+  markObject(vm, (Object *)moduleRecord->moduleClosure);
+  markObject(vm, (Object *)moduleRecord->enclosingModule);
+
+  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop;
+       slot++) {
+    markValue(vm, *slot);
+  }
+
+  for (int i = 0; i < moduleRecord->frameCount; i++) {
+    markObject(vm, (Object *)moduleRecord->frames[i].closure);
+  }
+
+  for (ObjectUpvalue *upvalue = moduleRecord->openUpvalues; upvalue != NULL;
+       upvalue = upvalue->next) {
+    markObject(vm, (Object *)upvalue);
+  }
+
+  markObject(vm, (Object *)moduleRecord);
+}
+
 /**
  * @brief Marks all root objects reachable by the VM.
  *
@@ -391,24 +420,7 @@ static void freeObject(VM *vm, Object *object) {
  */
 void markRoots(VM *vm) {
   if (vm->currentModuleRecord) {
-    for (Value *slot = vm->stack; slot < vm->currentModuleRecord->stackTop;
-         slot++) {
-      markValue(vm, *slot);
-    }
-
-    for (int i = 0; i < vm->currentModuleRecord->frameCount; i++) {
-      markObject(vm, (Object *)vm->currentModuleRecord->frames[i].closure);
-    }
-    markObject(vm, (Object *)vm->currentModuleRecord);
-
-    for (ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
-         upvalue != NULL; upvalue = upvalue->next) {
-      markObject(vm, (Object *)upvalue);
-    }
-  } else {
-    for (Value *slot = vm->stack; slot < vm->stack + STACK_MAX; slot++) {
-      markValue(vm, *slot);
-    }
+    markModuleRoots(vm, vm->currentModuleRecord);
   }
 
   for (int i = 0; i < vm->importStack.count; i++) {

@@ -257,10 +257,8 @@ struct ObjectModuleRecord {
   ObjectClosure *moduleClosure;
   ObjectModuleRecord *enclosingModule;
   ObjectUpvalue* openUpvalues;
-
-  Value* stackBase;
+  Value* stack;
   Value* stackTop;
-
   CallFrame *frames;
   uint32_t frameCount;
   uint32_t frameCapacity;

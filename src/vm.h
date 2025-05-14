@@ -8,10 +8,6 @@ typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 
-#define FRAMES_MAX 64
-#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
-#define IMPORT_MAX FRAMES_MAX / 2
-
 typedef enum {
   INTERPRET_OK,
   INTERPRET_COMPILE_ERROR,
@@ -57,8 +53,6 @@ typedef struct {
 } ImportStack;
 
 struct VM {
-  Value *stack;
-
   Object *objects;
   Table strings;
 
@@ -92,7 +86,7 @@ void initVM(VM *vm, int argc, const char **argv);
 
 void freeVM(VM *vm);
 
-void resetStack(VM *vm);
+void resetStack(ObjectModuleRecord* moduleRecord);
 
 InterpretResult interpret(VM *vm, char *source);
 

@@ -974,26 +974,27 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   moduleRecord->moduleClosure = NULL;
   moduleRecord->enclosingModule = NULL;
 
-  moduleRecord->stackBase = NULL;
+  moduleRecord->stack = ALLOCATE(vm, Value, STACK_MAX);
   moduleRecord->stackTop = NULL;
   moduleRecord->openUpvalues = NULL;
 
-  moduleRecord->frames = NULL;
+  moduleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
   moduleRecord->frameCount = 0;
-  moduleRecord->frameCapacity = 0;
+  moduleRecord->frameCapacity = FRAMES_MAX;
 
   return moduleRecord;
 }
 
 /**
- * Frees ObjectModuleRecord
- * NOTE: Calls FREE()
+ * Frees ObjectModuleRecord internals
  * @param vm The VM
  * @param record The ObjectModuleRecord to free
  */
 void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
   FREE_ARRAY(vm, CallFrame, record->frames, record->frameCapacity);
+  record->frames = NULL;
+  FREE_ARRAY(vm, Value, record->stack, STACK_MAX);
+  record->stack = NULL;
   freeTable(vm, &record->globals);
   freeTable(vm, &record->publics);
-  FREE(vm, ObjectModuleRecord, record);
 }

@@ -69,7 +69,7 @@ void popImportStack(VM *vm) {
 static bool stringEquals(ObjectString *a, ObjectString *b) {
   if (a->length != b->length)
     return false;
-  return memcmp(a->chars, b->chars, a->length) ? true : false;
+  return memcmp(a->chars, b->chars, a->length) == 0;
 }
 
 bool isInImportStack(VM *vm, ObjectString *path) {
@@ -92,10 +92,10 @@ VM *newVM(int argc, const char **argv) {
   return vm;
 }
 
-void resetStack(VM *vm) {
-  vm->currentModuleRecord->stackTop = vm->currentModuleRecord->stackBase;
-  vm->currentModuleRecord->frameCount = 0;
-  vm->currentModuleRecord->openUpvalues = NULL;
+void resetStack(ObjectModuleRecord* moduleRecord) {
+  moduleRecord->stackTop = moduleRecord->stack;
+  moduleRecord->frameCount = 0;
+  moduleRecord->openUpvalues = NULL;
 }
 
 void push(VM *vm, Value value) {
@@ -550,8 +550,6 @@ static bool concatenate(VM *vm) {
 }
 
 void initVM(VM *vm, int argc, const char **argv) {
-  vm->stack = malloc(sizeof(Value) * STACK_MAX);
-
   vm->objects = NULL;
   vm->bytesAllocated = 0;
   vm->nextGC = 1024 * 1024;
@@ -560,8 +558,7 @@ void initVM(VM *vm, int argc, const char **argv) {
   vm->grayStack = NULL;
 
   vm->currentModuleRecord = newObjectModuleRecord(vm, NULL);
-  vm->currentModuleRecord->stackBase = vm->stack;
-  resetStack(vm);
+  resetStack(vm->currentModuleRecord);
 
   initTable(&vm->currentModuleRecord->globals);
   initTable(&vm->currentModuleRecord->publics);
@@ -614,6 +611,7 @@ void initVM(VM *vm, int argc, const char **argv) {
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
            OBJECT_VAL(vm->currentModuleRecord));
 }
+
 void freeVM(VM *vm) {
   freeTable(vm, &vm->strings);
   freeTable(vm, &vm->currentModuleRecord->globals);
@@ -641,7 +639,6 @@ void freeVM(VM *vm) {
   freeObjectModuleRecord(vm, vm->currentModuleRecord);
 
   freeObjects(vm);
-  free(vm->stack);
   free(vm);
 }
 
@@ -854,10 +851,6 @@ static bool binaryOperation(VM *vm, OpCode operation) {
     }
   }
   return true;
-}
-
-static void switchToModule(VM* vm, ObjectModuleRecord* module) {
-
 }
 
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
@@ -2336,10 +2329,7 @@ OP_USE_MODULE: {
 
   ObjectModuleRecord *module = newObjectModuleRecord(vm, resolvedPath);
   module->enclosingModule = vm->currentModuleRecord;
-  module->stackBase = vm->currentModuleRecord->stackTop;
-  module->stackTop = vm->currentModuleRecord->stackTop;
-  module->stackTop++;
-  module->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
+  resetStack(module);
   if (module->frames == NULL) {
     runtimePanic(vm, MEMORY,
                  "Failed to allocate memory for new module from \"%s\".",
@@ -2392,8 +2382,6 @@ OP_USE_MODULE: {
     vm->currentModuleRecord = previousModuleRecord;
     return INTERPRET_RUNTIME_ERROR;
   }
-  // move execution to new module
-  switchToModule(vm, module);
 
   InterpretResult result = run(vm);
   if (result != INTERPRET_OK) {
@@ -2404,10 +2392,7 @@ OP_USE_MODULE: {
   }
 
   module->state = STATE_LOADED;
-
-  // restore execution from new module
-  switchToModule(vm, previousModuleRecord);
-
+  
   popImportStack(vm);
   vm->currentModuleRecord = previousModuleRecord;
   push(vm, OBJECT_VAL(module));
@@ -2452,7 +2437,7 @@ OP_FINISH_USE: {
 
 end: {
   printf("        ");
-  for (Value *slot = vm->stack; slot < moduleRecord->stackTop; slot++) {
+  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop; slot++) {
     printf("[");
     printValue(*slot);
     printf("]");

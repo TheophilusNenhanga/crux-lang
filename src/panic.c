@@ -157,7 +157,7 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
   for (int i = 0; i < startCol; i++) {
     char c = *(lineStart + i);
     if (c == '\t') {
-      relativeStartCol += 8 - (relativeStartCol % 8);
+      relativeStartCol += 8 - relativeStartCol % 8;
     } else {
       relativeStartCol++;
     }
@@ -168,7 +168,7 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
   }
 
   fprintf(stderr, "%s^", RED);
-  for (int i = 1; i < length && (startCol + i) < maxCol; i++) {
+  for (int i = 1; i < length && startCol + i < maxCol; i++) {
     fprintf(stderr, "~");
   }
   fprintf(stderr, "%s\n", RESET);
@@ -226,7 +226,7 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 
   // Print stack trace
   fprintf(stderr, "\n\n%sStack trace:%s", CYAN, RESET);
-  for (int i = vm->currentModuleRecord->frameCount - 1; i >= 0; i--) {
+  for (int i = (int)vm->currentModuleRecord->frameCount - 1; i >= 0; i--) {
     CallFrame *frame = &vm->currentModuleRecord->frames[i];
     ObjectFunction *function = frame->closure->function;
     size_t instruction = frame->ip - function->chunk.code - 1;
@@ -253,7 +253,7 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
 
   fprintf(stderr, "\n%s%s%s\n", RED, repeat('=', 50), RESET);
 
-  resetStack(vm);
+  resetStack(vm->currentModuleRecord);
 }
 
 char *repeat(char c, int count) {
