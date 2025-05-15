@@ -563,8 +563,6 @@ void initVM(VM *vm, int argc, const char **argv) {
   initTable(&vm->currentModuleRecord->globals);
   initTable(&vm->currentModuleRecord->publics);
 
-  vm->currentModuleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
-
   vm->nativeModules = (NativeModules){
       .modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
 
@@ -1130,12 +1128,11 @@ static InterpretResult run(VM *vm) {
                                   &&end};
 
   uint8_t instruction;
-  DISPATCH();
 #ifdef DEBUG_TRACE_EXECUTION
   static uint8_t endIndex =
       sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
 #endif
-
+  DISPATCH();
 OP_RETURN: {
   Value result = pop(vm);
   closeUpvalues(vm, frame->slots);
@@ -1282,9 +1279,9 @@ OP_DEFINE_GLOBAL: {
   if (checkPreviousInstruction(frame, 3, OP_PUB)) {
     isPublic = true;
   }
-  if (tableSet(vm, &vm->currentModuleRecord->globals, name, peek(vm, 0))) {
+  if (tableSet(vm, &moduleRecord->globals, name, peek(vm, 0))) {
     if (isPublic) {
-      tableSet(vm, &vm->currentModuleRecord->publics, name, peek(vm, 0));
+      tableSet(vm, &moduleRecord->publics, name, peek(vm, 0));
     }
     pop(vm);
 DISPATCH();

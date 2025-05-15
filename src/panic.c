@@ -40,8 +40,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
                           "The program cannot handle this many constants"};
   }
   case NAME: {
-    return (ErrorDetails){"Name Error", "The name you invoked caused an error. "
-                                        "Double check that this name exists."};
+    return (ErrorDetails){"Name Error", "Double check that this name exists."};
   }
   case CLOSURE_EXTENT: {
     return (ErrorDetails){"Closure Extent Error",
