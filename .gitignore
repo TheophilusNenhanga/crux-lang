@@ -1,15 +1,12 @@
-/cmake-build-debug
 /.idea
 /build
 /.vscode
 /.cache
 /out
 /.vs
-/src/cmake-build-debug
 /src/out
 src/CMakeSettings.json
-/docs/node_modules
-/docs/.astro
-/docs/.vscode
 *.exe
 /src/build
+/src/cmake-build-*
+/cmake-build-*

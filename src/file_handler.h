@@ -2,8 +2,8 @@
 #define FILE_HANDLER_H
 
 typedef struct {
-	char* content;
-	char* error;
+  char *content;
+  char *error;
 } FileResult;
 
 #define MAX_PATH_LENGTH 4096
@@ -16,9 +16,10 @@ typedef struct {
  * If an error occurs, sets the error field in the result struct.
  *
  * @param path The path of the file to read
- * @return FileResult struct containing either the file content or an error message
+ * @return FileResult struct containing either the file content or an error
+ * message
  */
-FileResult readFile(const char* path);
+FileResult readFile(const char *path);
 
 /**
  * @brief Resolves a potentially relative import path to an absolute path
@@ -30,9 +31,10 @@ FileResult readFile(const char* path);
  *
  * @param basePath The base file path (typically the current file's path)
  * @param importPath The import path to resolve (may be relative or absolute)
- * @return Dynamically allocated string containing the resolved absolute path (caller must free)
+ * @return Dynamically allocated string containing the resolved absolute path
+ * (caller must free)
  */
-char* resolvePath(const char* basePath, const char* importPath);
+char *resolvePath(const char *basePath, const char *importPath);
 
 /**
  * @brief Frees memory allocated by a FileResult struct
@@ -44,4 +46,4 @@ char* resolvePath(const char* basePath, const char* importPath);
  */
 void freeFileResult(FileResult result);
 
-#endif //FILE_HANDLER_H
+#endif // FILE_HANDLER_H

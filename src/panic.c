@@ -40,8 +40,7 @@ static ErrorDetails getErrorDetails(ErrorType type) {
                           "The program cannot handle this many constants"};
   }
   case NAME: {
-    return (ErrorDetails){"Name Error", "The name you invoked caused an error. "
-                                        "Double check that this name exists."};
+    return (ErrorDetails){"Name Error", "Double check that this name exists."};
   }
   case CLOSURE_EXTENT: {
     return (ErrorDetails){"Closure Extent Error",
@@ -157,7 +156,7 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
   for (int i = 0; i < startCol; i++) {
     char c = *(lineStart + i);
     if (c == '\t') {
-      relativeStartCol += 8 - (relativeStartCol % 8);
+      relativeStartCol += 8 - relativeStartCol % 8;
     } else {
       relativeStartCol++;
     }
@@ -168,7 +167,7 @@ void printErrorLine(int line, const char *source, int startCol, int length) {
   }
 
   fprintf(stderr, "%s^", RED);
-  for (int i = 1; i < length && (startCol + i) < maxCol; i++) {
+  for (int i = 1; i < length && startCol + i < maxCol; i++) {
     fprintf(stderr, "~");
   }
   fprintf(stderr, "%s\n", RESET);
@@ -180,7 +179,7 @@ void errorAt(Parser *parser, Token *token, const char *message,
     return;
   }
   parser->panicMode = true;
-
+  fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
   ErrorDetails details = getErrorDetails(errorType);
   fprintf(stderr, "%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA,
           message, token->line, RESET);
@@ -205,6 +204,7 @@ void errorAt(Parser *parser, Token *token, const char *message,
   }
 
   fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
+  fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
   parser->hadError = true;
 }
 
@@ -218,35 +218,89 @@ void runtimePanic(VM *vm, ErrorType type, const char *format, ...) {
   va_list args;
   va_start(args, format);
 
-  fprintf(stderr, "%s%s%s\n", RED, repeat('=', 50), RESET);
+  fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
   fprintf(stderr, "\n%s%s: %s", RED, details.name, MAGENTA);
   vfprintf(stderr, format, args);
-  fprintf(stderr, "%s", RESET);
+  fprintf(stderr, "%s\n", RESET);
   va_end(args);
 
-  // Print stack trace
-  fprintf(stderr, "\n\n%sStack trace:%s", CYAN, RESET);
-  for (int i = vm->frameCount - 1; i >= 0; i--) {
-    CallFrame *frame = &vm->frames[i];
-    ObjectFunction *function = frame->closure->function;
-    size_t instruction = frame->ip - function->chunk.code - 1;
+  fprintf(stderr, "\n%sStack trace (most recent call last):%s", CYAN, RESET);
 
-    // Show more detailed frame information
-    fprintf(stderr, "\n%s[frame %d]%s ", CYAN, vm->frameCount - i, RESET);
-    fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+  ObjectModuleRecord *traceModule = vm->currentModuleRecord;
+  int globalFrameNumber = 0;
 
-    if (function->name == NULL) {
-      fprintf(stderr, "%s<script>%s", CYAN, RESET);
-    } else {
-      fprintf(stderr, "%s%s()%s", CYAN, function->name->chars, RESET);
+  while (traceModule != NULL) {
+    if (traceModule != vm->currentModuleRecord) {
+        fprintf(stderr, "\n  %s--- imported from module \"%s\" ---%s", MAGENTA, traceModule->path ? traceModule->path->chars : "<unknown>", RESET);
     }
+
+    for (int i = (int)traceModule->frameCount - 1; i >= 0; i--) {
+      CallFrame *frame = &traceModule->frames[i];
+      ObjectFunction *function = frame->closure->function;
+      size_t instruction = 0;
+
+      if (function->chunk.code != NULL && frame->ip >= function->chunk.code) {
+          instruction = frame->ip - function->chunk.code -1;
+          if (instruction >= function->chunk.count) {
+              instruction = function->chunk.count > 0 ? function->chunk.count -1 : 0;
+          }
+      } else if (function->chunk.count > 0) {
+          instruction = function->chunk.count - 1;
+      }
+
+
+      fprintf(stderr, "\n  %s[frame %d]%s ", CYAN, globalFrameNumber++, RESET);
+
+      int line = 0;
+      if (function->chunk.lines != NULL && instruction < function->chunk.capacity) {
+          line = function->chunk.lines[instruction];
+      } else if (function->chunk.lines != NULL && function->chunk.capacity  > 0) {
+          line = function->chunk.lines[0]; // Fallback
+      }
+      fprintf(stderr, "line %d in ", line);
+
+      ObjectString* funcModulePath = NULL;
+      if (function->moduleRecord != NULL && function->moduleRecord->path != NULL) {
+          funcModulePath = function->moduleRecord->path;
+      } else if (traceModule->path != NULL) {
+          funcModulePath = traceModule->path;
+      }
+
+      if (function->name == NULL || function->name->length == 0) {
+        if (funcModulePath != NULL) {
+            bool isReplLike = false;
+            if (vm->args.argc <= 1) {
+                if (funcModulePath->length == 2 && ((funcModulePath->chars[0] == '.' && funcModulePath->chars[1] == '/') ||
+                                                    (funcModulePath->chars[0] == '.' && funcModulePath->chars[1] == '\\'))) {
+                    isReplLike = true;
+                }
+            }
+
+            if (isReplLike) {
+                 fprintf(stderr, "%s<script from \"repl\">%s", CYAN, RESET);
+            } else {
+                 fprintf(stderr, "%s<script from \"%s\">%s", CYAN, funcModulePath->chars, RESET);
+            }
+        } else {
+            fprintf(stderr, "%s<script>%s", CYAN, RESET);
+        }
+      } else {
+        if (funcModulePath != NULL) {
+            fprintf(stderr, "%s%s() from \"%s\"%s", CYAN, function->name->chars, funcModulePath->chars, RESET);
+        } else {
+            fprintf(stderr, "%s%s()%s", CYAN, function->name->chars, RESET);
+        }
+      }
+    }
+    traceModule = traceModule->enclosingModule;
   }
 
   fprintf(stderr, "\n\n%sSuggestion: %s%s\n", CYAN, MAGENTA, details.hint);
+  fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
-  fprintf(stderr, "\n%s%s%s\n", RED, repeat('=', 50), RESET);
-
-  resetStack(vm);
+  if (vm->currentModuleRecord != NULL) {
+    resetStack(vm->currentModuleRecord);
+  }
 }
 
 char *repeat(char c, int count) {
@@ -264,12 +318,12 @@ char *repeat(char c, int count) {
  * information.
  */
 char *typeErrorMessage(VM *vm, Value value, const char *expectedType) {
-  static char buffer[256];
+  static char buffer[1024];
 
   Value typeValue = typeFunction_(vm, 1, &value);
-  char* actualType = AS_C_STRING(typeValue);
+  char *actualType = AS_C_STRING(typeValue);
 
-  snprintf(buffer, sizeof(buffer),
-           "Expected type '%s', but got '%s'.", expectedType, actualType);
+  snprintf(buffer, sizeof(buffer), "Expected type '%s', but got '%s'.",
+           expectedType, actualType);
   return buffer;
 }

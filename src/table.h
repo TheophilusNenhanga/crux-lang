@@ -7,25 +7,15 @@
 typedef struct VM VM;
 
 typedef struct {
-	ObjectString *key;
-	Value value;
-	bool isPublic;
+  ObjectString *key;
+  Value value;
 } Entry;
 
 typedef struct {
-	int count;
-	int capacity;
-	Entry *entries;
+  int count;
+  int capacity;
+  Entry *entries;
 } Table;
-
-typedef struct {
-	Object **objects;
-	Object **copies;
-	int count;
-	int capacity;
-	VM *fromVM;
-	VM *toVM;
-} ModuleCopyContext;
 
 /**
  * Initializes a new, empty hash table.
@@ -53,7 +43,7 @@ void freeTable(VM *vm, Table *table);
  * @return true if a new key was added or an existing key was changed from nil,
  *         false otherwise.
  */
-bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPublic);
+bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
 
 /**
  * Retrieves a value associated with a key from the table.
@@ -64,17 +54,6 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value, bool isPubli
  * @return true if the key was found, false otherwise.
  */
 bool tableGet(Table *table, ObjectString *key, Value *value);
-
-/**
- * Retrieves a public value associated with a key from the table.
- * Only returns the value if the entry is marked as public.
- *
- * @param table Pointer to the table to search.
- * @param key String key to look up.
- * @param value Pointer to store the retrieved value.
- * @return true if the key was found and the entry is public, false otherwise.
- */
-bool tablePublicGet(Table *table, ObjectString *key, Value *value);
 
 /**
  * Removes a key-value pair from the table.
@@ -104,7 +83,8 @@ void tableAddAll(VM *vm, Table *from, Table *to);
  * @param hash Hash value of the string.
  * @return Pointer to the found string object, or NULL if not found.
  */
-ObjectString *tableFindString(Table *table, const char *chars, uint64_t length, uint32_t hash);
+ObjectString *tableFindString(Table *table, const char *chars, uint64_t length,
+                              uint32_t hash);
 
 /**
  * Removes all entries with unmarked keys during garbage collection.
@@ -120,19 +100,5 @@ void tableRemoveWhite(Table *table);
  * @param table Pointer to the table to mark.
  */
 void markTable(VM *vm, Table *table);
-
-/**
- * Creates a deep copy of a table entry from one VM to another.
- * Only copies entries marked as public.
- *
- * @param fromVM Source VM containing the original table.
- * @param toVM Destination VM where the copy will be stored.
- * @param fromTable Source table to copy from.
- * @param toTable Destination table to copy to.
- * @param key Key in the source table to copy.
- * @param newKey Key to use in the destination table.
- * @return true if the copy was successful, false otherwise.
- */
-bool tableDeepCopy(VM *fromVM, VM* toVM, Table* fromTable, Table* toTable,  ObjectString *key, ObjectString* newKey);
 
 #endif
