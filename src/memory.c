@@ -240,21 +240,22 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_MODULE_RECORD: {
-    ObjectModuleRecord* module = (ObjectModuleRecord*)object;
-    markObject(vm, (Object*)module->path);
+    ObjectModuleRecord *module = (ObjectModuleRecord *)object;
+    markObject(vm, (Object *)module->path);
     markTable(vm, &module->globals);
     markTable(vm, &module->publics);
-    markObject(vm, (Object*)module->moduleClosure);
-    markObject(vm, (Object*)module->enclosingModule); // Can be NULL
+    markObject(vm, (Object *)module->moduleClosure);
+    markObject(vm, (Object *)module->enclosingModule); // Can be NULL
 
-    for (Value* slot = module->stack; slot < module->stackTop; slot++) {
+    for (Value *slot = module->stack; slot < module->stackTop; slot++) {
       markValue(vm, *slot);
     }
     for (int i = 0; i < module->frameCount; i++) {
-      markObject(vm, (Object*)module->frames[i].closure);
+      markObject(vm, (Object *)module->frames[i].closure);
     }
-    for (ObjectUpvalue* upvalue = module->openUpvalues; upvalue != NULL; upvalue = upvalue->next) {
-      markObject(vm, (Object*)upvalue);
+    for (ObjectUpvalue *upvalue = module->openUpvalues; upvalue != NULL;
+         upvalue = upvalue->next) {
+      markObject(vm, (Object *)upvalue);
     }
     break;
   }
@@ -386,7 +387,7 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
     markModuleRoots(vm, moduleRecord->enclosingModule);
   }
 
-  markObject(vm, (Object*) moduleRecord->path);
+  markObject(vm, (Object *)moduleRecord->path);
   markTable(vm, &moduleRecord->globals);
   markTable(vm, &moduleRecord->publics);
   markObject(vm, (Object *)moduleRecord->moduleClosure);

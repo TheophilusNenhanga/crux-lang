@@ -1589,7 +1589,8 @@ static void string(bool canAssign) {
     }
   }
 
-  char *temp = GROW_ARRAY(current->owner, char, processed, parser.previous.length, processedLength+1);
+  char *temp = GROW_ARRAY(current->owner, char, processed,
+                          parser.previous.length, processedLength + 1);
   if (temp == NULL) {
     compilerPanic(&parser, "Cannot allocate memory for string expression.",
                   MEMORY);

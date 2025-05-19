@@ -92,7 +92,7 @@ VM *newVM(int argc, const char **argv) {
   return vm;
 }
 
-void resetStack(ObjectModuleRecord* moduleRecord) {
+void resetStack(ObjectModuleRecord *moduleRecord) {
   moduleRecord->stackTop = moduleRecord->stack;
   moduleRecord->frameCount = 0;
   moduleRecord->openUpvalues = NULL;
@@ -226,7 +226,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount, moduleRecord->stackTop - argCount);
+      Value result =
+          native->function(vm, argCount, moduleRecord->stackTop - argCount);
       moduleRecord->stackTop -= argCount + 1;
 
       push(vm, result);
@@ -241,14 +242,16 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount, moduleRecord->stackTop - argCount);
+      Value result =
+          native->function(vm, argCount, moduleRecord->stackTop - argCount);
       moduleRecord->stackTop -= argCount + 1;
       push(vm, result);
       return true;
     }
     case OBJECT_CLASS: {
       ObjectClass *klass = AS_CRUX_CLASS(callee);
-      moduleRecord->stackTop[-argCount - 1] = OBJECT_VAL(newInstance(vm, klass));
+      moduleRecord->stackTop[-argCount - 1] =
+          OBJECT_VAL(newInstance(vm, klass));
       Value initializer;
 
       if (tableGet(&klass->methods, vm->initString, &initializer)) {
@@ -468,7 +471,8 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
  * @param last Pointer to the last variable to close
  */
 static void closeUpvalues(VM *vm, Value *last) {
-  while (vm->currentModuleRecord->openUpvalues != NULL && vm->currentModuleRecord->openUpvalues->location >= last) {
+  while (vm->currentModuleRecord->openUpvalues != NULL &&
+         vm->currentModuleRecord->openUpvalues->location >= last) {
     ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
@@ -1038,7 +1042,7 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo,
  */
 static InterpretResult run(VM *vm) {
   ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
-  CallFrame* frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  CallFrame *frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT()                                                        \
@@ -1234,7 +1238,7 @@ OP_ADD: {
     if (!concatenate(vm)) {
       return INTERPRET_RUNTIME_ERROR;
     }
-DISPATCH();
+    DISPATCH();
   }
   if (!binaryOperation(vm, OP_ADD)) {
     return INTERPRET_RUNTIME_ERROR;
@@ -1284,7 +1288,7 @@ OP_DEFINE_GLOBAL: {
       tableSet(vm, &moduleRecord->publics, name, peek(vm, 0));
     }
     pop(vm);
-DISPATCH();
+    DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
                name->chars);
@@ -1296,7 +1300,7 @@ OP_GET_GLOBAL: {
   Value value;
   if (tableGet(&vm->currentModuleRecord->globals, name, &value)) {
     push(vm, value);
-DISPATCH();
+    DISPATCH();
   }
   runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
   return INTERPRET_RUNTIME_ERROR;
@@ -1330,7 +1334,7 @@ OP_JUMP_IF_FALSE: {
   uint16_t offset = READ_SHORT();
   if (isFalsy(peek(vm, 0))) {
     frame->ip += offset;
-DISPATCH(); 
+    DISPATCH();
   }
   DISPATCH();
 }
@@ -1415,7 +1419,7 @@ OP_GET_PROPERTY: {
     pop(vm);
     push(vm, value);
     fieldFound = true;
-DISPATCH();
+    DISPATCH();
   }
 
   if (!fieldFound) {
@@ -1442,7 +1446,7 @@ OP_SET_PROPERTY: {
   if (tableSet(vm, &instance->fields, name, peek(vm, 0))) {
     Value value = pop(vm);
     popPush(vm, value);
-DISPATCH();
+    DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
   return INTERPRET_RUNTIME_ERROR;
@@ -1528,7 +1532,7 @@ OP_GET_COLLECTION: {
       runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
       return INTERPRET_RUNTIME_ERROR;
     }
-DISPATCH();
+    DISPATCH();
   }
   case OBJECT_ARRAY: {
     if (!IS_INT(indexValue)) {
@@ -1549,7 +1553,7 @@ DISPATCH();
     popPush(
         vm,
         value); // pop the array off the stack // push the value onto the stack
-DISPATCH();
+    DISPATCH();
   }
   case OBJECT_STRING: {
     if (!IS_INT(indexValue)) {
@@ -1566,7 +1570,7 @@ DISPATCH();
     // Only single character indexing
     ch = copyString(vm, string->chars + index, 1);
     popPush(vm, OBJECT_VAL(ch));
-DISPATCH();
+    DISPATCH();
   }
   default: {
     runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
@@ -2334,8 +2338,6 @@ OP_USE_MODULE: {
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
   }
-  module->frameCapacity = FRAMES_MAX;
-
   pushImportStack(vm, resolvedPath);
 
   ObjectModuleRecord *previousModuleRecord = vm->currentModuleRecord;
@@ -2346,8 +2348,8 @@ OP_USE_MODULE: {
 
   if (!initializeStdLib(vm)) {
     runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".",
-                module->path->chars);
-   module->state = STATE_ERROR;
+                 module->path->chars);
+    module->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
     push(vm, OBJECT_VAL(module));
@@ -2393,7 +2395,7 @@ OP_USE_MODULE: {
   }
 
   module->state = STATE_LOADED;
-  
+
   popImportStack(vm);
   vm->currentModuleRecord = previousModuleRecord;
   push(vm, OBJECT_VAL(module));
@@ -2412,18 +2414,23 @@ OP_FINISH_USE: {
   for (int i = 0; i < nameCount; i++) {
     aliases[i] = READ_STRING();
   }
-  if (!IS_CRUX_MODULE_RECORD(peek(vm, 1))) {
+  if (!IS_CRUX_MODULE_RECORD(peek(vm, 0))) {
     runtimePanic(vm, RUNTIME, "Module record creation could not be completed.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  pop(vm);
   Value moduleValue = pop(vm);
-  ObjectModuleRecord* importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
+  ObjectModuleRecord *importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
+
+  if (importedModule->state == STATE_ERROR) {
+    runtimePanic(vm, IMPORT, "Failed to import module from %s",
+                 importedModule->path->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
 
   // copy names
   for (uint8_t i = 0; i < nameCount; i++) {
-    ObjectString* name = names[i];
-    ObjectString* alias = aliases[i];
+    ObjectString *name = names[i];
+    ObjectString *alias = aliases[i];
 
     Value value;
     if (!tableGet(&importedModule->publics, name, &value)) {
@@ -2442,7 +2449,8 @@ OP_FINISH_USE: {
 
 end: {
   printf("        ");
-  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop; slot++) {
+  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop;
+       slot++) {
     printf("[");
     printValue(*slot);
     printf("]");

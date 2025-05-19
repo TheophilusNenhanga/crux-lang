@@ -85,7 +85,7 @@ static const Callable coreFunctionsArray[] = {
 };
 
 static const InfallibleCallable coreInfallibleFunctionsArray[] = {
-    {"_len", lengthFunction_, 1},    {"_println", printlnFunction, 1},
+    {"_len", lengthFunction_, 1},    {"println", printlnFunction, 1},
     {"_print", printFunction, 1},    {"_type", typeFunction_, 1},
     {"_int", intFunction_, 1},       {"_float", floatFunction_, 1},
     {"_string", stringFunction_, 1}, {"_table", tableFunction_, 1},
@@ -281,8 +281,11 @@ static bool initModule(VM *vm, const char *moduleName,
   }
 
   if (vm->nativeModules.count + 1 > vm->nativeModules.capacity) {
-    const int newCapacity = vm->nativeModules.capacity == 0 ? 8 : vm->nativeModules.capacity * 2;
-    NativeModule* newModules = GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules, vm->nativeModules.capacity, newCapacity);
+    const int newCapacity =
+        vm->nativeModules.capacity == 0 ? 8 : vm->nativeModules.capacity * 2;
+    NativeModule *newModules =
+        GROW_ARRAY(vm, NativeModule, vm->nativeModules.modules,
+                   vm->nativeModules.capacity, newCapacity);
     vm->nativeModules.modules = newModules;
     vm->nativeModules.capacity = newCapacity;
   }
