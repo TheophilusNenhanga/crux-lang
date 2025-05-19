@@ -1,12 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-if (WIN32)
-	set(CMAKE_C_COMPILER gcc)
-	set(CMAKE_C_COMPILER_TARGET "x86_64-w64-mingw32")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=lld")
-else()
-	set(CMAKE_C_COMPILER gcc)
-endif ()
+set(CMAKE_C_COMPILER gcc)
 
 project(crux-lang C)
 
