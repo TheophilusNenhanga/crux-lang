@@ -2346,10 +2346,11 @@ OP_USE_MODULE: {
 
   if (!initializeStdLib(vm)) {
     runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".",
-                 vm->currentModuleRecord->path->chars);
-    vm->currentModuleRecord->state = STATE_ERROR;
+                module->path->chars);
+   module->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
+    push(vm, OBJECT_VAL(module));
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -2361,6 +2362,7 @@ OP_USE_MODULE: {
     runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
+    push(vm, OBJECT_VAL(module));
     return INTERPRET_COMPILE_ERROR;
   }
   push(vm, OBJECT_VAL(function));
@@ -2377,6 +2379,7 @@ OP_USE_MODULE: {
     runtimePanic(vm, RUNTIME, "Failed to call module.");
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
+    push(vm, OBJECT_VAL(module));
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -2385,6 +2388,7 @@ OP_USE_MODULE: {
     module->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
+    push(vm, OBJECT_VAL(module));
     return result;
   }
 
@@ -2408,7 +2412,11 @@ OP_FINISH_USE: {
   for (int i = 0; i < nameCount; i++) {
     aliases[i] = READ_STRING();
   }
-
+  if (!IS_CRUX_MODULE_RECORD(peek(vm, 1))) {
+    runtimePanic(vm, RUNTIME, "Module record creation could not be completed.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  pop(vm);
   Value moduleValue = pop(vm);
   ObjectModuleRecord* importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
 
