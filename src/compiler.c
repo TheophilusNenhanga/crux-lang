@@ -1486,14 +1486,22 @@ static void number(bool canAssign) {
     emitConstant(FLOAT_VAL(number));
     return;
   }
-  if (!isfinite(number)) {
-    emitConstant(FLOAT_VAL(number));
+  bool hasDecimalNotation = false;
+  for (const char *c = numberStart; c < end; c++) {
+    if (*c == '.' || *c == 'e' || *c == 'E') {
+      hasDecimalNotation = true;
+      break;
+    }
   }
-  int32_t integer = (int32_t)number;
-  if ((double)integer == number) {
-    emitConstant(INT_VAL(integer));
-  } else {
+  if (hasDecimalNotation) {
     emitConstant(FLOAT_VAL(number));
+  } else {
+    int32_t integer = (int32_t) number;
+    if ((double) integer == number) {
+      emitConstant(INT_VAL(integer));
+    } else {
+      emitConstant(FLOAT_VAL(number));
+    }
   }
 }
 

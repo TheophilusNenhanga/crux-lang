@@ -2,27 +2,50 @@
 
 println("===START OF TYPE CASTING TESTS===");
 
+// int type casting
+let n1 = _int("12"); // from string
+assert(n1 == 12, "Failed to cast from string to int");
+
+let n2 = _int([]);
+assert(n2 == nil, "Failed to cast from array to int");
+
+let n3 = _int({});
+assert(n3 == nil, "Failed to cast from table to int");
+
+let n4 = _int(12);
+assert(n4 == 12, "Failed to cast from int to int");
+
+let n5 = _int(true);
+assert(n5 == 1, "Failed to cast from boolean true to int");
+
+let n6 = _int(false);
+assert(n6 == 0, "Failed to cast from boolean false to int");
+
+let n7 = _int(nil);
+assert(n7 == 0, "Failed to cast from nil to int");
+
 // number type casting
-let n1 = _number("12"); // from string
-assert(n1 == 12, "Failed to cast from string to number");
+let f1 = _float("12"); // from string
+assert(f1 == 12, "Failed to cast from string to number");
 
-let n2 = _number([]);
-assert(n2 == nil, "Failed to cast from array to number");
+let f2 = _float([]);
+assert(f2 == nil, "Failed to cast from array to number");
 
-let n3 = _number({});
-assert(n3 == nil, "Failed to cast from table to number");
+let f3 = _float({});
+assert(f3 == nil, "Failed to cast from table to number");
 
-let n4 = _number(12);
-assert(n4 == 12, "Failed to cast from number to number");
+let f4 = _float(12);
+assert(f4 == 12, "Failed to cast from number to number");
 
-let n5 = _number(true);
-assert(n5 == 1, "Failed to cast from boolean true to number");
+let f5 = _float(true);
+assert(f5 == 1, "Failed to cast from boolean true to number");
 
-let n6 = _number(false);
-assert(n6 == 0, "Failed to cast from boolean false to number");
+let f6 = _float(false);
+assert(f6 == 0, "Failed to cast from boolean false to number");
 
-let n7 = _number(nil);
-assert(n7 == 0, "Failed to cast from nil to number");
+let f7 = _float(nil);
+assert(f7 == 0, "Failed to cast from nil to number");
+
 
 
 // string type casting

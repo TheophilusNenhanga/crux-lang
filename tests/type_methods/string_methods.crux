@@ -69,7 +69,8 @@ let split = match test_string.split(", ") {
 	Ok(s) => give s;
 	Err(e) => panic("Failed to split string: " + e.message() );
 };
-assert(split == ["Hello", "World!"], "Failed to split string");
+assert(split[0] == "Hello", "Failed to split string");
+assert(split[1] == "World!", "Failed to split string");
 
 // string contains
 let contains = match test_string.contains("World") {
@@ -132,11 +133,11 @@ assert(non_upper_string._is_upper() == false, "Failed to check if string is uppe
 let space_string = "   ";
 assert(space_string._is_space() == true, "Failed to check if string is space");
 let non_space_string = "Hello";
-assert(non_space_string.is_space() == false, "Failed to check if string is space");
+assert(non_space_string._is_space() == false, "Failed to check if string is space");
 
 // string is_empty
 
 let empty_string = "";
 assert(empty_string._is_empty() == true, "Failed to check if string is empty");
 let non_empty_string = "Hello";
-assert(non_empty_string.is_empty() == false, "Failed to check if string is empty");
+assert(non_empty_string._is_empty() == false, "Failed to check if string is empty");

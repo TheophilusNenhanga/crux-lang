@@ -14,17 +14,17 @@ let h = Test();
 let j = len(e);
 let k = 1.0;
 
-let aType = type(a);
-let bType = type(b);
-let cType = type(c);
-let dType = type(d);
-let eType = type(e);
-let fType = type(f);
-let gType = type(g);
-let hType = type(h);
-let iType = type(Test);
-let jType = type(j);
-let kType = type(k);
+let aType = _type(a);
+let bType = _type(b);
+let cType = _type(c);
+let dType = _type(d);
+let eType = _type(e);
+let fType = _type(f);
+let gType = _type(g);
+let hType = _type(h);
+let iType = _type(Test);
+let jType = _type(j);
+let kType = _type(k);
 
 assert(aType == "string", "aType is not string");
 assert(bType == "int", "bType is not an integer");
