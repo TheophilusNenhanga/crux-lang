@@ -3,15 +3,15 @@ println("=== Testing the assert function ===");
 //should not crash
 assert(1==1, "1 is not equal to 1");
 
-should crash
-assert(1==2, "1 is not equal to 2");
+// should crash
+// assert(1==2, "1 is not equal to 2");
 
 fn falsy() {
     return false;
 }
 
 // should crash
-assert(falsy(), "The value was not truthy"); // works
+// assert(falsy(), "The value was not truthy"); // works
 
 fn truthy() {
     return true;

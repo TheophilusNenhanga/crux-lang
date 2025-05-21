@@ -2,24 +2,24 @@
 
 println("=== Testing the match keyword ===");
 
-let m1 = match 2 { 
-    2 => give "two"; 
-    default => give "not"; 
+let m1 = match 2 {
+    2 => give "two";
+    default => give "not";
 };
 assert(m1 == "two", "The match keyword did not work as expected");
 
 
-let m2 = match 3 { 
-    2 => give "two"; 
-    default => give "not"; 
+let m2 = match 3 {
+    2 => give "two";
+    default => give "not";
 };
 
 assert(m2 == "not", "The match keyword did not work as expected");
 
-let m3 = match 3 { 
-    2 => give "two"; 
-    3 => give "three"; 
-    default => give "not"; 
+let m3 = match 3 {
+    2 => give "two";
+    3 => give "three";
+    default => give "not";
 };
 
 assert(m3 == "three", "The match keyword did not work as expected");
@@ -60,11 +60,11 @@ let m5;
 assert(m5 == nil, "value on stack was not cleared and was assigned to a");
 
 fn test_match() {
-    let m6 = match 3 { 
-        2 => give "two"; 
-        default => give "not"; 
+    let m6 = match 3 {
+        2 => give "two";
+        default => give "not";
     };
-    
+
     return m6;
 }
 
@@ -79,7 +79,7 @@ let m7 = match ok("test") {
     }
 };
 
-assert(type(m7) == "string", "match failed to bind value from result matching.");
+assert(_type(m7) == "string", "match failed to bind value from result matching.");
 
 
 let m8 = match err("test") {
@@ -91,6 +91,6 @@ let m8 = match err("test") {
     }
 };
 
-assert(type(m8) == "error", "match failed to bind value from result matching.");
+assert(_type(m8) == "error", "match failed to bind value from result matching.");
 
 println("=== Completed match keyword test ===");
