@@ -1,7 +1,7 @@
 import subprocess
 import os
 
-EXE_PATH = "../build/crux.exe"
+EXE_PATH = "../build/crux"
 directories: list[str] = ["type_methods", "builtins", "features"]
 files = []
 
