@@ -104,3 +104,78 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, Value *args) {
 
   return newOkResult(vm, OBJECT_VAL(pairs));
 }
+
+ObjectResult *tableRemoveMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - table
+  // arg1 - key
+  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const Value key = args[1];
+  if (IS_CRUX_HASHABLE(key)) {
+    const bool result = objectTableRemove(table, key);
+    if (!result) {
+      return newErrorResult(
+          vm,
+          newError(vm,
+                   copyString(
+                       vm, "Failed to remove key: value pair from table.", 44),
+                   VALUE, false));
+    }
+    return newOkResult(vm, NIL_VAL);
+  }
+  return newErrorResult(
+      vm,
+      newError(vm, copyString(vm, "Unhashable type given as table key.", 35),
+               TYPE, false));
+}
+
+ObjectResult *tableGetMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - table
+  // arg1 - key
+  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const Value key = args[1];
+  if (IS_CRUX_HASHABLE(key)) {
+    Value value;
+    const bool result = objectTableGet(table, key, &value);
+    if (!result) {
+      return newErrorResult(
+          vm,
+          newError(vm, copyString(vm, "Failed to get value from table.", 31),
+                   VALUE, false));
+    }
+    return newOkResult(vm, value);
+  }
+  return newErrorResult(
+      vm,
+      newError(vm, copyString(vm, "Unhashable type given as table key.", 35),
+               TYPE, false));
+}
+
+Value tableHasKeyMethod(VM *vm, int argCount, Value *args) {
+  // args[0] - table
+  // args[1] - key
+  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const Value key = args[1];
+  if (IS_CRUX_HASHABLE(key)) {
+    const bool result = objectTableContainsKey(table, key);
+    return BOOL_VAL(result);
+  }
+  return BOOL_VAL(false);
+}
+
+Value tableGetOrElseMethod(VM *vm, int argCount, Value *args) {
+  // args[0] - table
+  // args[1] - key
+  // args[2] - default value
+  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const Value key = args[1];
+  const Value defaultValue = args[2];
+  if (IS_CRUX_HASHABLE(key)) {
+    Value value;
+    const bool result = objectTableGet(table, key, &value);
+    if (!result) {
+      return defaultValue;
+    }
+    return value;
+  }
+  return defaultValue;
+}

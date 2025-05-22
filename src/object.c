@@ -697,6 +697,7 @@ newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
   native->name = name;
   return native;
 }
+
 ObjectTable *newTable(VM *vm, int elementCount) {
   ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
   table->capacity =
@@ -816,15 +817,15 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
 
 bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
   if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
-    int capacity = GROW_CAPACITY(table->capacity);
+    const int capacity = GROW_CAPACITY(table->capacity);
     if (!adjustCapacity(vm, table, capacity))
       return false;
   }
 
   ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
-  bool isNewKey = !entry->isOccupied;
+  const bool isNewKey = !entry->isOccupied;
 
-  if (isNewKey && IS_NIL(entry->value)) {
+  if (isNewKey) {
     table->size++;
   }
 
@@ -840,12 +841,35 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
   return true;
 }
 
+bool objectTableRemove(ObjectTable *table, Value key) {
+  if (!table) {
+    return false;
+  }
+  ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  if (!entry->isOccupied) {
+    return false;
+  }
+  entry->isOccupied = false;
+  entry->key = NIL_VAL;
+  entry->value = BOOL_VAL(false);
+  table->size--;
+  return true;
+}
+
+bool objectTableContainsKey(ObjectTable *table, Value key) {
+  if (!table) {
+    return false;
+  }
+  const ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  return entry->isOccupied;
+}
+
 bool objectTableGet(ObjectTable *table, Value key, Value *value) {
   if (table->size == 0) {
     return false;
   }
 
-  ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  const ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
   if (!entry->isOccupied) {
     return false;
   }

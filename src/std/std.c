@@ -48,11 +48,15 @@ static const InfallibleCallable arrayInfallibleMethodsArray[] = {
     {"_clear", arrayClearMethod, 1},
     {"_equals", arrayEqualsMethod, 2}};
 
-static const Callable tableMethodsArray[] = {
-    {"values", tableValuesMethod, 1},
-    {"keys", tableKeysMethod, 1},
-    {"pairs", tablePairsMethod, 1},
-};
+static const Callable tableMethodsArray[] = {{"values", tableValuesMethod, 1},
+                                             {"keys", tableKeysMethod, 1},
+                                             {"pairs", tablePairsMethod, 1},
+                                             {"remove", tableRemoveMethod, 2},
+                                             {"get", tableGetMethod, 2}};
+
+static const InfallibleCallable tableInfallibleMethodsArray[] = {
+    {"_has_key", tableHasKeyMethod, 2},
+    {"_get_or_else", tableGetOrElseMethod, 3}};
 
 static const Callable errorMethodsArray[] = {
     {"message", errorMessageMethod, 1},
@@ -350,7 +354,9 @@ bool initializeStdLib(VM *vm) {
   }
 
   if (!initTypeMethodTable(vm, &vm->tableType, tableMethodsArray,
-                           ARRAY_COUNT(tableMethodsArray), NULL, 0)) {
+                           ARRAY_COUNT(tableMethodsArray),
+                           tableInfallibleMethodsArray,
+                           ARRAY_COUNT(tableInfallibleMethodsArray))) {
     return false;
   }
 
