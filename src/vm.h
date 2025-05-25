@@ -7,6 +7,7 @@
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
+typedef struct ObjectResult ObjectResult;
 
 typedef enum {
   INTERPRET_OK,
@@ -104,5 +105,7 @@ bool pushImportStack(VM *vm, ObjectString *path);
 void popImportStack(VM *vm);
 
 bool isInImportStack(VM *vm, ObjectString *path);
+
+ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
 
 #endif // VM_H

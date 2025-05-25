@@ -999,7 +999,7 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   moduleRecord->enclosingModule = NULL;
 
   moduleRecord->stack = ALLOCATE(vm, Value, STACK_MAX);
-  moduleRecord->stackTop = NULL;
+  moduleRecord->stackTop = moduleRecord->stack;
   moduleRecord->openUpvalues = NULL;
 
   moduleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);

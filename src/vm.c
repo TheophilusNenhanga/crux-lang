@@ -1040,7 +1040,7 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo,
  * @param vm The virtual machine
  * @return The interpretation result
  */
-static InterpretResult run(VM *vm) {
+static InterpretResult run(VM *vm, const bool isAnonymousFrame) {
   ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
   CallFrame *frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
 
@@ -1148,6 +1148,8 @@ OP_RETURN: {
   moduleRecord->stackTop = frame->slots;
   push(vm, result);
   frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+
+  if (isAnonymousFrame) return INTERPRET_OK;
   DISPATCH();
 }
 
@@ -2005,6 +2007,7 @@ OP_TABLE: {
 
 OP_ANON_FUNCTION: {
   ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT());
+  function->moduleRecord = moduleRecord;
   ObjectClosure *closure = newClosure(vm, function);
   push(vm, OBJECT_VAL(closure));
   for (int i = 0; i < closure->upvalueCount; i++) {
@@ -2385,7 +2388,7 @@ OP_USE_MODULE: {
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  InterpretResult result = run(vm);
+  InterpretResult result = run(vm, false);
   if (result != INTERPRET_OK) {
     module->state = STATE_ERROR;
     popImportStack(vm);
@@ -2461,7 +2464,8 @@ end: {
       &frame->closure->function->chunk,
       (int)(frame->ip - frame->closure->function->chunk.code));
 
-  DISPATCH();
+  instruction = READ_BYTE();
+  goto *dispatchTable[instruction];
 }
 
 #undef READ_BYTE
@@ -2486,7 +2490,34 @@ InterpretResult interpret(VM *vm, char *source) {
   push(vm, OBJECT_VAL(closure));
   call(vm, closure, 0);
 
-  InterpretResult result = run(vm);
+  InterpretResult result = run(vm, false);
 
   return result;
+}
+
+/**
+ *
+ * @param vm
+ * @param closure The closure to be executed. The caller must ensure that the
+ * arguments are on the stack correctly and match the arity
+ * @param argCount
+ * @return
+ */
+ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
+                                  InterpretResult *result) {
+
+  const uint32_t currentFrameCount = vm->currentModuleRecord->frameCount;
+
+  if (!call(vm, closure, argCount)) {
+    runtimePanic(vm, RUNTIME, "Failed to execute function");
+    *result = INTERPRET_RUNTIME_ERROR;
+    return newErrorResult(vm,
+                          newError(vm, copyString(vm, "", 0), RUNTIME, true));
+  }
+
+  *result = run(vm, true);
+  Value executionResult = peek(vm, 0);
+
+  vm->currentModuleRecord->frameCount = currentFrameCount;
+  return newOkResult(vm, executionResult);
 }

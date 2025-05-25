@@ -41,7 +41,9 @@ static const Callable arrayMethodsArray[] = {
     {"insert", arrayInsertMethod, 3},   {"remove", arrayRemoveAtMethod, 2},
     {"concat", arrayConcatMethod, 2},   {"slice", arraySliceMethod, 3},
     {"reverse", arrayReverseMethod, 1}, {"index", arrayIndexOfMethod, 2},
-};
+    {"map", arrayMapMethod, 2},         {"filter", arrayFilterMethod, 2},
+    {"reduce", arrayReduceMethod, 3},   {"sort_with", arraySortWithMethod, 3},
+    {"sort", arraySortMethod, 1}};
 
 static const InfallibleCallable arrayInfallibleMethodsArray[] = {
     {"_contains", arrayContainsMethod, 2},
@@ -230,6 +232,8 @@ static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable,
   if (!success) {
     return false;
   }
+	pop(vm);
+	pop(vm);
 
   return true;
 }

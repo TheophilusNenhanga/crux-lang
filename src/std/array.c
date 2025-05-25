@@ -268,3 +268,74 @@ Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
 
   return BOOL_VAL(true);
 }
+
+ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - array
+  // arg1 - function
+  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+
+  if (!IS_CRUX_CLOSURE(args[1])) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(
+                    vm, "Expected value of type 'callable' for <func> argument",
+                    53),
+                TYPE, false));
+  }
+
+  ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
+
+  if (closure->function->arity != 1) {
+    return newErrorResult(
+        vm,
+        newError(vm, copyString(vm, "<func> must take exactly 1 argument.", 36),
+                 ARGUMENT_MISMATCH, true));
+  }
+
+  ObjectArray *resultArray = newArray(vm, array->size);
+  for (uint32_t i = 0; i < array->size; i++) {
+    Value arrayValue = array->array[i];
+    push(vm, arrayValue);
+    InterpretResult res;
+    ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
+
+    if (res != INTERPRET_OK) {
+      if (!result->isOk) {
+        return result;
+      }
+    }
+
+    if (result->isOk) {
+      arrayAddBack(vm, resultArray, result->as.value);
+    } else {
+      arrayAddBack(vm, resultArray, OBJECT_VAL(result->as.error));
+    }
+    pop(vm);
+  }
+  return newOkResult(vm, OBJECT_VAL(resultArray));
+}
+
+ObjectResult *arrayFilterMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - array
+  // arg1 - function
+  return newOkResult(vm, NIL_VAL);
+}
+
+ObjectResult *arrayReduceMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - array
+  // arg1 - function
+  // arg2 - initial value
+  return newOkResult(vm, NIL_VAL);
+}
+
+ObjectResult *arraySortMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - array
+  return newOkResult(vm, args[0]);
+}
+
+ObjectResult *arraySortWithMethod(VM *vm, int argCount, Value *args) {
+  // arg0 - array
+  // arg1 - comparison function
+  return newOkResult(vm, args[0]);
+}

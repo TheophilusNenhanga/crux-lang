@@ -30,4 +30,17 @@ Value arrayClearMethod(VM *vm, int argCount,
 Value arrayEqualsMethod(VM *vm, int argCount,
                         Value *args); // [1,2,3].equals([1,2,3]) -> true
 
+ObjectResult* arrayMapMethod(VM *vm, int argCount,
+                             Value *args); // [1,2,3].map(fn (x){ return x * 2;}) -> [2,4,6]
+
+ObjectResult* arrayFilterMethod(VM *vm, int argCount,
+                                Value *args); // [1,2,3].filter(fn (x){ return x % 2 == 0;}) -> [2]
+
+ObjectResult* arrayReduceMethod(VM *vm, int argCount,
+                                Value *args); // [1,2,3].reduce(fn (acc, x){ return acc + x;}, 0) -> 6
+
+ObjectResult* arraySortMethod(VM *vm, int argCount,
+                      Value *args); // [1,2,3].sort() -> [1,2,3]
+ObjectResult* arraySortWithMethod(VM *vm, int argCount,
+                               Value *args); // [1,2,3].sort(fn (a, b){ return a > b;}) -> [1,2,3]
 #endif // ARRAY_H

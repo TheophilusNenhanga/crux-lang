@@ -182,14 +182,14 @@ typedef struct {
   bool isPanic;
 } ObjectError;
 
-typedef struct {
+struct ObjectResult {
   Object object;
   bool isOk;
   union {
     Value value;
     ObjectError *error;
   } as;
-} ObjectResult;
+};
 
 typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, Value *args);
 typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, Value *args);
