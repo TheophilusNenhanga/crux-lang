@@ -234,9 +234,9 @@ static ObjectString *allocateString(VM *vm, char *chars, uint32_t length,
   string->chars = chars;
   string->hash = hash;
   // intern the string
-  push(vm, OBJECT_VAL(string));
+  push(vm->currentModuleRecord, OBJECT_VAL(string));
   tableSet(vm, &vm->strings, string, NIL_VAL);
-  pop(vm);
+  pop(vm->currentModuleRecord);
   return string;
 }
 

@@ -33,8 +33,8 @@ void freeChunk(VM *vm, Chunk *chunk) {
 }
 
 int addConstant(VM *vm, Chunk *chunk, Value value) {
-  push(vm, value);
+  push(vm->currentModuleRecord, value);
   writeValueArray(vm, &chunk->constants, value);
-  pop(vm);
+  pop(vm->currentModuleRecord);
   return chunk->constants.count - 1;
 }

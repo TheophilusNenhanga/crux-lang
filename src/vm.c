@@ -66,13 +66,13 @@ void popImportStack(VM *vm) {
   stack->count--;
 }
 
-static bool stringEquals(ObjectString *a, ObjectString *b) {
+static bool stringEquals(const ObjectString *a, const ObjectString *b) {
   if (a->length != b->length)
     return false;
   return memcmp(a->chars, b->chars, a->length) == 0;
 }
 
-bool isInImportStack(VM *vm, ObjectString *path) {
+bool isInImportStack(VM *vm, const ObjectString *path) {
   ImportStack *stack = &vm->importStack;
   for (int i = 0; i < stack->count; i++) {
     if (stack->paths[i] == path || stringEquals(stack->paths[i], path)) {
@@ -98,34 +98,34 @@ void resetStack(ObjectModuleRecord *moduleRecord) {
   moduleRecord->openUpvalues = NULL;
 }
 
-void push(VM *vm, Value value) {
-  *vm->currentModuleRecord->stackTop = value;
-  vm->currentModuleRecord->stackTop++;
+void push(ObjectModuleRecord *moduleRecord, Value value) {
+  *moduleRecord->stackTop = value;
+  moduleRecord->stackTop++;
 }
 
-Value pop(VM *vm) {
-  vm->currentModuleRecord->stackTop--;
-  return *vm->currentModuleRecord->stackTop;
+Value pop(ObjectModuleRecord *moduleRecord) {
+  moduleRecord->stackTop--;
+  return *moduleRecord->stackTop;
 }
 
-static inline void popTwo(VM *vm) {
-  pop(vm);
-  pop(vm);
+static inline void popTwo(ObjectModuleRecord *moduleRecord) {
+  pop(moduleRecord);
+  pop(moduleRecord);
 }
 
-static inline void popPush(VM *vm, Value value) {
-  pop(vm);
-  push(vm, value);
+static inline void popPush(ObjectModuleRecord *moduleRecord, Value value) {
+  pop(moduleRecord);
+  push(moduleRecord, value);
 }
 
 /**
  * Returns a value from the stack without removing it.
- * @param vm The virtual machine
+ * @param moduleRecord The currently executing module
  * @param distance How far from the top of the stack to look (0 is the top)
  * @return The value at the specified distance from the top
  */
-static inline Value peek(VM *vm, int distance) {
-  return vm->currentModuleRecord->stackTop[-1 - distance];
+static inline Value peek(const ObjectModuleRecord *moduleRecord, int distance) {
+  return moduleRecord->stackTop[-1 - distance];
 }
 
 /**
@@ -164,7 +164,7 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
  * @return true if the call succeeds, false otherwise
  */
 static bool callValue(VM *vm, Value callee, int argCount) {
-  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   if (IS_CRUX_OBJECT(callee)) {
     switch (OBJECT_TYPE(callee)) {
     case OBJECT_CLOSURE:
@@ -178,9 +178,9 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       ObjectResult *result =
-          native->function(vm, argCount, moduleRecord->stackTop - argCount);
+          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
 
-      moduleRecord->stackTop -= argCount + 1;
+      currentModuleRecord->stackTop -= argCount + 1;
 
       if (!result->isOk) {
         if (result->as.error->isPanic) {
@@ -190,7 +190,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         }
       }
 
-      push(vm, OBJECT_VAL(result));
+      push(currentModuleRecord, OBJECT_VAL(result));
 
       return true;
     }
@@ -203,8 +203,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       ObjectResult *result =
-          native->function(vm, argCount, moduleRecord->stackTop - argCount);
-      moduleRecord->stackTop -= argCount + 1;
+          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      currentModuleRecord->stackTop -= argCount + 1;
 
       if (!result->isOk) {
         if (result->as.error->isPanic) {
@@ -214,7 +214,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         }
       }
 
-      push(vm, OBJECT_VAL(result));
+      push(currentModuleRecord, OBJECT_VAL(result));
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
@@ -227,10 +227,10 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       Value result =
-          native->function(vm, argCount, moduleRecord->stackTop - argCount);
-      moduleRecord->stackTop -= argCount + 1;
+          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      currentModuleRecord->stackTop -= argCount + 1;
 
-      push(vm, result);
+      push(currentModuleRecord, result);
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_METHOD: {
@@ -243,14 +243,14 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       }
 
       Value result =
-          native->function(vm, argCount, moduleRecord->stackTop - argCount);
-      moduleRecord->stackTop -= argCount + 1;
-      push(vm, result);
+          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      currentModuleRecord->stackTop -= argCount + 1;
+      push(currentModuleRecord, result);
       return true;
     }
     case OBJECT_CLASS: {
       ObjectClass *klass = AS_CRUX_CLASS(callee);
-      moduleRecord->stackTop[-argCount - 1] =
+      currentModuleRecord->stackTop[-argCount - 1] =
           OBJECT_VAL(newInstance(vm, klass));
       Value initializer;
 
@@ -266,7 +266,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
     }
     case OBJECT_BOUND_METHOD: {
       ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
-      moduleRecord->stackTop[-argCount - 1] = bound->receiver;
+      currentModuleRecord->stackTop[-argCount - 1] = bound->receiver;
       return call(vm, bound->method, argCount);
     }
     default:
@@ -306,9 +306,10 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
   }
 
   // restore the caller and put the result in the right place
-  Value result = pop(vm);
-  push(vm, original);
-  push(vm, result);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  Value result = pop(currentModuleRecord);
+  push(currentModuleRecord, original);
+  push(currentModuleRecord, result);
   return true;
 }
 
@@ -320,8 +321,10 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
  * @return true if the method invocation succeeds, false otherwise
  */
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
-  Value receiver = peek(vm, argCount);
-  Value original = peek(vm, argCount + 1); // Store the original caller
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  Value receiver = peek(currentModuleRecord, argCount);
+  Value original =
+      peek(currentModuleRecord, argCount + 1); // Store the original caller
 
   if (!IS_CRUX_INSTANCE(receiver)) {
     argCount++; // for the value that the method will act upon
@@ -388,7 +391,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
   Value value;
   if (tableGet(&instance->fields, name, &value)) {
     // Save original stack order
-    vm->currentModuleRecord->stackTop[-argCount - 1] = value;
+    currentModuleRecord->stackTop[-argCount - 1] = value;
 
     if (!callValue(vm, value, argCount)) {
       return false;
@@ -396,18 +399,18 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
     // After the call, restore the original caller and put the result in the
     // right place
-    Value result = pop(vm);
-    push(vm, original);
-    push(vm, result);
+    Value result = pop(currentModuleRecord);
+    push(currentModuleRecord, original);
+    push(currentModuleRecord, result);
     return true;
   }
 
   // For class methods, we need special handling
   if (invokeFromClass(vm, instance->klass, name, argCount)) {
     // After the call, the result is already on the stack
-    Value result = pop(vm);
-    push(vm, original);
-    push(vm, result);
+    Value result = pop(currentModuleRecord);
+    push(currentModuleRecord, original);
+    push(currentModuleRecord, result);
     return true;
   }
 
@@ -422,6 +425,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
  * @return true if the binding succeeds, false otherwise
  */
 static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
     runtimePanic(vm, NAME, "Undefined property '%s'", name->chars);
@@ -429,9 +433,9 @@ static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
   }
 
   ObjectBoundMethod *bound =
-      newBoundMethod(vm, peek(vm, 0), AS_CRUX_CLOSURE(method));
-  pop(vm);
-  push(vm, OBJECT_VAL(bound));
+      newBoundMethod(vm, peek(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
+  pop(currentModuleRecord);
+  push(currentModuleRecord, OBJECT_VAL(bound));
   return true;
 }
 
@@ -442,8 +446,9 @@ static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
  * @return The created or reused upvalue
  */
 static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   ObjectUpvalue *prevUpvalue = NULL;
-  ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
+  ObjectUpvalue *upvalue = currentModuleRecord->openUpvalues;
 
   while (upvalue != NULL && upvalue->location > local) {
     prevUpvalue = upvalue;
@@ -457,7 +462,7 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 
   createdUpvalue->next = upvalue;
   if (prevUpvalue == NULL) {
-    vm->currentModuleRecord->openUpvalues = createdUpvalue;
+    currentModuleRecord->openUpvalues = createdUpvalue;
   } else {
     prevUpvalue->next = createdUpvalue;
   }
@@ -467,16 +472,16 @@ static ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
 
 /**
  * Closes all upvalues up to a certain stack position.
- * @param vm The virtual machine
+ * @param moduleRecord the currently executing module
  * @param last Pointer to the last variable to close
  */
-static void closeUpvalues(VM *vm, Value *last) {
-  while (vm->currentModuleRecord->openUpvalues != NULL &&
-         vm->currentModuleRecord->openUpvalues->location >= last) {
-    ObjectUpvalue *upvalue = vm->currentModuleRecord->openUpvalues;
+static void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last) {
+  while (moduleRecord->openUpvalues != NULL &&
+         moduleRecord->openUpvalues->location >= last) {
+    ObjectUpvalue *upvalue = moduleRecord->openUpvalues;
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
-    vm->currentModuleRecord->openUpvalues = upvalue->next;
+    moduleRecord->openUpvalues = upvalue->next;
   }
 }
 
@@ -486,10 +491,11 @@ static void closeUpvalues(VM *vm, Value *last) {
  * @param name The name of the method
  */
 static void defineMethod(VM *vm, ObjectString *name) {
-  Value method = peek(vm, 0);
-  ObjectClass *klass = AS_CRUX_CLASS(peek(vm, 1));
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  Value method = peek(currentModuleRecord, 0);
+  ObjectClass *klass = AS_CRUX_CLASS(peek(currentModuleRecord, 1));
   if (tableSet(vm, &klass->methods, name, method)) {
-    pop(vm);
+    pop(currentModuleRecord);
   }
 }
 
@@ -508,8 +514,9 @@ static inline bool isFalsy(Value value) {
  * @return true if concatenation succeeds, false otherwise
  */
 static bool concatenate(VM *vm) {
-  Value b = peek(vm, 0);
-  Value a = peek(vm, 1);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  Value b = peek(currentModuleRecord, 0);
+  Value a = peek(currentModuleRecord, 1);
 
   ObjectString *stringB;
   ObjectString *stringA;
@@ -548,8 +555,8 @@ static bool concatenate(VM *vm) {
 
   ObjectString *result = takeString(vm, chars, length);
 
-  popTwo(vm);
-  push(vm, OBJECT_VAL(result));
+  popTwo(currentModuleRecord);
+  push(currentModuleRecord, OBJECT_VAL(result));
   return true;
 }
 
@@ -651,8 +658,9 @@ void freeVM(VM *vm) {
  * @return true if the operation succeeds, false otherwise
  */
 static bool binaryOperation(VM *vm, OpCode operation) {
-  Value b = peek(vm, 0);
-  Value a = peek(vm, 1);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  Value b = peek(currentModuleRecord, 0);
+  Value a = peek(currentModuleRecord, 1);
 
   bool aIsInt = IS_INT(a);
   bool bIsInt = IS_INT(b);
@@ -675,31 +683,34 @@ static bool binaryOperation(VM *vm, OpCode operation) {
     switch (operation) {
     case OP_ADD: {
       int64_t result = (int64_t)intA + (int64_t)intB;
-      popTwo(vm);
+      popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(vm, INT_VAL((int32_t)result));
+        push(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+        push(currentModuleRecord,
+             FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
     }
     case OP_SUBTRACT: {
       int64_t result = (int64_t)intA - (int64_t)intB;
-      popTwo(vm);
+      popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(vm, INT_VAL((int32_t)result));
+        push(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+        push(currentModuleRecord,
+             FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
     }
     case OP_MULTIPLY: {
       int64_t result = (int64_t)intA * (int64_t)intB;
-      popTwo(vm);
+      popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(vm, INT_VAL((int32_t)result));
+        push(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(vm, FLOAT_VAL((double)result)); // Promote on overflow
+        push(currentModuleRecord,
+             FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
     }
@@ -708,8 +719,8 @@ static bool binaryOperation(VM *vm, OpCode operation) {
         runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero.");
         return false;
       }
-      popTwo(vm);
-      push(vm, FLOAT_VAL((double)intA / (double)intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL((double)intA / (double)intB));
       break;
     }
     case OP_INT_DIVIDE: {
@@ -719,11 +730,11 @@ static bool binaryOperation(VM *vm, OpCode operation) {
       }
       // Edge case: INT32_MIN / -1 overflows int32_t
       if (intA == INT32_MIN && intB == -1) {
-        popTwo(vm);
-        push(vm, FLOAT_VAL(-(double)INT32_MIN)); // Promote
+        popTwo(currentModuleRecord);
+        push(currentModuleRecord, FLOAT_VAL(-(double)INT32_MIN)); // Promote
       } else {
-        popTwo(vm);
-        push(vm, INT_VAL(intA / intB));
+        popTwo(currentModuleRecord);
+        push(currentModuleRecord, INT_VAL(intA / intB));
       }
       break;
     }
@@ -734,11 +745,11 @@ static bool binaryOperation(VM *vm, OpCode operation) {
       }
 
       if (intA == INT32_MIN && intB == -1) {
-        popTwo(vm);
-        push(vm, INT_VAL(0));
+        popTwo(currentModuleRecord);
+        push(currentModuleRecord, INT_VAL(0));
       } else {
-        popTwo(vm);
-        push(vm, INT_VAL(intA % intB));
+        popTwo(currentModuleRecord);
+        push(currentModuleRecord, INT_VAL(intA % intB));
       }
       break;
     }
@@ -747,8 +758,8 @@ static bool binaryOperation(VM *vm, OpCode operation) {
         runtimePanic(vm, RUNTIME, "Invalid shift amount (%d) for <<.", intB);
         return false;
       }
-      popTwo(vm);
-      push(vm, INT_VAL(intA << intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, INT_VAL(intA << intB));
       break;
     }
     case OP_RIGHT_SHIFT: {
@@ -756,31 +767,31 @@ static bool binaryOperation(VM *vm, OpCode operation) {
         runtimePanic(vm, RUNTIME, "Invalid shift amount (%d) for >>.", intB);
         return false;
       }
-      popTwo(vm);
-      push(vm, INT_VAL(intA >> intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, INT_VAL(intA >> intB));
       break;
     }
     case OP_POWER: {
       // Promote int^int to float
-      popTwo(vm);
-      push(vm, FLOAT_VAL(pow((double)intA, (double)intB)));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(pow((double)intA, (double)intB)));
       break;
     }
     case OP_LESS:
-      popTwo(vm);
-      push(vm, BOOL_VAL(intA < intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(intA < intB));
       break;
     case OP_LESS_EQUAL:
-      popTwo(vm);
-      push(vm, BOOL_VAL(intA <= intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(intA <= intB));
       break;
     case OP_GREATER:
-      popTwo(vm);
-      push(vm, BOOL_VAL(intA > intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(intA > intB));
       break;
     case OP_GREATER_EQUAL:
-      popTwo(vm);
-      push(vm, BOOL_VAL(intA >= intB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(intA >= intB));
       break;
 
     default:
@@ -794,47 +805,47 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 
     switch (operation) {
     case OP_ADD:
-      popTwo(vm);
-      push(vm, FLOAT_VAL(doubleA + doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(doubleA + doubleB));
       break;
     case OP_SUBTRACT:
-      popTwo(vm);
-      push(vm, FLOAT_VAL(doubleA - doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(doubleA - doubleB));
       break;
     case OP_MULTIPLY:
-      popTwo(vm);
-      push(vm, FLOAT_VAL(doubleA * doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(doubleA * doubleB));
       break;
     case OP_DIVIDE: {
       if (doubleB == 0.0) {
         runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero.");
         return false;
       }
-      popTwo(vm);
-      push(vm, FLOAT_VAL(doubleA / doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(doubleA / doubleB));
       break;
     }
     case OP_POWER: {
-      popTwo(vm);
-      push(vm, FLOAT_VAL(pow(doubleA, doubleB)));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, FLOAT_VAL(pow(doubleA, doubleB)));
       break;
     }
 
     case OP_LESS:
-      popTwo(vm);
-      push(vm, BOOL_VAL(doubleA < doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(doubleA < doubleB));
       break;
     case OP_LESS_EQUAL:
-      popTwo(vm);
-      push(vm, BOOL_VAL(doubleA <= doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(doubleA <= doubleB));
       break;
     case OP_GREATER:
-      popTwo(vm);
-      push(vm, BOOL_VAL(doubleA > doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(doubleA > doubleB));
       break;
     case OP_GREATER_EQUAL:
-      popTwo(vm);
-      push(vm, BOOL_VAL(doubleA >= doubleB));
+      popTwo(currentModuleRecord);
+      push(currentModuleRecord, BOOL_VAL(doubleA >= doubleB));
       break;
 
     case OP_INT_DIVIDE:
@@ -857,14 +868,15 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
                                         OpCode opcode, char *operation) {
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   Value currentValue;
-  if (!tableGet(&vm->currentModuleRecord->globals, name, &currentValue)) {
+  if (!tableGet(&currentModuleRecord->globals, name, &currentValue)) {
     runtimePanic(vm, NAME, "Undefined variable '%s' for compound assignment.",
                  name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1007,7 +1019,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
   }
 
-  if (!tableSet(vm, &vm->currentModuleRecord->globals, name, resultValue)) {
+  if (!tableSet(vm, &currentModuleRecord->globals, name, resultValue)) {
     runtimePanic(
         vm, RUNTIME,
         "Failed to set global variable '%s' after compound assignment.",
@@ -1025,8 +1037,8 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
  * @param instruction The opcode to check for
  * @return true if the previous instruction matches, false otherwise
  */
-static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo,
-                                     OpCode instruction) {
+static bool checkPreviousInstruction(const CallFrame *frame, const int instructionsAgo,
+                                     const OpCode instruction) {
   uint8_t *current = frame->ip;
   if (current - instructionsAgo < frame->closure->function->chunk.code) {
     return false;
@@ -1038,11 +1050,13 @@ static bool checkPreviousInstruction(CallFrame *frame, int instructionsAgo,
 /**
  * Executes bytecode in the virtual machine.
  * @param vm The virtual machine
+ * @param isAnonymousFrame Is this frame anonymous? (should this frame return from run at OP_RETURN)
  * @return The interpretation result
  */
 static InterpretResult run(VM *vm, const bool isAnonymousFrame) {
-  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
-  CallFrame *frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  CallFrame *frame =
+      &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
 
 #define READ_BYTE() (*frame->ip++)
 #define READ_CONSTANT()                                                        \
@@ -1138,55 +1152,56 @@ static InterpretResult run(VM *vm, const bool isAnonymousFrame) {
 #endif
   DISPATCH();
 OP_RETURN: {
-  Value result = pop(vm);
-  closeUpvalues(vm, frame->slots);
-  moduleRecord->frameCount--;
-  if (moduleRecord->frameCount == 0) {
-    pop(vm);
+  Value result = pop(currentModuleRecord);
+  closeUpvalues(currentModuleRecord, frame->slots);
+  currentModuleRecord->frameCount--;
+  if (currentModuleRecord->frameCount == 0) {
+    pop(currentModuleRecord);
     return INTERPRET_OK;
   }
-  moduleRecord->stackTop = frame->slots;
-  push(vm, result);
-  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  currentModuleRecord->stackTop = frame->slots;
+  push(currentModuleRecord, result);
+  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
 
-  if (isAnonymousFrame) return INTERPRET_OK;
+  if (isAnonymousFrame)
+    return INTERPRET_OK;
   DISPATCH();
 }
 
 OP_CONSTANT: {
   Value constant = READ_CONSTANT();
-  push(vm, constant);
+  push(currentModuleRecord, constant);
   DISPATCH();
 }
 
 OP_NIL: {
-  push(vm, NIL_VAL);
+  push(currentModuleRecord, NIL_VAL);
   DISPATCH();
 }
 
 OP_TRUE: {
-  push(vm, BOOL_VAL(true));
+  push(currentModuleRecord, BOOL_VAL(true));
   DISPATCH();
 }
 
 OP_FALSE: {
-  push(vm, BOOL_VAL(false));
+  push(currentModuleRecord, BOOL_VAL(false));
   DISPATCH();
 }
 
 OP_NEGATE: {
-  Value operand = peek(vm, 0);
+  Value operand = peek(currentModuleRecord, 0);
   if (IS_INT(operand)) {
     int32_t iVal = AS_INT(operand);
     if (iVal == INT32_MIN) {
-      popPush(vm, FLOAT_VAL(-(double)INT32_MIN));
+      popPush(currentModuleRecord, FLOAT_VAL(-(double)INT32_MIN));
     } else {
-      popPush(vm, INT_VAL(-iVal));
+      popPush(currentModuleRecord, INT_VAL(-iVal));
     }
   } else if (IS_FLOAT(operand)) {
-    popPush(vm, FLOAT_VAL(-AS_FLOAT(operand)));
+    popPush(currentModuleRecord, FLOAT_VAL(-AS_FLOAT(operand)));
   } else {
-    pop(vm);
+    pop(currentModuleRecord);
     runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "int' | 'float"));
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1194,9 +1209,9 @@ OP_NEGATE: {
 }
 
 OP_EQUAL: {
-  Value b = pop(vm);
-  Value a = pop(vm);
-  push(vm, BOOL_VAL(valuesEqual(a, b)));
+  Value b = pop(currentModuleRecord);
+  Value a = pop(currentModuleRecord);
+  push(currentModuleRecord, BOOL_VAL(valuesEqual(a, b)));
   DISPATCH();
 }
 
@@ -1229,14 +1244,15 @@ OP_GREATER_EQUAL: {
 }
 
 OP_NOT_EQUAL: {
-  Value b = pop(vm);
-  Value a = pop(vm);
-  push(vm, BOOL_VAL(!valuesEqual(a, b)));
+  Value b = pop(currentModuleRecord);
+  Value a = pop(currentModuleRecord);
+  push(currentModuleRecord, BOOL_VAL(!valuesEqual(a, b)));
   DISPATCH();
 }
 
 OP_ADD: {
-  if (IS_CRUX_STRING(peek(vm, 0)) || IS_CRUX_STRING(peek(vm, 1))) {
+  if (IS_CRUX_STRING(peek(currentModuleRecord, 0)) ||
+      IS_CRUX_STRING(peek(currentModuleRecord, 1))) {
     if (!concatenate(vm)) {
       return INTERPRET_RUNTIME_ERROR;
     }
@@ -1249,7 +1265,7 @@ OP_ADD: {
 }
 
 OP_NOT: {
-  push(vm, BOOL_VAL(isFalsy(pop(vm))));
+  push(currentModuleRecord, BOOL_VAL(isFalsy(pop(currentModuleRecord))));
   DISPATCH();
 }
 
@@ -1275,7 +1291,7 @@ OP_DIVIDE: {
 }
 
 OP_POP: {
-  pop(vm);
+  pop(currentModuleRecord);
   DISPATCH();
 }
 
@@ -1285,11 +1301,11 @@ OP_DEFINE_GLOBAL: {
   if (checkPreviousInstruction(frame, 3, OP_PUB)) {
     isPublic = true;
   }
-  if (tableSet(vm, &moduleRecord->globals, name, peek(vm, 0))) {
+  if (tableSet(vm, &currentModuleRecord->globals, name, peek(currentModuleRecord, 0))) {
     if (isPublic) {
-      tableSet(vm, &moduleRecord->publics, name, peek(vm, 0));
+      tableSet(vm, &currentModuleRecord->publics, name, peek(currentModuleRecord, 0));
     }
-    pop(vm);
+    pop(currentModuleRecord);
     DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
@@ -1300,8 +1316,8 @@ OP_DEFINE_GLOBAL: {
 OP_GET_GLOBAL: {
   ObjectString *name = READ_STRING();
   Value value;
-  if (tableGet(&vm->currentModuleRecord->globals, name, &value)) {
-    push(vm, value);
+  if (tableGet(&currentModuleRecord->globals, name, &value)) {
+    push(currentModuleRecord, value);
     DISPATCH();
   }
   runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
@@ -1310,7 +1326,8 @@ OP_GET_GLOBAL: {
 
 OP_SET_GLOBAL: {
   ObjectString *name = READ_STRING();
-  if (tableSet(vm, &vm->currentModuleRecord->globals, name, peek(vm, 0))) {
+  if (tableSet(vm, &currentModuleRecord->globals, name,
+               peek(currentModuleRecord, 0))) {
     runtimePanic(vm, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
@@ -1322,19 +1339,19 @@ OP_SET_GLOBAL: {
 
 OP_GET_LOCAL: {
   uint8_t slot = READ_BYTE();
-  push(vm, frame->slots[slot]);
+  push(currentModuleRecord, frame->slots[slot]);
   DISPATCH();
 }
 
 OP_SET_LOCAL: {
   uint8_t slot = READ_BYTE();
-  frame->slots[slot] = peek(vm, 0);
+  frame->slots[slot] = peek(currentModuleRecord, 0);
   DISPATCH();
 }
 
 OP_JUMP_IF_FALSE: {
   uint16_t offset = READ_SHORT();
-  if (isFalsy(peek(vm, 0))) {
+  if (isFalsy(peek(currentModuleRecord, 0))) {
     frame->ip += offset;
     DISPATCH();
   }
@@ -1355,17 +1372,17 @@ OP_LOOP: {
 
 OP_CALL: {
   int argCount = READ_BYTE();
-  if (!callValue(vm, peek(vm, argCount), argCount)) {
+  if (!callValue(vm, peek(currentModuleRecord, argCount), argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
   DISPATCH();
 }
 
 OP_CLOSURE: {
   ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT());
   ObjectClosure *closure = newClosure(vm, function);
-  push(vm, OBJECT_VAL(closure));
+  push(currentModuleRecord, OBJECT_VAL(closure));
 
   for (int i = 0; i < closure->upvalueCount; i++) {
     uint8_t isLocal = READ_BYTE();
@@ -1382,29 +1399,29 @@ OP_CLOSURE: {
 
 OP_GET_UPVALUE: {
   uint8_t slot = READ_BYTE();
-  push(vm, *frame->closure->upvalues[slot]->location);
+  push(currentModuleRecord, *frame->closure->upvalues[slot]->location);
   DISPATCH();
 }
 
 OP_SET_UPVALUE: {
   uint8_t slot = READ_BYTE();
-  *frame->closure->upvalues[slot]->location = peek(vm, 0);
+  *frame->closure->upvalues[slot]->location = peek(currentModuleRecord, 0);
   DISPATCH();
 }
 
 OP_CLOSE_UPVALUE: {
-  closeUpvalues(vm, moduleRecord->stackTop - 1);
-  pop(vm);
+  closeUpvalues(currentModuleRecord, currentModuleRecord->stackTop - 1);
+  pop(currentModuleRecord);
   DISPATCH();
 }
 
 OP_CLASS: {
-  push(vm, OBJECT_VAL(newClass(vm, READ_STRING())));
+  push(currentModuleRecord, OBJECT_VAL(newClass(vm, READ_STRING())));
   DISPATCH();
 }
 
 OP_GET_PROPERTY: {
-  Value receiver = peek(vm, 0);
+  Value receiver = peek(currentModuleRecord, 0);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
     runtimePanic(vm, TYPE,
@@ -1418,8 +1435,8 @@ OP_GET_PROPERTY: {
   Value value;
   bool fieldFound = false;
   if (tableGet(&instance->fields, name, &value)) {
-    pop(vm);
-    push(vm, value);
+    pop(currentModuleRecord);
+    push(currentModuleRecord, value);
     fieldFound = true;
     DISPATCH();
   }
@@ -1434,7 +1451,7 @@ OP_GET_PROPERTY: {
 }
 
 OP_SET_PROPERTY: {
-  Value receiver = peek(vm, 1);
+  Value receiver = peek(currentModuleRecord, 1);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
     runtimePanic(vm, TYPE, "Cannot set property '%s' on non-instance value. %s",
@@ -1445,9 +1462,9 @@ OP_SET_PROPERTY: {
   ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
 
-  if (tableSet(vm, &instance->fields, name, peek(vm, 0))) {
-    Value value = pop(vm);
-    popPush(vm, value);
+  if (tableSet(vm, &instance->fields, name, peek(currentModuleRecord, 0))) {
+    Value value = pop(currentModuleRecord);
+    popPush(currentModuleRecord, value);
     DISPATCH();
   }
   runtimePanic(vm, NAME, "Cannot set undefined property '%s'.", name->chars);
@@ -1460,7 +1477,7 @@ OP_INVOKE: {
   if (!invoke(vm, methodName, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -1470,22 +1487,22 @@ OP_METHOD: {
 }
 
 OP_INHERIT: {
-  Value superClass = peek(vm, 1);
+  Value superClass = peek(currentModuleRecord, 1);
 
   if (!IS_CRUX_CLASS(superClass)) {
     runtimePanic(vm, TYPE, "Cannot inherit from non class object.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectClass *subClass = AS_CRUX_CLASS(peek(vm, 0));
+  ObjectClass *subClass = AS_CRUX_CLASS(peek(currentModuleRecord, 0));
   tableAddAll(vm, &AS_CRUX_CLASS(superClass)->methods, &subClass->methods);
-  pop(vm);
+  pop(currentModuleRecord);
   DISPATCH();
 }
 
 OP_GET_SUPER: {
   ObjectString *name = READ_STRING();
-  ObjectClass *superClass = AS_CRUX_CLASS(pop(vm));
+  ObjectClass *superClass = AS_CRUX_CLASS(pop(currentModuleRecord));
 
   if (!bindMethod(vm, superClass, name)) {
     return INTERPRET_RUNTIME_ERROR;
@@ -1496,11 +1513,11 @@ OP_GET_SUPER: {
 OP_SUPER_INVOKE: {
   ObjectString *method = READ_STRING();
   int argCount = READ_BYTE();
-  ObjectClass *superClass = AS_CRUX_CLASS(pop(vm));
+  ObjectClass *superClass = AS_CRUX_CLASS(pop(currentModuleRecord));
   if (!invokeFromClass(vm, superClass, method, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
-  frame = &moduleRecord->frames[moduleRecord->frameCount - 1];
+  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
   DISPATCH();
 }
 
@@ -1508,28 +1525,28 @@ OP_ARRAY: {
   uint16_t elementCount = READ_SHORT();
   ObjectArray *array = newArray(vm, elementCount);
   for (int i = elementCount - 1; i >= 0; i--) {
-    arrayAdd(vm, array, pop(vm), i);
+    arrayAdd(vm, array, pop(currentModuleRecord), i);
   }
-  push(vm, OBJECT_VAL(array));
+  push(currentModuleRecord, OBJECT_VAL(array));
   DISPATCH();
 }
 
 OP_GET_COLLECTION: {
-  Value indexValue = pop(vm);
-  if (!IS_CRUX_OBJECT(peek(vm, 0))) {
+  Value indexValue = pop(currentModuleRecord);
+  if (!IS_CRUX_OBJECT(peek(currentModuleRecord, 0))) {
     runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  switch (AS_CRUX_OBJECT(peek(vm, 0))->type) {
+  switch (AS_CRUX_OBJECT(peek(currentModuleRecord, 0))->type) {
   case OBJECT_TABLE: {
     if (IS_CRUX_STRING(indexValue) || IS_INT(indexValue)) {
-      ObjectTable *table = AS_CRUX_TABLE(peek(vm, 0));
+      ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 0));
       Value value;
       if (!objectTableGet(table, indexValue, &value)) {
         runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
         return INTERPRET_RUNTIME_ERROR;
       }
-      popPush(vm, value);
+      popPush(currentModuleRecord, value);
     } else {
       runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
       return INTERPRET_RUNTIME_ERROR;
@@ -1542,7 +1559,7 @@ OP_GET_COLLECTION: {
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
-    ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 0));
+    ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 0));
     Value value;
     if (index < 0 || index >= array->size) {
       runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
@@ -1553,7 +1570,7 @@ OP_GET_COLLECTION: {
       return INTERPRET_RUNTIME_ERROR;
     }
     popPush(
-        vm,
+        currentModuleRecord,
         value); // pop the array off the stack // push the value onto the stack
     DISPATCH();
   }
@@ -1563,7 +1580,7 @@ OP_GET_COLLECTION: {
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
-    ObjectString *string = AS_CRUX_STRING(peek(vm, 0));
+    ObjectString *string = AS_CRUX_STRING(peek(currentModuleRecord, 0));
     ObjectString *ch;
     if (index < 0 || index >= string->length) {
       runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
@@ -1571,7 +1588,7 @@ OP_GET_COLLECTION: {
     }
     // Only single character indexing
     ch = copyString(vm, string->chars + index, 1);
-    popPush(vm, OBJECT_VAL(ch));
+    popPush(currentModuleRecord, OBJECT_VAL(ch));
     DISPATCH();
   }
   default: {
@@ -1583,11 +1600,11 @@ OP_GET_COLLECTION: {
 }
 
 OP_SET_COLLECTION: {
-  Value value = pop(vm);
-  Value indexValue = peek(vm, 0);
+  Value value = pop(currentModuleRecord);
+  Value indexValue = peek(currentModuleRecord, 0);
 
-  if (IS_CRUX_TABLE(peek(vm, 1))) {
-    ObjectTable *table = AS_CRUX_TABLE(peek(vm, 1));
+  if (IS_CRUX_TABLE(peek(currentModuleRecord, 1))) {
+    ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 1));
     if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
       if (!objectTableSet(vm, table, indexValue, value)) {
         runtimePanic(vm, COLLECTION_GET, "Failed to set value in table");
@@ -1597,8 +1614,8 @@ OP_SET_COLLECTION: {
       runtimePanic(vm, TYPE, "Key cannot be hashed.");
       return INTERPRET_RUNTIME_ERROR;
     }
-  } else if (IS_CRUX_ARRAY(peek(vm, 1))) {
-    ObjectArray *array = AS_CRUX_ARRAY(peek(vm, 1));
+  } else if (IS_CRUX_ARRAY(peek(currentModuleRecord, 1))) {
+    ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 1));
     int index = AS_INT(indexValue);
     if (!arraySet(vm, array, index, value)) {
       runtimePanic(vm, INDEX_OUT_OF_BOUNDS,
@@ -1609,8 +1626,8 @@ OP_SET_COLLECTION: {
     runtimePanic(vm, TYPE, "Value is not a mutable collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  popTwo(vm); // indexValue and collection
-  push(vm, indexValue);
+  popTwo(currentModuleRecord); // indexValue and collection
+  push(currentModuleRecord, indexValue);
   DISPATCH();
 }
 
@@ -1638,7 +1655,7 @@ OP_RIGHT_SHIFT: {
 OP_SET_LOCAL_SLASH: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0); // Right-hand side
+  Value operandValue = peek(currentModuleRecord, 0); // Right-hand side
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1670,7 +1687,7 @@ OP_SET_LOCAL_SLASH: {
 OP_SET_LOCAL_STAR: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1708,7 +1725,7 @@ OP_SET_LOCAL_STAR: {
 OP_SET_LOCAL_PLUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1716,14 +1733,14 @@ OP_SET_LOCAL_PLUS: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
-    push(vm, currentValue);
+    push(currentModuleRecord, currentValue);
     if (!concatenate(vm)) {
-      pop(vm);
+      pop(currentModuleRecord);
 
       return INTERPRET_RUNTIME_ERROR;
     }
 
-    frame->slots[slot] = peek(vm, 0);
+    frame->slots[slot] = peek(currentModuleRecord, 0);
   } else if ((currentIsInt || currentIsFloat) &&
              (operandIsInt || operandIsFloat)) {
     Value resultValue;
@@ -1757,7 +1774,7 @@ OP_SET_LOCAL_PLUS: {
 OP_SET_LOCAL_MINUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1796,7 +1813,7 @@ OP_SET_UPVALUE_SLASH: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1829,7 +1846,7 @@ OP_SET_UPVALUE_STAR: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1868,7 +1885,7 @@ OP_SET_UPVALUE_PLUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1876,12 +1893,12 @@ OP_SET_UPVALUE_PLUS: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
-    push(vm, currentValue);
+    push(currentModuleRecord, currentValue);
     if (!concatenate(vm)) {
-      pop(vm);
+      pop(currentModuleRecord);
       return INTERPRET_RUNTIME_ERROR;
     }
-    *location = peek(vm, 0);
+    *location = peek(currentModuleRecord, 0);
   } else if ((currentIsInt || currentIsFloat) &&
              (operandIsInt || operandIsFloat)) {
     Value resultValue;
@@ -1914,7 +1931,7 @@ OP_SET_UPVALUE_MINUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1989,8 +2006,8 @@ OP_TABLE: {
   uint16_t elementCount = READ_SHORT();
   ObjectTable *table = newTable(vm, elementCount);
   for (int i = elementCount - 1; i >= 0; i--) {
-    Value value = pop(vm);
-    Value key = pop(vm);
+    Value value = pop(currentModuleRecord);
+    Value key = pop(currentModuleRecord);
     if (IS_INT(key) || IS_CRUX_STRING(key) || IS_FLOAT(key)) {
       if (!objectTableSet(vm, table, key, value)) {
         runtimePanic(vm, COLLECTION_SET, "Failed to set value in table");
@@ -2001,15 +2018,15 @@ OP_TABLE: {
       return INTERPRET_RUNTIME_ERROR;
     }
   }
-  push(vm, OBJECT_VAL(table));
+  push(currentModuleRecord, OBJECT_VAL(table));
   DISPATCH();
 }
 
 OP_ANON_FUNCTION: {
   ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT());
-  function->moduleRecord = moduleRecord;
+  function->moduleRecord = currentModuleRecord;
   ObjectClosure *closure = newClosure(vm, function);
-  push(vm, OBJECT_VAL(closure));
+  push(currentModuleRecord, OBJECT_VAL(closure));
   for (int i = 0; i < closure->upvalueCount; i++) {
     uint8_t isLocal = READ_BYTE();
     uint8_t index = READ_BYTE();
@@ -2026,7 +2043,7 @@ OP_ANON_FUNCTION: {
 OP_PUB: { DISPATCH(); }
 
 OP_MATCH: {
-  Value target = peek(vm, 0);
+  Value target = peek(currentModuleRecord, 0);
   vm->matchHandler.matchTarget = target;
   vm->matchHandler.isMatchTarget = true;
   DISPATCH();
@@ -2034,8 +2051,8 @@ OP_MATCH: {
 
 OP_MATCH_JUMP: {
   uint16_t offset = READ_SHORT();
-  Value pattern = pop(vm);
-  Value target = peek(vm, 0);
+  Value pattern = pop(currentModuleRecord);
+  Value target = peek(currentModuleRecord, 0);
   if (!valuesEqual(pattern, target)) {
     frame->ip += offset;
   }
@@ -2044,7 +2061,7 @@ OP_MATCH_JUMP: {
 
 OP_MATCH_END: {
   if (vm->matchHandler.isMatchBind) {
-    push(vm, vm->matchHandler.matchBind);
+    push(currentModuleRecord, vm->matchHandler.matchBind);
   }
   vm->matchHandler.matchTarget = NIL_VAL;
   vm->matchHandler.matchBind = NIL_VAL;
@@ -2055,31 +2072,31 @@ OP_MATCH_END: {
 
 OP_RESULT_MATCH_OK: {
   uint16_t offset = READ_SHORT();
-  Value target = peek(vm, 0);
+  Value target = peek(currentModuleRecord, 0);
   if (!IS_CRUX_RESULT(target) || !AS_CRUX_RESULT(target)->isOk) {
     frame->ip += offset;
   } else {
     Value value = AS_CRUX_RESULT(target)->as.value;
-    popPush(vm, value);
+    popPush(currentModuleRecord, value);
   }
   DISPATCH();
 }
 
 OP_RESULT_MATCH_ERR: {
   uint16_t offset = READ_SHORT();
-  Value target = peek(vm, 0);
+  Value target = peek(currentModuleRecord, 0);
   if (!IS_CRUX_RESULT(target) || AS_CRUX_RESULT(target)->isOk) {
     frame->ip += offset;
   } else {
     Value error = OBJECT_VAL(AS_CRUX_RESULT(target)->as.error);
-    popPush(vm, error);
+    popPush(currentModuleRecord, error);
   }
   DISPATCH();
 }
 
 OP_RESULT_BIND: {
   uint8_t slot = READ_BYTE();
-  Value bind = peek(vm, 0);
+  Value bind = peek(currentModuleRecord, 0);
   vm->matchHandler.matchBind = bind;
   vm->matchHandler.isMatchBind = true;
   frame->slots[slot] = bind;
@@ -2087,8 +2104,8 @@ OP_RESULT_BIND: {
 }
 
 OP_GIVE: {
-  Value result = pop(vm);
-  popPush(vm, result);
+  Value result = pop(currentModuleRecord);
+  popPush(currentModuleRecord, result);
   DISPATCH();
 }
 
@@ -2127,7 +2144,7 @@ OP_SET_GLOBAL_MODULUS: {
 OP_SET_LOCAL_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
@@ -2156,7 +2173,7 @@ OP_SET_LOCAL_INT_DIVIDE: {
 OP_SET_LOCAL_MODULUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(vm, TYPE, "Operands for '%=' must both be integers.");
@@ -2186,7 +2203,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
@@ -2217,7 +2234,7 @@ OP_SET_UPVALUE_MODULUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(vm, 0);
+  Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(vm, TYPE, "Operands for '%=' must both be of type 'int'.");
@@ -2278,7 +2295,7 @@ OP_USE_NATIVE: {
                    names[i]->chars, moduleName->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
-    push(vm, OBJECT_VAL(value));
+    push(currentModuleRecord, OBJECT_VAL(value));
     bool setSuccess =
         tableSet(vm, &vm->currentModuleRecord->globals, aliases[i], value);
 
@@ -2287,7 +2304,7 @@ OP_USE_NATIVE: {
                    names[i]->chars, moduleName->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
-    pop(vm);
+    pop(currentModuleRecord);
   }
 
   DISPATCH();
@@ -2315,7 +2332,7 @@ OP_USE_MODULE: {
 
   Value cachedModule;
   if (tableGet(&vm->moduleCache, resolvedPath, &cachedModule)) {
-    push(vm, cachedModule);
+    push(currentModuleRecord, cachedModule);
     DISPATCH();
   }
 
@@ -2355,7 +2372,7 @@ OP_USE_MODULE: {
     module->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(module));
+    push(currentModuleRecord, OBJECT_VAL(module));
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -2367,13 +2384,13 @@ OP_USE_MODULE: {
     runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(module));
+    push(currentModuleRecord, OBJECT_VAL(module));
     return INTERPRET_COMPILE_ERROR;
   }
-  push(vm, OBJECT_VAL(function));
+  push(currentModuleRecord, OBJECT_VAL(function));
   ObjectClosure *closure = newClosure(vm, function);
-  pop(vm);
-  push(vm, OBJECT_VAL(closure));
+  pop(currentModuleRecord);
+  push(currentModuleRecord, OBJECT_VAL(closure));
 
   module->moduleClosure = closure;
 
@@ -2384,7 +2401,7 @@ OP_USE_MODULE: {
     runtimePanic(vm, RUNTIME, "Failed to call module.");
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(module));
+    push(currentModuleRecord, OBJECT_VAL(module));
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -2393,7 +2410,7 @@ OP_USE_MODULE: {
     module->state = STATE_ERROR;
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
-    push(vm, OBJECT_VAL(module));
+    push(currentModuleRecord, OBJECT_VAL(module));
     return result;
   }
 
@@ -2401,7 +2418,7 @@ OP_USE_MODULE: {
 
   popImportStack(vm);
   vm->currentModuleRecord = previousModuleRecord;
-  push(vm, OBJECT_VAL(module));
+  push(currentModuleRecord, OBJECT_VAL(module));
 
   DISPATCH();
 }
@@ -2417,11 +2434,11 @@ OP_FINISH_USE: {
   for (int i = 0; i < nameCount; i++) {
     aliases[i] = READ_STRING();
   }
-  if (!IS_CRUX_MODULE_RECORD(peek(vm, 0))) {
+  if (!IS_CRUX_MODULE_RECORD(peek(currentModuleRecord, 0))) {
     runtimePanic(vm, RUNTIME, "Module record creation could not be completed.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  Value moduleValue = pop(vm);
+  Value moduleValue = pop(currentModuleRecord);
   ObjectModuleRecord *importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
 
   if (importedModule->state == STATE_ERROR) {
@@ -2452,7 +2469,7 @@ OP_FINISH_USE: {
 
 end: {
   printf("        ");
-  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop;
+  for (Value *slot = currentModuleRecord->stack; slot < currentModuleRecord->stackTop;
        slot++) {
     printf("[");
     printValue(*slot);
@@ -2478,16 +2495,17 @@ end: {
 
 InterpretResult interpret(VM *vm, char *source) {
   ObjectFunction *function = compile(vm, source);
+  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
   if (function == NULL) {
-    vm->currentModuleRecord->state = STATE_ERROR;
+    currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_COMPILE_ERROR;
   }
 
-  push(vm, OBJECT_VAL(function));
+  push(currentModuleRecord, OBJECT_VAL(function));
   ObjectClosure *closure = newClosure(vm, function);
   vm->currentModuleRecord->moduleClosure = closure;
-  pop(vm);
-  push(vm, OBJECT_VAL(closure));
+  pop(currentModuleRecord);
+  push(currentModuleRecord, OBJECT_VAL(closure));
   call(vm, closure, 0);
 
   InterpretResult result = run(vm, false);
@@ -2501,23 +2519,29 @@ InterpretResult interpret(VM *vm, char *source) {
  * @param closure The closure to be executed. The caller must ensure that the
  * arguments are on the stack correctly and match the arity
  * @param argCount
+ * @param result result from executing function
  * @return
  */
 ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
                                   InterpretResult *result) {
 
-  const uint32_t currentFrameCount = vm->currentModuleRecord->frameCount;
+  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
+  const uint32_t currentFrameCount = currentModuleRecord->frameCount;
+  ObjectResult *errorResult =
+      newErrorResult(vm, newError(vm, copyString(vm, "", 0), RUNTIME, true));
 
   if (!call(vm, closure, argCount)) {
     runtimePanic(vm, RUNTIME, "Failed to execute function");
     *result = INTERPRET_RUNTIME_ERROR;
-    return newErrorResult(vm,
-                          newError(vm, copyString(vm, "", 0), RUNTIME, true));
+    return errorResult;
   }
 
   *result = run(vm, true);
-  Value executionResult = peek(vm, 0);
 
   vm->currentModuleRecord->frameCount = currentFrameCount;
-  return newOkResult(vm, executionResult);
+  if (*result == INTERPRET_OK) {
+    const Value executionResult = peek(currentModuleRecord, 0);
+    return newOkResult(vm, executionResult);
+  }
+    return errorResult;
 }

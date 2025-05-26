@@ -296,7 +296,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
   ObjectArray *resultArray = newArray(vm, array->size);
   for (uint32_t i = 0; i < array->size; i++) {
     Value arrayValue = array->array[i];
-    push(vm, arrayValue);
+    push(vm->currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
 
@@ -311,7 +311,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
     } else {
       arrayAddBack(vm, resultArray, OBJECT_VAL(result->as.error));
     }
-    pop(vm);
+    pop(vm->currentModuleRecord);
   }
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }

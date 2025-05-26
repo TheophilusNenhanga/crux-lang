@@ -91,9 +91,9 @@ void resetStack(ObjectModuleRecord* moduleRecord);
 
 InterpretResult interpret(VM *vm, char *source);
 
-void push(VM *vm, Value value);
+void push(ObjectModuleRecord* moduleRecord, Value value);
 
-Value pop(VM *vm);
+Value pop(ObjectModuleRecord* moduleRecord);
 
 void initImportStack(VM *vm);
 
@@ -104,7 +104,7 @@ bool pushImportStack(VM *vm, ObjectString *path);
 
 void popImportStack(VM *vm);
 
-bool isInImportStack(VM *vm, ObjectString *path);
+bool isInImportStack(VM *vm, const ObjectString *path);
 
 ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
 

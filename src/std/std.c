@@ -203,14 +203,16 @@ static bool registerNativeFunction(VM *vm, Table *functionTable,
                                    const char *functionName,
                                    const CruxCallable function,
                                    const int arity) {
+
+  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
   ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
-  push(vm, OBJECT_VAL(name));
+  push(currentModuleRecord, OBJECT_VAL(name));
   Value func = OBJECT_VAL(newNativeFunction(vm, function, arity, name));
-  push(vm, func);
+  push(currentModuleRecord, func);
   bool success = tableSet(vm, functionTable, name, func);
 
-  pop(vm);
-  pop(vm);
+  pop(currentModuleRecord);
+  pop(currentModuleRecord);
 
   if (!success) {
     return false;
@@ -222,18 +224,19 @@ static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable,
                                              const char *functionName,
                                              CruxInfallibleCallable function,
                                              const int arity) {
+  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
   ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
-  push(vm, OBJECT_VAL(name));
+  push(currentModuleRecord, OBJECT_VAL(name));
   const Value func =
       OBJECT_VAL(newNativeInfallibleFunction(vm, function, arity, name));
-  push(vm, func);
+  push(currentModuleRecord, func);
 
   const bool success = tableSet(vm, functionTable, name, func);
   if (!success) {
     return false;
   }
-	pop(vm);
-	pop(vm);
+	pop(currentModuleRecord);
+	pop(currentModuleRecord);
 
   return true;
 }
