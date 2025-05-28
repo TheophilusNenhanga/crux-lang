@@ -74,17 +74,15 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value) {
   }
 
   Entry *entry = findEntry(table->entries, table->capacity, key);
-  bool isNewKey = entry->key == NULL;
+  const bool isNewKey = entry->key == NULL;
 
-  bool isNilValue = IS_NIL(entry->value);
-
-  if (isNewKey && isNilValue) {
+  if (isNewKey && IS_NIL(entry->value)) {
     table->count++;
   }
 
   entry->key = key;
   entry->value = value;
-  return isNewKey || !isNilValue ? true : false;
+  return isNewKey;
 }
 
 bool tableDelete(Table *table, ObjectString *key) {

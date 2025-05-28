@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "../memory.h"
@@ -5,7 +6,7 @@
 
 ObjectResult *arrayPushMethod(VM *vm, int argCount, Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-  Value toAdd = args[1];
+  const Value toAdd = args[1];
 
   if (!arrayAdd(vm, array, toAdd, array->size)) {
     return newErrorResult(
@@ -27,7 +28,7 @@ ObjectResult *arrayPopMethod(VM *vm, int argCount, Value *args) {
                      INDEX_OUT_OF_BOUNDS, false));
   }
 
-  Value popped = array->array[array->size - 1];
+  const Value popped = array->array[array->size - 1];
   array->array[array->size - 1] = NIL_VAL;
   array->size--;
 
@@ -44,8 +45,8 @@ ObjectResult *arrayInsertMethod(VM *vm, int argCount, Value *args) {
                  TYPE, false));
   }
 
-  Value toInsert = args[1];
-  uint32_t insertAt = AS_INT(args[2]);
+  const Value toInsert = args[1];
+  const uint32_t insertAt = AS_INT(args[2]);
 
   if (insertAt > array->size) {
     return newErrorResult(
@@ -81,7 +82,7 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
                  TYPE, false));
   }
 
-  uint32_t removeAt = AS_INT(args[1]);
+  const uint32_t removeAt = AS_INT(args[1]);
 
   if (removeAt >= array->size) {
     return newErrorResult(
@@ -89,7 +90,7 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
                      INDEX_OUT_OF_BOUNDS, false));
   }
 
-  Value removedElement = array->array[removeAt];
+  const Value removedElement = array->array[removeAt];
 
   for (uint32_t i = removeAt; i < array->size - 1; i++) {
     array->array[i] = array->array[i + 1];
@@ -100,7 +101,7 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult *arrayConcatMethod(VM *vm, int argCount, Value *args) {
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_CRUX_ARRAY(args[1])) {
     return newErrorResult(
@@ -109,9 +110,9 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, Value *args) {
                  TYPE, false));
   }
 
-  ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
+  const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
-  uint32_t combinedSize = targetArray->size + array->size;
+  const uint32_t combinedSize = targetArray->size + array->size;
   if (combinedSize > MAX_ARRAY_SIZE) {
     return newErrorResult(
         vm,
@@ -134,7 +135,7 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[1])) {
     return newErrorResult(
@@ -151,8 +152,8 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
                 TYPE, false));
   }
 
-  uint32_t startIndex = IS_INT(args[1]);
-  uint32_t endIndex = IS_INT(args[2]);
+  const uint32_t startIndex = IS_INT(args[1]);
+  const uint32_t endIndex = IS_INT(args[2]);
 
   if (startIndex > array->size) {
     return newErrorResult(
@@ -172,7 +173,7 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
                      INDEX_OUT_OF_BOUNDS, false));
   }
 
-  size_t sliceSize = endIndex - startIndex;
+  const size_t sliceSize = endIndex - startIndex;
   ObjectArray *slicedArray = newArray(vm, sliceSize);
 
   for (size_t i = 0; i < sliceSize; i++) {
@@ -184,7 +185,7 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
 }
 
 ObjectResult *arrayReverseMethod(VM *vm, int argCount, Value *args) {
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   Value *values = ALLOCATE(vm, Value, array->size);
 
@@ -212,7 +213,7 @@ ObjectResult *arrayReverseMethod(VM *vm, int argCount, Value *args) {
 
 ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-  Value target = args[1];
+  const Value target = args[1];
 
   for (uint32_t i = 0; i < array->size; i++) {
     if (valuesEqual(target, array->array[i])) {
@@ -226,8 +227,8 @@ ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
 }
 
 Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-  Value target = args[1];
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const Value target = args[1];
 
   for (uint32_t i = 0; i < array->size; i++) {
     if (valuesEqual(target, array->array[i])) {
@@ -253,8 +254,8 @@ Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
     return BOOL_VAL(false);
   }
 
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-  ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
   if (array->size != targetArray->size) {
     return BOOL_VAL(false);
@@ -273,6 +274,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
   // arg0 - array
   // arg1 - function
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
 
   if (!IS_CRUX_CLOSURE(args[1])) {
     return newErrorResult(
@@ -294,9 +296,10 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
   }
 
   ObjectArray *resultArray = newArray(vm, array->size);
+  push(currentModuleRecord, OBJECT_VAL(resultArray));
   for (uint32_t i = 0; i < array->size; i++) {
-    Value arrayValue = array->array[i];
-    push(vm->currentModuleRecord, arrayValue);
+    const Value arrayValue = array->array[i];
+    push(currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
 
@@ -311,31 +314,333 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
     } else {
       arrayAddBack(vm, resultArray, OBJECT_VAL(result->as.error));
     }
-    pop(vm->currentModuleRecord);
+    pop(currentModuleRecord);
   }
+  pop(currentModuleRecord);
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
 ObjectResult *arrayFilterMethod(VM *vm, int argCount, Value *args) {
   // arg0 - array
   // arg1 - function
-  return newOkResult(vm, NIL_VAL);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+
+  if (!IS_CRUX_CLOSURE(args[1])) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(
+                    vm, "Expected value of type 'callable' for <func> argument",
+                    53),
+                TYPE, false));
+  }
+
+  ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
+
+  if (closure->function->arity != 1) {
+    return newErrorResult(
+        vm,
+        newError(vm, copyString(vm, "<func> must take exactly 1 argument.", 36),
+                 ARGUMENT_MISMATCH, true));
+  }
+
+  ObjectArray *resultArray = newArray(vm, array->size);
+  push(currentModuleRecord, OBJECT_VAL(resultArray));
+  uint32_t addCount = 0;
+  for (uint32_t i = 0; i < array->size; i++) {
+    const Value arrayValue = array->array[i];
+    push(currentModuleRecord, arrayValue);
+    InterpretResult res;
+    ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
+
+    if (res != INTERPRET_OK) {
+      if (!result->isOk) {
+        return result;
+      }
+    }
+
+    if (result->isOk) {
+      if (!isFalsy(result->as.value)) {
+        arrayAddBack(vm, resultArray, arrayValue);
+        addCount++;
+      }
+    }
+    pop(currentModuleRecord);
+  }
+  pop(currentModuleRecord);
+  resultArray->size = addCount;
+  return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
 ObjectResult *arrayReduceMethod(VM *vm, int argCount, Value *args) {
   // arg0 - array
   // arg1 - function
   // arg2 - initial value
-  return newOkResult(vm, NIL_VAL);
+  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+
+  if (!IS_CRUX_CLOSURE(args[1])) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(
+                    vm, "Expected value of type 'callable' for <func> argument",
+                    53),
+                TYPE, false));
+  }
+
+  ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
+  if (closure->function->arity != 2) {
+    return newErrorResult(
+        vm, newError(
+                vm, copyString(vm, "<func> must take exactly 2 arguments.", 37),
+                ARGUMENT_MISMATCH, true));
+  }
+
+  Value accumulator = args[2];
+
+  for (uint32_t i = 0; i < array->size; i++) {
+    const Value arrayValue = array->array[i];
+
+    push(currentModuleRecord, arrayValue);
+    push(currentModuleRecord, accumulator);
+
+    InterpretResult res;
+
+    ObjectResult *result = executeUserFunction(vm, closure, 2, &res);
+
+    if (res != INTERPRET_OK) {
+      if (!result->isOk) {
+        pop(currentModuleRecord); // arrayValue
+        pop(currentModuleRecord); // accumulator
+        return result;
+      }
+    }
+
+    if (result->isOk) {
+      accumulator = result->as.value;
+    } else {
+      pop(currentModuleRecord); // arrayValue
+      pop(currentModuleRecord); // accumulator
+      return result;
+    }
+
+    pop(currentModuleRecord); // arrayValue
+    pop(currentModuleRecord); // accumulator
+  }
+
+  return newOkResult(vm, accumulator);
+}
+
+static int compareValues(const Value a, const Value b) {
+  if (IS_INT(a) && IS_INT(b)) {
+    const int64_t aVal = AS_INT(a);
+    const int64_t bVal = AS_INT(b);
+    if (aVal < bVal)
+      return -1;
+    if (aVal > bVal)
+      return 1;
+    return 0;
+  }
+
+  if (IS_FLOAT(a) && IS_FLOAT(b)) {
+    const double aVal = AS_FLOAT(a);
+    const double bVal = AS_FLOAT(b);
+    if (aVal < bVal)
+      return -1;
+    if (aVal > bVal)
+      return 1;
+    return 0;
+  }
+
+  if ((IS_INT(a) || IS_FLOAT(a)) && (IS_INT(b) || IS_FLOAT(b))) {
+    const double aVal = IS_INT(a) ? (double)AS_INT(a) : AS_FLOAT(a);
+    const double bVal = IS_INT(b) ? (double)AS_INT(b) : AS_FLOAT(b);
+    if (aVal < bVal)
+      return -1;
+    if (aVal > bVal)
+      return 1;
+    return 0;
+  }
+
+  if (IS_CRUX_STRING(a) && IS_CRUX_STRING(b)) {
+    ObjectString *aStr = AS_CRUX_STRING(a);
+    ObjectString *bStr = AS_CRUX_STRING(b);
+    return strcmp(aStr->chars, bStr->chars);
+  }
+
+  // If types don't match or aren't comparable
+  return 0;
+}
+
+static bool areAllElementsSortable(const ObjectArray *array) {
+  if (array->size == 0)
+    return true;
+
+  bool hasInt = false, hasFloat = false, hasString = false;
+
+  for (uint32_t i = 0; i < array->size; i++) {
+    const Value val = array->array[i];
+    if (IS_INT(val)) {
+      hasInt = true;
+    } else if (IS_FLOAT(val)) {
+      hasFloat = true;
+    } else if (IS_CRUX_STRING(val)) {
+      hasString = true;
+    } else {
+      return false;
+    }
+  }
+
+  if (hasString && (hasInt || hasFloat)) {
+    return false;
+  }
+
+  return true;
+}
+
+static int partition(Value *arr, int low, int high) {
+  const Value pivot = arr[high];
+  int i = (low - 1);
+
+  for (int j = low; j <= high - 1; j++) {
+    if (compareValues(arr[j], pivot) <= 0) {
+      i++;
+      const Value temp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = temp;
+    }
+  }
+  const Value temp = arr[i + 1];
+  arr[i + 1] = arr[high];
+  arr[high] = temp;
+  return (i + 1);
+}
+
+static void quickSort(Value *arr, int low, int high) {
+  if (low < high) {
+    const int pi = partition(arr, low, high);
+    quickSort(arr, low, pi - 1);
+    quickSort(arr, pi + 1, high);
+  }
 }
 
 ObjectResult *arraySortMethod(VM *vm, int argCount, Value *args) {
   // arg0 - array
-  return newOkResult(vm, args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+
+  if (array->size == 0) {
+    return newOkResult(vm, args[0]);
+  }
+
+  if (!areAllElementsSortable(array)) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(
+                    vm, "Array contains unsortable or mixed incompatible types",
+                    53),
+                TYPE, false));
+  }
+
+  ObjectArray *sortedArray = newArray(vm, array->size);
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  push(currentModuleRecord, OBJECT_VAL(sortedArray));
+
+  for (uint32_t i = 0; i < array->size; i++) {
+    sortedArray->array[i] = array->array[i];
+  }
+  sortedArray->size = array->size;
+
+  quickSort(sortedArray->array, 0, (int)sortedArray->size - 1);
+
+  pop(currentModuleRecord);
+  return newOkResult(vm, OBJECT_VAL(sortedArray));
 }
 
-ObjectResult *arraySortWithMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
   // arg0 - array
-  // arg1 - comparison function
-  return newOkResult(vm, args[0]);
+  // arg1 - separator string
+
+  if (!IS_CRUX_STRING(args[1])) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(
+                    vm, "Expected arg <separator> to be of type 'string'.", 48),
+                TYPE, false));
+  }
+
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectString *separator = AS_CRUX_STRING(args[1]);
+
+  if (array->size == 0) {
+    ObjectString *emptyResult = copyString(vm, "", 0);
+    return newOkResult(vm, OBJECT_VAL(emptyResult));
+  }
+
+  // estimate: 3 chars per element + separators
+  size_t bufferSize = array->size * 3 + (array->size > 1 ? (array->size - 1) * separator->length : 0);
+  char *buffer = malloc(bufferSize);
+  if (!buffer) {
+    return newErrorResult(
+        vm, newError(
+                vm,
+                copyString(vm, "Memory allocation failed", 24),
+                RUNTIME, false));
+  }
+
+  size_t actualLength = 0;
+
+  for (uint32_t i = 0; i < array->size; i++) {
+    const ObjectString *element = toString(vm, array->array[i]);
+
+    size_t neededSpace = element->length;
+    if (i > 0) {
+      neededSpace += separator->length;
+    }
+
+    if (actualLength + neededSpace > bufferSize) {
+      // Grow the buffer by 50%
+      size_t newSize = (size_t)(((double) bufferSize * 1.5) + (double)neededSpace);
+      char *newBuffer = realloc(buffer, newSize);
+      if (!newBuffer) {
+        free(buffer);
+        return newErrorResult(
+            vm, newError(
+                    vm,
+                    copyString(vm, "Memory reallocation failed", 26),
+                    MEMORY, false));
+      }
+      buffer = newBuffer;
+      bufferSize = newSize;
+    }
+
+    if (i > 0) {
+      memcpy(buffer + actualLength, separator->chars, separator->length);
+      actualLength += separator->length;
+    }
+
+    memcpy(buffer + actualLength, element->chars, element->length);
+    actualLength += element->length;
+
+  }
+
+  if (actualLength >= bufferSize) {
+    char *newBuffer = realloc(buffer, actualLength + 1);
+    if (!newBuffer) {
+      free(buffer);
+      return newErrorResult(
+          vm, newError(
+                  vm,
+                  copyString(vm, "Memory reallocation failed", 26),
+                  MEMORY, false));
+    }
+    buffer = newBuffer;
+  }
+  buffer[actualLength] = '\0';
+
+  ObjectString *result = takeString(vm, buffer, (uint32_t)actualLength);
+  return newOkResult(vm, OBJECT_VAL(result));
 }

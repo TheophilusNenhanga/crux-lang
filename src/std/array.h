@@ -41,6 +41,7 @@ ObjectResult* arrayReduceMethod(VM *vm, int argCount,
 
 ObjectResult* arraySortMethod(VM *vm, int argCount,
                       Value *args); // [1,2,3].sort() -> [1,2,3]
-ObjectResult* arraySortWithMethod(VM *vm, int argCount,
-                               Value *args); // [1,2,3].sort(fn (a, b){ return a > b;}) -> [1,2,3]
+
+ObjectResult* arrayJoinMethod(VM *vm, int argCount, Value *args); // [1, 2, 3].join("") -> "123"
+
 #endif // ARRAY_H

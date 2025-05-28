@@ -177,8 +177,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      ObjectResult *result =
-          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      ObjectResult *result = native->function(
+          vm, argCount, currentModuleRecord->stackTop - argCount);
 
       currentModuleRecord->stackTop -= argCount + 1;
 
@@ -202,8 +202,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      ObjectResult *result =
-          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      ObjectResult *result = native->function(
+          vm, argCount, currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
 
       if (!result->isOk) {
@@ -226,8 +226,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result =
-          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      Value result = native->function(vm, argCount,
+                                      currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
 
       push(currentModuleRecord, result);
@@ -242,8 +242,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result =
-          native->function(vm, argCount, currentModuleRecord->stackTop - argCount);
+      Value result = native->function(vm, argCount,
+                                      currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
       push(currentModuleRecord, result);
       return true;
@@ -504,8 +504,10 @@ static void defineMethod(VM *vm, ObjectString *name) {
  * @param value The value to check
  * @return true if the value is falsy, false otherwise
  */
-static inline bool isFalsy(Value value) {
-  return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+bool isFalsy(Value value) {
+  return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)) ||
+         (IS_INT(value) && AS_INT(value) == 0) ||
+         (IS_FLOAT(value) && AS_FLOAT(value) == 0.0);
 }
 
 /**
@@ -1037,7 +1039,8 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
  * @param instruction The opcode to check for
  * @return true if the previous instruction matches, false otherwise
  */
-static bool checkPreviousInstruction(const CallFrame *frame, const int instructionsAgo,
+static bool checkPreviousInstruction(const CallFrame *frame,
+                                     const int instructionsAgo,
                                      const OpCode instruction) {
   uint8_t *current = frame->ip;
   if (current - instructionsAgo < frame->closure->function->chunk.code) {
@@ -1050,7 +1053,8 @@ static bool checkPreviousInstruction(const CallFrame *frame, const int instructi
 /**
  * Executes bytecode in the virtual machine.
  * @param vm The virtual machine
- * @param isAnonymousFrame Is this frame anonymous? (should this frame return from run at OP_RETURN)
+ * @param isAnonymousFrame Is this frame anonymous? (should this frame return
+ * from run at OP_RETURN)
  * @return The interpretation result
  */
 static InterpretResult run(VM *vm, const bool isAnonymousFrame) {
@@ -1301,9 +1305,11 @@ OP_DEFINE_GLOBAL: {
   if (checkPreviousInstruction(frame, 3, OP_PUB)) {
     isPublic = true;
   }
-  if (tableSet(vm, &currentModuleRecord->globals, name, peek(currentModuleRecord, 0))) {
+  if (tableSet(vm, &currentModuleRecord->globals, name,
+               peek(currentModuleRecord, 0))) {
     if (isPublic) {
-      tableSet(vm, &currentModuleRecord->publics, name, peek(currentModuleRecord, 0));
+      tableSet(vm, &currentModuleRecord->publics, name,
+               peek(currentModuleRecord, 0));
     }
     pop(currentModuleRecord);
     DISPATCH();
@@ -2469,8 +2475,8 @@ OP_FINISH_USE: {
 
 end: {
   printf("        ");
-  for (Value *slot = currentModuleRecord->stack; slot < currentModuleRecord->stackTop;
-       slot++) {
+  for (Value *slot = currentModuleRecord->stack;
+       slot < currentModuleRecord->stackTop; slot++) {
     printf("[");
     printValue(*slot);
     printf("]");
@@ -2495,7 +2501,7 @@ end: {
 
 InterpretResult interpret(VM *vm, char *source) {
   ObjectFunction *function = compile(vm, source);
-  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   if (function == NULL) {
     currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_COMPILE_ERROR;
@@ -2525,7 +2531,7 @@ InterpretResult interpret(VM *vm, char *source) {
 ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
                                   InterpretResult *result) {
 
-  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   const uint32_t currentFrameCount = currentModuleRecord->frameCount;
   ObjectResult *errorResult =
       newErrorResult(vm, newError(vm, copyString(vm, "", 0), RUNTIME, true));
@@ -2543,5 +2549,5 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
     const Value executionResult = peek(currentModuleRecord, 0);
     return newOkResult(vm, executionResult);
   }
-    return errorResult;
+  return errorResult;
 }

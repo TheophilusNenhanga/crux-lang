@@ -42,8 +42,8 @@ static const Callable arrayMethodsArray[] = {
     {"concat", arrayConcatMethod, 2},   {"slice", arraySliceMethod, 3},
     {"reverse", arrayReverseMethod, 1}, {"index", arrayIndexOfMethod, 2},
     {"map", arrayMapMethod, 2},         {"filter", arrayFilterMethod, 2},
-    {"reduce", arrayReduceMethod, 3},   {"sort_with", arraySortWithMethod, 3},
-    {"sort", arraySortMethod, 1}};
+    {"reduce", arrayReduceMethod, 3},   {"sort", arraySortMethod, 1},
+    {"join", arrayJoinMethod, 2}};
 
 static const InfallibleCallable arrayInfallibleMethodsArray[] = {
     {"_contains", arrayContainsMethod, 2},
@@ -204,7 +204,7 @@ static bool registerNativeFunction(VM *vm, Table *functionTable,
                                    const CruxCallable function,
                                    const int arity) {
 
-  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
   push(currentModuleRecord, OBJECT_VAL(name));
   Value func = OBJECT_VAL(newNativeFunction(vm, function, arity, name));
@@ -224,7 +224,7 @@ static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable,
                                              const char *functionName,
                                              CruxInfallibleCallable function,
                                              const int arity) {
-  ObjectModuleRecord* currentModuleRecord = vm->currentModuleRecord;
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   ObjectString *name = copyString(vm, functionName, (int)strlen(functionName));
   push(currentModuleRecord, OBJECT_VAL(name));
   const Value func =
@@ -235,8 +235,8 @@ static bool registerNativeInfallibleFunction(VM *vm, Table *functionTable,
   if (!success) {
     return false;
   }
-	pop(currentModuleRecord);
-	pop(currentModuleRecord);
+  pop(currentModuleRecord);
+  pop(currentModuleRecord);
 
   return true;
 }

@@ -108,4 +108,6 @@ bool isInImportStack(VM *vm, const ObjectString *path);
 
 ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
 
+bool isFalsy(Value value);
+
 #endif // VM_H
