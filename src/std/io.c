@@ -5,11 +5,11 @@
 
 #include "../memory.h"
 #include "../object.h"
-#include "../vm.h"
+#include "../vm/vm.h"
 
 #define MAX_LINE_LENGTH 4096
 
-static inline FILE *getChannel(const char *channel) {
+static FILE *getChannel(const char *channel) {
   if (strcmp(channel, "stdin") == 0)
     return stdin;
   if (strcmp(channel, "stdout") == 0)
@@ -19,9 +19,9 @@ static inline FILE *getChannel(const char *channel) {
   return NULL;
 }
 
-static inline void valuePrint(Value value, bool inCollection);
+static void valuePrint(Value value, bool inCollection);
 
-static inline void printArray(const ObjectArray *array) {
+static void printArray(const ObjectArray *array) {
   printf("[");
   for (int i = 0; i < array->size; i++) {
     valuePrint(array->array[i], true);
@@ -32,7 +32,7 @@ static inline void printArray(const ObjectArray *array) {
   printf("]");
 }
 
-static inline void printTable(const ObjectTable *table) {
+static void printTable(const ObjectTable *table) {
   uint16_t printed = 0;
   printf("{");
   for (int i = 0; i < table->capacity; i++) {
@@ -49,7 +49,7 @@ static inline void printTable(const ObjectTable *table) {
   printf("}");
 }
 
-static inline void printResult(const ObjectResult *result) {
+static void printResult(const ObjectResult *result) {
   if (result->isOk) {
     printf("Ok<");
     printType(result->as.value);

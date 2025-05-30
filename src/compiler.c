@@ -149,17 +149,13 @@ static void emitReturn() {
  * @param value The value to add as a constant.
  * @return The index of the constant in the constant pool.
  */
-static uint8_t makeConstant(const Value value) {
+static uint16_t makeConstant(const Value value) {
   const int constant = addConstant(current->owner, currentChunk(), value);
-  // adds the given value to the end of the constant array, returns the index.
-  if (constant > UINT8_MAX) {
-    // Only 256 constants can be stored and loaded in a chunk.
-    // TODO: Add new instruction 'OP_CONSTANT_16' to store two byte operands
-    // that can handle more constants when needed
+  if (constant > UINT16_MAX) {
     compilerPanic(&parser, "Too many constants in one chunk.", LIMIT);
     return 0;
   }
-  return (uint8_t)constant;
+  return (uint16_t)constant;
 }
 
 /**
@@ -168,7 +164,13 @@ static uint8_t makeConstant(const Value value) {
  * @param value The constant value to emit.
  */
 static void emitConstant(const Value value) {
-  emitBytes(OP_CONSTANT, makeConstant(value));
+  const uint16_t constant = makeConstant(value);
+  if (constant <= UINT8_MAX) {
+    emitBytes(OP_CONSTANT, (uint8_t)constant);
+  } else {
+    emitByte(OP_CONSTANT_16);
+    emitBytes(((constant >> 8) & 0xff), (constant & 0xff));
+  }
 }
 
 /**
@@ -188,6 +190,7 @@ static void initCompiler(Compiler *compiler, const FunctionType type, VM *vm) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
   compiler->matchDepth = 0;
+  compiler->loopDepth = 0;
   compiler->owner = vm;
 
   compiler->function = newFunction(compiler->owner);
@@ -221,7 +224,7 @@ static void initCompiler(Compiler *compiler, const FunctionType type, VM *vm) {
  * @param name The token representing the identifier.
  * @return The index of the identifier constant in the constant pool.
  */
-static uint8_t identifierConstant(const Token *name) {
+static uint16_t identifierConstant(const Token *name) {
   return makeConstant(
       OBJECT_VAL(copyString(current->owner, name->start, name->length)));
 }
@@ -234,6 +237,18 @@ static uint8_t identifierConstant(const Token *name) {
  */
 static void beginScope() { current->scopeDepth++; }
 
+static void cleanupLocalsToDepth(int targetDepth) {
+  while (current->localCount > 0 &&
+         current->locals[current->localCount - 1].depth > targetDepth) {
+    if (current->locals[current->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
+    } else {
+      emitByte(OP_POP);
+    }
+    current->localCount--;
+  }
+}
+
 /**
  * Ends the current scope.
  *
@@ -242,16 +257,7 @@ static void beginScope() { current->scopeDepth++; }
  */
 static void endScope() {
   current->scopeDepth--;
-
-  while (current->localCount > 0 &&
-         current->locals[current->localCount - 1].depth > current->scopeDepth) {
-    if (current->locals[current->localCount - 1].isCaptured) {
-      emitByte(OP_CLOSE_UPVALUE);
-    } else {
-      emitByte(OP_POP);
-    }
-    current->localCount--;
-  }
+  cleanupLocalsToDepth(current->scopeDepth);
 }
 
 /**
@@ -289,6 +295,59 @@ static int resolveLocal(const Compiler *compiler, const Token *name) {
     }
   }
   return -1;
+}
+
+static void pushLoopContext(const LoopType type, const int continueTarget) {
+  if (current->loopDepth >= 255) {
+    compilerPanic(&parser, "Too many nested loops.", LOOP_EXTENT);
+    return;
+  }
+
+  LoopContext *context = &current->loopStack[current->loopDepth++];
+  context->type = type;
+  context->continueTarget = continueTarget;
+  context->breakJumps = NULL;
+  context->scopeDepth = current->scopeDepth;
+}
+
+static void popLoopContext() {
+  if (current->loopDepth <= 0) {
+    return;
+  }
+
+  const LoopContext *context = &current->loopStack[--current->loopDepth];
+
+  // Patch all break jumps to jump to current position
+  BreakJump *breakJump = context->breakJumps;
+  while (breakJump != NULL) {
+    patchJump(breakJump->jumpOffset);
+    BreakJump *next = breakJump->next;
+    FREE(current->owner, BreakJump, breakJump);
+    breakJump = next;
+  }
+}
+
+static void addBreakJump(const int jumpOffset) {
+  if (current->loopDepth <= 0) {
+    compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
+    return;
+  }
+
+  LoopContext *context = &current->loopStack[current->loopDepth - 1];
+
+  BreakJump *breakJump = ALLOCATE(current->owner, BreakJump, 1);
+  breakJump->jumpOffset = jumpOffset;
+  breakJump->next = context->breakJumps;
+  context->breakJumps = breakJump;
+}
+
+static int getCurrentContinueTarget() {
+  if (current->loopDepth <= 0) {
+    compilerPanic(&parser, "Cannot use 'continue' outside of a loop.", SYNTAX);
+    return -1;
+  }
+
+  return current->loopStack[current->loopDepth - 1].continueTarget;
 }
 
 /**
@@ -416,7 +475,7 @@ static void markInitialized() {
  * found.
  * @return The index of the variable name constant in the constant pool.
  */
-static uint8_t parseVariable(const char *errorMessage) {
+static uint16_t parseVariable(const char *errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
   declareVariable();
   if (current->scopeDepth > 0)
@@ -434,12 +493,17 @@ static uint8_t parseVariable(const char *errorMessage) {
  * @param global The index of the variable name constant in the constant pool
  * (for global variables).
  */
-static void defineVariable(const uint8_t global) {
+static void defineVariable(const uint16_t global) {
   if (current->scopeDepth > 0) {
     markInitialized();
     return;
   }
-  emitBytes(OP_DEFINE_GLOBAL, global);
+  if (global <= UINT8_MAX) {
+    emitBytes(OP_DEFINE_GLOBAL, (uint8_t)global);
+  } else {
+    emitByte(OP_DEFINE_GLOBAL_16);
+    emitBytes(((global >> 8) & 0xff), (global & 0xff));
+  }
 }
 
 /**
@@ -625,20 +689,35 @@ static void literal(bool canAssign) {
  */
 static void dot(const bool canAssign) {
   consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
-  const uint8_t name = identifierConstant(&parser.previous);
+  const uint16_t name = identifierConstant(&parser.previous);
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
-    emitBytes(OP_SET_PROPERTY, name);
+    if (name <= UINT8_MAX) {
+      emitBytes(OP_SET_PROPERTY, (uint8_t)name);
+    } else {
+      emitByte(OP_SET_PROPERTY_16);
+      emitBytes(((name >> 8) & 0xff), (name & 0xff));
+    }
   } else if (match(TOKEN_LEFT_PAREN)) {
     const uint8_t argCount = argumentList();
-    emitBytes(OP_INVOKE, name);
-    emitByte(argCount);
+    if (name <= UINT8_MAX) {
+      emitBytes(OP_INVOKE, (uint8_t)name);
+      emitByte(argCount);
+    } else {
+      emitByte(OP_INVOKE_16);
+      emitBytes(((name >> 8) & 0xff), (name & 0xff));
+      emitByte(argCount);
+    }
   } else {
-    emitBytes(OP_GET_PROPERTY, name);
+    if (name <= UINT8_MAX) {
+      emitBytes(OP_GET_PROPERTY, (uint8_t)name);
+    } else {
+      emitByte(OP_GET_PROPERTY_16);
+      emitBytes(((name >> 8) & 0xff), (name & 0xff));
+    }
   }
 }
-
 /**
  * Parses an expression. Entry point for expression parsing.
  */
@@ -723,9 +802,89 @@ static void namedVariable(Token name, const bool canAssign) {
     getOp = OP_GET_UPVALUE;
     setOp = OP_SET_UPVALUE;
   } else {
-    arg = identifierConstant(&name);
-    getOp = OP_GET_GLOBAL;
-    setOp = OP_SET_GLOBAL;
+    const uint16_t globalArg = identifierConstant(&name);
+
+    if (canAssign) {
+      if (match(TOKEN_EQUAL)) {
+        expression();
+        if (globalArg <= UINT8_MAX) {
+          emitBytes(OP_SET_GLOBAL, (uint8_t)globalArg);
+        } else {
+          emitByte(OP_SET_GLOBAL_16);
+          emitBytes(globalArg >> 8 & 0xff, globalArg & 0xff);
+        }
+        return;
+      }
+
+      CompoundOp op;
+      bool isCompoundAssignment = true;
+
+      if (match(TOKEN_PLUS_EQUAL)) {
+        op = COMPOUND_OP_PLUS;
+      } else if (match(TOKEN_MINUS_EQUAL)) {
+        op = COMPOUND_OP_MINUS;
+      } else if (match(TOKEN_STAR_EQUAL)) {
+        op = COMPOUND_OP_STAR;
+      } else if (match(TOKEN_SLASH_EQUAL)) {
+        op = COMPOUND_OP_SLASH;
+      } else if (match(TOKEN_BACK_SLASH_EQUAL)) {
+        op = COMPOUND_OP_BACK_SLASH;
+      } else if (match(TOKEN_PERCENT_EQUAL)) {
+        op = COMPOUND_OP_PERCENT;
+      } else {
+        isCompoundAssignment = false;
+      }
+
+      if (isCompoundAssignment) {
+        expression();
+        const OpCode compoundOp = getCompoundOpcode(OP_SET_GLOBAL, op);
+        if (globalArg <= UINT8_MAX) {
+          emitBytes(compoundOp, (uint8_t)globalArg);
+        } else {
+          if (globalArg <= UINT8_MAX) {
+            emitBytes(OP_GET_GLOBAL, (uint8_t)globalArg);
+          } else {
+            emitByte(OP_GET_GLOBAL_16);
+            emitBytes(((globalArg >> 8) & 0xff), (globalArg & 0xff));
+          }
+          switch (op) {
+          case COMPOUND_OP_PLUS:
+            emitByte(OP_ADD);
+            break;
+          case COMPOUND_OP_MINUS:
+            emitByte(OP_SUBTRACT);
+            break;
+          case COMPOUND_OP_STAR:
+            emitByte(OP_MULTIPLY);
+            break;
+          case COMPOUND_OP_SLASH:
+            emitByte(OP_DIVIDE);
+            break;
+          case COMPOUND_OP_BACK_SLASH:
+            emitByte(OP_INT_DIVIDE);
+            break;
+          case COMPOUND_OP_PERCENT:
+            emitByte(OP_MODULUS);
+            break;
+          }
+          if (globalArg <= UINT8_MAX) {
+            emitBytes(OP_SET_GLOBAL, (uint8_t)globalArg);
+          } else {
+            emitByte(OP_SET_GLOBAL_16);
+            emitBytes(globalArg >> 8 & 0xff, globalArg & 0xff);
+          }
+        }
+        return;
+      }
+    }
+
+    if (globalArg <= UINT8_MAX) {
+      emitBytes(OP_GET_GLOBAL, (uint8_t)globalArg);
+    } else {
+      emitByte(OP_GET_GLOBAL_16);
+      emitBytes(((globalArg >> 8) & 0xff), (globalArg & 0xff));
+    }
+    return;
   }
 
   if (canAssign) {
@@ -734,6 +893,7 @@ static void namedVariable(Token name, const bool canAssign) {
       emitBytes(setOp, arg);
       return;
     }
+
     CompoundOp op;
     bool isCompoundAssignment = true;
 
@@ -790,18 +950,29 @@ static void super_(bool canAssign) {
 
   consume(TOKEN_DOT, "Expected '.' after 'super'.");
   consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
-  const uint8_t name = identifierConstant(&parser.previous);
+  const uint16_t name = identifierConstant(&parser.previous);
   namedVariable(syntheticToken("self"), false);
   namedVariable(syntheticToken("super"), false);
 
   if (match(TOKEN_LEFT_PAREN)) {
     const uint8_t argCount = argumentList();
     namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_SUPER_INVOKE, name);
-    emitByte(argCount);
+    if (name <= UINT8_MAX) {
+      emitBytes(OP_SUPER_INVOKE, (uint8_t)name);
+      emitByte(argCount);
+    } else {
+      emitByte(OP_SUPER_INVOKE_16);
+      emitBytes(((name >> 8) & 0xff), (name & 0xff));
+      emitByte(argCount);
+    }
   } else {
     namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_GET_SUPER, name);
+    if (name <= UINT8_MAX) {
+      emitBytes(OP_GET_SUPER, (uint8_t)name);
+    } else {
+      emitByte(OP_GET_SUPER_16);
+      emitBytes(((name >> 8) & 0xff), (name & 0xff));
+    }
   }
 }
 
@@ -848,7 +1019,7 @@ static void function(const FunctionType type) {
 static void method() {
   consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
   consume(TOKEN_IDENTIFIER, "Expected method name.");
-  const uint8_t constant = identifierConstant(&parser.previous);
+  const uint16_t constant = identifierConstant(&parser.previous);
 
   FunctionType type = TYPE_METHOD;
 
@@ -859,16 +1030,26 @@ static void method() {
 
   function(type);
 
-  emitBytes(OP_METHOD, constant);
+  if (constant <= UINT8_MAX) {
+    emitBytes(OP_METHOD, (uint8_t)constant);
+  } else {
+    emitByte(OP_METHOD_16);
+    emitBytes(((constant >> 8) & 0xff), (constant & 0xff));
+  }
 }
 
 static void classDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token className = parser.previous;
-  const uint8_t nameConstant = identifierConstant(&parser.previous);
+  const uint16_t nameConstant = identifierConstant(&parser.previous);
   declareVariable();
 
-  emitBytes(OP_CLASS, nameConstant);
+  if (nameConstant <= UINT8_MAX) {
+    emitBytes(OP_CLASS, (uint8_t)nameConstant);
+  } else {
+    emitByte(OP_CLASS_16);
+    emitBytes(((nameConstant >> 8) & 0xff), (nameConstant & 0xff));
+  }
   defineVariable(nameConstant);
 
   ClassCompiler classCompiler;
@@ -912,7 +1093,7 @@ static void classDeclaration() {
 }
 
 static void fnDeclaration() {
-  const uint8_t global = parseVariable("Expected function name");
+  const uint16_t global = parseVariable("Expected function name");
   markInitialized();
   function(TYPE_FUNCTION);
   defineVariable(global);
@@ -1003,7 +1184,7 @@ static void collectionIndex(const bool canAssign) {
 }
 
 static void varDeclaration() {
-  const uint8_t global = parseVariable("Expected Variable Name.");
+  const uint16_t global = parseVariable("Expected Variable Name.");
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -1023,6 +1204,9 @@ static void expressionStatement() {
 static void whileStatement() {
   beginScope();
   const int loopStart = currentChunk()->count;
+
+  pushLoopContext(LOOP_WHILE, loopStart);
+
   expression();
   const int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
@@ -1034,6 +1218,7 @@ static void whileStatement() {
   patchJump(exitJump);
   emitByte(OP_POP);
 
+  popLoopContext();
   endScope();
 }
 
@@ -1062,6 +1247,9 @@ static void forStatement() {
 
   const int bodyJump = emitJump(OP_JUMP);
   const int incrementStart = currentChunk()->count;
+
+  pushLoopContext(LOOP_FOR, incrementStart);
+
   expression();
   emitByte(OP_POP);
 
@@ -1078,6 +1266,7 @@ static void forStatement() {
     emitByte(OP_POP);
   }
 
+  popLoopContext();
   endScope();
 }
 
@@ -1163,7 +1352,6 @@ static void useStatement() {
   consume(TOKEN_FROM, "Expected 'from' after 'use' statement.");
   consume(TOKEN_STRING, "Expected string literal for module name");
 
-  // check if the module is native
   bool isNative = false;
   if (memcmp(parser.previous.start, "\"crux:", 6) == 0) {
     isNative = true;
@@ -1415,6 +1603,24 @@ static void matchExpression(bool canAssign) {
   endMatchScope();
 }
 
+static void continueStatement() {
+  consume(TOKEN_SEMICOLON, "Expected ';' after 'continue',");
+  const int continueTarget = getCurrentContinueTarget();
+  if (continueTarget == -1) {
+    return;
+  }
+  emitLoop(continueTarget);
+}
+
+static void breakStatement() {
+  consume(TOKEN_SEMICOLON, "Expected ';' after 'break'.");
+  if (current->loopDepth <= 0) {
+    compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
+    return;
+  }
+  addBreakJump(emitJump(OP_JUMP));
+}
+
 /**
  * Parses a declaration, which can be a variable, function, or class
  * declaration.
@@ -1456,6 +1662,10 @@ static void statement() {
     useStatement();
   } else if (match(TOKEN_GIVE)) {
     giveStatement();
+  } else if (match(TOKEN_BREAK)) {
+    breakStatement();
+  } else if (match(TOKEN_CONTINUE)) {
+    continueStatement();
   } else {
     expressionStatement();
   }

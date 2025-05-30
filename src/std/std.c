@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../memory.h"
+#include "../vm/vm_helpers.h"
 #include "array.h"
 #include "core.h"
 #include "error.h"
@@ -165,7 +166,7 @@ static const Callable fileSystemFunctions[] = {
     {"is_file_in", isFileInFunction, 2}};
 
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
-                          const CruxCallable methodFunction, int arity) {
+                          const CruxCallable methodFunction, const int arity) {
   ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
   if (!tableSet(vm, methodTable, name,
                 OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)))) {

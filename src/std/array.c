@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../memory.h"
+#include "../vm/vm_helpers.h"
 #include "array.h"
 
 ObjectResult *arrayPushMethod(VM *vm, int argCount, const Value *args) {
