@@ -1,7 +1,7 @@
 #include "tables.h"
 
-ObjectResult *tableValuesMethod(VM *vm, int argCount, Value *args) {
-  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectTable *table = AS_CRUX_TABLE(args[0]);
   ObjectArray *values = newArray(vm, table->size);
 
   if (values == NULL) {
@@ -17,7 +17,7 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount, Value *args) {
   uint16_t lastInsert = 0;
 
   for (uint16_t i = 0; i < table->capacity; i++) {
-    ObjectTableEntry entry = table->entries[i];
+    const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
       values->array[lastInsert] = entry.value;
       lastInsert++;
@@ -29,8 +29,8 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(values));
 }
 
-ObjectResult *tableKeysMethod(VM *vm, int argCount, Value *args) {
-  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
   ObjectArray *keys = newArray(vm, table->size);
 
@@ -47,7 +47,7 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount, Value *args) {
   uint16_t lastInsert = 0;
 
   for (uint16_t i = 0; i < table->capacity; i++) {
-    ObjectTableEntry entry = table->entries[i];
+    const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
       keys->array[lastInsert] = entry.key;
       lastInsert++;
@@ -59,8 +59,8 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(keys));
 }
 
-ObjectResult *tablePairsMethod(VM *vm, int argCount, Value *args) {
-  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
   ObjectArray *pairs = newArray(vm, table->size);
 
@@ -77,7 +77,7 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, Value *args) {
   uint16_t lastInsert = 0;
 
   for (uint16_t i = 0; i < table->capacity; i++) {
-    ObjectTableEntry entry = table->entries[i];
+    const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
       ObjectArray *pair = newArray(vm, 2);
 
@@ -105,7 +105,7 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(pairs));
 }
 
-ObjectResult *tableRemoveMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *tableRemoveMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - table
   // arg1 - key
   ObjectTable *table = AS_CRUX_TABLE(args[0]);
@@ -128,10 +128,10 @@ ObjectResult *tableRemoveMethod(VM *vm, int argCount, Value *args) {
                TYPE, false));
 }
 
-ObjectResult *tableGetMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *tableGetMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - table
   // arg1 - key
-  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   if (IS_CRUX_HASHABLE(key)) {
     Value value;
@@ -150,7 +150,7 @@ ObjectResult *tableGetMethod(VM *vm, int argCount, Value *args) {
                TYPE, false));
 }
 
-Value tableHasKeyMethod(VM *vm, int argCount, Value *args) {
+Value tableHasKeyMethod(VM *vm, int argCount, const Value *args) {
   // args[0] - table
   // args[1] - key
   ObjectTable *table = AS_CRUX_TABLE(args[0]);
@@ -162,11 +162,11 @@ Value tableHasKeyMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(false);
 }
 
-Value tableGetOrElseMethod(VM *vm, int argCount, Value *args) {
+Value tableGetOrElseMethod(VM *vm, int argCount, const Value *args) {
   // args[0] - table
   // args[1] - key
   // args[2] - default value
-  ObjectTable *table = AS_CRUX_TABLE(args[0]);
+  const ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   const Value defaultValue = args[2];
   if (IS_CRUX_HASHABLE(key)) {

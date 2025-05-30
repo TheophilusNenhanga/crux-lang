@@ -102,7 +102,7 @@ static uint32_t calculateCollectionCapacity(uint32_t n) {
  *
  * @return A 32-bit hash code for the Value.
  */
-static uint32_t hashValue(Value value) {
+static uint32_t hashValue(const Value value) {
   if (IS_CRUX_STRING(value)) {
     return AS_CRUX_STRING(value)->hash;
   }
@@ -110,7 +110,7 @@ static uint32_t hashValue(Value value) {
     return (uint32_t)AS_INT(value);
   }
   if (IS_FLOAT(value)) {
-    double num = AS_FLOAT(value);
+    const double num = AS_FLOAT(value);
     uint64_t bits;
     memcpy(&bits, &num, sizeof(bits));
     return (uint32_t)(bits ^ (bits >> 32));
@@ -124,7 +124,7 @@ static uint32_t hashValue(Value value) {
   return 0u;
 }
 
-void printType(Value value) {
+void printType(const Value value) {
   if (!IS_CRUX_OBJECT(value)) {
     printValue(value);
     return;
@@ -174,7 +174,7 @@ void printType(Value value) {
   }
 }
 
-ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver,
+ObjectBoundMethod *newBoundMethod(VM *vm, const Value receiver,
                                   ObjectClosure *method) {
   ObjectBoundMethod *bound =
       ALLOCATE_OBJECT(vm, ObjectBoundMethod, OBJECT_BOUND_METHOD);
@@ -227,8 +227,8 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function) {
  *
  * @return A pointer to the newly created and interned ObjectString.
  */
-static ObjectString *allocateString(VM *vm, char *chars, uint32_t length,
-                                    uint32_t hash) {
+static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length,
+                                    const uint32_t hash) {
   ObjectString *string = ALLOCATE_OBJECT(vm, ObjectString, OBJECT_STRING);
   string->length = length;
   string->chars = chars;
@@ -251,7 +251,7 @@ static ObjectString *allocateString(VM *vm, char *chars, uint32_t length,
  *
  * @return A 32-bit hash code for the string.
  */
-static inline uint32_t hashString(const char *key, size_t length) {
+static inline uint32_t hashString(const char *key, const size_t length) {
   static const uint32_t FNV_OFFSET_BIAS = 2166136261u;
   static const uint32_t FNV_PRIME = 16777619u;
 
@@ -263,8 +263,8 @@ static inline uint32_t hashString(const char *key, size_t length) {
   return hash;
 }
 
-ObjectString *copyString(VM *vm, const char *chars, uint32_t length) {
-  uint32_t hash = hashString(chars, length);
+ObjectString *copyString(VM *vm, const char *chars, const uint32_t length) {
+  const uint32_t hash = hashString(chars, length);
 
   ObjectString *interned = tableFindString(&vm->strings, chars, length, hash);
   if (interned != NULL)
@@ -286,7 +286,7 @@ ObjectString *copyString(VM *vm, const char *chars, uint32_t length) {
  *
  * @param function The ObjectFunction to print the name of.
  */
-static void printFunction(ObjectFunction *function) {
+static void printFunction(const ObjectFunction *function) {
   if (function->name == NULL) {
     printf("<script>");
     return;
@@ -294,7 +294,7 @@ static void printFunction(ObjectFunction *function) {
   printf("<fn %s>", function->name->chars);
 }
 
-void printObject(Value value) {
+void printObject(const Value value) {
   switch (OBJECT_TYPE(value)) {
   case OBJECT_CLASS: {
     printf("'%s' <class>", AS_CRUX_CLASS(value)->name->chars);
@@ -309,7 +309,7 @@ void printObject(Value value) {
     break;
   }
   case OBJECT_NATIVE_FUNCTION: {
-    ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
+    const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
     if (native->name != NULL) {
       printf("<native fn %s>", native->name->chars);
     } else {
@@ -318,7 +318,7 @@ void printObject(Value value) {
     break;
   }
   case OBJECT_NATIVE_METHOD: {
-    ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
+    const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
     if (native->name != NULL) {
       printf("<native method %s>", native->name->chars);
     } else {
@@ -327,7 +327,7 @@ void printObject(Value value) {
     break;
   }
   case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-    ObjectNativeInfallibleFunction *native =
+    const ObjectNativeInfallibleFunction *native =
         AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
     if (native->name != NULL) {
       printf("<native infallible fn %s>", native->name->chars);
@@ -388,8 +388,8 @@ void printObject(Value value) {
   }
 }
 
-ObjectString *takeString(VM *vm, char *chars, uint32_t length) {
-  uint32_t hash = hashString(chars, length);
+ObjectString *takeString(VM *vm, char *chars, const uint32_t length) {
+  const uint32_t hash = hashString(chars, length);
 
   ObjectString *interned = tableFindString(&vm->strings, chars, length, hash);
   if (interned != NULL) {
@@ -401,14 +401,14 @@ ObjectString *takeString(VM *vm, char *chars, uint32_t length) {
   return allocateString(vm, chars, length, hash);
 }
 
-ObjectString *toString(VM *vm, Value value) {
+ObjectString *toString(VM *vm, const Value value) {
   if (!IS_CRUX_OBJECT(value)) {
     char buffer[32];
     if (IS_FLOAT(value)) {
-      double num = AS_FLOAT(value);
+      const double num = AS_FLOAT(value);
       snprintf(buffer, sizeof(buffer), "%g", num);
     } else if (IS_INT(value)) {
-      int32_t num = AS_INT(value);
+      const int32_t num = AS_INT(value);
       snprintf(buffer, sizeof(buffer), "%d", num);
     } else if (IS_BOOL(value)) {
       strcpy(buffer, AS_BOOL(value) ? "true" : "false");
@@ -423,21 +423,21 @@ ObjectString *toString(VM *vm, Value value) {
     return AS_CRUX_STRING(value);
 
   case OBJECT_FUNCTION: {
-    ObjectFunction *function = AS_CRUX_FUNCTION(value);
+    const ObjectFunction *function = AS_CRUX_FUNCTION(value);
     if (function->name == NULL) {
       return copyString(vm, "<script>", 8);
     }
     char buffer[64];
-    int length =
+    const int length =
         snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
     return copyString(vm, buffer, length);
   }
 
   case OBJECT_NATIVE_FUNCTION: {
-    ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
+    const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(value);
     if (native->name != NULL) {
-      char *start = "<native fn ";
-      char *end = ">";
+      const char *start = "<native fn ";
+      const char *end = ">";
       char *buffer = ALLOCATE(
           vm, char, strlen(start) + strlen(end) + native->name->length + 1);
       strcpy(buffer, start);
@@ -451,10 +451,10 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_NATIVE_METHOD: {
-    ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
+    const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
     if (native->name != NULL) {
-      char *start = "<native method ";
-      char *end = ">";
+      const char *start = "<native method ";
+      const char *end = ">";
       char *buffer = ALLOCATE(
           vm, char, strlen(start) + strlen(end) + native->name->length + 1);
       strcpy(buffer, start);
@@ -468,11 +468,11 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-    ObjectNativeInfallibleFunction *native =
+    const ObjectNativeInfallibleFunction *native =
         AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
     if (native->name != NULL) {
-      char *start = "<native infallible fn ";
-      char *end = ">";
+      const char *start = "<native infallible fn ";
+      const char *end = ">";
       char *buffer = ALLOCATE(
           vm, char, strlen(start) + strlen(end) + native->name->length + 1);
       strcpy(buffer, start);
@@ -486,11 +486,11 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-    ObjectNativeInfallibleMethod *native =
+    const ObjectNativeInfallibleMethod *native =
         AS_CRUX_NATIVE_INFALLIBLE_METHOD(value);
     if (native->name != NULL) {
-      char *start = "<native infallible method ";
-      char *end = ">";
+      const char *start = "<native infallible method ";
+      const char *end = ">";
       char *buffer = ALLOCATE(
           vm, char, strlen(start) + strlen(end) + native->name->length + 1);
       strcpy(buffer, start);
@@ -504,12 +504,12 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_CLOSURE: {
-    ObjectFunction *function = AS_CRUX_CLOSURE(value)->function;
+    const ObjectFunction *function = AS_CRUX_CLOSURE(value)->function;
     if (function->name == NULL) {
       return copyString(vm, "<script>", 8);
     }
     char buffer[256];
-    int length =
+    const int length =
         snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
     return copyString(vm, buffer, length);
   }
@@ -519,34 +519,34 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_CLASS: {
-    ObjectClass *klass = AS_CRUX_CLASS(value);
+    const ObjectClass *klass = AS_CRUX_CLASS(value);
     char buffer[256];
-    int length =
+    const int length =
         snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
     return copyString(vm, buffer, length);
   }
 
   case OBJECT_INSTANCE: {
-    ObjectInstance *instance = AS_CRUX_INSTANCE(value);
+    const ObjectInstance *instance = AS_CRUX_INSTANCE(value);
     char buffer[256];
-    int length = snprintf(buffer, sizeof(buffer), "%s <instance>",
-                          instance->klass->name->chars);
+    const int length = snprintf(buffer, sizeof(buffer), "%s <instance>",
+                                instance->klass->name->chars);
     return copyString(vm, buffer, length);
   }
 
   case OBJECT_BOUND_METHOD: {
-    ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(value);
+    const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(value);
     char buffer[256];
-    int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>",
-                          bound->method->function->name->chars);
+    const int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>",
+                                bound->method->function->name->chars);
     return copyString(vm, buffer, length);
   }
 
   case OBJECT_ARRAY: {
-    ObjectArray *array = AS_CRUX_ARRAY(value);
+    const ObjectArray *array = AS_CRUX_ARRAY(value);
     size_t bufSize = 2; // [] minimum
     for (int i = 0; i < array->size; i++) {
-      ObjectString *element = toString(vm, array->array[i]);
+      const ObjectString *element = toString(vm, array->array[i]);
       bufSize += element->length + 2; // element + ", "
     }
 
@@ -559,7 +559,7 @@ ObjectString *toString(VM *vm, Value value) {
         *ptr++ = ',';
         *ptr++ = ' ';
       }
-      ObjectString *element = toString(vm, array->array[i]);
+      const ObjectString *element = toString(vm, array->array[i]);
       memcpy(ptr, element->chars, element->length);
       ptr += element->length;
     }
@@ -570,12 +570,12 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_TABLE: {
-    ObjectTable *table = AS_CRUX_TABLE(value);
+    const ObjectTable *table = AS_CRUX_TABLE(value);
     size_t bufSize = 2; // {} minimum
     for (int i = 0; i < table->capacity; i++) {
       if (table->entries[i].isOccupied) {
-        ObjectString *k = toString(vm, table->entries[i].key);
-        ObjectString *v = toString(vm, table->entries[i].value);
+        const ObjectString *k = toString(vm, table->entries[i].key);
+        const ObjectString *v = toString(vm, table->entries[i].value);
         bufSize += k->length + v->length + 4; // key:value,
       }
     }
@@ -593,8 +593,8 @@ ObjectString *toString(VM *vm, Value value) {
         }
         first = false;
 
-        ObjectString *key = toString(vm, table->entries[i].key);
-        ObjectString *val = toString(vm, table->entries[i].value);
+        const ObjectString *key = toString(vm, table->entries[i].key);
+        const ObjectString *val = toString(vm, table->entries[i].value);
 
         memcpy(ptr, key->chars, key->length);
         ptr += key->length;
@@ -610,15 +610,15 @@ ObjectString *toString(VM *vm, Value value) {
   }
 
   case OBJECT_ERROR: {
-    ObjectError *error = AS_CRUX_ERROR(value);
+    const ObjectError *error = AS_CRUX_ERROR(value);
     char buffer[1024];
-    int length =
+    const int length =
         snprintf(buffer, sizeof(buffer), "<error: %s>", error->message->chars);
     return copyString(vm, buffer, length);
   }
 
   case OBJECT_RESULT: {
-    ObjectResult *result = AS_CRUX_RESULT(value);
+    const ObjectResult *result = AS_CRUX_RESULT(value);
     if (result->isOk) {
       return copyString(vm, "<Ok>", 4);
     }
@@ -656,8 +656,8 @@ ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
   return instance;
 }
 
-ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
-                                        int arity, ObjectString *name) {
+ObjectNativeFunction *newNativeFunction(VM *vm, const CruxCallable function,
+                                        const int arity, ObjectString *name) {
   ObjectNativeFunction *native =
       ALLOCATE_OBJECT(vm, ObjectNativeFunction, OBJECT_NATIVE_FUNCTION);
   native->function = function;
@@ -666,8 +666,8 @@ ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
   return native;
 }
 
-ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
-                                    ObjectString *name) {
+ObjectNativeMethod *newNativeMethod(VM *vm, const CruxCallable function,
+                                    const int arity, ObjectString *name) {
   ObjectNativeMethod *native =
       ALLOCATE_OBJECT(vm, ObjectNativeMethod, OBJECT_NATIVE_METHOD);
   native->function = function;
@@ -677,8 +677,8 @@ ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
 }
 
 ObjectNativeInfallibleFunction *
-newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
-                            ObjectString *name) {
+newNativeInfallibleFunction(VM *vm, const CruxInfallibleCallable function,
+                            const int arity, ObjectString *name) {
   ObjectNativeInfallibleFunction *native = ALLOCATE_OBJECT(
       vm, ObjectNativeInfallibleFunction, OBJECT_NATIVE_INFALLIBLE_FUNCTION);
   native->function = function;
@@ -688,8 +688,8 @@ newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
 }
 
 ObjectNativeInfallibleMethod *
-newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
-                          ObjectString *name) {
+newNativeInfallibleMethod(VM *vm, const CruxInfallibleCallable function,
+                          const int arity, ObjectString *name) {
   ObjectNativeInfallibleMethod *native = ALLOCATE_OBJECT(
       vm, ObjectNativeInfallibleMethod, OBJECT_NATIVE_INFALLIBLE_METHOD);
   native->function = function;
@@ -698,7 +698,7 @@ newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
   return native;
 }
 
-ObjectTable *newTable(VM *vm, int elementCount) {
+ObjectTable *newTable(VM *vm, const int elementCount) {
   ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
   table->capacity =
       elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
@@ -745,9 +745,9 @@ ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
  * @return A pointer to the ObjectTableEntry for the key, or a pointer to an
  * empty entry (possibly a tombstone) if the key is not found.
  */
-static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity,
-                                   Value key) {
-  uint32_t hash = hashValue(key);
+static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
+                                   const uint16_t capacity, const Value key) {
+  const uint32_t hash = hashValue(key);
   uint32_t index = hash & (capacity - 1);
   ObjectTableEntry *tombstone = NULL;
 
@@ -781,7 +781,7 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries, uint16_t capacity,
  * @return true if the capacity adjustment was successful, false otherwise
  * (e.g., memory allocation failure).
  */
-static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
+static bool adjustCapacity(VM *vm, ObjectTable *table, const int capacity) {
   ObjectTableEntry *entries = ALLOCATE(vm, ObjectTableEntry, capacity);
   if (entries == NULL) {
     return false;
@@ -796,7 +796,7 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
   table->size = 0;
 
   for (int i = 0; i < table->capacity; i++) {
-    ObjectTableEntry *entry = &table->entries[i];
+    const ObjectTableEntry *entry = &table->entries[i];
     if (!entry->isOccupied) {
       continue;
     }
@@ -815,7 +815,8 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, int capacity) {
   return true;
 }
 
-bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
+bool objectTableSet(VM *vm, ObjectTable *table, const Value key,
+                    const Value value) {
   if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
     const int capacity = GROW_CAPACITY(table->capacity);
     if (!adjustCapacity(vm, table, capacity))
@@ -841,7 +842,7 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value) {
   return true;
 }
 
-bool objectTableRemove(ObjectTable *table, Value key) {
+bool objectTableRemove(ObjectTable *table, const Value key) {
   if (!table) {
     return false;
   }
@@ -856,20 +857,22 @@ bool objectTableRemove(ObjectTable *table, Value key) {
   return true;
 }
 
-bool objectTableContainsKey(ObjectTable *table, Value key) {
+bool objectTableContainsKey(ObjectTable *table, const Value key) {
   if (!table) {
     return false;
   }
-  const ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  const ObjectTableEntry *entry =
+      findEntry(table->entries, table->capacity, key);
   return entry->isOccupied;
 }
 
-bool objectTableGet(ObjectTable *table, Value key, Value *value) {
+bool objectTableGet(const ObjectTable *table, const Value key, Value *value) {
   if (table->size == 0) {
     return false;
   }
 
-  const ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  const ObjectTableEntry *entry =
+      findEntry(table->entries, table->capacity, key);
   if (!entry->isOccupied) {
     return false;
   }
@@ -877,7 +880,7 @@ bool objectTableGet(ObjectTable *table, Value key, Value *value) {
   return true;
 }
 
-ObjectArray *newArray(VM *vm, uint32_t elementCount) {
+ObjectArray *newArray(VM *vm, const uint32_t elementCount) {
   ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
   array->capacity = calculateCollectionCapacity(elementCount);
   array->size = 0;
@@ -888,7 +891,7 @@ ObjectArray *newArray(VM *vm, uint32_t elementCount) {
   return array;
 }
 
-bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded) {
+bool ensureCapacity(VM *vm, ObjectArray *array, const uint32_t capacityNeeded) {
   if (capacityNeeded <= array->capacity) {
     return true;
   }
@@ -912,7 +915,8 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded) {
   return true;
 }
 
-bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value) {
+bool arraySet(VM *vm, const ObjectArray *array, const uint32_t index,
+              const Value value) {
   if (index >= array->size) {
     return false;
   }
@@ -923,7 +927,7 @@ bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value) {
   return true;
 }
 
-bool arrayGet(ObjectArray *array, uint32_t index, Value *value) {
+bool arrayGet(const ObjectArray *array, const uint32_t index, Value *value) {
   if (array == NULL) {
     return false;
   }
@@ -931,7 +935,8 @@ bool arrayGet(ObjectArray *array, uint32_t index, Value *value) {
   return true;
 }
 
-bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint32_t index) {
+bool arrayAdd(VM *vm, ObjectArray *array, const Value value,
+              const uint32_t index) {
   if (!ensureCapacity(vm, array, array->size + 1)) {
     return false;
   }
@@ -943,7 +948,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint32_t index) {
   return true;
 }
 
-bool arrayAddBack(VM *vm, ObjectArray *array, Value value) {
+bool arrayAddBack(VM *vm, ObjectArray *array, const Value value) {
   if (!ensureCapacity(vm, array, array->size + 1)) {
     return false;
   }
@@ -952,8 +957,8 @@ bool arrayAddBack(VM *vm, ObjectArray *array, Value value) {
   return true;
 }
 
-ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
-                      bool isPanic) {
+ObjectError *newError(VM *vm, ObjectString *message, const ErrorType type,
+                      const bool isPanic) {
   ObjectError *error = ALLOCATE_OBJECT(vm, ObjectError, OBJECT_ERROR);
   error->message = message;
   error->type = type;
@@ -961,7 +966,7 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
   return error;
 }
 
-ObjectResult *newOkResult(VM *vm, Value value) {
+ObjectResult *newOkResult(VM *vm, const Value value) {
   ObjectResult *result = ALLOCATE_OBJECT(vm, ObjectResult, OBJECT_RESULT);
   result->isOk = true;
   result->as.value = value;

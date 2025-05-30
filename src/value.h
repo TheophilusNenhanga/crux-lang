@@ -2,7 +2,6 @@
 #define VALUE_H
 
 #include "common.h"
-#include <string.h>
 
 typedef struct VM VM;
 typedef struct Object Object;
@@ -41,7 +40,7 @@ typedef uint64_t Value;
 #define INT_VAL(integer)                                                       \
   ((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
 
-static inline double valueToNum(Value value) {
+static inline double valueToNum(const Value value) {
   union {
     Value v;
     double d;
@@ -50,7 +49,7 @@ static inline double valueToNum(Value value) {
   return u.d;
 }
 
-static inline Value numToValue(double num) {
+static inline Value numToValue(const double num) {
   union {
     double d;
     Value v;

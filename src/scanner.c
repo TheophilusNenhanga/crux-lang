@@ -1,6 +1,5 @@
 #include "scanner.h"
 
-#include <math.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -48,7 +47,7 @@ static char peekNext() {
  * @param c The character to check
  * @return true if the character can start an identifier, false otherwise
  */
-static bool isIdentifierStarter(char c) {
+static bool isIdentifierStarter(const char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' ||
          c == '$';
 }
@@ -58,7 +57,7 @@ static bool isIdentifierStarter(char c) {
  * @param c The character to check
  * @return true if the character is alphabetic or underscore, false otherwise
  */
-static bool isAlpha(char c) {
+static bool isAlpha(const char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
@@ -67,7 +66,7 @@ static bool isAlpha(char c) {
  */
 static void skipWhitespace() {
   for (;;) {
-    char c = peek();
+    const char c = peek();
     switch (c) {
     case ' ':
     case '\r':
@@ -95,8 +94,8 @@ static void skipWhitespace() {
   }
 }
 
-static TokenType checkKeyword(int start, int length, char *rest,
-                              TokenType type) {
+static TokenType checkKeyword(const int start, const int length,
+                              const char *rest, const TokenType type) {
   if (scanner.current - scanner.start == start + length &&
       memcmp(scanner.start + start, rest, length) == 0) {
     return type;
@@ -223,7 +222,7 @@ void initScanner(const char *source) {
  * @param type The token type
  * @return The created token
  */
-static Token makeToken(TokenType type) {
+static Token makeToken(const TokenType type) {
   Token token;
   token.type = type;
   token.start = scanner.start;
@@ -252,7 +251,7 @@ static Token errorToken(const char *message) {
  * @param expected The character to match
  * @return true if the character matches, false otherwise
  */
-static bool match(char expected) {
+static bool match(const char expected) {
   if (isAtEnd())
     return false;
   if (*scanner.current != expected)
@@ -322,7 +321,7 @@ static Token doubleString() {
  * @param c The character to check
  * @return true if the character is a digit, false otherwise
  */
-static bool isDigit(char c) { return c >= '0' && c <= '9'; }
+static bool isDigit(const char c) { return c >= '0' && c <= '9'; }
 
 /**
  * Scans a numeric literal (integer or float).
@@ -360,7 +359,7 @@ Token scanToken() {
   if (isAtEnd())
     return makeToken(TOKEN_EOF);
 
-  char c = advance();
+  const char c = advance();
 
   if (isDigit(c))
     return number();

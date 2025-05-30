@@ -74,6 +74,7 @@ struct VM {
   Table tableType;
   Table errorType;
   Table fileType;
+  Table resultType;
 
   NativeModules nativeModules;
   MatchHandler matchHandler;
@@ -104,7 +105,7 @@ bool pushImportStack(VM *vm, ObjectString *path);
 
 void popImportStack(VM *vm);
 
-bool isInImportStack(VM *vm, const ObjectString *path);
+bool isInImportStack(const VM *vm, const ObjectString *path);
 
 ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
 

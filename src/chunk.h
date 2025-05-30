@@ -3,7 +3,6 @@
 
 #include "common.h"
 #include "value.h"
-#include "vm.h"
 
 typedef enum {
   OP_RETURN,

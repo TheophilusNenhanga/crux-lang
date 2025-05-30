@@ -21,7 +21,7 @@ static inline FILE *getChannel(const char *channel) {
 
 static inline void valuePrint(Value value, bool inCollection);
 
-static inline void printArray(ObjectArray *array) {
+static inline void printArray(const ObjectArray *array) {
   printf("[");
   for (int i = 0; i < array->size; i++) {
     valuePrint(array->array[i], true);
@@ -32,7 +32,7 @@ static inline void printArray(ObjectArray *array) {
   printf("]");
 }
 
-static inline void printTable(ObjectTable *table) {
+static inline void printTable(const ObjectTable *table) {
   uint16_t printed = 0;
   printf("{");
   for (int i = 0; i < table->capacity; i++) {
@@ -49,7 +49,7 @@ static inline void printTable(ObjectTable *table) {
   printf("}");
 }
 
-static inline void printResult(ObjectResult *result) {
+static inline void printResult(const ObjectResult *result) {
   if (result->isOk) {
     printf("Ok<");
     printType(result->as.value);
@@ -62,7 +62,7 @@ static inline void printResult(ObjectResult *result) {
   }
 }
 
-void valuePrint(Value value, bool inCollection) {
+void valuePrint(const Value value, bool inCollection) {
   if (IS_BOOL(value)) {
     printf(AS_BOOL(value) ? "true" : "false");
   } else if (IS_NIL(value)) {
@@ -90,18 +90,18 @@ void valuePrint(Value value, bool inCollection) {
 }
 
 // Standard I/O Functions
-Value printFunction(VM *vm, int argCount, Value *args) {
+Value printFunction(VM *vm, int argCount, const Value *args) {
   valuePrint(args[0], false);
   return NIL_VAL;
 }
 
-Value printlnFunction(VM *vm, int argCount, Value *args) {
+Value printlnFunction(VM *vm, const int argCount, const Value *args) {
   printFunction(vm, argCount, args);
   printf("\n");
   return NIL_VAL;
 }
 
-ObjectResult *printToFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *printToFunction(VM *vm, int argCount, const Value *args) {
 
   if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
     return newErrorResult(
@@ -129,9 +129,9 @@ ObjectResult *printToFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, BOOL_VAL(true));
 }
 
-ObjectResult *scanFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *scanFunction(VM *vm, int argCount, const Value *args) {
 
-  int ch = getchar();
+  const int ch = getchar();
   if (ch == EOF) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Error reading from stdin.", 25), IO,
@@ -142,11 +142,11 @@ ObjectResult *scanFunction(VM *vm, int argCount, Value *args) {
   while ((overflow = getchar()) != '\n' && overflow != EOF)
     ;
 
-  char str[2] = {ch, '\0'};
+  const char str[2] = {ch, '\0'};
   return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult *scanlnFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *scanlnFunction(VM *vm, int argCount, const Value *args) {
 
   char buffer[1024];
   if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
@@ -164,7 +164,7 @@ ObjectResult *scanlnFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult *scanFromFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *scanFromFunction(VM *vm, int argCount, const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -180,7 +180,7 @@ ObjectResult *scanFromFunction(VM *vm, int argCount, Value *args) {
                      VALUE, false));
   }
 
-  int ch = fgetc(stream);
+  const int ch = fgetc(stream);
   if (ch == EOF) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Error reading from stream.", 26), IO,
@@ -191,11 +191,11 @@ ObjectResult *scanFromFunction(VM *vm, int argCount, Value *args) {
   while ((overflow = fgetc(stream)) != '\n' && overflow != EOF)
     ;
 
-  char str[2] = {ch, '\0'};
+  const char str[2] = {ch, '\0'};
   return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult *scanlnFromFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *scanlnFromFunction(VM *vm, int argCount, const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -235,7 +235,7 @@ ObjectResult *scanlnFromFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult *nscanFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *nscanFunction(VM *vm, int argCount, const Value *args) {
 
   if (!IS_INT(args[0])) {
     return newErrorResult(
@@ -245,7 +245,7 @@ ObjectResult *nscanFunction(VM *vm, int argCount, Value *args) {
                  TYPE, false));
   }
 
-  int32_t n = AS_INT(args[0]);
+  const int32_t n = AS_INT(args[0]);
   if (n <= 0) {
     return newErrorResult(
         vm,
@@ -265,7 +265,7 @@ ObjectResult *nscanFunction(VM *vm, int argCount, Value *args) {
 
   size_t read = 0;
   while (read < n) {
-    int ch = getchar();
+    const int ch = getchar();
     if (ch == EOF) {
       FREE_ARRAY(vm, char, buffer, n + 1);
       return newErrorResult(
@@ -285,12 +285,12 @@ ObjectResult *nscanFunction(VM *vm, int argCount, Value *args) {
       ;
   }
 
-  Value string = OBJECT_VAL(copyString(vm, buffer, read));
+  const Value string = OBJECT_VAL(copyString(vm, buffer, read));
   FREE_ARRAY(vm, char, buffer, n + 1);
   return newOkResult(vm, string);
 }
 
-ObjectResult *nscanFromFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *nscanFromFunction(VM *vm, int argCount, const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -313,7 +313,7 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount, Value *args) {
                      VALUE, false));
   }
 
-  int32_t n = AS_INT(args[1]);
+  const int32_t n = AS_INT(args[1]);
   if (n <= 0) {
     return newErrorResult(
         vm,
@@ -333,7 +333,7 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount, Value *args) {
 
   size_t read = 0;
   while (read < n) {
-    int ch = fgetc(stream);
+    const int ch = fgetc(stream);
     if (ch == EOF) {
       FREE_ARRAY(vm, char, buffer, n + 1);
       return newErrorResult(
@@ -353,12 +353,12 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount, Value *args) {
       ;
   }
 
-  Value string = OBJECT_VAL(copyString(vm, buffer, read));
+  const Value string = OBJECT_VAL(copyString(vm, buffer, read));
   FREE_ARRAY(vm, char, buffer, n + 1);
   return newOkResult(vm, string);
 }
 
-ObjectResult *openFileFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *openFileFunction(VM *vm, int argCount, const Value *args) {
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
         vm, newError(
@@ -396,14 +396,14 @@ ObjectResult *openFileFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(file));
 }
 
-static bool isReadable(ObjectString *mode) {
+static bool isReadable(const ObjectString *mode) {
   return strcmp(mode->chars, "r") == 0 || strcmp(mode->chars, "rb") == 0 ||
          strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0 ||
          strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 ||
          strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0;
 }
 
-static bool isWritable(ObjectString *mode) {
+static bool isWritable(const ObjectString *mode) {
   return strcmp(mode->chars, "w") == 0 || strcmp(mode->chars, "wb") == 0 ||
          strcmp(mode->chars, "w+") == 0 || strcmp(mode->chars, "wb+") == 0 ||
          strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 ||
@@ -411,7 +411,7 @@ static bool isWritable(ObjectString *mode) {
          strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0;
 }
 
-static bool isAppendable(ObjectString *mode) {
+static bool isAppendable(const ObjectString *mode) {
   return strcmp(mode->chars, "a") == 0 || strcmp(mode->chars, "ab") == 0 ||
          strcmp(mode->chars, "a+") == 0 || strcmp(mode->chars, "ab+") == 0 ||
          strcmp(mode->chars, "r+") == 0 || strcmp(mode->chars, "rb+") == 0 ||
@@ -419,7 +419,7 @@ static bool isAppendable(ObjectString *mode) {
          strcmp(mode->chars, "rb") == 0;
 }
 
-ObjectResult *readlnFileMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *readlnFileMethod(VM *vm, int argCount, const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
@@ -449,7 +449,7 @@ ObjectResult *readlnFileMethod(VM *vm, int argCount, Value *args) {
 
   int readCount = 0;
   while (readCount < MAX_LINE_LENGTH) {
-    int ch = fgetc(file->file);
+    const int ch = fgetc(file->file);
     if (ch == EOF || ch == '\n') {
       break;
     }
@@ -460,8 +460,8 @@ ObjectResult *readlnFileMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, readCount)));
 }
 
-ObjectResult *readAllFileMethod(VM *vm, int argCount, Value *args) {
-  ObjectFile *file = AS_CRUX_FILE(args[0]);
+ObjectResult *readAllFileMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
         vm,
@@ -480,7 +480,7 @@ ObjectResult *readAllFileMethod(VM *vm, int argCount, Value *args) {
   }
 
   fseek(file->file, 0, SEEK_END);
-  long fileSize = ftell(file->file);
+  const long fileSize = ftell(file->file);
   fseek(file->file, 0, SEEK_SET);
 
   char *buffer = ALLOCATE(vm, char, fileSize + 1);
@@ -498,7 +498,7 @@ ObjectResult *readAllFileMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
 }
 
-ObjectResult *closeFileMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *closeFileMethod(VM *vm, int argCount, const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
@@ -517,7 +517,7 @@ ObjectResult *closeFileMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *writeFileMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *writeFileMethod(VM *vm, int argCount, const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
 
   if (file->file == NULL) {
@@ -544,14 +544,14 @@ ObjectResult *writeFileMethod(VM *vm, int argCount, Value *args) {
         newError(vm, copyString(vm, "File is not writable.", 21), IO, false));
   }
 
-  ObjectString *content = AS_CRUX_STRING(args[1]);
+  const ObjectString *content = AS_CRUX_STRING(args[1]);
 
   fwrite(content->chars, sizeof(char), content->length, file->file);
   file->position += content->length;
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *writelnFileMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *writelnFileMethod(VM *vm, int argCount, const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
 
   if (file->file == NULL) {
@@ -578,7 +578,7 @@ ObjectResult *writelnFileMethod(VM *vm, int argCount, Value *args) {
                  IO, false));
   }
 
-  ObjectString *content = AS_CRUX_STRING(args[1]);
+  const ObjectString *content = AS_CRUX_STRING(args[1]);
   fwrite(content->chars, sizeof(char), content->length, file->file);
   fwrite("\n", sizeof(char), 1, file->file);
   file->position += content->length + 1;

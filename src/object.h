@@ -191,8 +191,8 @@ struct ObjectResult {
   } as;
 };
 
-typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, Value *args);
+typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, const Value *args);
+typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, const Value *args);
 
 typedef struct {
   Object object;
@@ -267,7 +267,7 @@ struct ObjectModuleRecord {
 };
 
 
-static bool isObjectType(Value value, ObjectType type) {
+static bool isObjectType(const Value value, const ObjectType type) {
   return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
 }
 
@@ -605,8 +605,8 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(ObjectTable *table, Value key, Value *value);
-void markObjectTable(VM *vm, ObjectTable *table);
+bool objectTableGet(const ObjectTable *table, Value key, Value *value);
+void markObjectTable(VM *vm, const ObjectTable *table);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -638,7 +638,7 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * @return true if the value was set successfully (index within bounds), false
  * otherwise (index out of bounds).
  */
-bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value);
+bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
 
 /**
  * @brief Retrieves a value from an array at a specific index.
@@ -653,7 +653,7 @@ bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value);
  * @return true if the array is not NULL and the value was retrieved, false
  * otherwise (array is NULL).
  */
-bool arrayGet(ObjectArray *array, uint32_t index, Value *value);
+bool arrayGet(const ObjectArray *array, uint32_t index, Value *value);
 
 /**
  * @brief Adds a value to the end of an array.

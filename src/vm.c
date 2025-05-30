@@ -41,7 +41,7 @@ bool pushImportStack(VM *vm, ObjectString *path) {
   ImportStack *stack = &vm->importStack;
 
   if (stack->count + 1 > stack->capacity) { // resize
-    uint32_t oldCapacity = stack->capacity;
+    const uint32_t oldCapacity = stack->capacity;
     stack->capacity = GROW_CAPACITY(oldCapacity);
     stack->paths = GROW_ARRAY(vm, ObjectString *, stack->paths, oldCapacity,
                               stack->capacity);
@@ -72,8 +72,8 @@ static bool stringEquals(const ObjectString *a, const ObjectString *b) {
   return memcmp(a->chars, b->chars, a->length) == 0;
 }
 
-bool isInImportStack(VM *vm, const ObjectString *path) {
-  ImportStack *stack = &vm->importStack;
+bool isInImportStack(const VM *vm, const ObjectString *path) {
+  const ImportStack *stack = &vm->importStack;
   for (int i = 0; i < stack->count; i++) {
     if (stack->paths[i] == path || stringEquals(stack->paths[i], path)) {
       return true;
@@ -82,7 +82,7 @@ bool isInImportStack(VM *vm, const ObjectString *path) {
   return false;
 }
 
-VM *newVM(int argc, const char **argv) {
+VM *newVM(const int argc, const char **argv) {
   VM *vm = malloc(sizeof(VM));
   if (vm == NULL) {
     fprintf(stderr, "Fatal Error: Could not allocate memory for VM\n");
@@ -98,7 +98,7 @@ void resetStack(ObjectModuleRecord *moduleRecord) {
   moduleRecord->openUpvalues = NULL;
 }
 
-void push(ObjectModuleRecord *moduleRecord, Value value) {
+void push(ObjectModuleRecord *moduleRecord, const Value value) {
   *moduleRecord->stackTop = value;
   moduleRecord->stackTop++;
 }
@@ -113,7 +113,8 @@ static inline void popTwo(ObjectModuleRecord *moduleRecord) {
   pop(moduleRecord);
 }
 
-static inline void popPush(ObjectModuleRecord *moduleRecord, Value value) {
+static inline void popPush(ObjectModuleRecord *moduleRecord,
+                           const Value value) {
   pop(moduleRecord);
   push(moduleRecord, value);
 }
@@ -124,7 +125,8 @@ static inline void popPush(ObjectModuleRecord *moduleRecord, Value value) {
  * @param distance How far from the top of the stack to look (0 is the top)
  * @return The value at the specified distance from the top
  */
-static inline Value peek(const ObjectModuleRecord *moduleRecord, int distance) {
+static inline Value peek(const ObjectModuleRecord *moduleRecord,
+                         const int distance) {
   return moduleRecord->stackTop[-1 - distance];
 }
 
@@ -135,7 +137,7 @@ static inline Value peek(const ObjectModuleRecord *moduleRecord, int distance) {
  * @param argCount Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-static bool call(VM *vm, ObjectClosure *closure, int argCount) {
+static bool call(const VM *vm, ObjectClosure *closure, const int argCount) {
   if (argCount != closure->function->arity) {
     runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d arguments, got %d",
                  closure->function->arity, argCount);
@@ -163,14 +165,14 @@ static bool call(VM *vm, ObjectClosure *closure, int argCount) {
  * @param argCount Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-static bool callValue(VM *vm, Value callee, int argCount) {
+static bool callValue(VM *vm, const Value callee, const int argCount) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   if (IS_CRUX_OBJECT(callee)) {
     switch (OBJECT_TYPE(callee)) {
     case OBJECT_CLOSURE:
       return call(vm, AS_CRUX_CLOSURE(callee), argCount);
     case OBJECT_NATIVE_METHOD: {
-      ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(callee);
+      const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(callee);
       if (argCount != native->arity) {
         runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",
                      native->arity, argCount);
@@ -195,7 +197,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       return true;
     }
     case OBJECT_NATIVE_FUNCTION: {
-      ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(callee);
+      const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(callee);
       if (argCount != native->arity) {
         runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",
                      native->arity, argCount);
@@ -218,7 +220,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-      ObjectNativeInfallibleFunction *native =
+      const ObjectNativeInfallibleFunction *native =
           AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(callee);
       if (argCount != native->arity) {
         runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",
@@ -226,15 +228,15 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount,
-                                      currentModuleRecord->stackTop - argCount);
+      const Value result = native->function(
+          vm, argCount, currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
 
       push(currentModuleRecord, result);
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-      ObjectNativeInfallibleMethod *native =
+      const ObjectNativeInfallibleMethod *native =
           AS_CRUX_NATIVE_INFALLIBLE_METHOD(callee);
       if (argCount != native->arity) {
         runtimePanic(vm, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",
@@ -242,8 +244,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
         return false;
       }
 
-      Value result = native->function(vm, argCount,
-                                      currentModuleRecord->stackTop - argCount);
+      const Value result = native->function(
+          vm, argCount, currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
       push(currentModuleRecord, result);
       return true;
@@ -265,7 +267,7 @@ static bool callValue(VM *vm, Value callee, int argCount) {
       return true;
     }
     case OBJECT_BOUND_METHOD: {
-      ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
+      const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
       currentModuleRecord->stackTop[-argCount - 1] = bound->receiver;
       return call(vm, bound->method, argCount);
     }
@@ -285,8 +287,8 @@ static bool callValue(VM *vm, Value callee, int argCount) {
  * @param argCount Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
-                            int argCount) {
+static bool invokeFromClass(const VM *vm, const ObjectClass *klass,
+                            ObjectString *name, const int argCount) {
   Value method;
   if (tableGet(&klass->methods, name, &method)) {
     return call(vm, AS_CRUX_CLOSURE(method), argCount);
@@ -295,8 +297,8 @@ static bool invokeFromClass(VM *vm, ObjectClass *klass, ObjectString *name,
   return false;
 }
 
-static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
-                         Value value) {
+static bool handleInvoke(VM *vm, const int argCount, const Value receiver,
+                         const Value original, const Value value) {
   // Save original stack order
   vm->currentModuleRecord->stackTop[-argCount - 1] = value;
   vm->currentModuleRecord->stackTop[-argCount] = receiver;
@@ -307,7 +309,7 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
 
   // restore the caller and put the result in the right place
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value result = pop(currentModuleRecord);
+  const Value result = pop(currentModuleRecord);
   push(currentModuleRecord, original);
   push(currentModuleRecord, result);
   return true;
@@ -322,8 +324,8 @@ static bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
  */
 static bool invoke(VM *vm, ObjectString *name, int argCount) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value receiver = peek(currentModuleRecord, argCount);
-  Value original =
+  const Value receiver = peek(currentModuleRecord, argCount);
+  const Value original =
       peek(currentModuleRecord, argCount + 1); // Store the original caller
 
   if (!IS_CRUX_INSTANCE(receiver)) {
@@ -382,11 +384,20 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
       return false;
     }
 
+    if (IS_CRUX_RESULT(receiver)) {
+      Value value;
+      if (tableGet(&vm->resultType, name, &value)) {
+        return handleInvoke(vm, argCount, receiver, original, value);
+      }
+      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+      return false;
+    }
+
     runtimePanic(vm, TYPE, "Only instances have methods.");
     return false;
   }
 
-  ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
+  const ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
 
   Value value;
   if (tableGet(&instance->fields, name, &value)) {
@@ -399,7 +410,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
 
     // After the call, restore the original caller and put the result in the
     // right place
-    Value result = pop(currentModuleRecord);
+    const Value result = pop(currentModuleRecord);
     push(currentModuleRecord, original);
     push(currentModuleRecord, result);
     return true;
@@ -408,7 +419,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
   // For class methods, we need special handling
   if (invokeFromClass(vm, instance->klass, name, argCount)) {
     // After the call, the result is already on the stack
-    Value result = pop(currentModuleRecord);
+    const Value result = pop(currentModuleRecord);
     push(currentModuleRecord, original);
     push(currentModuleRecord, result);
     return true;
@@ -424,7 +435,7 @@ static bool invoke(VM *vm, ObjectString *name, int argCount) {
  * @param name The name of the method to bind
  * @return true if the binding succeeds, false otherwise
  */
-static bool bindMethod(VM *vm, ObjectClass *klass, ObjectString *name) {
+static bool bindMethod(VM *vm, const ObjectClass *klass, ObjectString *name) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
@@ -492,7 +503,7 @@ static void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last) {
  */
 static void defineMethod(VM *vm, ObjectString *name) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value method = peek(currentModuleRecord, 0);
+  const Value method = peek(currentModuleRecord, 0);
   ObjectClass *klass = AS_CRUX_CLASS(peek(currentModuleRecord, 1));
   if (tableSet(vm, &klass->methods, name, method)) {
     pop(currentModuleRecord);
@@ -504,7 +515,7 @@ static void defineMethod(VM *vm, ObjectString *name) {
  * @param value The value to check
  * @return true if the value is falsy, false otherwise
  */
-bool isFalsy(Value value) {
+bool isFalsy(const Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value)) ||
          (IS_INT(value) && AS_INT(value) == 0) ||
          (IS_FLOAT(value) && AS_FLOAT(value) == 0.0);
@@ -517,8 +528,8 @@ bool isFalsy(Value value) {
  */
 static bool concatenate(VM *vm) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value b = peek(currentModuleRecord, 0);
-  Value a = peek(currentModuleRecord, 1);
+  const Value b = peek(currentModuleRecord, 0);
+  const Value a = peek(currentModuleRecord, 1);
 
   ObjectString *stringB;
   ObjectString *stringA;
@@ -543,7 +554,7 @@ static bool concatenate(VM *vm) {
     }
   }
 
-  uint64_t length = stringA->length + stringB->length;
+  const uint64_t length = stringA->length + stringB->length;
   char *chars = ALLOCATE(vm, char, length + 1);
 
   if (chars == NULL) {
@@ -562,7 +573,7 @@ static bool concatenate(VM *vm) {
   return true;
 }
 
-void initVM(VM *vm, int argc, const char **argv) {
+void initVM(VM *vm, const int argc, const char **argv) {
   vm->objects = NULL;
   vm->bytesAllocated = 0;
   vm->nextGC = 1024 * 1024;
@@ -594,6 +605,7 @@ void initVM(VM *vm, int argc, const char **argv) {
   initTable(&vm->errorType);
   initTable(&vm->randomType);
   initTable(&vm->fileType);
+  initTable(&vm->resultType);
   initTable(&vm->strings);
 
   vm->initString = NULL;
@@ -632,9 +644,11 @@ void freeVM(VM *vm) {
   freeTable(vm, &vm->tableType);
   freeTable(vm, &vm->errorType);
   freeTable(vm, &vm->randomType);
+  freeTable(vm, &vm->fileType);
+  freeTable(vm, &vm->resultType);
 
   for (int i = 0; i < vm->nativeModules.count; i++) {
-    NativeModule module = vm->nativeModules.modules[i];
+    const NativeModule module = vm->nativeModules.modules[i];
     freeTable(vm, module.names);
     FREE(vm, char, module.name);
     FREE(vm, Table, module.names);
@@ -659,15 +673,15 @@ void freeVM(VM *vm) {
  * @param operation The operation code to perform
  * @return true if the operation succeeds, false otherwise
  */
-static bool binaryOperation(VM *vm, OpCode operation) {
+static bool binaryOperation(VM *vm, const OpCode operation) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value b = peek(currentModuleRecord, 0);
-  Value a = peek(currentModuleRecord, 1);
+  const Value b = peek(currentModuleRecord, 0);
+  const Value a = peek(currentModuleRecord, 1);
 
-  bool aIsInt = IS_INT(a);
-  bool bIsInt = IS_INT(b);
-  bool aIsFloat = IS_FLOAT(a);
-  bool bIsFloat = IS_FLOAT(b);
+  const bool aIsInt = IS_INT(a);
+  const bool bIsInt = IS_INT(b);
+  const bool aIsFloat = IS_FLOAT(a);
+  const bool bIsFloat = IS_FLOAT(b);
 
   if (!((aIsInt || aIsFloat) && (bIsInt || bIsFloat))) {
     if (!(aIsInt || aIsFloat)) {
@@ -679,12 +693,12 @@ static bool binaryOperation(VM *vm, OpCode operation) {
   }
 
   if (aIsInt && bIsInt) {
-    int32_t intA = AS_INT(a);
-    int32_t intB = AS_INT(b);
+    const int32_t intA = AS_INT(a);
+    const int32_t intB = AS_INT(b);
 
     switch (operation) {
     case OP_ADD: {
-      int64_t result = (int64_t)intA + (int64_t)intB;
+      const int64_t result = (int64_t)intA + (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
         push(currentModuleRecord, INT_VAL((int32_t)result));
@@ -695,7 +709,7 @@ static bool binaryOperation(VM *vm, OpCode operation) {
       break;
     }
     case OP_SUBTRACT: {
-      int64_t result = (int64_t)intA - (int64_t)intB;
+      const int64_t result = (int64_t)intA - (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
         push(currentModuleRecord, INT_VAL((int32_t)result));
@@ -706,7 +720,7 @@ static bool binaryOperation(VM *vm, OpCode operation) {
       break;
     }
     case OP_MULTIPLY: {
-      int64_t result = (int64_t)intA * (int64_t)intB;
+      const int64_t result = (int64_t)intA * (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
         push(currentModuleRecord, INT_VAL((int32_t)result));
@@ -802,8 +816,8 @@ static bool binaryOperation(VM *vm, OpCode operation) {
       return false;
     }
   } else {
-    double doubleA = aIsFloat ? AS_FLOAT(a) : (double)AS_INT(a);
-    double doubleB = bIsFloat ? AS_FLOAT(b) : (double)AS_INT(b);
+    const double doubleA = aIsFloat ? AS_FLOAT(a) : (double)AS_INT(a);
+    const double doubleB = bIsFloat ? AS_FLOAT(b) : (double)AS_INT(b);
 
     switch (operation) {
     case OP_ADD:
@@ -869,7 +883,7 @@ static bool binaryOperation(VM *vm, OpCode operation) {
 }
 
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
-                                        OpCode opcode, char *operation) {
+                                        const OpCode opcode, char *operation) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   Value currentValue;
   if (!tableGet(&currentModuleRecord->globals, name, &currentValue)) {
@@ -878,12 +892,12 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  Value operandValue = peek(currentModuleRecord, 0);
+  const Value operandValue = peek(currentModuleRecord, 0);
 
-  bool currentIsInt = IS_INT(currentValue);
-  bool currentIsFloat = IS_FLOAT(currentValue);
-  bool operandIsInt = IS_INT(operandValue);
-  bool operandIsFloat = IS_FLOAT(operandValue);
+  const bool currentIsInt = IS_INT(currentValue);
+  const bool currentIsFloat = IS_FLOAT(currentValue);
+  const bool operandIsInt = IS_INT(operandValue);
+  const bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
     if (!(currentIsInt || currentIsFloat)) {
@@ -900,13 +914,13 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
   Value resultValue;
 
   if (currentIsInt && operandIsInt) {
-    int32_t icurrent = AS_INT(currentValue);
-    int32_t ioperand = AS_INT(operandValue);
+    const int32_t icurrent = AS_INT(currentValue);
+    const int32_t ioperand = AS_INT(operandValue);
 
     switch (opcode) {
     case OP_SET_GLOBAL_PLUS: {
       // +=
-      int64_t result = (int64_t)icurrent + (int64_t)ioperand;
+      const int64_t result = (int64_t)icurrent + (int64_t)ioperand;
       if (result >= INT32_MIN && result <= INT32_MAX) {
         resultValue = INT_VAL((int32_t)result);
       } else {
@@ -915,7 +929,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
       break;
     }
     case OP_SET_GLOBAL_MINUS: {
-      int64_t result = (int64_t)icurrent - (int64_t)ioperand;
+      const int64_t result = (int64_t)icurrent - (int64_t)ioperand;
       if (result >= INT32_MIN && result <= INT32_MAX) {
         resultValue = INT_VAL((int32_t)result);
       } else {
@@ -924,7 +938,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
       break;
     }
     case OP_SET_GLOBAL_STAR: {
-      int64_t result = (int64_t)icurrent * (int64_t)ioperand;
+      const int64_t result = (int64_t)icurrent * (int64_t)ioperand;
       if (result >= INT32_MIN && result <= INT32_MAX) {
         resultValue = INT_VAL((int32_t)result);
       } else {
@@ -977,9 +991,9 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
       return INTERPRET_RUNTIME_ERROR;
     }
   } else {
-    double dcurrent =
+    const double dcurrent =
         currentIsFloat ? AS_FLOAT(currentValue) : (double)AS_INT(currentValue);
-    double doperand =
+    const double doperand =
         operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
     switch (opcode) {
@@ -1042,7 +1056,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
 static bool checkPreviousInstruction(const CallFrame *frame,
                                      const int instructionsAgo,
                                      const OpCode instruction) {
-  uint8_t *current = frame->ip;
+  const uint8_t *current = frame->ip;
   if (current - instructionsAgo < frame->closure->function->chunk.code) {
     return false;
   }
@@ -2514,7 +2528,7 @@ InterpretResult interpret(VM *vm, char *source) {
   push(currentModuleRecord, OBJECT_VAL(closure));
   call(vm, closure, 0);
 
-  InterpretResult result = run(vm, false);
+  const InterpretResult result = run(vm, false);
 
   return result;
 }
@@ -2528,10 +2542,10 @@ InterpretResult interpret(VM *vm, char *source) {
  * @param result result from executing function
  * @return
  */
-ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
-                                  InterpretResult *result) {
+ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
+                                  const int argCount, InterpretResult *result) {
 
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+  const ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   const uint32_t currentFrameCount = currentModuleRecord->frameCount;
   ObjectResult *errorResult =
       newErrorResult(vm, newError(vm, copyString(vm, "", 0), RUNTIME, true));

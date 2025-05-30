@@ -11,7 +11,8 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
-void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize) {
+void *reallocate(VM *vm, void *pointer, const size_t oldSize,
+                 const size_t newSize) {
   vm->bytesAllocated += newSize - oldSize;
   if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
@@ -55,7 +56,7 @@ void markObject(VM *vm, Object *object) {
   vm->grayStack[vm->grayCount++] = object;
 }
 
-void markValue(VM *vm, Value value) {
+void markValue(VM *vm, const Value value) {
   if (IS_CRUX_OBJECT(value)) {
     markObject(vm, AS_CRUX_OBJECT(value));
   }
@@ -70,7 +71,7 @@ void markValue(VM *vm, Value value) {
  * @param vm The virtual machine.
  * @param array The ValueArray whose elements should be marked.
  */
-void markArray(VM *vm, ValueArray *array) {
+void markArray(VM *vm, const ValueArray *array) {
   for (int i = 0; i < array->count; i++) {
     markValue(vm, array->values[i]);
   }
@@ -85,7 +86,7 @@ void markArray(VM *vm, ValueArray *array) {
  * @param vm The virtual machine.
  * @param array The ObjectArray whose elements should be marked.
  */
-void markObjectArray(VM *vm, ObjectArray *array) {
+void markObjectArray(VM *vm, const ObjectArray *array) {
   for (int i = 0; i < array->size; i++) {
     markValue(vm, array->array[i]);
   }
@@ -101,7 +102,7 @@ void markObjectArray(VM *vm, ObjectArray *array) {
  * @param vm The virtual machine.
  * @param table The ObjectTable whose entries should be marked.
  */
-void markObjectTable(VM *vm, ObjectTable *table) {
+void markObjectTable(VM *vm, const ObjectTable *table) {
   for (int i = 0; i < table->capacity; i++) {
     if (table->entries[i].isOccupied) {
       markValue(vm, table->entries[i].value);
@@ -129,7 +130,7 @@ static void blackenObject(VM *vm, Object *object) {
 
   switch (object->type) {
   case OBJECT_CLOSURE: {
-    ObjectClosure *closure = (ObjectClosure *)object;
+    const ObjectClosure *closure = (ObjectClosure *)object;
     markObject(vm, (Object *)closure->function);
     for (int i = 0; i < closure->upvalueCount; i++) {
       markObject(vm, (Object *)closure->upvalues[i]);
@@ -138,7 +139,7 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_FUNCTION: {
-    ObjectFunction *function = (ObjectFunction *)object;
+    const ObjectFunction *function = (ObjectFunction *)object;
     markObject(vm, (Object *)function->name);
     markObject(vm, (Object *)function->moduleRecord);
     markArray(vm, &function->chunk.constants);
@@ -151,72 +152,72 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_CLASS: {
-    ObjectClass *klass = (ObjectClass *)object;
+    const ObjectClass *klass = (ObjectClass *)object;
     markObject(vm, (Object *)klass->name);
     markTable(vm, &klass->methods);
     break;
   }
 
   case OBJECT_INSTANCE: {
-    ObjectInstance *instance = (ObjectInstance *)object;
+    const ObjectInstance *instance = (ObjectInstance *)object;
     markObject(vm, (Object *)instance->klass);
     markTable(vm, &instance->fields);
     break;
   }
 
   case OBJECT_BOUND_METHOD: {
-    ObjectBoundMethod *bound = (ObjectBoundMethod *)object;
+    const ObjectBoundMethod *bound = (ObjectBoundMethod *)object;
     markValue(vm, bound->receiver);
     markObject(vm, (Object *)bound->method);
     break;
   }
 
   case OBJECT_ARRAY: {
-    ObjectArray *array = (ObjectArray *)object;
+    const ObjectArray *array = (ObjectArray *)object;
     markObjectArray(vm, array);
     break;
   }
 
   case OBJECT_TABLE: {
-    ObjectTable *table = (ObjectTable *)object;
+    const ObjectTable *table = (ObjectTable *)object;
     markObjectTable(vm, table);
     break;
   }
 
   case OBJECT_ERROR: {
-    ObjectError *error = (ObjectError *)object;
+    const ObjectError *error = (ObjectError *)object;
     markObject(vm, (Object *)error->message);
     break;
   }
 
   case OBJECT_NATIVE_FUNCTION: {
-    ObjectNativeFunction *native = (ObjectNativeFunction *)object;
+    const ObjectNativeFunction *native = (ObjectNativeFunction *)object;
     markObject(vm, (Object *)native->name);
     break;
   }
 
   case OBJECT_NATIVE_METHOD: {
-    ObjectNativeMethod *native = (ObjectNativeMethod *)object;
+    const ObjectNativeMethod *native = (ObjectNativeMethod *)object;
     markObject(vm, (Object *)native->name);
     break;
   }
 
   case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-    ObjectNativeInfallibleFunction *native =
+    const ObjectNativeInfallibleFunction *native =
         (ObjectNativeInfallibleFunction *)object;
     markObject(vm, (Object *)native->name);
     break;
   }
 
   case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-    ObjectNativeInfallibleMethod *native =
+    const ObjectNativeInfallibleMethod *native =
         (ObjectNativeInfallibleMethod *)object;
     markObject(vm, (Object *)native->name);
     break;
   }
 
   case OBJECT_RESULT: {
-    ObjectResult *result = (ObjectResult *)object;
+    const ObjectResult *result = (ObjectResult *)object;
     if (result->isOk) {
       markValue(vm, result->as.value);
     } else {
@@ -233,21 +234,21 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_FILE: {
-    ObjectFile *file = (ObjectFile *)object;
+    const ObjectFile *file = (ObjectFile *)object;
     markObject(vm, (Object *)file->path);
     markObject(vm, (Object *)file->mode);
     break;
   }
 
   case OBJECT_MODULE_RECORD: {
-    ObjectModuleRecord *module = (ObjectModuleRecord *)object;
+    const ObjectModuleRecord *module = (ObjectModuleRecord *)object;
     markObject(vm, (Object *)module->path);
     markTable(vm, &module->globals);
     markTable(vm, &module->publics);
     markObject(vm, (Object *)module->moduleClosure);
     markObject(vm, (Object *)module->enclosingModule); // Can be NULL
 
-    for (Value *slot = module->stack; slot < module->stackTop; slot++) {
+    for (const Value *slot = module->stack; slot < module->stackTop; slot++) {
       markValue(vm, *slot);
     }
     for (int i = 0; i < module->frameCount; i++) {
@@ -284,7 +285,7 @@ static void freeObject(VM *vm, Object *object) {
 #endif
   switch (object->type) {
   case OBJECT_STRING: {
-    ObjectString *string = (ObjectString *)object;
+    const ObjectString *string = (ObjectString *)object;
     FREE_ARRAY(vm, char, string->chars, string->length + 1);
     FREE(vm, ObjectString, object);
     break;
@@ -312,7 +313,7 @@ static void freeObject(VM *vm, Object *object) {
     break;
   }
   case OBJECT_CLOSURE: {
-    ObjectClosure *closure = (ObjectClosure *)object;
+    const ObjectClosure *closure = (ObjectClosure *)object;
     FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues, closure->upvalueCount);
     FREE(vm, ObjectClosure, object);
     break;
@@ -339,7 +340,7 @@ static void freeObject(VM *vm, Object *object) {
   }
 
   case OBJECT_ARRAY: {
-    ObjectArray *array = (ObjectArray *)object;
+    const ObjectArray *array = (ObjectArray *)object;
     FREE_ARRAY(vm, Value, array->array, array->capacity);
     FREE(vm, ObjectArray, object);
     break;
@@ -368,7 +369,7 @@ static void freeObject(VM *vm, Object *object) {
   }
 
   case OBJECT_FILE: {
-    ObjectFile *file = (ObjectFile *)object;
+    const ObjectFile *file = (ObjectFile *)object;
     fclose(file->file);
     FREE(vm, ObjectFile, object);
     break;
@@ -393,7 +394,7 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
   markObject(vm, (Object *)moduleRecord->moduleClosure);
   markObject(vm, (Object *)moduleRecord->enclosingModule);
 
-  for (Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop;
+  for (const Value *slot = moduleRecord->stack; slot < moduleRecord->stackTop;
        slot++) {
     markValue(vm, *slot);
   }

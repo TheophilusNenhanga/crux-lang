@@ -13,7 +13,7 @@
  * @param chunk Pointer to the Chunk to disassemble
  * @param name Name of the chunk for identification in output
  */
-void disassembleChunk(Chunk *chunk, const char *name);
+void disassembleChunk(const Chunk *chunk, const char *name);
 
 /**
  * @brief Disassembles and prints a single bytecode instruction
@@ -30,7 +30,7 @@ void disassembleChunk(Chunk *chunk, const char *name);
  * @param offset The byte offset of the instruction to disassemble
  * @return The byte offset of the next instruction
  */
-int disassembleInstruction(Chunk *chunk, int offset);
+int disassembleInstruction(const Chunk *chunk, int offset);
 
 /**
  * @brief Dumps bytecode to a text file
@@ -42,6 +42,6 @@ int disassembleInstruction(Chunk *chunk, int offset);
  * @param name Name of the chunk for identification in output
  * @param file File pointer to write to (must be opened for writing)
  */
-void dumpBytecodeToFile(Chunk *chunk, const char *name, FILE *file);
+void dumpBytecodeToFile(const Chunk *chunk, const char *name, FILE *file);
 
 #endif // DEBUG_H

@@ -1,10 +1,11 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../memory.h"
 #include "array.h"
 
-ObjectResult *arrayPushMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayPushMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value toAdd = args[1];
 
@@ -17,7 +18,7 @@ ObjectResult *arrayPushMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayPopMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayPopMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (array->size == 0) {
@@ -35,7 +36,7 @@ ObjectResult *arrayPopMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, popped);
 }
 
-ObjectResult *arrayInsertMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayInsertMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[2])) {
@@ -72,7 +73,7 @@ ObjectResult *arrayInsertMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[1])) {
@@ -100,7 +101,7 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, removedElement);
 }
 
-ObjectResult *arrayConcatMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayConcatMethod(VM *vm, int argCount, const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_CRUX_ARRAY(args[1])) {
@@ -134,7 +135,7 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arraySliceMethod(VM *vm, int argCount, const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[1])) {
@@ -184,7 +185,7 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(slicedArray));
 }
 
-ObjectResult *arrayReverseMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayReverseMethod(VM *vm, int argCount, const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   Value *values = ALLOCATE(vm, Value, array->size);
@@ -211,8 +212,8 @@ ObjectResult *arrayReverseMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value target = args[1];
 
   for (uint32_t i = 0; i < array->size; i++) {
@@ -226,7 +227,7 @@ ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, Value *args) {
                VALUE, false));
 }
 
-Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
+Value arrayContainsMethod(VM *vm, int argCount, const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value target = args[1];
 
@@ -238,7 +239,7 @@ Value arrayContainsMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(false);
 }
 
-Value arrayClearMethod(VM *vm, int argCount, Value *args) {
+Value arrayClearMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   for (uint32_t i = 0; i < array->size; i++) {
@@ -249,7 +250,7 @@ Value arrayClearMethod(VM *vm, int argCount, Value *args) {
   return NIL_VAL;
 }
 
-Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
+Value arrayEqualsMethod(VM *vm, int argCount, const Value *args) {
   if (!IS_CRUX_ARRAY(args[1])) {
     return BOOL_VAL(false);
   }
@@ -270,10 +271,10 @@ Value arrayEqualsMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - array
   // arg1 - function
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
 
   if (!IS_CRUX_CLOSURE(args[1])) {
@@ -320,7 +321,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arrayFilterMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - array
   // arg1 - function
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
@@ -373,11 +374,11 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arrayReduceMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - array
   // arg1 - function
   // arg2 - initial value
-  ObjectArray *array = AS_CRUX_ARRAY(args[0]);
+  const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
 
   if (!IS_CRUX_CLOSURE(args[1])) {
@@ -465,8 +466,8 @@ static int compareValues(const Value a, const Value b) {
   }
 
   if (IS_CRUX_STRING(a) && IS_CRUX_STRING(b)) {
-    ObjectString *aStr = AS_CRUX_STRING(a);
-    ObjectString *bStr = AS_CRUX_STRING(b);
+    const ObjectString *aStr = AS_CRUX_STRING(a);
+    const ObjectString *bStr = AS_CRUX_STRING(b);
     return strcmp(aStr->chars, bStr->chars);
   }
 
@@ -500,7 +501,7 @@ static bool areAllElementsSortable(const ObjectArray *array) {
   return true;
 }
 
-static int partition(Value *arr, int low, int high) {
+static int partition(Value *arr, const int low, const int high) {
   const Value pivot = arr[high];
   int i = (low - 1);
 
@@ -518,7 +519,7 @@ static int partition(Value *arr, int low, int high) {
   return (i + 1);
 }
 
-static void quickSort(Value *arr, int low, int high) {
+static void quickSort(Value *arr, const int low, const int high) {
   if (low < high) {
     const int pi = partition(arr, low, high);
     quickSort(arr, low, pi - 1);
@@ -526,7 +527,7 @@ static void quickSort(Value *arr, int low, int high) {
   }
 }
 
-ObjectResult *arraySortMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - array
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
@@ -559,7 +560,7 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(sortedArray));
 }
 
-ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayJoinMethod(VM *vm, int argCount, const Value *args) {
   // arg0 - array
   // arg1 - separator string
 
@@ -581,14 +582,14 @@ ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
   }
 
   // estimate: 3 chars per element + separators
-  size_t bufferSize = array->size * 3 + (array->size > 1 ? (array->size - 1) * separator->length : 0);
+  size_t bufferSize =
+      array->size * 3 +
+      (array->size > 1 ? (array->size - 1) * separator->length : 0);
   char *buffer = malloc(bufferSize);
   if (!buffer) {
     return newErrorResult(
-        vm, newError(
-                vm,
-                copyString(vm, "Memory allocation failed", 24),
-                RUNTIME, false));
+        vm, newError(vm, copyString(vm, "Memory allocation failed", 24),
+                     RUNTIME, false));
   }
 
   size_t actualLength = 0;
@@ -603,15 +604,14 @@ ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
 
     if (actualLength + neededSpace > bufferSize) {
       // Grow the buffer by 50%
-      size_t newSize = (size_t)(((double) bufferSize * 1.5) + (double)neededSpace);
+      const size_t newSize =
+          (size_t)(((double)bufferSize * 1.5) + (double)neededSpace);
       char *newBuffer = realloc(buffer, newSize);
       if (!newBuffer) {
         free(buffer);
         return newErrorResult(
-            vm, newError(
-                    vm,
-                    copyString(vm, "Memory reallocation failed", 26),
-                    MEMORY, false));
+            vm, newError(vm, copyString(vm, "Memory reallocation failed", 26),
+                         MEMORY, false));
       }
       buffer = newBuffer;
       bufferSize = newSize;
@@ -624,7 +624,6 @@ ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
 
     memcpy(buffer + actualLength, element->chars, element->length);
     actualLength += element->length;
-
   }
 
   if (actualLength >= bufferSize) {
@@ -632,10 +631,8 @@ ObjectResult *arrayJoinMethod(VM *vm, int argCount, Value *args) {
     if (!newBuffer) {
       free(buffer);
       return newErrorResult(
-          vm, newError(
-                  vm,
-                  copyString(vm, "Memory reallocation failed", 26),
-                  MEMORY, false));
+          vm, newError(vm, copyString(vm, "Memory reallocation failed", 26),
+                       MEMORY, false));
     }
     buffer = newBuffer;
   }

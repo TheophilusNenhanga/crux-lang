@@ -6,7 +6,7 @@
 #include "../memory.h"
 #include "../object.h"
 
-static Value getLength(Value value) {
+static Value getLength(const Value value) {
   if (IS_CRUX_ARRAY(value)) {
     return INT_VAL(AS_CRUX_ARRAY(value)->size);
   }
@@ -19,9 +19,9 @@ static Value getLength(Value value) {
   return NIL_VAL;
 }
 
-ObjectResult *lengthFunction(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
-  Value length = getLength(value);
+ObjectResult *lengthFunction(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
+  const Value length = getLength(value);
   if (IS_NIL(length)) {
     return newErrorResult(
         vm, newError(vm,
@@ -34,8 +34,8 @@ ObjectResult *lengthFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, length);
 }
 
-Value lengthFunction_(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
+Value lengthFunction_(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
   return getLength(value);
 }
 
@@ -47,8 +47,8 @@ Value lengthFunction_(VM *vm, int argCount, Value *args) {
  * @param args Array of arguments
  * @return A string value representing the type
  */
-Value typeFunction_(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
+Value typeFunction_(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
 
   if (IS_INT(value)) {
     return OBJECT_VAL(copyString(vm, "int", 3));
@@ -112,15 +112,15 @@ Value typeFunction_(VM *vm, int argCount, Value *args) {
   return OBJECT_VAL(copyString(vm, "unknown", 7));
 }
 
-static Value castArray(VM *vm, Value *args, bool *success) {
-  Value value = args[0];
+static Value castArray(VM *vm, const Value *args, bool *success) {
+  const Value value = args[0];
 
   if (IS_CRUX_ARRAY(value)) {
     return value;
   }
 
   if (IS_CRUX_STRING(value)) {
-    ObjectString *string = AS_CRUX_STRING(value);
+    const ObjectString *string = AS_CRUX_STRING(value);
     ObjectArray *array = newArray(vm, string->length);
     for (int i = 0; i < string->length; i++) {
       if (!arrayAddBack(vm, array,
@@ -133,7 +133,7 @@ static Value castArray(VM *vm, Value *args, bool *success) {
   }
 
   if (IS_CRUX_TABLE(value)) {
-    ObjectTable *table = AS_CRUX_TABLE(value);
+    const ObjectTable *table = AS_CRUX_TABLE(value);
     ObjectArray *array = newArray(vm, table->size * 2);
     int index = 0;
     for (int i = 0; i < table->capacity; i++) {
@@ -156,26 +156,26 @@ static Value castArray(VM *vm, Value *args, bool *success) {
   return OBJECT_VAL(array);
 }
 
-static Value castTable(VM *vm, Value *args) {
-  Value value = args[0];
+static Value castTable(VM *vm, const Value *args) {
+  const Value value = args[0];
 
   if (IS_CRUX_TABLE(value)) {
     return value;
   }
 
   if (IS_CRUX_ARRAY(value)) {
-    ObjectArray *array = AS_CRUX_ARRAY(value);
+    const ObjectArray *array = AS_CRUX_ARRAY(value);
     ObjectTable *table = newTable(vm, (int)array->size);
     for (int i = 0; i < array->size; i++) {
-      Value k = INT_VAL(i);
-      Value v = array->array[i];
+      const Value k = INT_VAL(i);
+      const Value v = array->array[i];
       objectTableSet(vm, table, k, v);
     }
     return OBJECT_VAL(table);
   }
 
   if (IS_CRUX_STRING(value)) {
-    ObjectString *string = AS_CRUX_STRING(value);
+    const ObjectString *string = AS_CRUX_STRING(value);
     ObjectTable *table = newTable(vm, string->length);
     for (int i = 0; i < string->length; i++) {
       objectTableSet(vm, table, INT_VAL(i),
@@ -189,17 +189,17 @@ static Value castTable(VM *vm, Value *args) {
   return OBJECT_VAL(table);
 }
 
-static Value castInt(VM *vm, Value *args, bool *success) {
-  Value value = args[0];
+static Value castInt(VM *vm, const Value *args, bool *success) {
+  const Value value = args[0];
 
   if (IS_INT(value)) {
     return value;
   }
 
   if (IS_CRUX_STRING(value)) {
-    char *str = AS_C_STRING(value);
+    const char *str = AS_C_STRING(value);
     char *end;
-    double num = strtod(str, &end);
+    const double num = strtod(str, &end);
 
     // can check for overflow or underflow with errno
 
@@ -220,17 +220,17 @@ static Value castInt(VM *vm, Value *args, bool *success) {
   return NIL_VAL;
 }
 
-static Value castFloat(VM *vm, Value *args, bool *success) {
-  Value value = args[0];
+static Value castFloat(VM *vm, const Value *args, bool *success) {
+  const Value value = args[0];
 
   if (IS_INT(value)) {
     return value;
   }
 
   if (IS_CRUX_STRING(value)) {
-    char *str = AS_C_STRING(value);
+    const char *str = AS_C_STRING(value);
     char *end;
-    double num = strtod(str, &end);
+    const double num = strtod(str, &end);
 
     if (end != str) {
       return FLOAT_VAL(num);
@@ -249,9 +249,9 @@ static Value castFloat(VM *vm, Value *args, bool *success) {
   return NIL_VAL;
 }
 
-ObjectResult *intFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *intFunction(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  Value value = castInt(vm, args, &success);
+  const Value value = castInt(vm, args, &success);
   if (!success) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30),
@@ -260,9 +260,9 @@ ObjectResult *intFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, value);
 }
 
-ObjectResult *floatFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *floatFunction(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  Value value = castFloat(vm, args, &success);
+  const Value value = castFloat(vm, args, &success);
   if (!success) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30),
@@ -271,14 +271,14 @@ ObjectResult *floatFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, value);
 }
 
-ObjectResult *stringFunction(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
+ObjectResult *stringFunction(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
   return newOkResult(vm, OBJECT_VAL(toString(vm, value)));
 }
 
-ObjectResult *arrayFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *arrayFunction(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  Value array = castArray(vm, args, &success);
+  const Value array = castArray(vm, args, &success);
   if (!success) {
     return newErrorResult(
         vm,
@@ -288,33 +288,33 @@ ObjectResult *arrayFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(array));
 }
 
-ObjectResult *tableFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *tableFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, castTable(vm, args));
 }
 
-Value intFunction_(VM *vm, int argCount, Value *args) {
+Value intFunction_(VM *vm, int argCount, const Value *args) {
   bool success = true;
   return castInt(vm, args, &success);
 }
 
-Value floatFunction_(VM *vm, int argCount, Value *args) {
+Value floatFunction_(VM *vm, int argCount, const Value *args) {
   bool success = true;
   return castFloat(vm, args, &success);
 }
 
-Value stringFunction_(VM *vm, int argCount, Value *args) {
+Value stringFunction_(VM *vm, int argCount, const Value *args) {
   return OBJECT_VAL(toString(vm, args[0]));
 }
 
-Value arrayFunction_(VM *vm, int argCount, Value *args) {
+Value arrayFunction_(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  Value array = castArray(vm, args, &success);
+  const Value array = castArray(vm, args, &success);
   if (!success) {
     return NIL_VAL;
   }
   return OBJECT_VAL(array);
 }
 
-Value tableFunction_(VM *vm, int argCount, Value *args) {
+Value tableFunction_(VM *vm, int argCount, const Value *args) {
   return castTable(vm, args);
 }
