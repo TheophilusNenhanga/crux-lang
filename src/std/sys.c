@@ -4,6 +4,7 @@
 #include <windows.h>
 #endif
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef _WIN32
 #include <unistd.h>
