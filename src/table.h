@@ -53,7 +53,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
  * @param value Pointer to store the retrieved value.
  * @return true if the key was found, false otherwise.
  */
-bool tableGet(Table *table, ObjectString *key, Value *value);
+bool tableGet(const Table *table, const ObjectString *key, Value *value);
 
 /**
  * Removes a key-value pair from the table.
@@ -62,7 +62,7 @@ bool tableGet(Table *table, ObjectString *key, Value *value);
  * @param key String key to remove.
  * @return true if the key was found and removed, false otherwise.
  */
-bool tableDelete(Table *table, ObjectString *key);
+bool tableDelete(const Table *table, const ObjectString *key);
 
 /**
  * Copies all entries from one table to another.
@@ -71,7 +71,7 @@ bool tableDelete(Table *table, ObjectString *key);
  * @param from Source table to copy from.
  * @param to Destination table to copy to.
  */
-void tableAddAll(VM *vm, Table *from, Table *to);
+void tableAddAll(VM *vm, const Table *from, Table *to);
 
 /**
  * Finds a string in the table by its content and hash.
@@ -83,7 +83,7 @@ void tableAddAll(VM *vm, Table *from, Table *to);
  * @param hash Hash value of the string.
  * @return Pointer to the found string object, or NULL if not found.
  */
-ObjectString *tableFindString(Table *table, const char *chars, uint64_t length,
+ObjectString *tableFindString(const Table *table, const char *chars, uint64_t length,
                               uint32_t hash);
 
 /**
@@ -91,7 +91,7 @@ ObjectString *tableFindString(Table *table, const char *chars, uint64_t length,
  *
  * @param table Pointer to the table to clean up.
  */
-void tableRemoveWhite(Table *table);
+void tableRemoveWhite(const Table *table);
 
 /**
  * Marks all objects in the table as reachable during garbage collection.
@@ -99,6 +99,6 @@ void tableRemoveWhite(Table *table);
  * @param vm Pointer to the virtual machine.
  * @param table Pointer to the table to mark.
  */
-void markTable(VM *vm, Table *table);
+void markTable(VM *vm, const Table *table);
 
 #endif

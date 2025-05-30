@@ -22,7 +22,7 @@ typedef struct {
  * @param format Format string for the error message
  * @param ... Additional arguments based on the format string
  */
-void runtimePanic(VM *vm, ErrorType type, const char *format, ...);
+void runtimePanic(const VM *vm, ErrorType type, const char *format, ...);
 
 /**
  * Creates a formatted error message for type mismatches with actual type
@@ -37,7 +37,7 @@ char *typeErrorMessage(VM *vm, Value value, const char *expectedType);
 
 void printErrorLine(int line, const char *source, int startCol, int length);
 void compilerPanic(Parser *parser, const char *message, ErrorType errorType);
-void errorAt(Parser *parser, Token *token, const char *message,
+void errorAt(Parser *parser, const Token *token, const char *message,
              ErrorType errorType);
 
 // Helper function to repeat a character

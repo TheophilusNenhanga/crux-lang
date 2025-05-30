@@ -58,7 +58,7 @@ static void advance() {
   }
 }
 
-static void consume(TokenType type, const char *message) {
+static void consume(const TokenType type, const char *message) {
   if (parser.current.type == type) {
     advance();
     return;
@@ -66,20 +66,20 @@ static void consume(TokenType type, const char *message) {
   compilerPanic(&parser, message, SYNTAX);
 }
 
-static bool check(TokenType type) { return parser.current.type == type; }
+static bool check(const TokenType type) { return parser.current.type == type; }
 
-static bool match(TokenType type) {
+static bool match(const TokenType type) {
   if (!check(type))
     return false;
   advance();
   return true;
 }
 
-static void emitByte(uint8_t byte) {
+static void emitByte(const uint8_t byte) {
   writeChunk(current->owner, currentChunk(), byte, parser.previous.line);
 }
 
-static void emitBytes(uint8_t byte1, uint8_t byte2) {
+static void emitBytes(const uint8_t byte1, const uint8_t byte2) {
   emitByte(byte1);
   emitByte(byte2);
 }
@@ -88,10 +88,10 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
  * emits an OP_LOOP instruction
  * @param loopStart The starting point of the loop
  */
-static void emitLoop(int loopStart) {
+static void emitLoop(const int loopStart) {
   emitByte(OP_LOOP);
-  int offset = currentChunk()->count - loopStart +
-               2; // +2 takes into account the size of the OP_LOOP
+  const int offset = currentChunk()->count - loopStart +
+                     2; // +2 takes into account the size of the OP_LOOP
   if (offset > UINT16_MAX) {
     compilerPanic(&parser, "Loop body too large.", LOOP_EXTENT);
   }
@@ -106,7 +106,7 @@ static void emitLoop(int loopStart) {
  * @return The index of the jump instruction in the bytecode, used for patching
  * later.
  */
-static int emitJump(uint8_t instruction) {
+static int emitJump(const uint8_t instruction) {
   emitByte(instruction);
   emitBytes(0xff, 0xff);
   return currentChunk()->count - 2;
@@ -117,9 +117,9 @@ static int emitJump(uint8_t instruction) {
  *
  * @param offset The index of the jump instruction in the bytecode to patch.
  */
-static void patchJump(int offset) {
+static void patchJump(const int offset) {
   // -2 to adjust for the bytecode for the jump offset itself
-  int jump = currentChunk()->count - offset - 2;
+  const int jump = currentChunk()->count - offset - 2;
   if (jump > UINT16_MAX) {
     compilerPanic(&parser, "Too much code to jump over.", BRANCH_EXTENT);
   }
@@ -149,8 +149,8 @@ static void emitReturn() {
  * @param value The value to add as a constant.
  * @return The index of the constant in the constant pool.
  */
-static uint8_t makeConstant(Value value) {
-  int constant = addConstant(current->owner, currentChunk(), value);
+static uint8_t makeConstant(const Value value) {
+  const int constant = addConstant(current->owner, currentChunk(), value);
   // adds the given value to the end of the constant array, returns the index.
   if (constant > UINT8_MAX) {
     // Only 256 constants can be stored and loaded in a chunk.
@@ -167,7 +167,7 @@ static uint8_t makeConstant(Value value) {
  *
  * @param value The constant value to emit.
  */
-static void emitConstant(Value value) {
+static void emitConstant(const Value value) {
   emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
@@ -181,7 +181,7 @@ static void emitConstant(Value value) {
  * TYPE_SCRIPT).
  * @param vm The virtual machine instance.
  */
-static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
+static void initCompiler(Compiler *compiler, const FunctionType type, VM *vm) {
   compiler->enclosing = current;
   compiler->function = NULL;
   compiler->type = type;
@@ -221,7 +221,7 @@ static void initCompiler(Compiler *compiler, FunctionType type, VM *vm) {
  * @param name The token representing the identifier.
  * @return The index of the identifier constant in the constant pool.
  */
-static uint8_t identifierConstant(Token *name) {
+static uint8_t identifierConstant(const Token *name) {
   return makeConstant(
       OBJECT_VAL(copyString(current->owner, name->start, name->length)));
 }
@@ -261,7 +261,7 @@ static void endScope() {
  * @param b The second token.
  * @return true if the tokens represent the same identifier, false otherwise.
  */
-static bool identifiersEqual(Token *a, Token *b) {
+static bool identifiersEqual(const Token *a, const Token *b) {
   if (a->length != b->length)
     return false;
   return memcmp(a->start, b->start, a->length) == 0;
@@ -277,9 +277,9 @@ static bool identifiersEqual(Token *a, Token *b) {
  * @param name The token representing the variable name.
  * @return The index of the local variable if found, -1 otherwise.
  */
-static int resolveLocal(Compiler *compiler, Token *name) {
+static int resolveLocal(const Compiler *compiler, const Token *name) {
   for (int i = compiler->localCount - 1; i >= 0; i--) {
-    Local *local = &compiler->locals[i];
+    const Local *local = &compiler->locals[i];
     if (identifiersEqual(name, &local->name)) {
       if (local->depth == -1) {
         compilerPanic(
@@ -304,11 +304,12 @@ static int resolveLocal(Compiler *compiler, Token *name) {
  * @return The index of the added upvalue in the current function's upvalue
  * array.
  */
-static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
-  int upvalueCount = compiler->function->upvalueCount;
+static int addUpvalue(Compiler *compiler, const uint8_t index,
+                      const bool isLocal) {
+  const int upvalueCount = compiler->function->upvalueCount;
 
   for (int i = 0; i < upvalueCount; i++) {
-    Upvalue *upvalue = &compiler->upvalues[i];
+    const Upvalue *upvalue = &compiler->upvalues[i];
     if (upvalue->index == index && upvalue->isLocal == isLocal) {
       return i;
     }
@@ -339,13 +340,13 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
   if (compiler->enclosing == NULL)
     return -1;
 
-  int local = resolveLocal(compiler->enclosing, name);
+  const int local = resolveLocal(compiler->enclosing, name);
   if (local != -1) {
-    ((Compiler *)compiler->enclosing)->locals[local].isCaptured = true; //
+    (compiler->enclosing)->locals[local].isCaptured = true;
     return addUpvalue(compiler, (uint8_t)local, true);
   }
 
-  int upValue = resolveUpvalue(compiler->enclosing, name);
+  const int upValue = resolveUpvalue(compiler->enclosing, name);
   if (upValue != -1) {
     return addUpvalue(compiler, (uint8_t)upValue, false);
   }
@@ -358,7 +359,7 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
  *
  * @param name The token representing the name of the local variable.
  */
-static void addLocal(Token name) {
+static void addLocal(const Token name) {
   if (current->localCount == UINT8_COUNT) {
     compilerPanic(&parser, "Too many local variables in function.",
                   LOCAL_EXTENT);
@@ -381,10 +382,10 @@ static void declareVariable() {
   if (current->scopeDepth == 0)
     return;
 
-  Token *name = &parser.previous;
+  const Token *name = &parser.previous;
 
   for (int i = current->localCount - 1; i >= 0; i--) {
-    Local *local = &current->locals[i];
+    const Local *local = &current->locals[i];
     if (local->depth != -1 && local->depth < current->scopeDepth) {
       break;
     }
@@ -427,13 +428,13 @@ static uint8_t parseVariable(const char *errorMessage) {
  * Defines a variable, emitting the bytecode to store its value.
  *
  * If the variable is global, emits OP_DEFINE_GLOBAL. Otherwise, it's a local
- * variable and no bytecode is emitted at definition time (local variables are
+ * variable, and no bytecode is emitted at definition time (local variables are
  * implicitly defined when they are declared and initialized).
  *
  * @param global The index of the variable name constant in the constant pool
  * (for global variables).
  */
-static void defineVariable(uint8_t global) {
+static void defineVariable(const uint8_t global) {
   if (current->scopeDepth > 0) {
     markInitialized();
     return;
@@ -469,7 +470,7 @@ static uint8_t argumentList() {
  * assignment.
  */
 static void and_(bool canAssign) {
-  int endJump = emitJump(OP_JUMP_IF_FALSE);
+  const int endJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   parsePrecedence(PREC_AND);
 
@@ -483,8 +484,8 @@ static void and_(bool canAssign) {
  * assignment.
  */
 static void or_(bool canAssign) {
-  int elseJump = emitJump(OP_JUMP_IF_FALSE);
-  int endJump = emitJump(OP_JUMP);
+  const int elseJump = emitJump(OP_JUMP_IF_FALSE);
+  const int endJump = emitJump(OP_JUMP);
 
   patchJump(elseJump);
   emitByte(OP_POP);
@@ -533,8 +534,8 @@ static ObjectFunction *endCompiler() {
 }
 
 static void binary(bool canAssign) {
-  TokenType operatorType = parser.previous.type;
-  ParseRule *rule = getRule(operatorType);
+  const TokenType operatorType = parser.previous.type;
+  const ParseRule *rule = getRule(operatorType);
   parsePrecedence(rule->precedence + 1);
 
   switch (operatorType) {
@@ -590,7 +591,7 @@ static void binary(bool canAssign) {
 }
 
 static void call(bool canAssign) {
-  uint8_t argCount = argumentList();
+  const uint8_t argCount = argumentList();
   emitBytes(OP_CALL, argCount);
 }
 
@@ -622,15 +623,15 @@ static void literal(bool canAssign) {
  * @param canAssign Whether the dot expression can be the target of an
  * assignment.
  */
-static void dot(bool canAssign) {
+static void dot(const bool canAssign) {
   consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
-  uint8_t name = identifierConstant(&parser.previous);
+  const uint8_t name = identifierConstant(&parser.previous);
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
     emitBytes(OP_SET_PROPERTY, name);
   } else if (match(TOKEN_LEFT_PAREN)) {
-    uint8_t argCount = argumentList();
+    const uint8_t argCount = argumentList();
     emitBytes(OP_INVOKE, name);
     emitByte(argCount);
   } else {
@@ -652,7 +653,7 @@ static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
  * @param op The compound operation (e.g., COMPOUND_OP_PLUS, COMPOUND_OP_MINUS).
  * @return The corresponding compound opcode.
  */
-static OpCode getCompoundOpcode(OpCode setOp, CompoundOp op) {
+static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
   switch (setOp) {
   case OP_SET_LOCAL:
     switch (op) {
@@ -711,7 +712,7 @@ static OpCode getCompoundOpcode(OpCode setOp, CompoundOp op) {
  * @param canAssign Whether the variable expression can be the target of an
  * assignment.
  */
-static void namedVariable(Token name, bool canAssign) {
+static void namedVariable(Token name, const bool canAssign) {
   uint8_t getOp, setOp;
   int arg = resolveLocal(current, &name);
 
@@ -761,7 +762,7 @@ static void namedVariable(Token name, bool canAssign) {
   emitBytes(getOp, arg);
 }
 
-static void variable(bool canAssign) {
+static void variable(const bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
@@ -789,12 +790,12 @@ static void super_(bool canAssign) {
 
   consume(TOKEN_DOT, "Expected '.' after 'super'.");
   consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
-  uint8_t name = identifierConstant(&parser.previous);
+  const uint8_t name = identifierConstant(&parser.previous);
   namedVariable(syntheticToken("self"), false);
   namedVariable(syntheticToken("super"), false);
 
   if (match(TOKEN_LEFT_PAREN)) {
-    uint8_t argCount = argumentList();
+    const uint8_t argCount = argumentList();
     namedVariable(syntheticToken("super"), false);
     emitBytes(OP_SUPER_INVOKE, name);
     emitByte(argCount);
@@ -812,7 +813,7 @@ static void block() {
   consume(TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
-static void function(FunctionType type) {
+static void function(const FunctionType type) {
   Compiler compiler;
   initCompiler(&compiler, type, current->owner);
   beginScope();
@@ -826,7 +827,7 @@ static void function(FunctionType type) {
         compilerPanic(&parser, "Functions cannot have more than 255 arguments",
                       ARGUMENT_EXTENT);
       }
-      uint8_t constant = parseVariable("Expected parameter name");
+      const uint8_t constant = parseVariable("Expected parameter name");
       defineVariable(constant);
     } while (match(TOKEN_COMMA));
   }
@@ -847,7 +848,7 @@ static void function(FunctionType type) {
 static void method() {
   consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
   consume(TOKEN_IDENTIFIER, "Expected method name.");
-  uint8_t constant = identifierConstant(&parser.previous);
+  const uint8_t constant = identifierConstant(&parser.previous);
 
   FunctionType type = TYPE_METHOD;
 
@@ -863,8 +864,8 @@ static void method() {
 
 static void classDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expected class name");
-  Token className = parser.previous;
-  uint8_t nameConstant = identifierConstant(&parser.previous);
+  const Token className = parser.previous;
+  const uint8_t nameConstant = identifierConstant(&parser.previous);
   declareVariable();
 
   emitBytes(OP_CLASS, nameConstant);
@@ -911,7 +912,7 @@ static void classDeclaration() {
 }
 
 static void fnDeclaration() {
-  uint8_t global = parseVariable("Expected function name");
+  const uint8_t global = parseVariable("Expected function name");
   markInitialized();
   function(TYPE_FUNCTION);
   defineVariable(global);
@@ -929,7 +930,7 @@ static void anonymousFunction(bool canAssign) {
         compilerPanic(&parser, "Functions cannot have more than 255 arguments",
                       ARGUMENT_EXTENT);
       }
-      uint8_t constant = parseVariable("Expected parameter name");
+      const uint8_t constant = parseVariable("Expected parameter name");
       defineVariable(constant);
     } while (match(TOKEN_COMMA));
   }
@@ -989,7 +990,7 @@ static void tableLiteral(bool canAssign) {
  * @param canAssign Whether the collection index expression can be the target of
  * an assignment.
  */
-static void collectionIndex(bool canAssign) {
+static void collectionIndex(const bool canAssign) {
   expression();
   consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
 
@@ -1002,7 +1003,7 @@ static void collectionIndex(bool canAssign) {
 }
 
 static void varDeclaration() {
-  uint8_t global = parseVariable("Expected Variable Name.");
+  const uint8_t global = parseVariable("Expected Variable Name.");
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -1021,9 +1022,9 @@ static void expressionStatement() {
 
 static void whileStatement() {
   beginScope();
-  int loopStart = currentChunk()->count;
+  const int loopStart = currentChunk()->count;
   expression();
-  int exitJump = emitJump(OP_JUMP_IF_FALSE);
+  const int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
 
   statement();
@@ -1059,8 +1060,8 @@ static void forStatement() {
     emitByte(OP_POP); // condition
   }
 
-  int bodyJump = emitJump(OP_JUMP);
-  int incrementStart = currentChunk()->count;
+  const int bodyJump = emitJump(OP_JUMP);
+  const int incrementStart = currentChunk()->count;
   expression();
   emitByte(OP_POP);
 
@@ -1082,11 +1083,11 @@ static void forStatement() {
 
 static void ifStatement() {
   expression();
-  int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  const int thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
 
-  int elseJump = emitJump(OP_JUMP);
+  const int elseJump = emitJump(OP_JUMP);
   patchJump(thenJump);
   emitByte(OP_POP);
 
@@ -1145,7 +1146,7 @@ static void useStatement() {
       consume(TOKEN_AS, "Expected 'as' keyword.");
       consume(TOKEN_IDENTIFIER,
               "Expected name to alias import from external module.");
-      uint8_t alias = identifierConstant(&parser.previous);
+      const uint8_t alias = identifierConstant(&parser.previous);
       aliases[nameCount] = alias;
       aliasPresence[nameCount] = true;
     } else {
@@ -1372,7 +1373,7 @@ static void matchExpression(bool canAssign) {
     }
 
     if (jumpCount + 1 > jumpCapacity) {
-      int oldCapacity = jumpCapacity;
+      const int oldCapacity = jumpCapacity;
       jumpCapacity = GROW_CAPACITY(oldCapacity);
       endJumps =
           GROW_ARRAY(current->owner, int, endJumps, oldCapacity, jumpCapacity);
@@ -1476,7 +1477,7 @@ static void number(bool canAssign) {
   errno = 0;
 
   const char *numberStart = parser.previous.start;
-  double number = strtod(numberStart, &end);
+  const double number = strtod(numberStart, &end);
 
   if (end == numberStart) {
     compilerPanic(&parser, "Failed to form number", SYNTAX);
@@ -1496,8 +1497,8 @@ static void number(bool canAssign) {
   if (hasDecimalNotation) {
     emitConstant(FLOAT_VAL(number));
   } else {
-    int32_t integer = (int32_t) number;
-    if ((double) integer == number) {
+    const int32_t integer = (int32_t)number;
+    if ((double)integer == number) {
       emitConstant(INT_VAL(integer));
     } else {
       emitConstant(FLOAT_VAL(number));
@@ -1513,7 +1514,7 @@ static void number(bool canAssign) {
  * during processing.
  * @return The processed escaped character, or '\0' if an error occurred.
  */
-static char processEscapeSequence(char escape, bool *hasError) {
+static char processEscapeSequence(const char escape, bool *hasError) {
   *hasError = false;
   switch (escape) {
   case 'n':
@@ -1561,8 +1562,8 @@ static void string(bool canAssign) {
   }
 
   int processedLength = 0;
-  char *src = (char *)parser.previous.start + 1;
-  int srcLength = parser.previous.length - 2;
+  const char *src = (char *)parser.previous.start + 1;
+  const int srcLength = parser.previous.length - 2;
 
   if (srcLength == 0) {
     ObjectString *string = copyString(current->owner, "", 0);
@@ -1580,7 +1581,7 @@ static void string(bool canAssign) {
       }
 
       bool error;
-      char escaped = processEscapeSequence(src[i + 1], &error);
+      const char escaped = processEscapeSequence(src[i + 1], &error);
       if (error) {
         char errorMessage[64];
         snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'",
@@ -1634,7 +1635,7 @@ static void self(bool canAssign) {
  * assignment.
  */
 static void unary(bool canAssign) {
-  TokenType operatorType = parser.previous.type;
+  const TokenType operatorType = parser.previous.type;
 
   // compile the operand
   parsePrecedence(PREC_UNARY);
@@ -1719,20 +1720,20 @@ ParseRule rules[] = {
 starts at the current token and parses any expression at the given precedence or
 higher
 */
-static void parsePrecedence(Precedence precedence) {
+static void parsePrecedence(const Precedence precedence) {
   advance();
-  ParseFn prefixRule = getRule(parser.previous.type)->prefix;
+  const ParseFn prefixRule = getRule(parser.previous.type)->prefix;
   if (prefixRule == NULL) {
     compilerPanic(&parser, "Expected expression.", SYNTAX);
     return;
   }
 
-  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  const bool canAssign = precedence <= PREC_ASSIGNMENT;
   prefixRule(canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
-    ParseFn infixRule = getRule(parser.previous.type)->infix;
+    const ParseFn infixRule = getRule(parser.previous.type)->infix;
     infixRule(canAssign);
   }
 
@@ -1747,7 +1748,7 @@ static void parsePrecedence(Precedence precedence) {
  * @param type The token type to get the rule for.
  * @return A pointer to the ParseRule struct for the given token type.
  */
-static ParseRule *getRule(TokenType type) {
+static ParseRule *getRule(const TokenType type) {
   return &rules[type]; // Returns the rule at the given index
 }
 
@@ -1790,7 +1791,7 @@ ObjectFunction *compile(VM *vm, char *source) {
  * @param vm The virtual machine instance.
  */
 void markCompilerRoots(VM *vm) {
-  Compiler *compiler = current;
+  const Compiler *compiler = current;
   while (compiler != NULL) {
     markObject(vm, (Object *)compiler->function);
     compiler = (Compiler *)compiler->enclosing;

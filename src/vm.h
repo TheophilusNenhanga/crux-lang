@@ -7,6 +7,7 @@
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
+typedef struct ObjectResult ObjectResult;
 
 typedef enum {
   INTERPRET_OK,
@@ -73,6 +74,7 @@ struct VM {
   Table tableType;
   Table errorType;
   Table fileType;
+  Table resultType;
 
   NativeModules nativeModules;
   MatchHandler matchHandler;
@@ -90,9 +92,9 @@ void resetStack(ObjectModuleRecord* moduleRecord);
 
 InterpretResult interpret(VM *vm, char *source);
 
-void push(VM *vm, Value value);
+void push(ObjectModuleRecord* moduleRecord, Value value);
 
-Value pop(VM *vm);
+Value pop(ObjectModuleRecord* moduleRecord);
 
 void initImportStack(VM *vm);
 
@@ -103,6 +105,10 @@ bool pushImportStack(VM *vm, ObjectString *path);
 
 void popImportStack(VM *vm);
 
-bool isInImportStack(VM *vm, ObjectString *path);
+bool isInImportStack(const VM *vm, const ObjectString *path);
+
+ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
+
+bool isFalsy(Value value);
 
 #endif // VM_H

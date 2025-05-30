@@ -18,7 +18,7 @@ endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set(CMAKE_C_FLAGS_RELEASE "-O3")
-    set(CMAKE_C_FLAGS_RELEASE "-O3")
+	set(CMAKE_C_FLAGS_RELEASE "-O3")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Profile")
@@ -26,13 +26,13 @@ if (CMAKE_BUILD_TYPE STREQUAL "Profile")
 endif()
 
 file(GLOB SOURCES
-    "*.c"
-    "std/*.c"
+				"*.c"
+				"std/*.c"
 )
 
 file(GLOB HEADERS
-	  "*.h"
-	  "std/*.h"
+			"*.h"
+			"std/*.h"
 )
 
 add_executable(crux ${SOURCES} ${HEADERS})

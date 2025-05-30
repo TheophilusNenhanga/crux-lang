@@ -28,7 +28,7 @@ static void repl(VM *vm) {
  * - Exit code 70: Runtime error
  */
 static void runFile(VM *vm, const char *path) {
-  FileResult fileResult = readFile(path);
+  const FileResult fileResult = readFile(path);
   if (fileResult.error) {
     fprintf(stderr, "Error reading file: %s\n", fileResult.error);
     exit(2);

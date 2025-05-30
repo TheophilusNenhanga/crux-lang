@@ -5,7 +5,7 @@
 #include <string.h>
 
 /**
- * @brief Extracts the directory name from a file path
+ * @brief Extracts the directory name from a file path,
  *
  * Parses a file path and returns the directory portion.
  * Handles platform-specific path separators and edge cases.
@@ -14,7 +14,7 @@
  * @return Dynamically allocated string containing the directory name (caller
  * must free)
  */
-static char *dirName(char *path) {
+static char *dirName(const char *path) {
   if (path == NULL) {
     return NULL;
   }
@@ -83,7 +83,7 @@ static char *dirName(char *path) {
 }
 
 /**
- * @brief Gets the directory component from a path
+ * @brief Gets the directory component from a path,
  *
  * Creates a copy of the input path and uses dirName() to extract
  * the directory component. Handles memory management by making
@@ -138,9 +138,9 @@ static char *combinePaths(const char *base, const char *relative) {
     return strdup(relative);
   }
 
-  size_t baseLen = strlen(base);
-  size_t relativeLen = strlen(relative);
-  size_t totalLen = baseLen + 1 + relativeLen + 1; // +1 : '/' +1 '\0'
+  const size_t baseLen = strlen(base);
+  const size_t relativeLen = strlen(relative);
+  const size_t totalLen = baseLen + 1 + relativeLen + 1; // +1 : '/' +1 '\0'
 
   char *result = (char *)malloc(totalLen);
   if (result == NULL)
@@ -219,7 +219,7 @@ FileResult readFile(const char *path) {
   FILE *file = fopen(path, "rb");
 
   if (file == NULL) {
-    size_t errorLen = strlen(path) + 32;
+    const size_t errorLen = strlen(path) + 32;
     result.error = (char *)malloc(errorLen);
     if (result.error != NULL) {
       snprintf(result.error, errorLen, "Could not open file \"%s\"", path);
@@ -228,7 +228,7 @@ FileResult readFile(const char *path) {
   }
 
   fseek(file, 0L, SEEK_END);
-  size_t fileSize = ftell(file);
+  const size_t fileSize = ftell(file);
   rewind(file);
 
   result.content = (char *)malloc(fileSize + 1);
@@ -238,7 +238,7 @@ FileResult readFile(const char *path) {
     return result;
   }
 
-  size_t bytesRead = fread(result.content, 1, fileSize, file);
+  const size_t bytesRead = fread(result.content, 1, fileSize, file);
   if (bytesRead < fileSize) {
     free(result.content);
     result.content = NULL;
@@ -252,7 +252,7 @@ FileResult readFile(const char *path) {
   return result;
 }
 
-void freeFileResult(FileResult result) {
+void freeFileResult(const FileResult result) {
   free(result.content);
   free(result.error);
 }

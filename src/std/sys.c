@@ -9,17 +9,18 @@
 #include <unistd.h>
 #endif
 
-ObjectResult *argsFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *argsFunction(VM *vm, int argCount, const Value *args) {
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   ObjectArray *resultArray = newArray(vm, 2);
   ObjectArray *argvArray = newArray(vm, vm->args.argc);
-  push(vm, OBJECT_VAL(resultArray));
-  push(vm, OBJECT_VAL(argvArray));
+  push(currentModuleRecord, OBJECT_VAL(resultArray));
+  push(currentModuleRecord, OBJECT_VAL(argvArray));
 
   for (int i = 0; i < vm->args.argc; i++) {
     char *arg = strdup(vm->args.argv[i]);
     if (arg == NULL) {
-      pop(vm);
-      pop(vm);
+      pop(currentModuleRecord);
+      pop(currentModuleRecord);
       return newErrorResult(
           vm,
           newError(
@@ -33,13 +34,13 @@ ObjectResult *argsFunction(VM *vm, int argCount, Value *args) {
   arrayAddBack(vm, resultArray, INT_VAL(vm->args.argc));
   arrayAddBack(vm, resultArray, OBJECT_VAL(argvArray));
 
-  pop(vm);
-  pop(vm);
+  pop(currentModuleRecord);
+  pop(currentModuleRecord);
 
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-Value platformFunction(VM *vm, int argCount, Value *args) {
+Value platformFunction(VM *vm, int argCount, const Value *args) {
 #ifdef _WIN32
   return OBJECT_VAL(copyString(vm, "windows", 7));
 #endif
@@ -51,7 +52,7 @@ Value platformFunction(VM *vm, int argCount, Value *args) {
 #endif
 }
 
-Value archFunction(VM *vm, int argCount, Value *args) {
+Value archFunction(VM *vm, int argCount, const Value *args) {
 #if defined(__x86_64__) || defined(_M_X64)
   return OBJECT_VAL(copyString(vm, "x86_64", 6));
 #elif defined(__i386) || defined(_M_IX86)
@@ -83,7 +84,7 @@ Value archFunction(VM *vm, int argCount, Value *args) {
 #endif
 }
 
-Value pidFunction(VM *vm, int argCount, Value *args) {
+Value pidFunction(VM *vm, int argCount, const Value *args) {
 #ifdef _WIN32
   return INT_VAL(GetCurrentProcessId());
 #else
@@ -91,7 +92,7 @@ Value pidFunction(VM *vm, int argCount, Value *args) {
 #endif
 }
 
-ObjectResult *getEnvFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *getEnvFunction(VM *vm, int argCount, const Value *args) {
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
         vm,
@@ -122,7 +123,7 @@ ObjectResult *getEnvFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(valueString));
 }
 
-ObjectResult *sleepFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *sleepFunction(VM *vm, int argCount, const Value *args) {
   if (!IS_INT(args[0])) {
     return newErrorResult(
         vm,
@@ -139,11 +140,10 @@ ObjectResult *sleepFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, BOOL_VAL(true));
 }
 
-Value exitFunction(VM *vm, int argCount, Value *args) {
+Value exitFunction(VM *vm, int argCount, const Value *args) {
   if (!IS_INT(args[0])) {
     exit(1);
-  } else {
-    exit(AS_INT(args[0]));
   }
+  exit(AS_INT(args[0]));
   return BOOL_VAL(true);
 }

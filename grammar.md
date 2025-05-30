@@ -20,7 +20,7 @@ function        = "(" parameters ")" block ;
 
 parameters      = [ identifier { "," identifier } ] ;
 
-classDeclaration= "class" identifier [ "<" identifier ] "{" { method } "}" ;
+classDeclaration= "class" identifier [ ":" identifier ] "{" { method } "}" ;
 
 method          = "fn" identifier function ;
 

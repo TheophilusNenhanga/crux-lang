@@ -11,7 +11,7 @@ void initValueArray(ValueArray *array) {
   array->count = 0;
 }
 
-void writeValueArray(VM *vm, ValueArray *array, Value value) {
+void writeValueArray(VM *vm, ValueArray *array, const Value value) {
   if (array->capacity < array->count + 1) {
     const int oldCapacity = array->capacity;
     array->capacity = GROW_CAPACITY(oldCapacity);
@@ -28,7 +28,7 @@ void freeValueArray(VM *vm, ValueArray *array) {
   initValueArray(array);
 }
 
-void printValue(Value value) {
+void printValue(const Value value) {
   if (IS_BOOL(value)) {
     printf(AS_BOOL(value) ? "true" : "false");
   } else if (IS_NIL(value)) {
@@ -42,7 +42,7 @@ void printValue(Value value) {
   }
 }
 
-bool valuesEqual(Value a, Value b) {
+bool valuesEqual(const Value a, const Value b) {
   if (IS_INT(a) && IS_INT(b)) {
     return AS_INT(a) == AS_INT(b);
   }

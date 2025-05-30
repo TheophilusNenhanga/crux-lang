@@ -6,7 +6,7 @@
 
 #include "object.h"
 
-void disassembleChunk(Chunk *chunk, const char *name) {
+void disassembleChunk(const Chunk *chunk, const char *name) {
   printf("======= %s =======\n", name);
 
   for (int offset = 0; offset < chunk->count;) {
@@ -41,8 +41,9 @@ static int simpleInstruction(const char *name, const int offset) {
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 2)
  */
-static int byteInstruction(const char *name, Chunk *chunk, int offset) {
-  uint8_t slot = chunk->code[offset + 1];
+static int byteInstruction(const char *name, const Chunk *chunk,
+                           const int offset) {
+  const uint8_t slot = chunk->code[offset + 1];
   printf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
@@ -59,8 +60,8 @@ static int byteInstruction(const char *name, Chunk *chunk, int offset) {
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 3)
  */
-static int jumpInstruction(const char *name, int sign, Chunk *chunk,
-                           int offset) {
+static int jumpInstruction(const char *name, const int sign, const Chunk *chunk,
+                           const int offset) {
   uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
   jump |= chunk->code[offset + 2];
   printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
@@ -78,8 +79,9 @@ static int jumpInstruction(const char *name, int sign, Chunk *chunk,
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 2)
  */
-static int constantInstruction(const char *name, Chunk *chunk, int offset) {
-  uint8_t constant = chunk->code[offset + 1];    // Get the constant index
+static int constantInstruction(const char *name, const Chunk *chunk,
+                               const int offset) {
+  const uint8_t constant = chunk->code[offset + 1]; // Get the constant index
   printf("%-16s %4d '", name, constant);         // Print the name of the opcode
   printValue(chunk->constants.values[constant]); // print the constant's value
   printf("'\n");
@@ -97,9 +99,10 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset) {
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 3)
  */
-static int invokeInstruction(const char *name, Chunk *chunk, int offset) {
-  uint8_t constant = chunk->code[offset + 1];
-  uint8_t argCount = chunk->code[offset + 2];
+static int invokeInstruction(const char *name, const Chunk *chunk,
+                             const int offset) {
+  const uint8_t constant = chunk->code[offset + 1];
+  const uint8_t argCount = chunk->code[offset + 2];
   printf("%-16s (%d args) %4d '", name, argCount, constant);
   printValue(chunk->constants.values[constant]);
   printf("'\n");
@@ -131,9 +134,9 @@ static int fileSimpleInstruction(const char *name, const int offset,
  * @param file The file to write to
  * @return The offset of the next instruction (current offset + 2)
  */
-static int fileByteInstruction(const char *name, Chunk *chunk, int offset,
-                               FILE *file) {
-  uint8_t slot = chunk->code[offset + 1];
+static int fileByteInstruction(const char *name, const Chunk *chunk,
+                               const int offset, FILE *file) {
+  const uint8_t slot = chunk->code[offset + 1];
   fprintf(file, "%-16s %4d\n", name, slot);
   return offset + 2;
 }
@@ -148,8 +151,9 @@ static int fileByteInstruction(const char *name, Chunk *chunk, int offset,
  * @param file The file to write to
  * @return The offset of the next instruction (current offset + 3)
  */
-static int fileJumpInstruction(const char *name, int sign, Chunk *chunk,
-                               int offset, FILE *file) {
+static int fileJumpInstruction(const char *name, const int sign,
+                               const Chunk *chunk, const int offset,
+                               FILE *file) {
   uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
   jump |= chunk->code[offset + 2];
   fprintf(file, "%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
@@ -164,7 +168,7 @@ static int fileJumpInstruction(const char *name, int sign, Chunk *chunk,
  * @param value The value to write
  * @param file The file to write to
  */
-static void fileWriteValue(Value value, FILE *file) {
+static void fileWriteValue(const Value value, FILE *file) {
 
   if (IS_BOOL(value)) {
     fprintf(file, AS_BOOL(value) ? "true" : "false");
@@ -180,7 +184,7 @@ static void fileWriteValue(Value value, FILE *file) {
       fprintf(file, "%s", AS_C_STRING(value));
       break;
     case OBJECT_FUNCTION: {
-      ObjectFunction *function = AS_CRUX_FUNCTION(value);
+      const ObjectFunction *function = AS_CRUX_FUNCTION(value);
       if (function->name == NULL) {
         fprintf(file, "<script>");
       } else {
@@ -248,9 +252,9 @@ static void fileWriteValue(Value value, FILE *file) {
  * @param file The file to write to
  * @return The offset of the next instruction (current offset + 2)
  */
-static int fileConstantInstruction(const char *name, Chunk *chunk, int offset,
-                                   FILE *file) {
-  uint8_t constant = chunk->code[offset + 1];
+static int fileConstantInstruction(const char *name, const Chunk *chunk,
+                                   const int offset, FILE *file) {
+  const uint8_t constant = chunk->code[offset + 1];
   fprintf(file, "%-16s %4d '", name, constant);
   fileWriteValue(chunk->constants.values[constant], file);
   fprintf(file, "'\n");
@@ -266,10 +270,10 @@ static int fileConstantInstruction(const char *name, Chunk *chunk, int offset,
  * @param file The file to write to
  * @return The offset of the next instruction (current offset + 3)
  */
-static int fileInvokeInstruction(const char *name, Chunk *chunk, int offset,
-                                 FILE *file) {
-  uint8_t constant = chunk->code[offset + 1];
-  uint8_t argCount = chunk->code[offset + 2];
+static int fileInvokeInstruction(const char *name, const Chunk *chunk,
+                                 const int offset, FILE *file) {
+  const uint8_t constant = chunk->code[offset + 1];
+  const uint8_t argCount = chunk->code[offset + 2];
   fprintf(file, "%-16s (%d args) %4d '", name, argCount, constant);
   fileWriteValue(chunk->constants.values[constant], file);
   fprintf(file, "'\n");
@@ -284,7 +288,8 @@ static int fileInvokeInstruction(const char *name, Chunk *chunk, int offset,
  * @param file The file to write to
  * @return The byte offset of the next instruction
  */
-static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
+static int fileDisassembleInstruction(const Chunk *chunk, int offset,
+                                      FILE *file) {
   fprintf(file, "%04d", offset);
 
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -293,7 +298,7 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
     fprintf(file, "%4d ", chunk->lines[offset]);
   }
 
-  uint8_t instruction = chunk->code[offset];
+  const uint8_t instruction = chunk->code[offset];
 
   switch (instruction) {
   case OP_RETURN:
@@ -360,16 +365,16 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
     return fileByteInstruction("OP_SET_UPVALUE", chunk, offset, file);
   case OP_CLOSURE: {
     offset++;
-    uint8_t constant = chunk->code[offset++];
+    const uint8_t constant = chunk->code[offset++];
     fprintf(file, "%-16s %4d ", "OP_CLOSURE", constant);
     fileWriteValue(chunk->constants.values[constant], file);
     fprintf(file, "\n");
 
-    ObjectFunction *function =
+    const ObjectFunction *function =
         AS_CRUX_FUNCTION(chunk->constants.values[constant]);
     for (int j = 0; j < function->upvalueCount; j++) {
-      int isLocal = chunk->code[offset++];
-      int index = chunk->code[offset++];
+      const int isLocal = chunk->code[offset++];
+      const int index = chunk->code[offset++];
       fprintf(file, "%04d        |                %s %d\n", offset - 2,
               isLocal ? "local" : "upvalue", index);
     }
@@ -441,7 +446,7 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
   case OP_ANON_FUNCTION:
     return fileConstantInstruction("OP_ANON_FUNCTION", chunk, offset, file);
   case OP_USE_MODULE: {
-    uint8_t nameCount = chunk->code[offset + 1];
+    const uint8_t nameCount = chunk->code[offset + 1];
     fprintf(file, "%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
     fileWriteValue(chunk->constants.values[chunk->code[offset + nameCount + 2]],
                    file);
@@ -478,7 +483,7 @@ static int fileDisassembleInstruction(Chunk *chunk, int offset, FILE *file) {
   }
 }
 
-void dumpBytecodeToFile(Chunk *chunk, const char *name, FILE *file) {
+void dumpBytecodeToFile(const Chunk *chunk, const char *name, FILE *file) {
   fprintf(file, "======= %s =======\n", name);
 
   for (int offset = 0; offset < chunk->count;) {
@@ -486,7 +491,7 @@ void dumpBytecodeToFile(Chunk *chunk, const char *name, FILE *file) {
   }
 }
 
-int disassembleInstruction(Chunk *chunk, int offset) {
+int disassembleInstruction(const Chunk *chunk, int offset) {
   printf("%04d", offset); // Prints the byte offset of the given instruction
 
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -495,7 +500,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     printf("%4d ", chunk->lines[offset]);
   }
 
-  uint8_t instruction =
+  const uint8_t instruction =
       chunk->code[offset]; // read a single byte, that is the opcode
 
   switch (instruction) {
@@ -563,16 +568,16 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return byteInstruction("OP_SET_UPVALUE", chunk, offset);
   case OP_CLOSURE: {
     offset++;
-    uint8_t constant = chunk->code[offset++];
+    const uint8_t constant = chunk->code[offset++];
     printf("%-16s %4d ", "OP_CLOSURE", constant);
     printValue(chunk->constants.values[constant]);
     printf("\n");
 
-    ObjectFunction *function =
+    const ObjectFunction *function =
         AS_CRUX_FUNCTION(chunk->constants.values[constant]);
     for (int j = 0; j < function->upvalueCount; j++) {
-      int isLocal = chunk->code[offset++];
-      int index = chunk->code[offset++];
+      const int isLocal = chunk->code[offset++];
+      const int index = chunk->code[offset++];
       printf("%04d        |                %s %d\n", offset - 2,
              isLocal ? "local" : "upvalue", index);
     }
@@ -663,7 +668,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return constantInstruction("OP_ANON_FUNCTION", chunk, offset);
   }
   case OP_USE_MODULE: {
-    uint8_t nameCount = chunk->code[offset + 1];
+    const uint8_t nameCount = chunk->code[offset + 1];
     printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
     printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]]);
     printf("\n");

@@ -2,15 +2,15 @@
 
 #include "../memory.h"
 
-ObjectResult *errorFunction(VM *vm, int argCount, Value *args) {
-  Value message = args[0];
+ObjectResult *errorFunction(VM *vm, int argCount, const Value *args) {
+  const Value message = args[0];
   ObjectString *errorMessage = toString(vm, message);
   ObjectError *error = newError(vm, errorMessage, RUNTIME, false);
   return newOkResult(vm, OBJECT_VAL(error));
 }
 
-ObjectResult *panicFunction(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
+ObjectResult *panicFunction(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
 
   if (IS_CRUX_ERROR(value)) {
     ObjectError *error = AS_CRUX_ERROR(value);
@@ -22,7 +22,7 @@ ObjectResult *panicFunction(VM *vm, int argCount, Value *args) {
   return newErrorResult(vm, error);
 }
 
-ObjectResult *assertFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *assertFunction(VM *vm, int argCount, const Value *args) {
   if (!IS_BOOL(args[0])) {
     ObjectError *error = newError(
         vm,
@@ -40,7 +40,7 @@ ObjectResult *assertFunction(VM *vm, int argCount, Value *args) {
     return newErrorResult(vm, error);
   }
 
-  bool result = AS_BOOL(args[0]);
+  const bool result = AS_BOOL(args[0]);
   ObjectString *message = AS_CRUX_STRING(args[1]);
 
   if (result == false) {
@@ -51,14 +51,14 @@ ObjectResult *assertFunction(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *errorMessageMethod(VM *vm, int argCount, Value *args) {
-  ObjectError *error = AS_CRUX_ERROR(args[0]);
+ObjectResult *errorMessageMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectError *error = AS_CRUX_ERROR(args[0]);
 
   return newOkResult(vm, OBJECT_VAL(error->message));
 }
 
-ObjectResult *errorTypeMethod(VM *vm, int argCount, Value *args) {
-  ObjectError *error = AS_CRUX_ERROR(args[0]);
+ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectError *error = AS_CRUX_ERROR(args[0]);
 
   switch (error->type) {
   case SYNTAX: {
@@ -191,7 +191,7 @@ ObjectResult *errorTypeMethod(VM *vm, int argCount, Value *args) {
   }
 }
 
-ObjectResult *errFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *errFunction(VM *vm, int argCount, const Value *args) {
 
   if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
     return newErrorResult(vm, AS_CRUX_ERROR(args[0]));
@@ -202,6 +202,16 @@ ObjectResult *errFunction(VM *vm, int argCount, Value *args) {
   return newErrorResult(vm, error);
 }
 
-ObjectResult *okFunction(VM *vm, int argCount, Value *args) {
+ObjectResult *okFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, args[0]);
+}
+
+Value unwrapFunction(VM *vm, int argCount, const Value *args) {
+  // arg0 - Result
+
+  const ObjectResult *result = AS_CRUX_RESULT(args[0]);
+  if (result->isOk) {
+    return result->as.value;
+  }
+  return OBJECT_VAL(result->as.error);
 }

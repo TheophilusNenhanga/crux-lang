@@ -56,6 +56,8 @@
 #define AS_CRUX_MODULE_RECORD(value)                                           \
   ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 
+#define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
+
 typedef enum {
   OBJECT_STRING,
   OBJECT_FUNCTION,
@@ -180,17 +182,17 @@ typedef struct {
   bool isPanic;
 } ObjectError;
 
-typedef struct {
+struct ObjectResult {
   Object object;
   bool isOk;
   union {
     Value value;
     ObjectError *error;
   } as;
-} ObjectResult;
+};
 
-typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, Value *args);
+typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, const Value *args);
+typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, const Value *args);
 
 typedef struct {
   Object object;
@@ -265,7 +267,7 @@ struct ObjectModuleRecord {
 };
 
 
-static bool isObjectType(Value value, ObjectType type) {
+static bool isObjectType(const Value value, const ObjectType type) {
   return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
 }
 
@@ -603,8 +605,8 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(ObjectTable *table, Value key, Value *value);
-void markObjectTable(VM *vm, ObjectTable *table);
+bool objectTableGet(const ObjectTable *table, Value key, Value *value);
+void markObjectTable(VM *vm, const ObjectTable *table);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -636,7 +638,7 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * @return true if the value was set successfully (index within bounds), false
  * otherwise (index out of bounds).
  */
-bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value);
+bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
 
 /**
  * @brief Retrieves a value from an array at a specific index.
@@ -651,7 +653,7 @@ bool arraySet(VM *vm, ObjectArray *array, uint32_t index, Value value);
  * @return true if the array is not NULL and the value was retrieved, false
  * otherwise (array is NULL).
  */
-bool arrayGet(ObjectArray *array, uint32_t index, Value *value);
+bool arrayGet(const ObjectArray *array, uint32_t index, Value *value);
 
 /**
  * @brief Adds a value to the end of an array.
@@ -693,5 +695,32 @@ ObjectRandom *newRandom(VM *vm);
 ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode);
 
 ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path);
+
+/**
+ * @brief Removes a value from an object table.
+ *
+ * This function removes a value associated with a given key from an ObjectTable.
+ * It marks the entry as empty and decrements the table's size.
+ * verify that key is hashable before calling
+ * @param table The ObjectTable to modify.
+ * @param key The key associated with the value to remove.
+ *
+ * @return true if the value was removed successfully, false otherwise (e.g.,
+ * table is NULL or key is not found).
+ */
+bool objectTableRemove(ObjectTable *table, Value key);
+
+/**
+ * @brief Checks if a key exists in an object table.
+ *
+ * This function checks whether a given key exists in an ObjectTable.
+ * verify that key is hashable before calling
+ * @param table The ObjectTable to search.
+ * @param key The key to look for.
+ *
+ * @return true if the key exists, false otherwise (e.g., table is NULL or key
+ * is not found).
+ */
+bool objectTableContainsKey(ObjectTable *table, Value key);
 
 #endif

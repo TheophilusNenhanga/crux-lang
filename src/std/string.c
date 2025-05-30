@@ -4,7 +4,8 @@
 #include "../memory.h"
 #include "string.h"
 
-static inline void buildPrefixTable(const char *pattern, uint32_t patternLength,
+static inline void buildPrefixTable(const char *pattern,
+                                    const uint32_t patternLength,
                                     uint32_t *prefixTable) {
   uint32_t j = 0;
   prefixTable[0] = 0;
@@ -20,9 +21,9 @@ static inline void buildPrefixTable(const char *pattern, uint32_t patternLength,
   }
 }
 
-ObjectResult *stringFirstMethod(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
-  ObjectString *string = AS_CRUX_STRING(value);
+ObjectResult *stringFirstMethod(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
+  const ObjectString *string = AS_CRUX_STRING(value);
 
   if (string->length == 0) {
     return newErrorResult(
@@ -37,9 +38,9 @@ ObjectResult *stringFirstMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, &string->chars[0], 1)));
 }
 
-ObjectResult *stringLastMethod(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
-  ObjectString *string = AS_CRUX_STRING(value);
+ObjectResult *stringLastMethod(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
+  const ObjectString *string = AS_CRUX_STRING(value);
   if (string->length == 0) {
     return newErrorResult(
         vm, newError(vm,
@@ -53,16 +54,16 @@ ObjectResult *stringLastMethod(VM *vm, int argCount, Value *args) {
       vm, OBJECT_VAL(copyString(vm, &string->chars[string->length - 1], 1)));
 }
 
-ObjectResult *stringGetMethod(VM *vm, int argCount, Value *args) {
-  Value value = args[0];
-  Value index = args[1];
+ObjectResult *stringGetMethod(VM *vm, int argCount, const Value *args) {
+  const Value value = args[0];
+  const Value index = args[1];
   if (!IS_INT(index)) {
     return newErrorResult(
         vm,
         newError(vm, copyString(vm, "<index> must be of type 'number'.", 33),
                  TYPE, false));
   }
-  ObjectString *string = AS_CRUX_STRING(value);
+  const ObjectString *string = AS_CRUX_STRING(value);
   if (AS_INT(index) < 0 || (uint32_t)AS_INT(index) >= string->length) {
     return newErrorResult(
         vm, newError(vm,
@@ -89,8 +90,8 @@ ObjectResult *stringGetMethod(VM *vm, int argCount, Value *args) {
                              vm, &string->chars[(uint32_t)AS_INT(index)], 1)));
 }
 
-ObjectResult *stringUpperMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringUpperMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
 
   if (string->length == 0) {
     return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
@@ -115,8 +116,8 @@ ObjectResult *stringUpperMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
 }
 
-ObjectResult *stringLowerMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringLowerMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
 
   if (string->length == 0) {
     return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
@@ -135,8 +136,8 @@ ObjectResult *stringLowerMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, string->length)));
 }
 
-ObjectResult *stringStripMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringStripMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
 
   if (string->length == 0) {
     return newOkResult(vm, OBJECT_VAL(copyString(vm, "", 0)));
@@ -156,8 +157,8 @@ ObjectResult *stringStripMethod(VM *vm, int argCount, Value *args) {
       vm, OBJECT_VAL(copyString(vm, string->chars + start, end - start)));
 }
 
-ObjectResult *stringSubstringMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringSubstringMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
 
   if (!IS_INT(args[1])) {
     return newErrorResult(
@@ -172,8 +173,8 @@ ObjectResult *stringSubstringMethod(VM *vm, int argCount, Value *args) {
                  VALUE, false));
   }
 
-  int rawStartIndex = AS_INT(args[1]);
-  int rawEndIndex = AS_INT(args[2]);
+  const int rawStartIndex = AS_INT(args[1]);
+  const int rawEndIndex = AS_INT(args[2]);
 
   if (rawStartIndex < 0) {
     return newErrorResult(
@@ -187,8 +188,8 @@ ObjectResult *stringSubstringMethod(VM *vm, int argCount, Value *args) {
                      INDEX_OUT_OF_BOUNDS, false));
   }
 
-  uint32_t startIndex = (uint32_t)rawStartIndex;
-  uint32_t endIndex = (uint32_t)rawEndIndex;
+  const uint32_t startIndex = (uint32_t)rawStartIndex;
+  const uint32_t endIndex = (uint32_t)rawEndIndex;
 
   if (startIndex > string->length || endIndex > string->length ||
       startIndex > endIndex) {
@@ -197,13 +198,13 @@ ObjectResult *stringSubstringMethod(VM *vm, int argCount, Value *args) {
                      INDEX_OUT_OF_BOUNDS, false));
   }
 
-  char *substring = string->chars + startIndex;
+  const char *substring = string->chars + startIndex;
   ObjectString *newSubstring = copyString(vm, substring, endIndex - startIndex);
 
   return newOkResult(vm, OBJECT_VAL(newSubstring));
 }
 
-ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *stringSplitMethod(VM *vm, int argCount, const Value *args) {
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(
         vm, newError(
@@ -212,7 +213,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
   }
 
   ObjectString *string = AS_CRUX_STRING(args[0]);
-  ObjectString *delimiter = AS_CRUX_STRING(args[1]);
+  const ObjectString *delimiter = AS_CRUX_STRING(args[1]);
 
   if (delimiter->length == 0) {
     return newErrorResult(
@@ -232,8 +233,8 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
     return newOkResult(vm, OBJECT_VAL(resultArray));
   }
 
-  uint32_t stringLength = string->length;
-  uint32_t delimiterLength = delimiter->length;
+  const uint32_t stringLength = string->length;
+  const uint32_t delimiterLength = delimiter->length;
 
   uint32_t *prefixTable = ALLOCATE(vm, uint32_t, delimiterLength);
   if (prefixTable == NULL) {
@@ -262,7 +263,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
     }
 
     if (j == delimiterLength) {
-      uint32_t substringLength = i - lastSplitIndex - delimiterLength + 1;
+      const uint32_t substringLength = i - lastSplitIndex - delimiterLength + 1;
       ObjectString *substring =
           copyString(vm, string->chars + lastSplitIndex, substringLength);
       arrayAdd(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
@@ -275,7 +276,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
   }
 
   if (lastSplitIndex < stringLength) {
-    uint32_t substringLength = stringLength - lastSplitIndex;
+    const uint32_t substringLength = stringLength - lastSplitIndex;
     ObjectString *substring =
         copyString(vm, string->chars + lastSplitIndex, substringLength);
     arrayAdd(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
@@ -287,8 +288,8 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount, Value *args) {
 }
 
 // KMP string-matching algorithm
-ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringContainsMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
 
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(
@@ -297,7 +298,7 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
             vm, copyString(vm, "Argument 'goal' must be of type 'string'.", 41),
             TYPE, false));
   }
-  ObjectString *goal = AS_CRUX_STRING(args[1]);
+  const ObjectString *goal = AS_CRUX_STRING(args[1]);
 
   if (goal->length == 0) {
     return newOkResult(vm, BOOL_VAL(true));
@@ -311,8 +312,8 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
     return newOkResult(vm, BOOL_VAL(false));
   }
 
-  uint32_t stringLength = string->length;
-  uint32_t goalLength = goal->length;
+  const uint32_t stringLength = string->length;
+  const uint32_t goalLength = goal->length;
 
   uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
 
@@ -345,7 +346,7 @@ ObjectResult *stringContainsMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, BOOL_VAL(false));
 }
 
-ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
+ObjectResult *stringReplaceMethod(VM *vm, int argCount, const Value *args) {
   if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) ||
       !IS_CRUX_STRING(args[2])) {
     return newErrorResult(
@@ -354,8 +355,8 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
   }
 
   ObjectString *string = AS_CRUX_STRING(args[0]);
-  ObjectString *goal = AS_CRUX_STRING(args[1]);
-  ObjectString *replacement = AS_CRUX_STRING(args[2]);
+  const ObjectString *goal = AS_CRUX_STRING(args[1]);
+  const ObjectString *replacement = AS_CRUX_STRING(args[2]);
 
   if (string->length == 0 || goal->length == 0) {
     return newErrorResult(
@@ -376,9 +377,9 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
     return newOkResult(vm, OBJECT_VAL(string));
   }
 
-  uint32_t stringLength = string->length;
-  uint32_t goalLength = goal->length;
-  uint32_t replacementLength = replacement->length;
+  const uint32_t stringLength = string->length;
+  const uint32_t goalLength = goal->length;
+  const uint32_t replacementLength = replacement->length;
 
   uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
   if (prefixTable == NULL) {
@@ -418,8 +419,8 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
     return newOkResult(vm, OBJECT_VAL(string));
   }
 
-  int64_t lengthDiff = (int64_t)replacementLength - (int64_t)goalLength;
-  int64_t newLength_64 = (int64_t)stringLength + lengthDiff * matchCount;
+  const int64_t lengthDiff = (int64_t)replacementLength - (int64_t)goalLength;
+  const int64_t newLength_64 = (int64_t)stringLength + lengthDiff * matchCount;
 
   if (newLength_64 < 0 || newLength_64 > UINT32_MAX) {
     FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
@@ -430,7 +431,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
                  copyString(vm, "Resulting string length exceeds maximum.", 40),
                  VALUE, false));
   }
-  uint32_t newStringLength = (uint32_t)newLength_64;
+  const uint32_t newStringLength = (uint32_t)newLength_64;
 
   char *newStringChars = ALLOCATE(vm, char, newStringLength + 1);
   if (newStringChars == NULL) {
@@ -444,7 +445,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
   uint32_t writeIndex = 0;
   uint32_t lastCopyIndex = 0;
   for (uint32_t i = 0; i < matchCount; i++) {
-    uint32_t copyLength = matchIndices[i] - lastCopyIndex;
+    const uint32_t copyLength = matchIndices[i] - lastCopyIndex;
     memcpy(newStringChars + writeIndex, string->chars + lastCopyIndex,
            copyLength);
     writeIndex += copyLength;
@@ -455,7 +456,7 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
     lastCopyIndex = matchIndices[i] + goalLength;
   }
 
-  uint32_t remainingLength = stringLength - lastCopyIndex;
+  const uint32_t remainingLength = stringLength - lastCopyIndex;
   memcpy(newStringChars + writeIndex, string->chars + lastCopyIndex,
          remainingLength);
   writeIndex += remainingLength;
@@ -469,8 +470,8 @@ ObjectResult *stringReplaceMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, OBJECT_VAL(newString));
 }
 
-ObjectResult *stringStartsWithMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringStartsWithMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(
         vm,
@@ -480,7 +481,8 @@ ObjectResult *stringStartsWithMethod(VM *vm, int argCount, Value *args) {
                  TYPE, false));
   }
 
-  ObjectString *prefix = AS_CRUX_STRING(args[1]); // Renamed 'goal' to 'prefix'
+  const ObjectString *prefix =
+      AS_CRUX_STRING(args[1]); // Renamed 'goal' to 'prefix'
 
   if (prefix->length == 0) {
     return newOkResult(vm, BOOL_VAL(true));
@@ -500,8 +502,8 @@ ObjectResult *stringStartsWithMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, BOOL_VAL(false));
 }
 
-ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+ObjectResult *stringEndsWithMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(
         vm,
@@ -509,7 +511,7 @@ ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
                  copyString(vm, "First argument must be of type 'string'.", 40),
                  TYPE, false));
   }
-  ObjectString *suffix = AS_CRUX_STRING(args[1]);
+  const ObjectString *suffix = AS_CRUX_STRING(args[1]);
 
   if (suffix->length == 0) {
     return newOkResult(vm, BOOL_VAL(true));
@@ -522,7 +524,7 @@ ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
     return newOkResult(vm, BOOL_VAL(false));
   }
 
-  uint32_t stringStart = string->length - suffix->length;
+  const uint32_t stringStart = string->length - suffix->length;
 
   if (memcmp(string->chars + stringStart, suffix->chars, suffix->length) == 0) {
     return newOkResult(vm, BOOL_VAL(true));
@@ -530,8 +532,8 @@ ObjectResult *stringEndsWithMethod(VM *vm, int argCount, Value *args) {
   return newOkResult(vm, BOOL_VAL(false));
 }
 
-Value stringIsAlNumMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsAlNumMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!isalnum(string->chars[i])) {
       return BOOL_VAL(false);
@@ -540,8 +542,8 @@ Value stringIsAlNumMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsAlphaMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsAlphaMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!isalpha(string->chars[i])) {
       return BOOL_VAL(false);
@@ -550,8 +552,8 @@ Value stringIsAlphaMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsDigitMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsDigitMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!isdigit(string->chars[i])) {
       return BOOL_VAL(false);
@@ -560,8 +562,8 @@ Value stringIsDigitMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsLowerMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsLowerMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!islower(string->chars[i])) {
       return BOOL_VAL(false);
@@ -570,8 +572,8 @@ Value stringIsLowerMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsUpperMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsUpperMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!isupper(string->chars[i])) {
       return BOOL_VAL(false);
@@ -580,8 +582,8 @@ Value stringIsUpperMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsSpaceMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsSpaceMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   for (uint32_t i = 0; i < string->length; i++) {
     if (!isspace(string->chars[i])) {
       return BOOL_VAL(false);
@@ -590,7 +592,7 @@ Value stringIsSpaceMethod(VM *vm, int argCount, Value *args) {
   return BOOL_VAL(true);
 }
 
-Value stringIsEmptyMethod(VM *vm, int argCount, Value *args) {
-  ObjectString *string = AS_CRUX_STRING(args[0]);
+Value stringIsEmptyMethod(VM *vm, int argCount, const Value *args) {
+  const ObjectString *string = AS_CRUX_STRING(args[0]);
   return BOOL_VAL(string->length == 0);
 }
