@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "object.h"
-#include "vm.h"
+#include "vm/vm.h"
 
 #define TABLE_MAX_LOAD 0.6
 

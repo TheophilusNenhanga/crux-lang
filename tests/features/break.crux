@@ -1,0 +1,163 @@
+println("===  Start of testing break statement  ===");
+
+println("--- Testing basic break in while loop ---");
+let a = 0;
+let a_sum = 0;
+while a < 10 {
+    if (a == 3) {
+        break;
+    }
+    a_sum += a; // Sums 0, 1, 2
+    a += 1;
+}
+assert(a == 3, "Basic break: Expected a to be 3 but got " + a);
+assert(a_sum == 3, "Basic break: Expected a_sum to be 3 (0+1+2) but got " + a_sum);
+
+println("--- Testing break in first iteration ---");
+let b = 0;
+let b_executed = false;
+while b < 5 {
+    if (b == 0) {
+        break;
+    }
+    b_executed = true;
+    b += 1;
+}
+assert(b == 0, "Break first iteration: Expected b to be 0 but got " + b);
+assert(b_executed == false, "Break first iteration: Code after break should not execute");
+
+println("--- Testing break in last possible iteration ---");
+let c = 0;
+let c_count = 0;
+while c < 5 {
+    c_count += 1;
+    c += 1;
+    if (c == 5) {
+        break;
+    }
+}
+assert(c == 5, "Break last iteration: Expected c to be 5 but got " + c);
+assert(c_count == 5, "Break last iteration: Expected c_count to be 5 but got " + c_count);
+
+println("--- Testing break with multiple conditions ---");
+let d = 0;
+let d_reason = "";
+while d < 20 {
+    if (d == 7) {
+        d_reason = "seven";
+        break;
+    }
+    if (d > 15) {
+        d_reason = "greater_than_fifteen";
+        break;
+    }
+    d += 1;
+}
+assert(d == 7, "Break multiple conditions: Expected d to be 7 but got " + d);
+assert(d_reason == "seven", "Break multiple conditions: Expected reason 'seven' but got '" + d_reason + "'");
+
+println("--- Testing break in nested while loops (inner break only) ---");
+let e_outer = 0;
+let e_inner_breaks = 0;
+let e_total_inner_iterations = 0;
+while e_outer < 3 { // Outer: 0, 1, 2
+    let e_inner = 0;
+    while e_inner < 10 {
+        e_total_inner_iterations += 1;
+        e_inner += 1;
+        if (e_inner == 2) {
+            e_inner_breaks += 1;
+            break; // Only breaks inner loop
+        }
+    }
+    e_outer += 1;
+}
+assert(e_outer == 3, "Nested break (inner): Expected e_outer to be 3 but got " + e_outer);
+assert(e_inner_breaks == 3, "Nested break (inner): Expected 3 inner breaks but got " + e_inner_breaks);
+assert(e_total_inner_iterations == 6, "Nested break (inner): Expected 6 total inner iterations (3*2) but got " + e_total_inner_iterations);
+
+println("--- Testing break in nested while loops (outer break) ---");
+let f_outer = 0;
+let f_outer_iterations = 0;
+let f_inner_total = 0;
+while f_outer < 5 {
+    f_outer_iterations += 1;
+    let f_inner = 0;
+    while f_inner < 3 {
+        f_inner_total += 1;
+        f_inner += 1;
+    }
+    f_outer += 1;
+    if (f_outer == 2) {
+        break;
+    }
+}
+assert(f_outer == 2, "Nested break (outer): Expected f_outer to be 2 but got " + f_outer);
+assert(f_outer_iterations == 2, "Nested break (outer): Expected 2 outer iterations but got " + f_outer_iterations);
+assert(f_inner_total == 3, "Nested break (outer): Expected 6 inner iterations (2*3) but got " + f_inner_total);
+// 6
+
+println("--- Testing break with complex condition ---");
+let g = 1;
+let g_product = 1;
+while g <= 10 {
+    g_product *= g;
+    if (g_product > 100) { // 1*1=1, 1*2=2, 2*3=6, 6*4=24, 24*5=120 > 100
+        break;
+    }
+    g += 1;
+}
+assert(g == 5, "Break complex condition: Expected g to be 5 but got " + g);
+assert(g_product == 120, "Break complex condition: Expected g_product to be 120 but got " + g_product);
+
+println("--- Testing break doesn't affect outer scope ---");
+let h = 10;
+let h_inner_modified = false;
+while h > 0 {
+    let h_inner = h;
+    if (h_inner == 7) {
+        h_inner = 999; // Modify inner variable
+        h_inner_modified = true;
+        break;
+    }
+    h -= 1;
+}
+assert(h == 0, "Break scope test: Expected h to be 7 but got " + h);
+assert(h_inner_modified == false, "Break scope test: Expected h_inner_modified to be true");
+// 7
+
+println("--- Testing break in while true loop ---");
+let i = 0;
+let i_safety_count = 0;
+while true {
+    i += 2;
+    i_safety_count += 1;
+    if (i >= 8) {
+        break;
+    }
+    if (i_safety_count > 10) { // Safety break
+        assert(false, "Break in while true: Safety break triggered");
+        break;
+    }
+}
+assert(i == 8, "Break in while true: Expected i to be 8 but got " + i);
+assert(i_safety_count == 4, "Break in while true: Expected 4 iterations but got " + i_safety_count);
+
+// Too many constants error
+
+println("--- Testing break after other control flow ---");
+let j = 0;
+let j_sum = 0;
+while j < 10 {
+    if (j % 2 == 0) {
+        j_sum += j;
+    }
+    j += 1;
+    if (j == 6) {
+        break;
+    }
+}
+assert(j == 6, "Break after control flow: Expected j to be 6 but got " + j);
+assert(j_sum == 6, "Break after control flow: Expected j_sum to be 6 (0+2+4) but got " + j_sum);
+
+println("===  End of testing break statement  ===");

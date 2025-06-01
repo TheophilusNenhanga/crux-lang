@@ -48,7 +48,7 @@ ObjectResult *sqrtFunction(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, FLOAT_VAL(sqrt(number)));
 }
 
-static inline int32_t absoluteValue(const int32_t x) {
+static int32_t absoluteValue(const int32_t x) {
   if (x < 0) {
     return -x;
   }

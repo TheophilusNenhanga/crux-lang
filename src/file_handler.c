@@ -63,7 +63,7 @@ static char *dirName(const char *path) {
   }
 #ifdef _WIN32
   if (lastSlash == pathCopy + 2 && pathCopy[1] == ':') {
-    char *result = (char *)malloc(4);
+    char *result = malloc(4);
     if (result == NULL) {
       free(pathCopy);
       return NULL;
@@ -142,7 +142,7 @@ static char *combinePaths(const char *base, const char *relative) {
   const size_t relativeLen = strlen(relative);
   const size_t totalLen = baseLen + 1 + relativeLen + 1; // +1 : '/' +1 '\0'
 
-  char *result = (char *)malloc(totalLen);
+  char *result = malloc(totalLen);
   if (result == NULL)
     return NULL;
 
@@ -170,7 +170,7 @@ char *resolvePath(const char *basePath, const char *importPath) {
 #endif
   ) {
 #ifdef _WIN32
-    char *resolvedPath = (char *)malloc(MAX_PATH_LENGTH);
+    char *resolvedPath = malloc(MAX_PATH_LENGTH);
     if (_fullpath(resolvedPath, importPath, MAX_PATH_LENGTH) == NULL) {
       free(resolvedPath);
       return NULL;
@@ -195,7 +195,7 @@ char *resolvePath(const char *basePath, const char *importPath) {
     return NULL;
 
 #ifdef _WIN32
-  char *resolvedPath = (char *)malloc(MAX_PATH_LENGTH);
+  char *resolvedPath = malloc(MAX_PATH_LENGTH);
   if (_fullpath(resolvedPath, combinedPath, MAX_PATH_LENGTH) == NULL) {
     free(combinedPath);
     free(resolvedPath);

@@ -13,6 +13,8 @@
 #include "memory.h"
 #include "object.h"
 
+#include "vm/vm_helpers.h"
+
 /**
  * @brief Allocates a new object of the specified type.
  *
@@ -29,7 +31,7 @@
  * @return A pointer to the newly allocated and initialized Object.
  */
 static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
-  Object *object = (Object *)reallocate(vm, NULL, 0, size);
+  Object *object = reallocate(vm, NULL, 0, size);
 
 #ifdef DEBUG_LOG_GC
   printf("%p mark ", (void *)object);
@@ -113,7 +115,7 @@ static uint32_t hashValue(const Value value) {
     const double num = AS_FLOAT(value);
     uint64_t bits;
     memcpy(&bits, &num, sizeof(bits));
-    return (uint32_t)(bits ^ (bits >> 32));
+    return (uint32_t)(bits ^ bits >> 32);
   }
   if (IS_BOOL(value)) {
     return AS_BOOL(value) ? 1u : 0u;
@@ -251,7 +253,7 @@ static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length,
  *
  * @return A 32-bit hash code for the string.
  */
-static inline uint32_t hashString(const char *key, const size_t length) {
+static uint32_t hashString(const char *key, const size_t length) {
   static const uint32_t FNV_OFFSET_BIAS = 2166136261u;
   static const uint32_t FNV_PRIME = 16777619u;
 
@@ -281,7 +283,7 @@ ObjectString *copyString(VM *vm, const char *chars, const uint32_t length) {
  * @brief Prints the name of a function object.
  *
  * This static helper function prints the name of a function object to the
- * console, used for debugging and representation purposes. If the function is
+ * console, used for debugging and representation. If the function is
  * anonymous (name is NULL), it prints "<script>".
  *
  * @param function The ObjectFunction to print the name of.
@@ -748,7 +750,7 @@ ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
 static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
                                    const uint16_t capacity, const Value key) {
   const uint32_t hash = hashValue(key);
-  uint32_t index = hash & (capacity - 1);
+  uint32_t index = hash & capacity - 1;
   ObjectTableEntry *tombstone = NULL;
 
   while (1) {
@@ -756,14 +758,14 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
     if (!entry->isOccupied) {
       if (IS_NIL(entry->value)) {
         return tombstone != NULL ? tombstone : entry;
-      } else if (tombstone == NULL) {
+      }
+      if (tombstone == NULL) {
         tombstone = entry;
       }
     } else if (valuesEqual(entry->key, key)) {
       return entry;
     }
-    // index = (index + 1) & (capacity - 1); // old probe
-    index = (index * 5 + 1) & (capacity - 1); // new probe
+    index = index * 5 + 1 & capacity - 1; // new probe
   }
 }
 
@@ -801,11 +803,11 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, const int capacity) {
       continue;
     }
 
-    ObjectTableEntry *dest = findEntry(entries, capacity, entry->key);
+    ObjectTableEntry *destination = findEntry(entries, capacity, entry->key);
 
-    dest->key = entry->key;
-    dest->value = entry->value;
-    dest->isOccupied = true;
+    destination->key = entry->key;
+    destination->value = entry->value;
+    destination->isOccupied = true;
     table->size++;
   }
 
@@ -1003,11 +1005,12 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
   moduleRecord->moduleClosure = NULL;
   moduleRecord->enclosingModule = NULL;
 
-  moduleRecord->stack = ALLOCATE(vm, Value, STACK_MAX);
+  moduleRecord->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
   moduleRecord->stackTop = moduleRecord->stack;
+  moduleRecord->stackLimit = moduleRecord->stack + STACK_MAX;
   moduleRecord->openUpvalues = NULL;
 
-  moduleRecord->frames = ALLOCATE(vm, CallFrame, FRAMES_MAX);
+  moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
   moduleRecord->frameCount = 0;
   moduleRecord->frameCapacity = FRAMES_MAX;
 
@@ -1020,9 +1023,9 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path) {
  * @param record The ObjectModuleRecord to free
  */
 void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
-  FREE_ARRAY(vm, CallFrame, record->frames, record->frameCapacity);
+  free(record->frames);
   record->frames = NULL;
-  FREE_ARRAY(vm, Value, record->stack, STACK_MAX);
+  free(record->stack);
   record->stack = NULL;
   freeTable(vm, &record->globals);
   freeTable(vm, &record->publics);

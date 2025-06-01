@@ -7,6 +7,13 @@ on:
         required: false
         default: main
         type: string
+  pull_request:
+    types: [opened]
+    branches:
+      - "main"
+    paths:
+      - "**.c"
+      - "**.h"
 
 permissions:
   contents: read
@@ -60,7 +67,7 @@ jobs:
       - name: setup python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: run tests
         run: |

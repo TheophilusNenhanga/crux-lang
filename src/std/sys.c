@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../vm/vm_helpers.h"
+
 #ifndef _WIN32
 #include <unistd.h>
 #endif

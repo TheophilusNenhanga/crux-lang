@@ -27,11 +27,13 @@ endif()
 
 file(GLOB SOURCES
 				"*.c"
+				"vm/*.c"
 				"std/*.c"
 )
 
 file(GLOB HEADERS
 			"*.h"
+			"vm/*.h"
 			"std/*.h"
 )
 
