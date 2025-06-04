@@ -5,9 +5,8 @@
 #include "../memory.h"
 #include "string.h"
 
-static inline void buildPrefixTable(const char *pattern,
-                                    const uint32_t patternLength,
-                                    uint32_t *prefixTable) {
+static void buildPrefixTable(const char *pattern, const uint32_t patternLength,
+                             uint32_t *prefixTable) {
   uint32_t j = 0;
   prefixTable[0] = 0;
 

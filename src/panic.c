@@ -5,7 +5,8 @@
 #include <string.h>
 
 #include "std/core.h"
-#include "vm.h"
+#include "vm/vm.h"
+#include "vm/vm_helpers.h"
 
 static ErrorDetails getErrorDetails(const ErrorType type) {
   switch (type) {
@@ -329,7 +330,7 @@ char *repeat(const char c, const int count) {
  * Creates a formatted error message for type mismatches with actual type
  * information.
  */
-char *typeErrorMessage(VM *vm, Value value, const char *expectedType) {
+char *typeErrorMessage(VM *vm, const Value value, const char *expectedType) {
   static char buffer[1024];
 
   const Value typeValue = typeFunction_(vm, 1, &value);

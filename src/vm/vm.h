@@ -1,8 +1,8 @@
 #ifndef VM_H
 #define VM_H
 
-#include "table.h"
-#include "value.h"
+#include "../table.h"
+#include "../value.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -88,27 +88,6 @@ void initVM(VM *vm, int argc, const char **argv);
 
 void freeVM(VM *vm);
 
-void resetStack(ObjectModuleRecord* moduleRecord);
-
 InterpretResult interpret(VM *vm, char *source);
-
-void push(ObjectModuleRecord* moduleRecord, Value value);
-
-Value pop(ObjectModuleRecord* moduleRecord);
-
-void initImportStack(VM *vm);
-
-void freeImportStack(VM *vm);
-
-// Returns false on allocation error
-bool pushImportStack(VM *vm, ObjectString *path);
-
-void popImportStack(VM *vm);
-
-bool isInImportStack(const VM *vm, const ObjectString *path);
-
-ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
-
-bool isFalsy(Value value);
 
 #endif // VM_H

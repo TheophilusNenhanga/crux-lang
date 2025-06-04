@@ -40,7 +40,7 @@ typedef uint64_t Value;
 #define INT_VAL(integer)                                                       \
   ((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
 
-static inline double valueToNum(const Value value) {
+static double valueToNum(const Value value) {
   union {
     Value v;
     double d;
@@ -49,7 +49,7 @@ static inline double valueToNum(const Value value) {
   return u.d;
 }
 
-static inline Value numToValue(const double num) {
+static Value numToValue(const double num) {
   union {
     double d;
     Value v;

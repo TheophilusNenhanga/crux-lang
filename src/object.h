@@ -7,7 +7,7 @@
 #include "common.h"
 #include "table.h"
 #include "value.h"
-#include "vm.h"
+#include "vm/vm.h"
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
@@ -261,6 +261,7 @@ struct ObjectModuleRecord {
   ObjectUpvalue* openUpvalues;
   Value* stack;
   Value* stackTop;
+  Value* stackLimit;
   CallFrame *frames;
   uint32_t frameCount;
   uint32_t frameCapacity;

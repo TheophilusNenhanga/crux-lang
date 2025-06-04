@@ -1,0 +1,137 @@
+println("===  Start of testing for loops  ===");
+
+println("--- Testing basic loop functionality & pre-declared variable ---");
+let a = 0;
+for ; a < 10; a += 1 {}
+assert(a == 10, "Basic For (pre-declared var, empty init): Failed to complete successfully. Expected 10, got " + a);
+
+println("--- Testing loop variable reuse/reassignment ---");
+for a = 0; a < 5; a += 1 {
+}
+assert(a == 5, "For (reassigning existing var): Failed to complete successfully. Expected 5, got " + a);
+
+println("--- Testing alternative increment syntax ---");
+let b = 0;
+for b = 0; b < 10; b = b + 1 {}
+assert(b == 10, "For (increment with 'var = var + 1'): Failed. Expected 10, got " + b);
+
+println("--- Testing non-addition/subtraction update ---");
+let c = 100;
+for ; c > 2; c /= 2 {}
+assert(c == 1.5625, "For (update with '/='): Failed. Expected 3, got " + c);
+
+// --- New Tests ---
+
+println("--- Testing loop variable declared in loop init (scoping) ---");
+let outer_x = 100;
+let loop_sum_scoped = 0;
+for let inner_x = 0; inner_x < 3; inner_x += 1 { // inner_x is 0, 1, 2
+    loop_sum_scoped += inner_x; // 0 + 1 + 2 = 3
+}
+assert(loop_sum_scoped == 3, "For (loop-declared var): Summation failed. Expected 3, got " + loop_sum_scoped);
+assert(outer_x == 100, "For (loop-declared var): Outer variable with same name (if allowed by parser without 'let') should not be affected by loop-local var. Expected 100, got " + outer_x);
+
+
+println("--- Testing loop that never executes ---");
+let count_never = 0;
+for let i_never = 0; i_never < 0; i_never += 1 {
+    count_never += 1;
+}
+assert(count_never == 0, "For (zero iterations): Loop body executed when it shouldn't. Expected 0, got " + count_never);
+
+println("--- Testing loop that executes exactly once ---");
+let count_once = 0;
+let val_once = 0;
+for let i_once = 0; i_once < 1; i_once += 1 {
+    count_once += 1;
+    val_once = i_once;
+}
+assert(count_once == 1, "For (one iteration): Loop executed wrong number of times. Expected 1, got " + count_once);
+assert(val_once == 0, "For (one iteration): Loop variable value incorrect. Expected 0, got " + val_once);
+
+
+println("--- Testing loop with no update clause (update in body) ---");
+let d = 0;
+for ; d < 5; true {
+    d += 1;
+}
+assert(d == 5, "For (no update clause): Failed. Expected 5, got " + d);
+
+println("--- Testing loop with no condition (requires break) ---");
+let e = 0;
+let iterations_no_cond = 0;
+for ;;true{ // "Infinite" loop
+    e += 1;
+    iterations_no_cond += 1;
+    if (e >= 7) {
+        break;
+    }
+    if (iterations_no_cond > 100) { // Safety break, should not be hit
+        assert(false, "For (no condition): Safety break hit, loop likely not breaking as expected.");
+        break;
+    }
+}
+assert(e == 7, "For (no condition with break): Value after break incorrect. Expected 7, got " + e);
+assert(iterations_no_cond == 7, "For (no condition with break): Iterations incorrect. Expected 7, got " + iterations_no_cond);
+
+
+println("--- Testing 'break' statement ---");
+let sum_break = 0;
+let k_val_at_break = -1; // To store k's value when/if break happens
+for let k = 0; k < 10; k += 1 {
+    if (k == 3) {
+        k_val_at_break = k;
+        break;
+    }
+    sum_break += 1; // This will count iterations 0, 1, 2
+}
+assert(sum_break == 3, "For (break): sum_break before break incorrect. Expected 3, got " + sum_break);
+assert(k_val_at_break == 3, "For (break): Loop variable value at break incorrect. Expected 3, got " + k_val_at_break);
+
+
+println("--- Testing 'continue' statement ---");
+let sum_continue = 0;
+let iterations_continue = 0;
+for let m = 0; m < 5; m += 1 { // m will be 0, 1, 2, 3, 4
+    iterations_continue += 1;
+    if (m % 2 == 0) { // If m is even (0, 2, 4)
+        continue;     // Skip the sum_continue += m line
+    }
+    sum_continue += m; // Sums odd numbers: 1 + 3 = 4
+}
+assert(sum_continue == 4, "For (continue): Sum of odd numbers incorrect. Expected 4, got " + sum_continue);
+assert(iterations_continue == 5, "For (continue): Total iterations incorrect. Expected 5, got " + iterations_continue);
+
+
+println("--- Testing decrementing loop and '>=' condition ---");
+let dec_val = 5;
+let count_dec = 0;
+for ; dec_val >= 0; dec_val -= 1 { // 5, 4, 3, 2, 1, 0
+    count_dec += 1;
+}
+assert(dec_val == -1, "For (decrement, >=): Final value incorrect. Expected -1, got " + dec_val);
+assert(count_dec == 6, "For (decrement, >=): Iteration count incorrect. Expected 6, got " + count_dec);
+
+println("--- Testing different step in increment ---");
+let step_val = 0;
+let count_step = 0;
+for ; step_val < 10; step_val += 3 { // 0, 3, 6, 9
+    count_step += 1;
+}
+assert(step_val == 12, "For (step increment): Final value incorrect. Expected 12, got " + step_val); // 9 + 3 = 12
+assert(count_step == 4, "For (step increment): Iteration count incorrect. Expected 4, got " + count_step);
+
+
+println("--- Testing nested loops ---");
+let outer_iterations = 0;
+let inner_iterations_total = 0;
+for let ol = 0; ol < 2; ol += 1 { // Outer loop: 0, 1
+    outer_iterations += 1;
+    for let il = 0; il < 3; il += 1 { // Inner loop: 0, 1, 2
+        inner_iterations_total += 1;
+    }
+}
+assert(outer_iterations == 2, "Nested For: Outer loop iterations incorrect. Expected 2, got " + outer_iterations);
+assert(inner_iterations_total == 6, "Nested For: Total inner loop iterations incorrect. Expected 6 (2*3), got " + inner_iterations_total);
+
+println("===  End of testing for loops  ===");

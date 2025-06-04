@@ -1,8 +1,9 @@
 #ifndef COMPILER_H
 #define COMPILER_H
+
 #include "object.h"
 #include "scanner.h"
-
+#include "vm/vm.h"
 
 ObjectFunction *compile(VM *vm, char *source);
 
@@ -61,6 +62,22 @@ typedef struct {
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
 
+typedef enum { LOOP_FOR, LOOP_WHILE } LoopType;
+
+typedef struct BreakJump BreakJump;
+
+struct BreakJump {
+	int jumpOffset;
+	struct BreakJump* next;
+};
+
+typedef struct {
+	LoopType type;
+	int continueTarget;
+	BreakJump* breakJumps;
+	int scopeDepth;
+}LoopContext;
+
 typedef struct Compiler Compiler;
 
 struct Compiler {
@@ -71,6 +88,8 @@ struct Compiler {
 	int localCount;
 	int scopeDepth; // 0 is global scope
 	int matchDepth;
+	int loopDepth;
+	LoopContext loopStack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 };
