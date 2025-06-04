@@ -1609,6 +1609,8 @@ static void continueStatement() {
   if (continueTarget == -1) {
     return;
   }
+  const LoopContext* loopContext = &current->loopStack[current->loopDepth - 1];
+  cleanupLocalsToDepth(loopContext->scopeDepth);
   emitLoop(continueTarget);
 }
 
@@ -1618,6 +1620,8 @@ static void breakStatement() {
     compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
     return;
   }
+  const LoopContext* loopContext = &current->loopStack[current->loopDepth - 1];
+  cleanupLocalsToDepth(loopContext->scopeDepth);
   addBreakJump(emitJump(OP_JUMP));
 }
 
