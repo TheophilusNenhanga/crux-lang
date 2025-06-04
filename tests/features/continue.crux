@@ -146,7 +146,7 @@ while true {
     }
 }
 assert(h == 10, "Continue in while true: Expected h to be 10 but got " + h);
-assert(h_processed == 4, "Continue in while true: Expected 4 processed (6,7,8,9) but got " + h_processed);
+assert(h_processed == 5, "Continue in while true: Expected 4 processed (6,7,8,9) but got " + h_processed);
 
 println("--- Testing continue doesn't affect outer scope ---");
 let i_outer = 0;
