@@ -320,9 +320,15 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
   const Value original =
       peek(currentModuleRecord, argCount + 1); // Store the original caller
 
-  if (!IS_CRUX_INSTANCE(receiver)) {
-    argCount++; // for the value that the method will act upon
-    if (IS_CRUX_STRING(receiver)) {
+  if (!IS_CRUX_OBJECT(receiver)) {
+    runtimePanic(vm, TYPE, "Only instances have methods");
+    return false;
+  }
+
+  const Object* object = AS_CRUX_OBJECT(receiver);
+  argCount++; // for the value that the method will act on
+  switch (object->type) {
+    case OBJECT_STRING: {
       Value value;
       if (tableGet(&vm->stringType, name, &value)) {
         return handleInvoke(vm, argCount, receiver, original, value);
@@ -330,8 +336,7 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
       runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
       return false;
     }
-
-    if (IS_CRUX_ARRAY(receiver)) {
+    case OBJECT_ARRAY: {
       Value value;
       if (tableGet(&vm->arrayType, name, &value)) {
         return handleInvoke(vm, argCount, receiver, original, value);
@@ -339,35 +344,7 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
       runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
       return false;
     }
-
-    if (IS_CRUX_ERROR(receiver)) {
-      Value value;
-      if (tableGet(&vm->errorType, name, &value)) {
-        return handleInvoke(vm, argCount, receiver, original, value);
-      }
-      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-      return false;
-    }
-
-    if (IS_CRUX_TABLE(receiver)) {
-      Value value;
-      if (tableGet(&vm->tableType, name, &value)) {
-        return handleInvoke(vm, argCount, receiver, original, value);
-      }
-      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-      return false;
-    }
-
-    if (IS_CRUX_RANDOM(receiver)) {
-      Value value;
-      if (tableGet(&vm->randomType, name, &value)) {
-        return handleInvoke(vm, argCount, receiver, original, value);
-      }
-      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
-      return false;
-    }
-
-    if (IS_CRUX_FILE(receiver)) {
+    case OBJECT_FILE: {
       Value value;
       if (tableGet(&vm->fileType, name, &value)) {
         return handleInvoke(vm, argCount, receiver, original, value);
@@ -375,8 +352,31 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
       runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
       return false;
     }
-
-    if (IS_CRUX_RESULT(receiver)) {
+    case OBJECT_ERROR: {
+      Value value;
+      if (tableGet(&vm->errorType, name, &value)) {
+        return handleInvoke(vm, argCount, receiver, original, value);
+      }
+      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+      return false;
+    }
+    case OBJECT_TABLE: {
+      Value value;
+      if (tableGet(&vm->tableType, name, &value)) {
+        return handleInvoke(vm, argCount, receiver, original, value);
+      }
+      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+      return false;
+    }
+    case OBJECT_RANDOM: {
+      Value value;
+      if (tableGet(&vm->randomType, name, &value)) {
+        return handleInvoke(vm, argCount, receiver, original, value);
+      }
+      runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
+      return false;
+    }
+    case OBJECT_RESULT: {
       Value value;
       if (tableGet(&vm->resultType, name, &value)) {
         return handleInvoke(vm, argCount, receiver, original, value);
@@ -384,40 +384,41 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
       runtimePanic(vm, NAME, "Undefined method '%s'.", name->chars);
       return false;
     }
+    case OBJECT_INSTANCE: {
+      argCount--;
+      const ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
 
-    runtimePanic(vm, TYPE, "Only instances have methods.");
-    return false;
-  }
+      Value value;
+      if (tableGet(&instance->fields, name, &value)) {
+        // Save original stack order
+        currentModuleRecord->stackTop[-argCount - 1] = value;
 
-  const ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
+        if (!callValue(vm, value, argCount)) {
+          return false;
+        }
 
-  Value value;
-  if (tableGet(&instance->fields, name, &value)) {
-    // Save original stack order
-    currentModuleRecord->stackTop[-argCount - 1] = value;
+        // After the call, restore the original caller and put the result in the
+        // right place
+        const Value result = pop(currentModuleRecord);
+        push(currentModuleRecord, original);
+        push(currentModuleRecord, result);
+        return true;
+      }
 
-    if (!callValue(vm, value, argCount)) {
+      // For class methods, we need special handling
+      if (invokeFromClass(vm, instance->klass, name, argCount)) {
+        // After the call, the result is already on the stack
+        const Value result = pop(currentModuleRecord);
+        push(currentModuleRecord, original);
+        push(currentModuleRecord, result);
+        return true;
+      }
+    }
+      default: {
+      runtimePanic(vm, TYPE, "Only instances have methods");
       return false;
     }
-
-    // After the call, restore the original caller and put the result in the
-    // right place
-    const Value result = pop(currentModuleRecord);
-    push(currentModuleRecord, original);
-    push(currentModuleRecord, result);
-    return true;
   }
-
-  // For class methods, we need special handling
-  if (invokeFromClass(vm, instance->klass, name, argCount)) {
-    // After the call, the result is already on the stack
-    const Value result = pop(currentModuleRecord);
-    push(currentModuleRecord, original);
-    push(currentModuleRecord, result);
-    return true;
-  }
-
-  return false;
 }
 
 /**
