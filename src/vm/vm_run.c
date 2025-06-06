@@ -190,7 +190,8 @@ OP_NEGATE: {
     popPush(currentModuleRecord, FLOAT_VAL(-AS_FLOAT(operand)));
   } else {
     pop(currentModuleRecord);
-    runtimePanic(vm, TYPE, typeErrorMessage(vm, operand, "int' | 'float"));
+    runtimePanic(currentModuleRecord, TYPE,
+                 typeErrorMessage(vm, operand, "int' | 'float"));
     return INTERPRET_RUNTIME_ERROR;
   }
   DISPATCH();
@@ -298,7 +299,8 @@ OP_DEFINE_GLOBAL: {
     pop(currentModuleRecord);
     DISPATCH();
   }
-  runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
+  runtimePanic(currentModuleRecord, NAME,
+               "Cannot define '%s' because it is already defined.",
                name->chars);
   return INTERPRET_RUNTIME_ERROR;
 }
@@ -310,7 +312,8 @@ OP_GET_GLOBAL: {
     push(currentModuleRecord, value);
     DISPATCH();
   }
-  runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
+  runtimePanic(currentModuleRecord, NAME, "Undefined variable '%s'.",
+               name->chars);
   return INTERPRET_RUNTIME_ERROR;
 }
 
@@ -318,7 +321,7 @@ OP_SET_GLOBAL: {
   ObjectString *name = READ_STRING();
   if (tableSet(vm, &currentModuleRecord->globals, name,
                peek(currentModuleRecord, 0))) {
-    runtimePanic(vm, NAME,
+    runtimePanic(currentModuleRecord, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
                  name->chars);
@@ -414,7 +417,7 @@ OP_GET_PROPERTY: {
   Value receiver = peek(currentModuleRecord, 0);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
-    runtimePanic(vm, TYPE,
+    runtimePanic(currentModuleRecord, TYPE,
                  "Cannot access property '%s' on non-instance value. %s",
                  name->chars, typeErrorMessage(vm, receiver, "instance"));
     return INTERPRET_RUNTIME_ERROR;
@@ -433,7 +436,8 @@ OP_GET_PROPERTY: {
 
   if (!fieldFound) {
     if (!bindMethod(vm, instance->klass, name)) {
-      runtimePanic(vm, RUNTIME, "Failed to bind method '%s'", name->chars);
+      runtimePanic(currentModuleRecord, RUNTIME, "Failed to bind method '%s'",
+                   name->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
   }
@@ -444,7 +448,8 @@ OP_SET_PROPERTY: {
   Value receiver = peek(currentModuleRecord, 1);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
-    runtimePanic(vm, TYPE, "Cannot set property '%s' on non-instance value. %s",
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Cannot set property '%s' on non-instance value. %s",
                  name->chars, typeErrorMessage(vm, receiver, "instance"));
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -477,7 +482,8 @@ OP_INHERIT: {
   Value superClass = peek(currentModuleRecord, 1);
 
   if (!IS_CRUX_CLASS(superClass)) {
-    runtimePanic(vm, TYPE, "Cannot inherit from non class object.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Cannot inherit from non class object.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -521,7 +527,8 @@ OP_ARRAY: {
 OP_GET_COLLECTION: {
   Value indexValue = pop(currentModuleRecord);
   if (!IS_CRUX_OBJECT(peek(currentModuleRecord, 0))) {
-    runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Cannot get from a non-collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
   switch (AS_CRUX_OBJECT(peek(currentModuleRecord, 0))->type) {
@@ -530,30 +537,34 @@ OP_GET_COLLECTION: {
       ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 0));
       Value value;
       if (!objectTableGet(table, indexValue, &value)) {
-        runtimePanic(vm, COLLECTION_GET, "Failed to get value from table");
+        runtimePanic(currentModuleRecord, COLLECTION_GET,
+                     "Failed to get value from table");
         return INTERPRET_RUNTIME_ERROR;
       }
       popPush(currentModuleRecord, value);
     } else {
-      runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
+      runtimePanic(currentModuleRecord, TYPE, "Key cannot be hashed.",
+                   READ_STRING());
       return INTERPRET_RUNTIME_ERROR;
     }
     DISPATCH();
   }
   case OBJECT_ARRAY: {
     if (!IS_INT(indexValue)) {
-      runtimePanic(vm, TYPE, "Index must be of type 'int'.");
+      runtimePanic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
     ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 0));
     Value value;
     if (index < 0 || index >= array->size) {
-      runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+      runtimePanic(currentModuleRecord, INDEX_OUT_OF_BOUNDS,
+                   "Index out of bounds.");
       return INTERPRET_RUNTIME_ERROR;
     }
     if (!arrayGet(array, index, &value)) {
-      runtimePanic(vm, COLLECTION_GET, "Failed to get value from array");
+      runtimePanic(currentModuleRecord, COLLECTION_GET,
+                   "Failed to get value from array");
       return INTERPRET_RUNTIME_ERROR;
     }
     popPush(
@@ -563,14 +574,15 @@ OP_GET_COLLECTION: {
   }
   case OBJECT_STRING: {
     if (!IS_INT(indexValue)) {
-      runtimePanic(vm, TYPE, "Index must be of type 'int'.");
+      runtimePanic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
     ObjectString *string = AS_CRUX_STRING(peek(currentModuleRecord, 0));
     ObjectString *ch;
     if (index < 0 || index >= string->length) {
-      runtimePanic(vm, INDEX_OUT_OF_BOUNDS, "Index out of bounds.");
+      runtimePanic(currentModuleRecord, INDEX_OUT_OF_BOUNDS,
+                   "Index out of bounds.");
       return INTERPRET_RUNTIME_ERROR;
     }
     // Only single character indexing
@@ -579,7 +591,8 @@ OP_GET_COLLECTION: {
     DISPATCH();
   }
   default: {
-    runtimePanic(vm, TYPE, "Cannot get from a non-collection type.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Cannot get from a non-collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
   }
@@ -594,23 +607,25 @@ OP_SET_COLLECTION: {
     ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 1));
     if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
       if (!objectTableSet(vm, table, indexValue, value)) {
-        runtimePanic(vm, COLLECTION_GET, "Failed to set value in table");
+        runtimePanic(currentModuleRecord, COLLECTION_GET,
+                     "Failed to set value in table");
         return INTERPRET_RUNTIME_ERROR;
       }
     } else {
-      runtimePanic(vm, TYPE, "Key cannot be hashed.");
+      runtimePanic(currentModuleRecord, TYPE, "Key cannot be hashed.");
       return INTERPRET_RUNTIME_ERROR;
     }
   } else if (IS_CRUX_ARRAY(peek(currentModuleRecord, 1))) {
     ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 1));
     int index = AS_INT(indexValue);
     if (!arraySet(vm, array, index, value)) {
-      runtimePanic(vm, INDEX_OUT_OF_BOUNDS,
+      runtimePanic(currentModuleRecord, INDEX_OUT_OF_BOUNDS,
                    "Cannot set a value in an empty array.");
       return INTERPRET_RUNTIME_ERROR;
     }
   } else {
-    runtimePanic(vm, TYPE, "Value is not a mutable collection type.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Value is not a mutable collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
   popTwo(currentModuleRecord); // indexValue and collection
@@ -650,7 +665,8 @@ OP_SET_LOCAL_SLASH: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '/=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '/=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -662,7 +678,8 @@ OP_SET_LOCAL_SLASH: {
       operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
   if (doperand == 0.0) {
-    runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '/=' assignment.");
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
+                 "Division by zero in '/=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -682,7 +699,8 @@ OP_SET_LOCAL_STAR: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '*=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '*=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -750,7 +768,7 @@ OP_SET_LOCAL_PLUS: {
     frame->slots[slot] = resultValue;
   } else {
     runtimePanic(
-        vm, TYPE,
+        currentModuleRecord, TYPE,
         "Operands for '+=' must be of type 'float' | 'int' | 'string'.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -769,7 +787,8 @@ OP_SET_LOCAL_MINUS: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '-=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '-=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -808,7 +827,8 @@ OP_SET_UPVALUE_SLASH: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '/=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '/=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -820,7 +840,8 @@ OP_SET_UPVALUE_SLASH: {
       operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
   if (doperand == 0.0) {
-    runtimePanic(vm, DIVISION_BY_ZERO, "Division by zero in '/=' assignment.");
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
+                 "Division by zero in '/=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -841,7 +862,8 @@ OP_SET_UPVALUE_STAR: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '*=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '*=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -907,7 +929,8 @@ OP_SET_UPVALUE_PLUS: {
     }
     *location = resultValue;
   } else {
-    runtimePanic(vm, TYPE, "Operands for '+=' must be numbers or strings.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '+=' must be numbers or strings.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -926,7 +949,8 @@ OP_SET_UPVALUE_MINUS: {
   bool operandIsFloat = IS_FLOAT(operandValue);
 
   if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-    runtimePanic(vm, TYPE, "Operands for '-=' must be numbers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '-=' must be numbers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -997,11 +1021,13 @@ OP_TABLE: {
     Value key = pop(currentModuleRecord);
     if (IS_INT(key) || IS_CRUX_STRING(key) || IS_FLOAT(key)) {
       if (!objectTableSet(vm, table, key, value)) {
-        runtimePanic(vm, COLLECTION_SET, "Failed to set value in table");
+        runtimePanic(currentModuleRecord, COLLECTION_SET,
+                     "Failed to set value in table");
         return INTERPRET_RUNTIME_ERROR;
       }
     } else {
-      runtimePanic(vm, TYPE, "Key cannot be hashed.", READ_STRING());
+      runtimePanic(currentModuleRecord, TYPE, "Key cannot be hashed.",
+                   READ_STRING());
       return INTERPRET_RUNTIME_ERROR;
     }
   }
@@ -1134,7 +1160,8 @@ OP_SET_LOCAL_INT_DIVIDE: {
   Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-    runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '//=' must both be integers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1142,7 +1169,7 @@ OP_SET_LOCAL_INT_DIVIDE: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(vm, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
                  "Integer division by zero in '//=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1163,7 +1190,8 @@ OP_SET_LOCAL_MODULUS: {
   Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-    runtimePanic(vm, TYPE, "Operands for '%=' must both be integers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '%=' must both be integers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1171,7 +1199,8 @@ OP_SET_LOCAL_MODULUS: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(vm, DIVISION_BY_ZERO, "Modulo by zero in '%=' assignment.");
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
+                 "Modulo by zero in '%=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1193,7 +1222,8 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-    runtimePanic(vm, TYPE, "Operands for '//=' must both be integers.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '//=' must both be integers.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1201,7 +1231,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(vm, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
                  "Integer division by zero in '//=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1224,7 +1254,8 @@ OP_SET_UPVALUE_MODULUS: {
   Value operandValue = peek(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-    runtimePanic(vm, TYPE, "Operands for '%=' must both be of type 'int'.");
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Operands for '%=' must both be of type 'int'.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1232,7 +1263,8 @@ OP_SET_UPVALUE_MODULUS: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(vm, DIVISION_BY_ZERO, "Modulo by zero in '%=' assignment.");
+    runtimePanic(currentModuleRecord, DIVISION_BY_ZERO,
+                 "Modulo by zero in '%=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1269,7 +1301,8 @@ OP_USE_NATIVE: {
     }
   }
   if (moduleIndex == -1) {
-    runtimePanic(vm, IMPORT, "Module '%s' not found.", moduleName->chars);
+    runtimePanic(currentModuleRecord, IMPORT, "Module '%s' not found.",
+                 moduleName->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1278,8 +1311,9 @@ OP_USE_NATIVE: {
     Value value;
     bool getSuccess = tableGet(moduleTable, names[i], &value);
     if (!getSuccess) {
-      runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.",
-                   names[i]->chars, moduleName->chars);
+      runtimePanic(currentModuleRecord, IMPORT,
+                   "Failed to import '%s' from '%s'.", names[i]->chars,
+                   moduleName->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
     push(currentModuleRecord, OBJECT_VAL(value));
@@ -1287,8 +1321,9 @@ OP_USE_NATIVE: {
         tableSet(vm, &vm->currentModuleRecord->globals, aliases[i], value);
 
     if (!setSuccess) {
-      runtimePanic(vm, IMPORT, "Failed to import '%s' from '%s'.",
-                   names[i]->chars, moduleName->chars);
+      runtimePanic(currentModuleRecord, IMPORT,
+                   "Failed to import '%s' from '%s'.", names[i]->chars,
+                   moduleName->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
     pop(currentModuleRecord);
@@ -1301,7 +1336,8 @@ OP_USE_MODULE: {
   ObjectString *moduleName = READ_STRING();
 
   if (isInImportStack(vm, moduleName)) {
-    runtimePanic(vm, IMPORT, "Circular dependency detected when importing: %s",
+    runtimePanic(currentModuleRecord, IMPORT,
+                 "Circular dependency detected when importing: %s",
                  moduleName->chars);
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
@@ -1310,7 +1346,7 @@ OP_USE_MODULE: {
   char *resolvedPathChars =
       resolvePath(vm->currentModuleRecord->path->chars, moduleName->chars);
   if (resolvedPathChars == NULL) {
-    runtimePanic(vm, IMPORT, "Failed to resolve import path");
+    runtimePanic(currentModuleRecord, IMPORT, "Failed to resolve import path");
     vm->currentModuleRecord->state = STATE_ERROR;
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1324,22 +1360,23 @@ OP_USE_MODULE: {
   }
 
   if (vm->importCount + 1 > IMPORT_MAX) {
-    runtimePanic(vm, IMPORT, "Import limit reached");
+    runtimePanic(currentModuleRecord, IMPORT, "Import limit reached");
     return INTERPRET_RUNTIME_ERROR;
   }
   vm->importCount++;
 
   FileResult file = readFile(resolvedPath->chars);
   if (file.error != NULL) {
-    runtimePanic(vm, IO, file.error);
+    runtimePanic(currentModuleRecord, IO, file.error);
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectModuleRecord *module = newObjectModuleRecord(vm, resolvedPath);
+  ObjectModuleRecord *module =
+      newObjectModuleRecord(vm, resolvedPath, false, false);
   module->enclosingModule = vm->currentModuleRecord;
   resetStack(module);
   if (module->frames == NULL) {
-    runtimePanic(vm, MEMORY,
+    runtimePanic(currentModuleRecord, MEMORY,
                  "Failed to allocate memory for new module from \"%s\".",
                  resolvedPath->chars);
     vm->currentModuleRecord->state = STATE_ERROR;
@@ -1354,7 +1391,8 @@ OP_USE_MODULE: {
   initTable(&vm->currentModuleRecord->publics);
 
   if (!initializeStdLib(vm)) {
-    runtimePanic(vm, IO, "Failed to initialize stdlib for module:\"%s\".",
+    runtimePanic(currentModuleRecord, RUNTIME,
+                 "Failed to initialize stdlib for module:\"%s\".",
                  module->path->chars);
     module->state = STATE_ERROR;
     popImportStack(vm);
@@ -1368,7 +1406,8 @@ OP_USE_MODULE: {
 
   if (function == NULL) {
     module->state = STATE_ERROR;
-    runtimePanic(vm, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
+    runtimePanic(currentModuleRecord, RUNTIME, "Failed to compile '%s'.",
+                 resolvedPath->chars);
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
     push(currentModuleRecord, OBJECT_VAL(module));
@@ -1385,7 +1424,7 @@ OP_USE_MODULE: {
 
   if (!call(vm, closure, 0)) {
     module->state = STATE_ERROR;
-    runtimePanic(vm, RUNTIME, "Failed to call module.");
+    runtimePanic(currentModuleRecord, RUNTIME, "Failed to call module.");
     popImportStack(vm);
     vm->currentModuleRecord = previousModuleRecord;
     push(currentModuleRecord, OBJECT_VAL(module));
@@ -1422,14 +1461,15 @@ OP_FINISH_USE: {
     aliases[i] = READ_STRING();
   }
   if (!IS_CRUX_MODULE_RECORD(peek(currentModuleRecord, 0))) {
-    runtimePanic(vm, RUNTIME, "Module record creation could not be completed.");
+    runtimePanic(currentModuleRecord, RUNTIME,
+                 "Module record creation could not be completed.");
     return INTERPRET_RUNTIME_ERROR;
   }
   Value moduleValue = pop(currentModuleRecord);
   ObjectModuleRecord *importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
 
   if (importedModule->state == STATE_ERROR) {
-    runtimePanic(vm, IMPORT, "Failed to import module from %s",
+    runtimePanic(currentModuleRecord, IMPORT, "Failed to import module from %s",
                  importedModule->path->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1441,12 +1481,13 @@ OP_FINISH_USE: {
 
     Value value;
     if (!tableGet(&importedModule->publics, name, &value)) {
-      runtimePanic(vm, IMPORT, "'%s' is not an exported name.", name->chars);
+      runtimePanic(currentModuleRecord, IMPORT, "'%s' is not an exported name.",
+                   name->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
 
     if (!tableSet(vm, &vm->currentModuleRecord->globals, alias, value)) {
-      runtimePanic(vm, IMPORT,
+      runtimePanic(currentModuleRecord, IMPORT,
                    "Failed to import '%s'. This name may already be in use in "
                    "this scope.",
                    name->chars);
@@ -1478,7 +1519,8 @@ OP_DEFINE_GLOBAL_16: {
     pop(currentModuleRecord);
     DISPATCH();
   }
-  runtimePanic(vm, NAME, "Cannot define '%s' because it is already defined.",
+  runtimePanic(currentModuleRecord, NAME,
+               "Cannot define '%s' because it is already defined.",
                name->chars);
   return INTERPRET_RUNTIME_ERROR;
 }
@@ -1490,7 +1532,8 @@ OP_GET_GLOBAL_16: {
     push(currentModuleRecord, value);
     DISPATCH();
   }
-  runtimePanic(vm, NAME, "Undefined variable '%s'.", name->chars);
+  runtimePanic(currentModuleRecord, NAME, "Undefined variable '%s'.",
+               name->chars);
   return INTERPRET_RUNTIME_ERROR;
 }
 
@@ -1498,7 +1541,7 @@ OP_SET_GLOBAL_16: {
   ObjectString *name = READ_STRING_16();
   if (tableSet(vm, &currentModuleRecord->globals, name,
                peek(currentModuleRecord, 0))) {
-    runtimePanic(vm, NAME,
+    runtimePanic(currentModuleRecord, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
                  name->chars);
@@ -1511,7 +1554,7 @@ OP_GET_PROPERTY_16: {
   Value receiver = peek(currentModuleRecord, 0);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING_16();
-    runtimePanic(vm, TYPE,
+    runtimePanic(currentModuleRecord, TYPE,
                  "Cannot access property '%s' on non-instance value. %s",
                  name->chars, typeErrorMessage(vm, receiver, "instance"));
     return INTERPRET_RUNTIME_ERROR;
@@ -1530,7 +1573,8 @@ OP_GET_PROPERTY_16: {
 
   if (!fieldFound) {
     if (!bindMethod(vm, instance->klass, name)) {
-      runtimePanic(vm, RUNTIME, "Failed to bind method '%s'", name->chars);
+      runtimePanic(currentModuleRecord, RUNTIME, "Failed to bind method '%s'",
+                   name->chars);
       return INTERPRET_RUNTIME_ERROR;
     }
   }
@@ -1541,7 +1585,8 @@ OP_SET_PROPERTY_16: {
   Value receiver = peek(currentModuleRecord, 1);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING_16();
-    runtimePanic(vm, TYPE, "Cannot set property '%s' on non-instance value. %s",
+    runtimePanic(currentModuleRecord, TYPE,
+                 "Cannot set property '%s' on non-instance value. %s",
                  name->chars, typeErrorMessage(vm, receiver, "instance"));
     return INTERPRET_RUNTIME_ERROR;
   }

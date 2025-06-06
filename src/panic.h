@@ -17,12 +17,12 @@ typedef struct {
 /**
  * Displays a runtime error message with enhanced formatting and stack trace.
  *
- * @param vm The virtual machine instance
+ * @param moduleRecord The current module where this error occurred
  * @param type The type of error
  * @param format Format string for the error message
  * @param ... Additional arguments based on the format string
  */
-void runtimePanic(const VM *vm, ErrorType type, const char *format, ...);
+void runtimePanic(ObjectModuleRecord* moduleRecord, ErrorType type, const char *format, ...);
 
 /**
  * Creates a formatted error message for type mismatches with actual type
