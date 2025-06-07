@@ -168,10 +168,8 @@ static const Callable fileSystemFunctions[] = {
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
                           const CruxCallable methodFunction, const int arity) {
   ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
-  if (!tableSet(vm, methodTable, name,
-                OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)))) {
-    return false;
-  }
+  tableSet(vm, methodTable, name,
+                OBJECT_VAL(newNativeMethod(vm, methodFunction, arity, name)));
   return true;
 }
 
@@ -180,11 +178,9 @@ bool registerNativeInfallibleMethod(VM *vm, Table *methodTable,
                                     const CruxInfallibleCallable methodFunction,
                                     const int arity) {
   ObjectString *name = copyString(vm, methodName, (int)strlen(methodName));
-  if (!tableSet(vm, methodTable, name,
+  tableSet(vm, methodTable, name,
                 OBJECT_VAL(newNativeInfallibleMethod(vm, methodFunction, arity,
-                                                     name)))) {
-    return false;
-  }
+                                                     name)));
   return true;
 }
 
@@ -192,10 +188,8 @@ static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
                             const int count) {
   for (int i = 0; i < count; i++) {
     const Callable method = methods[i];
-    if (!registerNativeMethod(vm, methodTable, method.name, method.function,
-                              method.arity)) {
-      return false;
-    }
+    registerNativeMethod(vm, methodTable, method.name, method.function,
+                              method.arity);
   }
   return true;
 }
@@ -205,10 +199,8 @@ static bool registerInfallibleMethods(VM *vm, Table *methodTable,
                                       const int count) {
   for (int i = 0; i < count; i++) {
     const InfallibleCallable method = methods[i];
-    if (!registerNativeInfallibleMethod(vm, methodTable, method.name,
-                                        method.function, method.arity)) {
-      return false;
-    }
+    registerNativeInfallibleMethod(vm, methodTable, method.name,
+                                        method.function, method.arity);
   }
   return true;
 }
@@ -331,16 +323,12 @@ static bool initTypeMethodTable(VM *vm, Table *methodTable,
                                 const InfallibleCallable *infallibleMethods,
                                 const int infallibleCount) {
   if (methods != NULL) {
-    if (!registerMethods(vm, methodTable, methods, methodCount)) {
-      return false;
-    }
+    registerMethods(vm, methodTable, methods, methodCount);
   }
 
   if (infallibleMethods != NULL) {
-    if (!registerInfallibleMethods(vm, methodTable, infallibleMethods,
-                                   infallibleCount)) {
-      return false;
-    }
+    registerInfallibleMethods(vm, methodTable, infallibleMethods,
+                                   infallibleCount);
   }
 
   return true;
@@ -358,45 +346,31 @@ bool initializeStdLib(VM *vm) {
     return false;
   }
 
-  if (!initTypeMethodTable(vm, &vm->stringType, stringMethods,
+  initTypeMethodTable(vm, &vm->stringType, stringMethods,
                            ARRAY_COUNT(stringMethods), stringInfallibleMethods,
-                           ARRAY_COUNT(stringInfallibleMethods))) {
-    return false;
-  }
+                           ARRAY_COUNT(stringInfallibleMethods));
 
-  if (!initTypeMethodTable(vm, &vm->arrayType, arrayMethods,
+  initTypeMethodTable(vm, &vm->arrayType, arrayMethods,
                            ARRAY_COUNT(arrayMethods), arrayInfallibleMethods,
-                           ARRAY_COUNT(arrayInfallibleMethods))) {
-    return false;
-  }
+                           ARRAY_COUNT(arrayInfallibleMethods));
 
-  if (!initTypeMethodTable(vm, &vm->tableType, tableMethods,
+  initTypeMethodTable(vm, &vm->tableType, tableMethods,
                            ARRAY_COUNT(tableMethods), tableInfallibleMethods,
-                           ARRAY_COUNT(tableInfallibleMethods))) {
-    return false;
-  }
+                           ARRAY_COUNT(tableInfallibleMethods));
 
-  if (!initTypeMethodTable(vm, &vm->errorType, errorMethods,
-                           ARRAY_COUNT(errorMethods), NULL, 0)) {
-    return false;
-  }
+  initTypeMethodTable(vm, &vm->errorType, errorMethods,
+                           ARRAY_COUNT(errorMethods), NULL, 0);
 
-  if (!initTypeMethodTable(vm, &vm->randomType, randomMethods,
+  initTypeMethodTable(vm, &vm->randomType, randomMethods,
                            ARRAY_COUNT(randomMethods), randomInfallibleMethods,
-                           ARRAY_COUNT(randomInfallibleMethods))) {
-    return false;
-  }
+                           ARRAY_COUNT(randomInfallibleMethods));
 
-  if (!initTypeMethodTable(vm, &vm->fileType, fileMethods,
-                           ARRAY_COUNT(fileMethods), NULL, 0)) {
-    return false;
-  }
+  initTypeMethodTable(vm, &vm->fileType, fileMethods,
+                           ARRAY_COUNT(fileMethods), NULL, 0);
 
-  if (!initTypeMethodTable(vm, &vm->resultType, NULL, 0,
+  initTypeMethodTable(vm, &vm->resultType, NULL, 0,
                            resultInfallibleMethods,
-                           ARRAY_COUNT(resultInfallibleMethods))) {
-    return false;
-  }
+                           ARRAY_COUNT(resultInfallibleMethods));
 
   // Initialize standard library modules
   if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),
