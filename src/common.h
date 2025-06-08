@@ -16,5 +16,7 @@
 #define FRAMES_MAX 128
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT * 8) // Approx 1MB stack size
 #define IMPORT_MAX FRAMES_MAX / 2
+#define RUNTIME_EXIT_CODE 70
+#define COMPILER_EXIT_CODE 65
 
 #endif

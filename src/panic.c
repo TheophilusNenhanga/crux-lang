@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "std/core.h"
@@ -215,7 +216,8 @@ void compilerPanic(Parser *parser, const char *message,
   errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(ObjectModuleRecord* moduleRecord, const ErrorType type, const char *format, ...) {
+void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
+                  const ErrorType type, const char *format, ...) {
   const ErrorDetails details = getErrorDetails(type);
 
   va_list args;
@@ -235,7 +237,9 @@ void runtimePanic(ObjectModuleRecord* moduleRecord, const ErrorType type, const 
   while (traceModule != NULL) {
     if (!traceModule->isMain) {
       fprintf(stderr, "\n  %s--- imported from module \"%s\" ---%s", MAGENTA,
-              traceModule->enclosingModule->path ? traceModule->enclosingModule->path->chars : "<unknown>",
+              traceModule->enclosingModule->path
+                  ? traceModule->enclosingModule->path->chars
+                  : "<unknown>",
               RESET);
     }
 
@@ -302,6 +306,10 @@ void runtimePanic(ObjectModuleRecord* moduleRecord, const ErrorType type, const 
 
   if (moduleRecord != NULL) {
     resetStack(moduleRecord);
+  }
+
+  if (shouldExit) {
+    exit(RUNTIME_EXIT_CODE);
   }
 }
 

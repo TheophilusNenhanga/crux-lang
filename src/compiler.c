@@ -1608,7 +1608,7 @@ static void continueStatement() {
   const int continueTarget = getCurrentContinueTarget();
   if (continueTarget == -1) {
     return;
-  }
+  }  
   const LoopContext* loopContext = &current->loopStack[current->loopDepth - 1];
   cleanupLocalsToDepth(loopContext->scopeDepth);
   emitLoop(continueTarget);
