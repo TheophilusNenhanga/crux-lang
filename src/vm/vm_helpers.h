@@ -10,10 +10,6 @@ void resetStack(ObjectModuleRecord* moduleRecord);
 
 void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last);
 
-void push(ObjectModuleRecord* moduleRecord, Value value);
-
-Value pop(ObjectModuleRecord* moduleRecord);
-
 void initImportStack(VM *vm);
 
 void freeImportStack(VM *vm);

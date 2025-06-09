@@ -1,8 +1,8 @@
 #ifndef PANIC_H
 #define PANIC_H
 
-#include "compiler.h"
 #include "scanner.h"
+#include "compiler.h"
 
 #define RED "\x1b[31m"
 #define MAGENTA "\x1b[35m"

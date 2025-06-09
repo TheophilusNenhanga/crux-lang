@@ -82,6 +82,23 @@ struct VM {
   int importCount;
 };
 
+#define PUSH(moduleRecord, value) \
+do { \
+if (__builtin_expect((moduleRecord)->stackTop >= (moduleRecord)->stackLimit, 0)) { \
+runtimePanic((moduleRecord), true, STACK_OVERFLOW, "Stack overflow error"); \
+} \
+*(moduleRecord)->stackTop++ = (value); \
+} while (0)
+
+#define POP(moduleRecord) \
+({ \
+Value popped_value; \
+if (__builtin_expect((moduleRecord)->stackTop <= (moduleRecord)->stack, 0)) { \
+runtimePanic((moduleRecord), true, RUNTIME, "Stack underflow error"); \
+} \
+*--(moduleRecord)->stackTop; \
+})
+
 VM *newVM(int argc, const char **argv);
 
 void initVM(VM *vm, int argc, const char **argv);

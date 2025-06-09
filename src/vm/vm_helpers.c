@@ -90,30 +90,14 @@ void resetStack(ObjectModuleRecord *moduleRecord) {
   moduleRecord->openUpvalues = NULL;
 }
 
-void push(ObjectModuleRecord *moduleRecord, const Value value) {
-  if (moduleRecord->stackTop >= moduleRecord->stackLimit) {
-    runtimePanic(moduleRecord, true, STACK_OVERFLOW, "Stack overflow error");
-  }
-  *moduleRecord->stackTop = value;
-  moduleRecord->stackTop++;
-}
-
-Value pop(ObjectModuleRecord *moduleRecord) {
-  if (moduleRecord->stackTop < moduleRecord->stack) {
-    runtimePanic(moduleRecord, true, RUNTIME, "Stack underflow error");
-  }
-  moduleRecord->stackTop--;
-  return *moduleRecord->stackTop;
-}
-
 void popTwo(ObjectModuleRecord *moduleRecord) {
-  pop(moduleRecord);
-  pop(moduleRecord);
+  POP(moduleRecord);
+  POP(moduleRecord);
 }
 
 void popPush(ObjectModuleRecord *moduleRecord, const Value value) {
-  pop(moduleRecord);
-  push(moduleRecord, value);
+  POP(moduleRecord);
+  PUSH(moduleRecord, value);
 }
 
 /**
@@ -182,7 +166,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
         }
       }
 
-      push(currentModuleRecord, OBJECT_VAL(result));
+      PUSH(currentModuleRecord, OBJECT_VAL(result));
 
       return true;
     }
@@ -207,7 +191,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
         }
       }
 
-      push(currentModuleRecord, OBJECT_VAL(result));
+      PUSH(currentModuleRecord, OBJECT_VAL(result));
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
@@ -224,7 +208,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
           vm, argCount, currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
 
-      push(currentModuleRecord, result);
+      PUSH(currentModuleRecord, result);
       return true;
     }
     case OBJECT_NATIVE_INFALLIBLE_METHOD: {
@@ -240,7 +224,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
       const Value result = native->function(
           vm, argCount, currentModuleRecord->stackTop - argCount);
       currentModuleRecord->stackTop -= argCount + 1;
-      push(currentModuleRecord, result);
+      PUSH(currentModuleRecord, result);
       return true;
     }
     case OBJECT_CLASS: {
@@ -305,9 +289,9 @@ bool handleInvoke(VM *vm, const int argCount, const Value receiver,
   }
 
   // restore the caller and put the result in the right place
-  const Value result = pop(currentModuleRecord);
-  push(currentModuleRecord, original);
-  push(currentModuleRecord, result);
+  const Value result = POP(currentModuleRecord);
+  PUSH(currentModuleRecord, original);
+  PUSH(currentModuleRecord, result);
   return true;
 }
 
@@ -411,18 +395,18 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
 
       // After the call, restore the original caller and put the result in the
       // right place
-      const Value result = pop(currentModuleRecord);
-      push(currentModuleRecord, original);
-      push(currentModuleRecord, result);
+      const Value result = POP(currentModuleRecord);
+      PUSH(currentModuleRecord, original);
+      PUSH(currentModuleRecord, result);
       return true;
     }
 
     // For class methods, we need special handling
     if (invokeFromClass(currentModuleRecord, instance->klass, name, argCount)) {
       // After the call, the result is already on the stack
-      const Value result = pop(currentModuleRecord);
-      push(currentModuleRecord, original);
-      push(currentModuleRecord, result);
+      const Value result = POP(currentModuleRecord);
+      PUSH(currentModuleRecord, original);
+      PUSH(currentModuleRecord, result);
       return true;
     }
   }
@@ -452,8 +436,8 @@ bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name) {
 
   ObjectBoundMethod *bound =
       newBoundMethod(vm, peek(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
-  pop(currentModuleRecord);
-  push(currentModuleRecord, OBJECT_VAL(bound));
+  POP(currentModuleRecord);
+  PUSH(currentModuleRecord, OBJECT_VAL(bound));
   return true;
 }
 
@@ -507,7 +491,7 @@ void defineMethod(VM *vm, ObjectString *name) {
   const Value method = peek(currentModuleRecord, 0);
   ObjectClass *klass = AS_CRUX_CLASS(peek(currentModuleRecord, 1));
   if (tableSet(vm, &klass->methods, name, method)) {
-    pop(currentModuleRecord);
+    POP(currentModuleRecord);
   }
 }
 
@@ -573,7 +557,7 @@ bool concatenate(VM *vm) {
   ObjectString *result = takeString(vm, chars, length);
 
   popTwo(currentModuleRecord);
-  push(currentModuleRecord, OBJECT_VAL(result));
+  PUSH(currentModuleRecord, OBJECT_VAL(result));
   return true;
 }
 
@@ -709,9 +693,9 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       const int64_t result = (int64_t)intA + (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(currentModuleRecord, INT_VAL((int32_t)result));
+        PUSH(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(currentModuleRecord,
+        PUSH(currentModuleRecord,
              FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
@@ -720,9 +704,9 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       const int64_t result = (int64_t)intA - (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(currentModuleRecord, INT_VAL((int32_t)result));
+        PUSH(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(currentModuleRecord,
+        PUSH(currentModuleRecord,
              FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
@@ -731,9 +715,9 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       const int64_t result = (int64_t)intA * (int64_t)intB;
       popTwo(currentModuleRecord);
       if (result >= INT32_MIN && result <= INT32_MAX) {
-        push(currentModuleRecord, INT_VAL((int32_t)result));
+        PUSH(currentModuleRecord, INT_VAL((int32_t)result));
       } else {
-        push(currentModuleRecord,
+        PUSH(currentModuleRecord,
              FLOAT_VAL((double)result)); // Promote on overflow
       }
       break;
@@ -745,7 +729,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
         return false;
       }
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL((double)intA / (double)intB));
+      PUSH(currentModuleRecord, FLOAT_VAL((double)intA / (double)intB));
       break;
     }
     case OP_INT_DIVIDE: {
@@ -757,10 +741,10 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       // Edge case: INT32_MIN / -1 overflows int32_t
       if (intA == INT32_MIN && intB == -1) {
         popTwo(currentModuleRecord);
-        push(currentModuleRecord, FLOAT_VAL(-(double)INT32_MIN)); // Promote
+        PUSH(currentModuleRecord, FLOAT_VAL(-(double)INT32_MIN)); // Promote
       } else {
         popTwo(currentModuleRecord);
-        push(currentModuleRecord, INT_VAL(intA / intB));
+        PUSH(currentModuleRecord, INT_VAL(intA / intB));
       }
       break;
     }
@@ -773,10 +757,10 @@ bool binaryOperation(VM *vm, const OpCode operation) {
 
       if (intA == INT32_MIN && intB == -1) {
         popTwo(currentModuleRecord);
-        push(currentModuleRecord, INT_VAL(0));
+        PUSH(currentModuleRecord, INT_VAL(0));
       } else {
         popTwo(currentModuleRecord);
-        push(currentModuleRecord, INT_VAL(intA % intB));
+        PUSH(currentModuleRecord, INT_VAL(intA % intB));
       }
       break;
     }
@@ -787,7 +771,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
         return false;
       }
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, INT_VAL(intA << intB));
+      PUSH(currentModuleRecord, INT_VAL(intA << intB));
       break;
     }
     case OP_RIGHT_SHIFT: {
@@ -797,30 +781,30 @@ bool binaryOperation(VM *vm, const OpCode operation) {
         return false;
       }
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, INT_VAL(intA >> intB));
+      PUSH(currentModuleRecord, INT_VAL(intA >> intB));
       break;
     }
     case OP_POWER: {
       // Promote int^int to float
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(pow(intA, intB)));
+      PUSH(currentModuleRecord, FLOAT_VAL(pow(intA, intB)));
       break;
     }
     case OP_LESS:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(intA < intB));
+      PUSH(currentModuleRecord, BOOL_VAL(intA < intB));
       break;
     case OP_LESS_EQUAL:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(intA <= intB));
+      PUSH(currentModuleRecord, BOOL_VAL(intA <= intB));
       break;
     case OP_GREATER:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(intA > intB));
+      PUSH(currentModuleRecord, BOOL_VAL(intA > intB));
       break;
     case OP_GREATER_EQUAL:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(intA >= intB));
+      PUSH(currentModuleRecord, BOOL_VAL(intA >= intB));
       break;
 
     default:
@@ -835,15 +819,15 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     switch (operation) {
     case OP_ADD:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(doubleA + doubleB));
+      PUSH(currentModuleRecord, FLOAT_VAL(doubleA + doubleB));
       break;
     case OP_SUBTRACT:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(doubleA - doubleB));
+      PUSH(currentModuleRecord, FLOAT_VAL(doubleA - doubleB));
       break;
     case OP_MULTIPLY:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(doubleA * doubleB));
+      PUSH(currentModuleRecord, FLOAT_VAL(doubleA * doubleB));
       break;
     case OP_DIVIDE: {
       if (doubleB == 0.0) {
@@ -852,30 +836,30 @@ bool binaryOperation(VM *vm, const OpCode operation) {
         return false;
       }
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(doubleA / doubleB));
+      PUSH(currentModuleRecord, FLOAT_VAL(doubleA / doubleB));
       break;
     }
     case OP_POWER: {
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, FLOAT_VAL(pow(doubleA, doubleB)));
+      PUSH(currentModuleRecord, FLOAT_VAL(pow(doubleA, doubleB)));
       break;
     }
 
     case OP_LESS:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(doubleA < doubleB));
+      PUSH(currentModuleRecord, BOOL_VAL(doubleA < doubleB));
       break;
     case OP_LESS_EQUAL:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(doubleA <= doubleB));
+      PUSH(currentModuleRecord, BOOL_VAL(doubleA <= doubleB));
       break;
     case OP_GREATER:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(doubleA > doubleB));
+      PUSH(currentModuleRecord, BOOL_VAL(doubleA > doubleB));
       break;
     case OP_GREATER_EQUAL:
       popTwo(currentModuleRecord);
-      push(currentModuleRecord, BOOL_VAL(doubleA >= doubleB));
+      PUSH(currentModuleRecord, BOOL_VAL(doubleA >= doubleB));
       break;
 
     case OP_INT_DIVIDE:
@@ -1072,11 +1056,11 @@ InterpretResult interpret(VM *vm, char *source) {
     return INTERPRET_COMPILE_ERROR;
   }
 
-  push(currentModuleRecord, OBJECT_VAL(function));
+  PUSH(currentModuleRecord, OBJECT_VAL(function));
   ObjectClosure *closure = newClosure(vm, function);
   vm->currentModuleRecord->moduleClosure = closure;
-  pop(currentModuleRecord);
-  push(currentModuleRecord, OBJECT_VAL(closure));
+  POP(currentModuleRecord);
+  PUSH(currentModuleRecord, OBJECT_VAL(closure));
   call(currentModuleRecord, closure, 0);
 
   const InterpretResult result = run(vm, false);

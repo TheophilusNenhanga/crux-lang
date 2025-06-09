@@ -12,8 +12,7 @@
 
 #include "memory.h"
 #include "object.h"
-
-#include "vm/vm_helpers.h"
+#include "panic.h"
 
 /**
  * @brief Allocates a new object of the specified type.
@@ -236,9 +235,9 @@ static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length,
   string->chars = chars;
   string->hash = hash;
   // intern the string
-  push(vm->currentModuleRecord, OBJECT_VAL(string));
+  PUSH(vm->currentModuleRecord, OBJECT_VAL(string));
   tableSet(vm, &vm->strings, string, NIL_VAL);
-  pop(vm->currentModuleRecord);
+  POP(vm->currentModuleRecord);
   return string;
 }
 

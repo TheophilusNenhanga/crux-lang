@@ -32,7 +32,7 @@ static void expression();
 
 static void parsePrecedence(Precedence precedence);
 
-static ParseRule *getRule(TokenType type);
+static ParseRule *getRule(CruxTokenType type);
 
 static void binary(bool canAssign);
 
@@ -58,7 +58,7 @@ static void advance() {
   }
 }
 
-static void consume(const TokenType type, const char *message) {
+static void consume(const CruxTokenType type, const char *message) {
   if (parser.current.type == type) {
     advance();
     return;
@@ -66,9 +66,11 @@ static void consume(const TokenType type, const char *message) {
   compilerPanic(&parser, message, SYNTAX);
 }
 
-static bool check(const TokenType type) { return parser.current.type == type; }
+static bool check(const CruxTokenType type) {
+  return parser.current.type == type;
+}
 
-static bool match(const TokenType type) {
+static bool match(const CruxTokenType type) {
   if (!check(type))
     return false;
   advance();
@@ -598,7 +600,7 @@ static ObjectFunction *endCompiler() {
 }
 
 static void binary(bool canAssign) {
-  const TokenType operatorType = parser.previous.type;
+  const CruxTokenType operatorType = parser.previous.type;
   const ParseRule *rule = getRule(operatorType);
   parsePrecedence(rule->precedence + 1);
 
@@ -1608,8 +1610,8 @@ static void continueStatement() {
   const int continueTarget = getCurrentContinueTarget();
   if (continueTarget == -1) {
     return;
-  }  
-  const LoopContext* loopContext = &current->loopStack[current->loopDepth - 1];
+  }
+  const LoopContext *loopContext = &current->loopStack[current->loopDepth - 1];
   cleanupLocalsToDepth(loopContext->scopeDepth);
   emitLoop(continueTarget);
 }
@@ -1620,7 +1622,7 @@ static void breakStatement() {
     compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
     return;
   }
-  const LoopContext* loopContext = &current->loopStack[current->loopDepth - 1];
+  const LoopContext *loopContext = &current->loopStack[current->loopDepth - 1];
   cleanupLocalsToDepth(loopContext->scopeDepth);
   addBreakJump(emitJump(OP_JUMP));
 }
@@ -1849,7 +1851,7 @@ static void self(bool canAssign) {
  * assignment.
  */
 static void unary(bool canAssign) {
-  const TokenType operatorType = parser.previous.type;
+  const CruxTokenType operatorType = parser.previous.type;
 
   // compile the operand
   parsePrecedence(PREC_UNARY);
@@ -1962,7 +1964,7 @@ static void parsePrecedence(const Precedence precedence) {
  * @param type The token type to get the rule for.
  * @return A pointer to the ParseRule struct for the given token type.
  */
-static ParseRule *getRule(const TokenType type) {
+static ParseRule *getRule(const CruxTokenType type) {
   return &rules[type]; // Returns the rule at the given index
 }
 
