@@ -78,13 +78,13 @@ bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name);
 
 /**
  * Invokes a method from a class with the given arguments.
- * @param vm The virtual machine
+ * @param moduleRecord The currently executing module
  * @param klass The class containing the method
  * @param name The name of the method to invoke
  * @param argCount Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-bool invokeFromClass(const VM *vm, const ObjectClass *klass,
+bool invokeFromClass(ObjectModuleRecord* moduleRecord, const ObjectClass *klass,
 														const ObjectString *name, int argCount);
 
 bool handleInvoke(VM *vm, int argCount, Value receiver,
@@ -111,11 +111,11 @@ OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.
- * @param vm The virtual machine
+ * @param moduleRecord The currently executing module
  * @param closure The function closure to call
  * @param argCount Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-bool call(const VM *vm, ObjectClosure *closure, int argCount);
+bool call(ObjectModuleRecord* moduleRecord, ObjectClosure *closure, int argCount);
 
 #endif //VM_HELPERS_H

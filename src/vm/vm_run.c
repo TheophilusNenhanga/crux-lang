@@ -300,7 +300,9 @@ OP_DEFINE_GLOBAL: {
     DISPATCH();
   }
   runtimePanic(currentModuleRecord, false, NAME,
-               "Cannot define '%s' because it is already defined.",
+               currentModuleRecord->isRepl
+                   ? "Warning: Defined a name that already had a definition"
+                   : "Cannot define '%s' because it is already defined.",
                name->chars);
   return INTERPRET_RUNTIME_ERROR;
 }
@@ -507,7 +509,7 @@ OP_SUPER_INVOKE: {
   ObjectString *method = READ_STRING();
   int argCount = READ_BYTE();
   ObjectClass *superClass = AS_CRUX_CLASS(pop(currentModuleRecord));
-  if (!invokeFromClass(vm, superClass, method, argCount)) {
+  if (!invokeFromClass(currentModuleRecord, superClass, method, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
@@ -1425,7 +1427,7 @@ OP_USE_MODULE: {
 
   tableSet(vm, &vm->moduleCache, resolvedPath, OBJECT_VAL(module));
 
-  if (!call(vm, closure, 0)) {
+  if (!call(currentModuleRecord, closure, 0)) {
     module->state = STATE_ERROR;
     runtimePanic(currentModuleRecord, false, RUNTIME, "Failed to call module.");
     popImportStack(vm);
@@ -1618,7 +1620,7 @@ OP_SUPER_INVOKE_16: {
   ObjectString *method = READ_STRING_16();
   int argCount = READ_BYTE();
   ObjectClass *superClass = AS_CRUX_CLASS(pop(currentModuleRecord));
-  if (!invokeFromClass(vm, superClass, method, argCount)) {
+  if (!invokeFromClass(currentModuleRecord, superClass, method, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];

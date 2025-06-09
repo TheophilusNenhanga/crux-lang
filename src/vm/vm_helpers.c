@@ -126,8 +126,8 @@ Value peek(const ObjectModuleRecord *moduleRecord, const int distance) {
   return moduleRecord->stackTop[-1 - distance];
 }
 
-bool call(const VM *vm, ObjectClosure *closure, const int argCount) {
-  ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
+bool call(ObjectModuleRecord *moduleRecord, ObjectClosure *closure,
+          const int argCount) {
   if (argCount != closure->function->arity) {
     runtimePanic(moduleRecord, false, ARGUMENT_MISMATCH,
                  "Expected %d arguments, got %d", closure->function->arity,
@@ -159,7 +159,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
   if (IS_CRUX_OBJECT(callee)) {
     switch (OBJECT_TYPE(callee)) {
     case OBJECT_CLOSURE:
-      return call(vm, AS_CRUX_CLOSURE(callee), argCount);
+      return call(currentModuleRecord, AS_CRUX_CLOSURE(callee), argCount);
     case OBJECT_NATIVE_METHOD: {
       const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(callee);
       if (argCount != native->arity) {
@@ -250,7 +250,8 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
       Value initializer;
 
       if (tableGet(&klass->methods, vm->initString, &initializer)) {
-        return call(vm, AS_CRUX_CLOSURE(initializer), argCount);
+        return call(currentModuleRecord, AS_CRUX_CLOSURE(initializer),
+                    argCount);
       }
       if (argCount != 0) {
         runtimePanic(currentModuleRecord, false, ARGUMENT_MISMATCH,
@@ -262,7 +263,7 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
     case OBJECT_BOUND_METHOD: {
       const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
       currentModuleRecord->stackTop[-argCount - 1] = bound->receiver;
-      return call(vm, bound->method, argCount);
+      return call(currentModuleRecord, bound->method, argCount);
     }
     default:
       break;
@@ -275,35 +276,35 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
 
 /**
  * Invokes a method from a class with the given arguments.
- * @param vm The virtual machine
+ * @param moduleRecord The currently executing module
  * @param klass The class containing the method
  * @param name The name of the method to invoke
  * @param argCount Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-bool invokeFromClass(const VM *vm, const ObjectClass *klass,
+bool invokeFromClass(ObjectModuleRecord *moduleRecord, const ObjectClass *klass,
                      const ObjectString *name, const int argCount) {
   Value method;
   if (tableGet(&klass->methods, name, &method)) {
-    return call(vm, AS_CRUX_CLOSURE(method), argCount);
+    return call(moduleRecord, AS_CRUX_CLOSURE(method), argCount);
   }
-  runtimePanic(vm->currentModuleRecord, false, NAME, "Undefined property '%s'.",
+  runtimePanic(moduleRecord, false, NAME, "Undefined property '%s'.",
                name->chars);
   return false;
 }
 
 bool handleInvoke(VM *vm, const int argCount, const Value receiver,
                   const Value original, const Value value) {
+  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   // Save original stack order
-  vm->currentModuleRecord->stackTop[-argCount - 1] = value;
-  vm->currentModuleRecord->stackTop[-argCount] = receiver;
+  currentModuleRecord->stackTop[-argCount - 1] = value;
+  currentModuleRecord->stackTop[-argCount] = receiver;
 
   if (!callValue(vm, value, argCount)) {
     return false;
   }
 
   // restore the caller and put the result in the right place
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   const Value result = pop(currentModuleRecord);
   push(currentModuleRecord, original);
   push(currentModuleRecord, result);
@@ -417,7 +418,7 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
     }
 
     // For class methods, we need special handling
-    if (invokeFromClass(vm, instance->klass, name, argCount)) {
+    if (invokeFromClass(currentModuleRecord, instance->klass, name, argCount)) {
       // After the call, the result is already on the stack
       const Value result = pop(currentModuleRecord);
       push(currentModuleRecord, original);
@@ -1076,7 +1077,7 @@ InterpretResult interpret(VM *vm, char *source) {
   vm->currentModuleRecord->moduleClosure = closure;
   pop(currentModuleRecord);
   push(currentModuleRecord, OBJECT_VAL(closure));
-  call(vm, closure, 0);
+  call(currentModuleRecord, closure, 0);
 
   const InterpretResult result = run(vm, false);
 
@@ -1100,7 +1101,7 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
   ObjectResult *errorResult =
       newErrorResult(vm, newError(vm, copyString(vm, "", 0), RUNTIME, true));
 
-  if (!call(vm, closure, argCount)) {
+  if (!call(currentModuleRecord, closure, argCount)) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to execute function");
     *result = INTERPRET_RUNTIME_ERROR;

@@ -80,15 +80,15 @@ typedef enum {
 } ObjectType;
 
 struct Object {
-  ObjectType type;
   Object *next;
+  ObjectType type;
   bool isMarked;
 };
 
 struct ObjectString {
   Object Object;
-  uint32_t length;
   char *chars;
+  uint32_t length;
   uint32_t hash;
 };
 
@@ -105,7 +105,7 @@ typedef struct ObjectUpvalue {
   Object object;
   Value *location;
   Value closed;
-  struct ObjectUpvalue *next;
+  ObjectUpvalue *next;
 } ObjectUpvalue;
 
 typedef struct ObjectClosure {
