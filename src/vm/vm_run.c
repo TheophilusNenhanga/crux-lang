@@ -178,7 +178,7 @@ OP_FALSE: {
 }
 
 OP_NEGATE: {
-  Value operand = peek(currentModuleRecord, 0);
+  Value operand = PEEK(currentModuleRecord, 0);
   if (IS_INT(operand)) {
     int32_t iVal = AS_INT(operand);
     if (iVal == INT32_MIN) {
@@ -240,8 +240,8 @@ OP_NOT_EQUAL: {
 }
 
 OP_ADD: {
-  if (IS_CRUX_STRING(peek(currentModuleRecord, 0)) ||
-      IS_CRUX_STRING(peek(currentModuleRecord, 1))) {
+  if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) ||
+      IS_CRUX_STRING(PEEK(currentModuleRecord, 1))) {
     if (!concatenate(vm)) {
       return INTERPRET_RUNTIME_ERROR;
     }
@@ -291,10 +291,10 @@ OP_DEFINE_GLOBAL: {
     isPublic = true;
   }
   if (tableSet(vm, &currentModuleRecord->globals, name,
-               peek(currentModuleRecord, 0))) {
+               PEEK(currentModuleRecord, 0))) {
     if (isPublic) {
       tableSet(vm, &currentModuleRecord->publics, name,
-               peek(currentModuleRecord, 0));
+               PEEK(currentModuleRecord, 0));
     }
     POP(currentModuleRecord);
     DISPATCH();
@@ -322,7 +322,7 @@ OP_GET_GLOBAL: {
 OP_SET_GLOBAL: {
   ObjectString *name = READ_STRING();
   if (tableSet(vm, &currentModuleRecord->globals, name,
-               peek(currentModuleRecord, 0))) {
+               PEEK(currentModuleRecord, 0))) {
     runtimePanic(currentModuleRecord, false, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
@@ -340,13 +340,13 @@ OP_GET_LOCAL: {
 
 OP_SET_LOCAL: {
   uint8_t slot = READ_BYTE();
-  frame->slots[slot] = peek(currentModuleRecord, 0);
+  frame->slots[slot] = PEEK(currentModuleRecord, 0);
   DISPATCH();
 }
 
 OP_JUMP_IF_FALSE: {
   uint16_t offset = READ_SHORT();
-  if (isFalsy(peek(currentModuleRecord, 0))) {
+  if (isFalsy(PEEK(currentModuleRecord, 0))) {
     frame->ip += offset;
     DISPATCH();
   }
@@ -367,7 +367,7 @@ OP_LOOP: {
 
 OP_CALL: {
   int argCount = READ_BYTE();
-  if (!callValue(vm, peek(currentModuleRecord, argCount), argCount)) {
+  if (!callValue(vm, PEEK(currentModuleRecord, argCount), argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
@@ -400,7 +400,7 @@ OP_GET_UPVALUE: {
 
 OP_SET_UPVALUE: {
   uint8_t slot = READ_BYTE();
-  *frame->closure->upvalues[slot]->location = peek(currentModuleRecord, 0);
+  *frame->closure->upvalues[slot]->location = PEEK(currentModuleRecord, 0);
   DISPATCH();
 }
 
@@ -416,7 +416,7 @@ OP_CLASS: {
 }
 
 OP_GET_PROPERTY: {
-  Value receiver = peek(currentModuleRecord, 0);
+  Value receiver = PEEK(currentModuleRecord, 0);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -447,7 +447,7 @@ OP_GET_PROPERTY: {
 }
 
 OP_SET_PROPERTY: {
-  Value receiver = peek(currentModuleRecord, 1);
+  Value receiver = PEEK(currentModuleRecord, 1);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -459,7 +459,7 @@ OP_SET_PROPERTY: {
   ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
 
-  tableSet(vm, &instance->fields, name, peek(currentModuleRecord, 0));
+  tableSet(vm, &instance->fields, name, PEEK(currentModuleRecord, 0));
   Value value = POP(currentModuleRecord);
   popPush(currentModuleRecord, value);
   DISPATCH();
@@ -481,7 +481,7 @@ OP_METHOD: {
 }
 
 OP_INHERIT: {
-  Value superClass = peek(currentModuleRecord, 1);
+  Value superClass = PEEK(currentModuleRecord, 1);
 
   if (!IS_CRUX_CLASS(superClass)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -489,7 +489,7 @@ OP_INHERIT: {
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectClass *subClass = AS_CRUX_CLASS(peek(currentModuleRecord, 0));
+  ObjectClass *subClass = AS_CRUX_CLASS(PEEK(currentModuleRecord, 0));
   tableAddAll(vm, &AS_CRUX_CLASS(superClass)->methods, &subClass->methods);
   POP(currentModuleRecord);
   DISPATCH();
@@ -528,15 +528,15 @@ OP_ARRAY: {
 
 OP_GET_COLLECTION: {
   Value indexValue = POP(currentModuleRecord);
-  if (!IS_CRUX_OBJECT(peek(currentModuleRecord, 0))) {
+  if (!IS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))) {
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Cannot get from a non-collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  switch (AS_CRUX_OBJECT(peek(currentModuleRecord, 0))->type) {
+  switch (AS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))->type) {
   case OBJECT_TABLE: {
     if (IS_CRUX_STRING(indexValue) || IS_INT(indexValue)) {
-      ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 0));
+      ObjectTable *table = AS_CRUX_TABLE(PEEK(currentModuleRecord, 0));
       Value value;
       if (!objectTableGet(table, indexValue, &value)) {
         runtimePanic(currentModuleRecord, false, COLLECTION_GET,
@@ -558,7 +558,7 @@ OP_GET_COLLECTION: {
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
-    ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 0));
+    ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 0));
     Value value;
     if (index < 0 || index >= array->size) {
       runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
@@ -582,7 +582,7 @@ OP_GET_COLLECTION: {
       return INTERPRET_RUNTIME_ERROR;
     }
     int index = AS_INT(indexValue);
-    ObjectString *string = AS_CRUX_STRING(peek(currentModuleRecord, 0));
+    ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
     ObjectString *ch;
     if (index < 0 || index >= string->length) {
       runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
@@ -605,10 +605,10 @@ OP_GET_COLLECTION: {
 
 OP_SET_COLLECTION: {
   Value value = POP(currentModuleRecord);
-  Value indexValue = peek(currentModuleRecord, 0);
+  Value indexValue = PEEK(currentModuleRecord, 0);
 
-  if (IS_CRUX_TABLE(peek(currentModuleRecord, 1))) {
-    ObjectTable *table = AS_CRUX_TABLE(peek(currentModuleRecord, 1));
+  if (IS_CRUX_TABLE(PEEK(currentModuleRecord, 1))) {
+    ObjectTable *table = AS_CRUX_TABLE(PEEK(currentModuleRecord, 1));
     if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
       if (!objectTableSet(vm, table, indexValue, value)) {
         runtimePanic(currentModuleRecord, false, COLLECTION_GET,
@@ -619,8 +619,8 @@ OP_SET_COLLECTION: {
       runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
       return INTERPRET_RUNTIME_ERROR;
     }
-  } else if (IS_CRUX_ARRAY(peek(currentModuleRecord, 1))) {
-    ObjectArray *array = AS_CRUX_ARRAY(peek(currentModuleRecord, 1));
+  } else if (IS_CRUX_ARRAY(PEEK(currentModuleRecord, 1))) {
+    ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 1));
     int index = AS_INT(indexValue);
     if (!arraySet(vm, array, index, value)) {
       runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
@@ -661,7 +661,7 @@ OP_RIGHT_SHIFT: {
 OP_SET_LOCAL_SLASH: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0); // Right-hand side
+  Value operandValue = PEEK(currentModuleRecord, 0); // Right-hand side
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -695,7 +695,7 @@ OP_SET_LOCAL_SLASH: {
 OP_SET_LOCAL_STAR: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -734,7 +734,7 @@ OP_SET_LOCAL_STAR: {
 OP_SET_LOCAL_PLUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -749,7 +749,7 @@ OP_SET_LOCAL_PLUS: {
       return INTERPRET_RUNTIME_ERROR;
     }
 
-    frame->slots[slot] = peek(currentModuleRecord, 0);
+    frame->slots[slot] = PEEK(currentModuleRecord, 0);
   } else if ((currentIsInt || currentIsFloat) &&
              (operandIsInt || operandIsFloat)) {
     Value resultValue;
@@ -783,7 +783,7 @@ OP_SET_LOCAL_PLUS: {
 OP_SET_LOCAL_MINUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -823,7 +823,7 @@ OP_SET_UPVALUE_SLASH: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -858,7 +858,7 @@ OP_SET_UPVALUE_STAR: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -898,7 +898,7 @@ OP_SET_UPVALUE_PLUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -911,7 +911,7 @@ OP_SET_UPVALUE_PLUS: {
       POP(currentModuleRecord);
       return INTERPRET_RUNTIME_ERROR;
     }
-    *location = peek(currentModuleRecord, 0);
+    *location = PEEK(currentModuleRecord, 0);
   } else if ((currentIsInt || currentIsFloat) &&
              (operandIsInt || operandIsFloat)) {
     Value resultValue;
@@ -945,7 +945,7 @@ OP_SET_UPVALUE_MINUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   bool currentIsInt = IS_INT(currentValue);
   bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1060,7 +1060,7 @@ OP_ANON_FUNCTION: {
 OP_PUB: { DISPATCH(); }
 
 OP_MATCH: {
-  Value target = peek(currentModuleRecord, 0);
+  Value target = PEEK(currentModuleRecord, 0);
   vm->matchHandler.matchTarget = target;
   vm->matchHandler.isMatchTarget = true;
   DISPATCH();
@@ -1069,7 +1069,7 @@ OP_MATCH: {
 OP_MATCH_JUMP: {
   uint16_t offset = READ_SHORT();
   Value pattern = POP(currentModuleRecord);
-  Value target = peek(currentModuleRecord, 0);
+  Value target = PEEK(currentModuleRecord, 0);
   if (!valuesEqual(pattern, target)) {
     frame->ip += offset;
   }
@@ -1089,7 +1089,7 @@ OP_MATCH_END: {
 
 OP_RESULT_MATCH_OK: {
   uint16_t offset = READ_SHORT();
-  Value target = peek(currentModuleRecord, 0);
+  Value target = PEEK(currentModuleRecord, 0);
   if (!IS_CRUX_RESULT(target) || !AS_CRUX_RESULT(target)->isOk) {
     frame->ip += offset;
   } else {
@@ -1101,7 +1101,7 @@ OP_RESULT_MATCH_OK: {
 
 OP_RESULT_MATCH_ERR: {
   uint16_t offset = READ_SHORT();
-  Value target = peek(currentModuleRecord, 0);
+  Value target = PEEK(currentModuleRecord, 0);
   if (!IS_CRUX_RESULT(target) || AS_CRUX_RESULT(target)->isOk) {
     frame->ip += offset;
   } else {
@@ -1113,7 +1113,7 @@ OP_RESULT_MATCH_ERR: {
 
 OP_RESULT_BIND: {
   uint8_t slot = READ_BYTE();
-  Value bind = peek(currentModuleRecord, 0);
+  Value bind = PEEK(currentModuleRecord, 0);
   vm->matchHandler.matchBind = bind;
   vm->matchHandler.isMatchBind = true;
   frame->slots[slot] = bind;
@@ -1161,7 +1161,7 @@ OP_SET_GLOBAL_MODULUS: {
 OP_SET_LOCAL_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1191,7 +1191,7 @@ OP_SET_LOCAL_INT_DIVIDE: {
 OP_SET_LOCAL_MODULUS: {
   uint8_t slot = READ_BYTE();
   Value currentValue = frame->slots[slot];
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1223,7 +1223,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1255,7 +1255,7 @@ OP_SET_UPVALUE_MODULUS: {
   uint8_t slot = READ_BYTE();
   Value *location = frame->closure->upvalues[slot]->location;
   Value currentValue = *location;
-  Value operandValue = peek(currentModuleRecord, 0);
+  Value operandValue = PEEK(currentModuleRecord, 0);
 
   if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1465,7 +1465,7 @@ OP_FINISH_USE: {
   for (int i = 0; i < nameCount; i++) {
     aliases[i] = READ_STRING();
   }
-  if (!IS_CRUX_MODULE_RECORD(peek(currentModuleRecord, 0))) {
+  if (!IS_CRUX_MODULE_RECORD(PEEK(currentModuleRecord, 0))) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Module record creation could not be completed.");
     return INTERPRET_RUNTIME_ERROR;
@@ -1517,10 +1517,10 @@ OP_DEFINE_GLOBAL_16: {
     isPublic = true;
   }
   if (tableSet(vm, &currentModuleRecord->globals, name,
-               peek(currentModuleRecord, 0))) {
+               PEEK(currentModuleRecord, 0))) {
     if (isPublic) {
       tableSet(vm, &currentModuleRecord->publics, name,
-               peek(currentModuleRecord, 0));
+               PEEK(currentModuleRecord, 0));
     }
     POP(currentModuleRecord);
     DISPATCH();
@@ -1546,7 +1546,7 @@ OP_GET_GLOBAL_16: {
 OP_SET_GLOBAL_16: {
   ObjectString *name = READ_STRING_16();
   if (tableSet(vm, &currentModuleRecord->globals, name,
-               peek(currentModuleRecord, 0))) {
+               PEEK(currentModuleRecord, 0))) {
     runtimePanic(currentModuleRecord, false, NAME,
                  "Cannot give variable '%s' a value because it has not been "
                  "defined\nDid you forget 'let'?",
@@ -1557,7 +1557,7 @@ OP_SET_GLOBAL_16: {
 }
 
 OP_GET_PROPERTY_16: {
-  Value receiver = peek(currentModuleRecord, 0);
+  Value receiver = PEEK(currentModuleRecord, 0);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING_16();
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1588,7 +1588,7 @@ OP_GET_PROPERTY_16: {
 }
 
 OP_SET_PROPERTY_16: {
-  Value receiver = peek(currentModuleRecord, 1);
+  Value receiver = PEEK(currentModuleRecord, 1);
   if (!IS_CRUX_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING_16();
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -1600,7 +1600,7 @@ OP_SET_PROPERTY_16: {
   ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
   ObjectString *name = READ_STRING_16();
 
-  tableSet(vm, &instance->fields, name, peek(currentModuleRecord, 0));
+  tableSet(vm, &instance->fields, name, PEEK(currentModuleRecord, 0));
   Value value = POP(currentModuleRecord);
   popPush(currentModuleRecord, value);
   DISPATCH();

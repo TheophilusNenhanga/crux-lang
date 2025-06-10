@@ -25,8 +25,6 @@ ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, 
 
 bool isFalsy(Value value);
 
-Value peek(const ObjectModuleRecord *moduleRecord, int distance);
-
 void popPush(ObjectModuleRecord *moduleRecord, Value value);
 
 void popTwo(ObjectModuleRecord *moduleRecord);

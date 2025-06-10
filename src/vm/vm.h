@@ -99,6 +99,9 @@ runtimePanic((moduleRecord), true, RUNTIME, "Stack underflow error"); \
 *--(moduleRecord)->stackTop; \
 })
 
+#define PEEK(moduleRecord, distance) \
+( (moduleRecord)->stackTop[ -1 - (distance) ] )
+
 VM *newVM(int argc, const char **argv);
 
 void initVM(VM *vm, int argc, const char **argv);

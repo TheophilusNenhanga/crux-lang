@@ -100,16 +100,6 @@ void popPush(ObjectModuleRecord *moduleRecord, const Value value) {
   PUSH(moduleRecord, value);
 }
 
-/**
- * Returns a value from the stack without removing it.
- * @param moduleRecord The currently executing module
- * @param distance How far from the top of the stack to look (0 is the top)
- * @return The value at the specified distance from the top
- */
-Value peek(const ObjectModuleRecord *moduleRecord, const int distance) {
-  return moduleRecord->stackTop[-1 - distance];
-}
-
 bool call(ObjectModuleRecord *moduleRecord, ObjectClosure *closure,
           const int argCount) {
   if (argCount != closure->function->arity) {
@@ -304,9 +294,9 @@ bool handleInvoke(VM *vm, const int argCount, const Value receiver,
  */
 bool invoke(VM *vm, const ObjectString *name, int argCount) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value receiver = peek(currentModuleRecord, argCount);
+  const Value receiver = PEEK(currentModuleRecord, argCount);
   const Value original =
-      peek(currentModuleRecord, argCount + 1); // Store the original caller
+      PEEK(currentModuleRecord, argCount + 1); // Store the original caller
 
   if (!IS_CRUX_OBJECT(receiver)) {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -435,7 +425,7 @@ bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name) {
   }
 
   ObjectBoundMethod *bound =
-      newBoundMethod(vm, peek(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
+      newBoundMethod(vm, PEEK(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
   POP(currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(bound));
   return true;
@@ -488,8 +478,8 @@ void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last) {
  */
 void defineMethod(VM *vm, ObjectString *name) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value method = peek(currentModuleRecord, 0);
-  ObjectClass *klass = AS_CRUX_CLASS(peek(currentModuleRecord, 1));
+  const Value method = PEEK(currentModuleRecord, 0);
+  ObjectClass *klass = AS_CRUX_CLASS(PEEK(currentModuleRecord, 1));
   if (tableSet(vm, &klass->methods, name, method)) {
     POP(currentModuleRecord);
   }
@@ -513,8 +503,8 @@ bool isFalsy(const Value value) {
  */
 bool concatenate(VM *vm) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value b = peek(currentModuleRecord, 0);
-  const Value a = peek(currentModuleRecord, 1);
+  const Value b = PEEK(currentModuleRecord, 0);
+  const Value a = PEEK(currentModuleRecord, 1);
 
   ObjectString *stringB;
   ObjectString *stringA;
@@ -665,8 +655,8 @@ void freeVM(VM *vm) {
  */
 bool binaryOperation(VM *vm, const OpCode operation) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value b = peek(currentModuleRecord, 0);
-  const Value a = peek(currentModuleRecord, 1);
+  const Value b = PEEK(currentModuleRecord, 0);
+  const Value a = PEEK(currentModuleRecord, 1);
 
   const bool aIsInt = IS_INT(a);
   const bool bIsInt = IS_INT(b);
@@ -891,7 +881,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  const Value operandValue = peek(currentModuleRecord, 0);
+  const Value operandValue = PEEK(currentModuleRecord, 0);
 
   const bool currentIsInt = IS_INT(currentValue);
   const bool currentIsFloat = IS_FLOAT(currentValue);
@@ -1096,7 +1086,7 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
 
   vm->currentModuleRecord->frameCount = currentFrameCount;
   if (*result == INTERPRET_OK) {
-    const Value executionResult = peek(currentModuleRecord, 0);
+    const Value executionResult = PEEK(currentModuleRecord, 0);
     return newOkResult(vm, executionResult);
   }
   return errorResult;
