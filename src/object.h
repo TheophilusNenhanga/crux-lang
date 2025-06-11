@@ -80,15 +80,15 @@ typedef enum {
 } ObjectType;
 
 struct Object {
-  ObjectType type;
   Object *next;
+  ObjectType type;
   bool isMarked;
 };
 
 struct ObjectString {
   Object Object;
-  uint32_t length;
   char *chars;
+  uint32_t length;
   uint32_t hash;
 };
 
@@ -105,7 +105,7 @@ typedef struct ObjectUpvalue {
   Object object;
   Value *location;
   Value closed;
-  struct ObjectUpvalue *next;
+  ObjectUpvalue *next;
 } ObjectUpvalue;
 
 typedef struct ObjectClosure {
@@ -253,7 +253,6 @@ typedef enum {
 struct ObjectModuleRecord {
   Object object;
   ObjectString *path;
-  ModuleState state;
   Table globals;
   Table publics;
   ObjectClosure *moduleClosure;
@@ -263,8 +262,11 @@ struct ObjectModuleRecord {
   Value* stackTop;
   Value* stackLimit;
   CallFrame *frames;
-  uint32_t frameCount;
-  uint32_t frameCapacity;
+  uint8_t frameCount;
+  uint8_t frameCapacity;
+  bool isRepl;
+  bool isMain;
+  ModuleState state;
 };
 
 
@@ -695,7 +697,7 @@ ObjectRandom *newRandom(VM *vm);
 
 ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode);
 
-ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path);
+ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path, bool isRepl, bool isMain);
 
 /**
  * @brief Removes a value from an object table.

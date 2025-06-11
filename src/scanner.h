@@ -74,10 +74,10 @@ typedef enum {
   TOKEN_ERR,         // Err
   TOKEN_DEFAULT,     // default
   TOKEN_GIVE,        // give
-} TokenType;
+} CruxTokenType;
 
 typedef struct {
-  TokenType type;
+  CruxTokenType type;
   int length;
   const char *start;
   int line;

@@ -4,7 +4,7 @@
 #include "common.h"
 #include "value.h"
 
-typedef struct VM VM;
+typedef VM VM;
 
 typedef struct {
   ObjectString *key;
@@ -12,9 +12,9 @@ typedef struct {
 } Entry;
 
 typedef struct {
+  Entry *entries;
   int count;
   int capacity;
-  Entry *entries;
 } Table;
 
 /**
@@ -39,7 +39,6 @@ void freeTable(VM *vm, Table *table);
  * @param table Pointer to the table to modify.
  * @param key String key to insert or update.
  * @param value Value to associate with the key.
- * @param isPublic Flag indicating if this entry should be accessible publicly.
  * @return true if a new key was added or an existing key was changed from nil,
  *         false otherwise.
  */

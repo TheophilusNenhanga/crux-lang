@@ -1,0 +1,52 @@
+println("=== Start of testing classes ===");
+
+class Test {}
+assert(_type(Test) == "class", "Failed to get the type of class, expected 'class' got : " + _type(Test));
+
+let t1 = Test();
+assert(_type(t1) == "instance", "Failed to get the type of an instance of Test, expected 'instance' got " + _type(t1));
+
+t1.property = "something";
+assert(t1.property == "something", "Failed to set and get property from instance t1");
+
+class Test2 {
+	fn init() {
+		self.name = "tester";
+		self.version = 2;
+	}
+}
+
+let t2 = Test2();
+assert(t2.name == "tester", "Failed to get property from instance");
+assert(t2.version == 2, "Failed to get property from instance");
+
+
+// TODO: Investigate super method calls
+
+// class Animal {
+// 	fn init() {
+// 		self.type = "animal";
+// 	}
+//
+// 	fn say_hello() {
+// 		println("I am a " + self.type);
+// 	}
+// }
+//
+// class Dog : Animal {
+// 	fn init() {
+// 		self.name = "dog";
+// 		super.say_hello();
+// 	}
+// }
+//
+//
+// let ani = Animal();
+// let dog = Dog();
+//
+// println(dog.name);
+// println(dog.type);
+
+
+
+println("=== End of testing classes ===");

@@ -1,5 +1,6 @@
 #include "chunk.h"
 #include "memory.h"
+#include "panic.h"
 #include "vm/vm_helpers.h"
 #include <stdlib.h>
 
@@ -34,8 +35,8 @@ void freeChunk(VM *vm, Chunk *chunk) {
 }
 
 int addConstant(VM *vm, Chunk *chunk, const Value value) {
-  push(vm->currentModuleRecord, value);
+  PUSH(vm->currentModuleRecord, value);
   writeValueArray(vm, &chunk->constants, value);
-  pop(vm->currentModuleRecord);
+  POP(vm->currentModuleRecord);
   return chunk->constants.count - 1;
 }

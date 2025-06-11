@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../panic.h"
 #include "../vm/vm_helpers.h"
 
 #ifndef _WIN32
@@ -16,14 +17,14 @@ ObjectResult *argsFunction(VM *vm, int argCount, const Value *args) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   ObjectArray *resultArray = newArray(vm, 2);
   ObjectArray *argvArray = newArray(vm, vm->args.argc);
-  push(currentModuleRecord, OBJECT_VAL(resultArray));
-  push(currentModuleRecord, OBJECT_VAL(argvArray));
+  PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
+  PUSH(currentModuleRecord, OBJECT_VAL(argvArray));
 
   for (int i = 0; i < vm->args.argc; i++) {
     char *arg = strdup(vm->args.argv[i]);
     if (arg == NULL) {
-      pop(currentModuleRecord);
-      pop(currentModuleRecord);
+      POP(currentModuleRecord);
+      POP(currentModuleRecord);
       return newErrorResult(
           vm,
           newError(
@@ -37,8 +38,8 @@ ObjectResult *argsFunction(VM *vm, int argCount, const Value *args) {
   arrayAddBack(vm, resultArray, INT_VAL(vm->args.argc));
   arrayAddBack(vm, resultArray, OBJECT_VAL(argvArray));
 
-  pop(currentModuleRecord);
-  pop(currentModuleRecord);
+  POP(currentModuleRecord);
+  POP(currentModuleRecord);
 
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../memory.h"
+#include "../panic.h"
 #include "../vm/vm_helpers.h"
 #include "array.h"
 
@@ -298,10 +299,10 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
   }
 
   ObjectArray *resultArray = newArray(vm, array->size);
-  push(currentModuleRecord, OBJECT_VAL(resultArray));
+  PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   for (uint32_t i = 0; i < array->size; i++) {
     const Value arrayValue = array->array[i];
-    push(currentModuleRecord, arrayValue);
+    PUSH(currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
 
@@ -316,9 +317,9 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
     } else {
       arrayAddBack(vm, resultArray, OBJECT_VAL(result->as.error));
     }
-    pop(currentModuleRecord);
+    POP(currentModuleRecord);
   }
-  pop(currentModuleRecord);
+  POP(currentModuleRecord);
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
@@ -348,11 +349,11 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
   }
 
   ObjectArray *resultArray = newArray(vm, array->size);
-  push(currentModuleRecord, OBJECT_VAL(resultArray));
+  PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   uint32_t addCount = 0;
   for (uint32_t i = 0; i < array->size; i++) {
     const Value arrayValue = array->array[i];
-    push(currentModuleRecord, arrayValue);
+    PUSH(currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
 
@@ -368,9 +369,9 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
         addCount++;
       }
     }
-    pop(currentModuleRecord);
+    POP(currentModuleRecord);
   }
-  pop(currentModuleRecord);
+  POP(currentModuleRecord);
   resultArray->size = addCount;
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
@@ -405,8 +406,8 @@ ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
   for (uint32_t i = 0; i < array->size; i++) {
     const Value arrayValue = array->array[i];
 
-    push(currentModuleRecord, arrayValue);
-    push(currentModuleRecord, accumulator);
+    PUSH(currentModuleRecord, arrayValue);
+    PUSH(currentModuleRecord, accumulator);
 
     InterpretResult res;
 
@@ -414,8 +415,8 @@ ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
 
     if (res != INTERPRET_OK) {
       if (!result->isOk) {
-        pop(currentModuleRecord); // arrayValue
-        pop(currentModuleRecord); // accumulator
+        POP(currentModuleRecord); // arrayValue
+        POP(currentModuleRecord); // accumulator
         return result;
       }
     }
@@ -423,13 +424,13 @@ ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
     if (result->isOk) {
       accumulator = result->as.value;
     } else {
-      pop(currentModuleRecord); // arrayValue
-      pop(currentModuleRecord); // accumulator
+      POP(currentModuleRecord); // arrayValue
+      POP(currentModuleRecord); // accumulator
       return result;
     }
 
-    pop(currentModuleRecord); // arrayValue
-    pop(currentModuleRecord); // accumulator
+    POP(currentModuleRecord); // arrayValue
+    POP(currentModuleRecord); // accumulator
   }
 
   return newOkResult(vm, accumulator);
@@ -548,7 +549,7 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
 
   ObjectArray *sortedArray = newArray(vm, array->size);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  push(currentModuleRecord, OBJECT_VAL(sortedArray));
+  PUSH(currentModuleRecord, OBJECT_VAL(sortedArray));
 
   for (uint32_t i = 0; i < array->size; i++) {
     sortedArray->array[i] = array->array[i];
@@ -557,7 +558,7 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
 
   quickSort(sortedArray->array, 0, (int)sortedArray->size - 1);
 
-  pop(currentModuleRecord);
+  POP(currentModuleRecord);
   return newOkResult(vm, OBJECT_VAL(sortedArray));
 }
 
