@@ -376,29 +376,9 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
 
     Value value;
     if (tableGet(&instance->fields, name, &value)) {
-      // Save original stack order
-      currentModuleRecord->stackTop[-argCount - 1] = value;
-
-      if (!callValue(vm, value, argCount)) {
-        return false;
-      }
-
-      // After the call, restore the original caller and put the result in the
-      // right place
-      const Value result = POP(currentModuleRecord);
-      PUSH(currentModuleRecord, original);
-      PUSH(currentModuleRecord, result);
-      return true;
+      return callValue(vm, value, argCount);
     }
-
-    // For class methods, we need special handling
-    if (invokeFromClass(currentModuleRecord, instance->klass, name, argCount)) {
-      // After the call, the result is already on the stack
-      const Value result = POP(currentModuleRecord);
-      PUSH(currentModuleRecord, original);
-      PUSH(currentModuleRecord, result);
-      return true;
-    }
+    return invokeFromClass(currentModuleRecord, instance->klass, name, argCount);
   }
   default: {
     runtimePanic(currentModuleRecord, false, TYPE,
