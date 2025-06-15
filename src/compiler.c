@@ -594,7 +594,7 @@ static ObjectFunction *endCompiler() {
     }
   }
 #endif
-
+  function->moduleRecord = current->owner->currentModuleRecord;
   current = current->enclosing;
   return function;
 }
@@ -953,8 +953,6 @@ static void super_(bool canAssign) {
   consume(TOKEN_DOT, "Expected '.' after 'super'.");
   consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
   const uint16_t name = identifierConstant(&parser.previous);
-  namedVariable(syntheticToken("self"), false);
-  namedVariable(syntheticToken("super"), false);
 
   if (match(TOKEN_LEFT_PAREN)) {
     const uint8_t argCount = argumentList();

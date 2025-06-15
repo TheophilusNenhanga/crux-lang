@@ -1041,7 +1041,6 @@ OP_TABLE: {
 
 OP_ANON_FUNCTION: {
   ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT());
-  function->moduleRecord = currentModuleRecord;
   ObjectClosure *closure = newClosure(vm, function);
   PUSH(currentModuleRecord, OBJECT_VAL(closure));
   for (int i = 0; i < closure->upvalueCount; i++) {

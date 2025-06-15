@@ -21,7 +21,11 @@ assert(t2.name == "tester", "Failed to get property from instance");
 assert(t2.version == 2, "Failed to get property from instance");
 
 
-// TODO: Investigate super method calls
+// TODO: Investigate init functions that call functions and assign values
+// e.g.
+// class Animal { fn return_string() { return "hello"; } } class Dog: Animal { fn init() { self.message = super.return_string(); } }
+// let dog = Dog(); println(dog);
+// The dog variable will be a string and not an instance
 
 // class Animal {
 // 	fn init() {
@@ -35,7 +39,7 @@ assert(t2.version == 2, "Failed to get property from instance");
 //
 // class Dog : Animal {
 // 	fn init() {
-// 		self.name = "dog";
+// 		self.type = "dog";
 // 		super.say_hello();
 // 	}
 // }

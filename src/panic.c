@@ -281,9 +281,9 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
       if (function->name == NULL || function->name->length == 0) {
         if (funcModulePath != NULL) {
           if (traceModule->isRepl) {
-            fprintf(stderr, "%s<script from \"repl\">%s", CYAN, RESET);
+            fprintf(stderr, "%sscript from \"repl\" %s", CYAN, RESET);
           } else {
-            fprintf(stderr, "%s<script from \"%s\">%s", CYAN,
+            fprintf(stderr, "%sscript from \"%s\" %s", CYAN,
                     funcModulePath->chars, RESET);
           }
         } else {
