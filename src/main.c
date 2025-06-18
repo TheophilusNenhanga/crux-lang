@@ -37,9 +37,9 @@ static void runFile(VM *vm, const char *path) {
   free(fileResult.content);
 
   if (interpretResult == INTERPRET_COMPILE_ERROR)
-    exit(65);
+    exit(COMPILER_EXIT_CODE);
   if (interpretResult == INTERPRET_RUNTIME_ERROR)
-    exit(70);
+    exit(RUNTIME_EXIT_CODE);
 }
 
 /**

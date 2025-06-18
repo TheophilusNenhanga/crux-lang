@@ -20,7 +20,7 @@ fn is_munchausen(number) {
     return total == number;
 }
 
-fn main() 
+fn main() {
     for let i = 0; i < max; i += 1 {
         if is_munchausen(i) {
             println(i);

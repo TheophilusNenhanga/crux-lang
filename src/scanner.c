@@ -94,8 +94,8 @@ static void skipWhitespace() {
   }
 }
 
-static TokenType checkKeyword(const int start, const int length,
-                              const char *rest, const TokenType type) {
+static CruxTokenType checkKeyword(const int start, const int length,
+                                  const char *rest, const CruxTokenType type) {
   if (scanner.current - scanner.start == start + length &&
       memcmp(scanner.start + start, rest, length) == 0) {
     return type;
@@ -107,7 +107,7 @@ static TokenType checkKeyword(const int start, const int length,
  * Determines the token type of identifier.
  * @return The token type (keyword or identifier)
  */
-static TokenType identifierType() {
+static CruxTokenType identifierType() {
   switch (scanner.start[0]) {
   case 'a':
     if (scanner.current - scanner.start > 1) {
@@ -222,7 +222,7 @@ void initScanner(const char *source) {
  * @param type The token type
  * @return The created token
  */
-static Token makeToken(const TokenType type) {
+static Token makeToken(const CruxTokenType type) {
   Token token;
   token.type = type;
   token.start = scanner.start;

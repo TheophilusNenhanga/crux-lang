@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "std/core.h"
@@ -215,7 +216,8 @@ void compilerPanic(Parser *parser, const char *message,
   errorAt(parser, &parser->previous, message, errorType);
 }
 
-void runtimePanic(const VM *vm, const ErrorType type, const char *format, ...) {
+void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
+                  const ErrorType type, const char *format, ...) {
   const ErrorDetails details = getErrorDetails(type);
 
   va_list args;
@@ -229,13 +231,15 @@ void runtimePanic(const VM *vm, const ErrorType type, const char *format, ...) {
 
   fprintf(stderr, "\n%sStack trace (most recent call last):%s", CYAN, RESET);
 
-  const ObjectModuleRecord *traceModule = vm->currentModuleRecord;
+  const ObjectModuleRecord *traceModule = moduleRecord;
   int globalFrameNumber = 0;
 
   while (traceModule != NULL) {
-    if (traceModule != vm->currentModuleRecord) {
+    if (!traceModule->isMain) {
       fprintf(stderr, "\n  %s--- imported from module \"%s\" ---%s", MAGENTA,
-              traceModule->path ? traceModule->path->chars : "<unknown>",
+              traceModule->enclosingModule->path
+                  ? traceModule->enclosingModule->path->chars
+                  : "<unknown>",
               RESET);
     }
 
@@ -276,21 +280,10 @@ void runtimePanic(const VM *vm, const ErrorType type, const char *format, ...) {
 
       if (function->name == NULL || function->name->length == 0) {
         if (funcModulePath != NULL) {
-          bool isReplLike = false;
-          if (vm->args.argc <= 1) {
-            if (funcModulePath->length == 2 &&
-                ((funcModulePath->chars[0] == '.' &&
-                  funcModulePath->chars[1] == '/') ||
-                 (funcModulePath->chars[0] == '.' &&
-                  funcModulePath->chars[1] == '\\'))) {
-              isReplLike = true;
-            }
-          }
-
-          if (isReplLike) {
-            fprintf(stderr, "%s<script from \"repl\">%s", CYAN, RESET);
+          if (traceModule->isRepl) {
+            fprintf(stderr, "%sscript from \"repl\" %s", CYAN, RESET);
           } else {
-            fprintf(stderr, "%s<script from \"%s\">%s", CYAN,
+            fprintf(stderr, "%sscript from \"%s\" %s", CYAN,
                     funcModulePath->chars, RESET);
           }
         } else {
@@ -311,8 +304,12 @@ void runtimePanic(const VM *vm, const ErrorType type, const char *format, ...) {
   fprintf(stderr, "\n\n%sSuggestion: %s%s\n", CYAN, MAGENTA, details.hint);
   fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
-  if (vm->currentModuleRecord != NULL) {
-    resetStack(vm->currentModuleRecord);
+  if (moduleRecord != NULL) {
+    resetStack(moduleRecord);
+  }
+
+  if (shouldExit) {
+    exit(RUNTIME_EXIT_CODE);
   }
 }
 
