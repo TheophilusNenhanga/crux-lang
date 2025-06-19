@@ -1866,6 +1866,13 @@ static void unary(bool canAssign) {
   }
 }
 
+static void typeofExpression(bool canAssign) {
+  consume(TOKEN_LEFT_PAREN, "Expected '(' after 'typeof'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
+  emitByte(OP_TYPEOF);
+}
+
 /**
  * @brief Parse rules for each token type.
  *
@@ -1927,6 +1934,7 @@ ParseRule rules[] = {
     [TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
     [TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
+    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_CALL},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

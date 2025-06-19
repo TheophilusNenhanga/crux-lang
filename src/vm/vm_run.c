@@ -131,6 +131,7 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_GET_SUPER_16,
                                   &&OP_CLASS_16,
                                   &&OP_METHOD_16,
+                                  &&OP_TYPEOF,
                                   &&end};
 
   uint8_t instruction;
@@ -1643,6 +1644,15 @@ OP_CLASS_16: {
 
 OP_METHOD_16: {
   defineMethod(vm, READ_STRING_16());
+  DISPATCH();
+}
+
+OP_TYPEOF: {
+  Value value = PEEK(currentModuleRecord, 0);
+  // make type string
+
+  POP(currentModuleRecord);
+  // PUSH(currentModuleRecord, OBJECT_VAL(typeString));
   DISPATCH();
 }
 

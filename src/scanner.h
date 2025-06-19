@@ -74,6 +74,7 @@ typedef enum {
   TOKEN_ERR,         // Err
   TOKEN_DEFAULT,     // default
   TOKEN_GIVE,        // give
+  TOKEN_TYPEOF,      // typeof
 } CruxTokenType;
 
 typedef struct {
