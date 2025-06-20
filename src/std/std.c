@@ -100,7 +100,7 @@ static const Callable coreFunctions[] = {
 
 static const InfallibleCallable coreInfallibleFunctions[] = {
     {"_len", lengthFunction_, 1},    {"println", printlnFunction, 1},
-    {"_print", printFunction, 1},    {"_type", typeFunction_, 1},
+    {"_print", printFunction, 1},
     {"_int", intFunction_, 1},       {"_float", floatFunction_, 1},
     {"_string", stringFunction_, 1}, {"_table", tableFunction_, 1},
     {"_array", arrayFunction_, 1}};

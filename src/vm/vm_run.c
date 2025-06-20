@@ -1649,10 +1649,9 @@ OP_METHOD_16: {
 
 OP_TYPEOF: {
   Value value = PEEK(currentModuleRecord, 0);
-  // make type string
-
+  Value typeValue = typeofValue(vm, value);
   POP(currentModuleRecord);
-  // PUSH(currentModuleRecord, OBJECT_VAL(typeString));
+  PUSH(currentModuleRecord, typeValue);
   DISPATCH();
 }
 

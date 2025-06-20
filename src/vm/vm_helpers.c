@@ -1044,7 +1044,7 @@ InterpretResult interpret(VM *vm, char *source) {
  * @param closure The closure to be executed. The caller must ensure that the
  * arguments are on the stack correctly and match the arity
  * @param argCount
- * @param result result from executing function
+ * @param result result from executing the function
  * @return
  */
 ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
@@ -1070,4 +1070,75 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
     return newOkResult(vm, executionResult);
   }
   return errorResult;
+}
+
+Value typeofValue(VM* vm, const Value value) {
+    if (IS_CRUX_OBJECT(value)) {
+        const ObjectType type = AS_CRUX_OBJECT(value)->type;
+
+        switch (type) {
+            case OBJECT_STRING:
+                return OBJECT_VAL(copyString(vm, "string", 6));
+
+            case OBJECT_FUNCTION:
+            case OBJECT_NATIVE_FUNCTION:
+            case OBJECT_NATIVE_METHOD:
+            case OBJECT_CLOSURE:
+            case OBJECT_BOUND_METHOD:
+            case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
+            case OBJECT_NATIVE_INFALLIBLE_METHOD:
+                return OBJECT_VAL(copyString(vm, "function", 8));
+
+            case OBJECT_UPVALUE: {
+                const ObjectUpvalue* upvalue = AS_CRUX_UPVALUE(value);
+                return typeofValue(vm, upvalue->closed);
+            }
+
+            case OBJECT_CLASS:
+                return OBJECT_VAL(copyString(vm, "class", 5));
+
+            case OBJECT_INSTANCE:
+                return OBJECT_VAL(copyString(vm, "instance", 8));
+
+            case OBJECT_ARRAY:
+                return OBJECT_VAL(copyString(vm, "array", 5));
+
+            case OBJECT_TABLE:
+                return OBJECT_VAL(copyString(vm, "table", 5));
+
+            case OBJECT_ERROR:
+                return OBJECT_VAL(copyString(vm, "error", 5));
+
+            case OBJECT_RESULT:
+                return OBJECT_VAL(copyString(vm, "result", 6));
+
+            case OBJECT_RANDOM:
+                return OBJECT_VAL(copyString(vm, "random", 6));
+
+            case OBJECT_FILE:
+                return OBJECT_VAL(copyString(vm, "file", 4));
+
+            case OBJECT_MODULE_RECORD:
+                return OBJECT_VAL(copyString(vm, "module", 6));
+        }
+    }
+
+    if (IS_INT(value)) {
+        return OBJECT_VAL(copyString(vm, "int", 3));
+    }
+
+    if (IS_FLOAT(value)) {
+        return OBJECT_VAL(copyString(vm, "float", 5));
+    }
+
+    if (IS_BOOL(value)) {
+        return OBJECT_VAL(copyString(vm, "boolean", 7));
+    }
+
+    if (IS_NIL(value)) {
+        return OBJECT_VAL(copyString(vm, "nil", 3));
+    }
+
+    // unreacheable
+    return OBJECT_VAL(copyString(vm, "unknown", 7));
 }

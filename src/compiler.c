@@ -1867,9 +1867,7 @@ static void unary(bool canAssign) {
 }
 
 static void typeofExpression(bool canAssign) {
-  consume(TOKEN_LEFT_PAREN, "Expected '(' after 'typeof'.");
   expression();
-  consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
   emitByte(OP_TYPEOF);
 }
 

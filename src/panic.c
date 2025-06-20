@@ -330,7 +330,7 @@ char *repeat(const char c, const int count) {
 char *typeErrorMessage(VM *vm, const Value value, const char *expectedType) {
   static char buffer[1024];
 
-  const Value typeValue = typeFunction_(vm, 1, &value);
+  const Value typeValue = typeofValue(vm, value);
   char *actualType = AS_C_STRING(typeValue);
 
   snprintf(buffer, sizeof(buffer), "Expected type '%s', but got '%s'.",
