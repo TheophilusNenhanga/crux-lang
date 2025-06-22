@@ -55,6 +55,7 @@
 #define AS_CRUX_FILE(value) ((ObjectFile *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MODULE_RECORD(value)                                           \
   ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 

@@ -112,4 +112,7 @@ OpCode opcode, char *operation);
  */
 bool call(ObjectModuleRecord* moduleRecord, ObjectClosure *closure, int argCount);
 
+
+Value typeofValue(VM* vm, Value value);
+
 #endif //VM_HELPERS_H

@@ -79,7 +79,7 @@ let m7 = match ok("test") {
     }
 };
 
-assert(_type(m7) == "string", "match failed to bind value from result matching.");
+assert(typeof m7 == "string", "match failed to bind value from result matching.");
 
 
 let m8 = match err("test") {
@@ -91,6 +91,6 @@ let m8 = match err("test") {
     }
 };
 
-assert(_type(m8) == "error", "match failed to bind value from result matching.");
+assert(typeof m8 == "error", "match failed to bind value from result matching.");
 
 println("=== Completed match keyword test ===");

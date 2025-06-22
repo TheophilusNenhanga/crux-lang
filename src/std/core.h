@@ -12,7 +12,6 @@ ObjectResult *arrayFunction(VM *vm, int argCount, const Value *args);
 ObjectResult *tableFunction(VM *vm, int argCount, const Value *args);
 
 Value lengthFunction_(VM *vm, int argCount,const  Value *args);
-Value typeFunction_(VM *vm, int argCount, const Value *args);
 Value intFunction_(VM *vm, int argCount, const Value *args);
 Value floatFunction_(VM *vm, int argCount, const Value *args);
 Value stringFunction_(VM *vm, int argCount, const Value *args);
