@@ -94,7 +94,11 @@ typedef enum {
   OP_GET_SUPER_16,
   OP_CLASS_16,
   OP_METHOD_16,
-  OP_TYPEOF
+  OP_TYPEOF,
+  OP_STATIC_ARRAY,
+  OP_STATIC_TABLE,
+  OP_STRUCT,
+  OP_STRUCT_16,
 } OpCode;
 
 typedef struct {

@@ -75,6 +75,11 @@ typedef enum {
   TOKEN_DEFAULT,     // default
   TOKEN_GIVE,        // give
   TOKEN_TYPEOF,      // typeof
+
+  TOKEN_DOLLAR_LEFT_CURLY,  // ${
+  TOKEN_DOLLAR_LEFT_SQUARE, // $[
+  TOKEN_DOLLAR_IDENTIFIER, // $identifier
+  TOKEN_STRUCT, // struct
 } CruxTokenType;
 
 typedef struct {

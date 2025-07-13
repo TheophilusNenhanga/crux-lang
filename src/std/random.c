@@ -159,5 +159,5 @@ ObjectResult *randomChoiceMethod(VM *vm, int argCount, const Value *args) {
   const double r = getNext(random);
   const uint32_t index = (uint32_t)(r * arr->size);
 
-  return newOkResult(vm, arr->array[index]);
+  return newOkResult(vm, arr->values[index]);
 }

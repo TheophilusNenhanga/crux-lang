@@ -88,7 +88,7 @@ void markArray(VM *vm, const ValueArray *array) {
  */
 void markObjectArray(VM *vm, const ObjectArray *array) {
   for (int i = 0; i < array->size; i++) {
-    markValue(vm, array->array[i]);
+    markValue(vm, array->values[i]);
   }
 }
 
@@ -341,7 +341,7 @@ static void freeObject(VM *vm, Object *object) {
 
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
-    FREE_ARRAY(vm, Value, array->array, array->capacity);
+    FREE_ARRAY(vm, Value, array->values, array->capacity);
     FREE(vm, ObjectArray, object);
     break;
   }

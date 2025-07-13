@@ -694,7 +694,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_DIVIDE: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero.");
         return false;
       }
@@ -704,7 +704,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_INT_DIVIDE: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Integer division by zero.");
         return false;
       }
@@ -720,7 +720,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_MODULUS: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Modulo by zero.");
         return false;
       }
@@ -801,7 +801,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       break;
     case OP_DIVIDE: {
       if (doubleB == 0.0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero.");
         return false;
       }
@@ -918,7 +918,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
     case OP_SET_GLOBAL_SLASH: {
       if (ioperand == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero in '%s %s'.", name->chars, operation);
         return INTERPRET_RUNTIME_ERROR;
       }
@@ -981,7 +981,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
     case OP_SET_GLOBAL_SLASH: {
       if (doperand == 0.0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero in '%s %s'.", name->chars, operation);
         return INTERPRET_RUNTIME_ERROR;
       }

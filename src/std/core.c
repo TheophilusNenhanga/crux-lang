@@ -95,7 +95,7 @@ static Value castTable(VM *vm, const Value *args) {
     ObjectTable *table = newTable(vm, (int)array->size);
     for (int i = 0; i < array->size; i++) {
       const Value k = INT_VAL(i);
-      const Value v = array->array[i];
+      const Value v = array->values[i];
       objectTableSet(vm, table, k, v);
     }
     return OBJECT_VAL(table);

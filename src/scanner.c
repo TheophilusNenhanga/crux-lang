@@ -48,8 +48,7 @@ static char peekNext() {
  * @return true if the character can start an identifier, false otherwise
  */
 static bool isIdentifierStarter(const char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' ||
-         c == '$';
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
 /**
@@ -172,6 +171,11 @@ static CruxTokenType identifierType() {
         }
       case 'u':
         return checkKeyword(2, 3, "per", TOKEN_SUPER);
+      case 't': {
+            if (scanner.current - scanner.start > 2) {
+                return checkKeyword(2, 3, "ruct", TOKEN_STRUCT);
+            }
+          }
       default:;
       }
     }
@@ -443,8 +447,19 @@ Token scanToken() {
     return makeToken(match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
   case '"':
     return doubleString();
-  case '\'':
+  case '\'': 
     return singleString();
+  case '$': {
+          if (match('{')) {
+              return makeToken(TOKEN_DOLLAR_LEFT_CURLY);
+          }
+          if (match('[')) {
+              return makeToken(TOKEN_DOLLAR_LEFT_SQUARE);
+		  }
+          if (isIdentifierStarter(peek())) {
+              return makeToken(TOKEN_DOLLAR_IDENTIFIER);
+		  }
+      }
   default:;
   }
   return errorToken("Unexpected character.");

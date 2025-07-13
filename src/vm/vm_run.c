@@ -132,6 +132,10 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_CLASS_16,
                                   &&OP_METHOD_16,
                                   &&OP_TYPEOF,
+                                  &&OP_STATIC_ARRAY,
+                                  &&OP_STATIC_TABLE,
+                                  &&OP_STRUCT,
+                                  &&OP_STRUCT_16,
                                   &&end};
 
   uint8_t instruction;
@@ -536,10 +540,11 @@ OP_GET_COLLECTION: {
   }
   switch (AS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))->type) {
   case OBJECT_TABLE: {
-    if (IS_CRUX_STRING(indexValue) || IS_INT(indexValue)) {
+    if (IS_CRUX_HASHABLE(indexValue)) {
       ObjectTable *table = AS_CRUX_TABLE(PEEK(currentModuleRecord, 0));
       Value value;
-      if (!objectTableGet(table, indexValue, &value)) {
+      if (!objectTableGet(table->entries, table->size, table->capacity,
+                          indexValue, &value)) {
         runtimePanic(currentModuleRecord, false, COLLECTION_GET,
                      "Failed to get value from table");
         return INTERPRET_RUNTIME_ERROR;
@@ -560,17 +565,14 @@ OP_GET_COLLECTION: {
     }
     int index = AS_INT(indexValue);
     ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 0));
-    Value value;
+
     if (index < 0 || index >= array->size) {
-      runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
-                   "Index out of bounds.");
+      runtimePanic(currentModuleRecord, false, BOUNDS, "Index out of bounds.");
       return INTERPRET_RUNTIME_ERROR;
     }
-    if (!arrayGet(array, index, &value)) {
-      runtimePanic(currentModuleRecord, false, COLLECTION_GET,
-                   "Failed to get value from array");
-      return INTERPRET_RUNTIME_ERROR;
-    }
+
+    Value value = array->values[index];
+
     popPush(
         currentModuleRecord,
         value); // pop the array off the stack // push the value onto the stack
@@ -586,8 +588,7 @@ OP_GET_COLLECTION: {
     ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
     ObjectString *ch;
     if (index < 0 || index >= string->length) {
-      runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
-                   "Index out of bounds.");
+      runtimePanic(currentModuleRecord, false, BOUNDS, "Index out of bounds.");
       return INTERPRET_RUNTIME_ERROR;
     }
     // Only single character indexing
@@ -595,6 +596,44 @@ OP_GET_COLLECTION: {
     popPush(currentModuleRecord, OBJECT_VAL(ch));
     DISPATCH();
   }
+
+  case OBJECT_STATIC_ARRAY: {
+    if (!IS_INT(indexValue)) {
+      runtimePanic(currentModuleRecord, false, TYPE,
+                   "Index must be of type 'int'.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    int index = AS_INT(indexValue);
+    ObjectStaticArray *array =
+        AS_CRUX_STATIC_ARRAY(PEEK(currentModuleRecord, 1));
+    if (index < 0 || index >= array->size) {
+      runtimePanic(currentModuleRecord, false, BOUNDS, "Index out of bounds.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    popPush(currentModuleRecord, array->values[index]);
+    DISPATCH();
+  }
+
+  case OBJECT_STATIC_TABLE: {
+    if (IS_CRUX_HASHABLE(indexValue)) {
+      ObjectStaticTable *table =
+          AS_CRUX_STATIC_TABLE(PEEK(currentModuleRecord, 0));
+      Value value;
+      if (!objectTableGet(table->entries, table->size, table->capacity,
+                          indexValue, &value)) {
+        runtimePanic(currentModuleRecord, false, COLLECTION_GET,
+                     "Failed to get value from table");
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      popPush(currentModuleRecord, value);
+    } else {
+      runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.",
+                   READ_STRING());
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    DISPATCH();
+  }
+
   default: {
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Cannot get from a non-collection type.");
@@ -607,9 +646,12 @@ OP_GET_COLLECTION: {
 OP_SET_COLLECTION: {
   Value value = POP(currentModuleRecord);
   Value indexValue = PEEK(currentModuleRecord, 0);
+  Value collection = PEEK(currentModuleRecord, 1);
 
-  if (IS_CRUX_TABLE(PEEK(currentModuleRecord, 1))) {
-    ObjectTable *table = AS_CRUX_TABLE(PEEK(currentModuleRecord, 1));
+  switch (AS_CRUX_OBJECT(collection)->type) {
+
+  case OBJECT_TABLE: {
+    ObjectTable *table = AS_CRUX_TABLE(collection);
     if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
       if (!objectTableSet(vm, table, indexValue, value)) {
         runtimePanic(currentModuleRecord, false, COLLECTION_GET,
@@ -620,19 +662,40 @@ OP_SET_COLLECTION: {
       runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
       return INTERPRET_RUNTIME_ERROR;
     }
-  } else if (IS_CRUX_ARRAY(PEEK(currentModuleRecord, 1))) {
-    ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 1));
+    break;
+  }
+
+  case OBJECT_ARRAY: {
+    ObjectArray *array = AS_CRUX_ARRAY(collection);
     int index = AS_INT(indexValue);
     if (!arraySet(vm, array, index, value)) {
-      runtimePanic(currentModuleRecord, false, INDEX_OUT_OF_BOUNDS,
+      runtimePanic(currentModuleRecord, false, BOUNDS,
                    "Cannot set a value in an empty array.");
       return INTERPRET_RUNTIME_ERROR;
     }
-  } else {
+    break;
+  }
+
+  case OBJECT_STATIC_ARRAY: {
+    runtimePanic(
+        currentModuleRecord, false, COLLECTION_SET,
+        "'static array' does not support value updates. Use 'array' instead.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  case OBJECT_STATIC_TABLE: {
+    runtimePanic(
+        currentModuleRecord, false, COLLECTION_SET,
+        "'static table' does not support value updates. Use 'table' instead.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+  default: {
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Value is not a mutable collection type.");
     return INTERPRET_RUNTIME_ERROR;
   }
+  }
+
   popTwo(currentModuleRecord); // indexValue and collection
   PUSH(currentModuleRecord, indexValue);
   DISPATCH();
@@ -683,7 +746,7 @@ OP_SET_LOCAL_SLASH: {
       operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
   if (doperand == 0.0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Division by zero in '/=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -845,7 +908,7 @@ OP_SET_UPVALUE_SLASH: {
       operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
   if (doperand == 0.0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Division by zero in '/=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1024,15 +1087,14 @@ OP_TABLE: {
   for (int i = elementCount - 1; i >= 0; i--) {
     Value value = POP(currentModuleRecord);
     Value key = POP(currentModuleRecord);
-    if (IS_INT(key) || IS_CRUX_STRING(key) || IS_FLOAT(key)) {
+    if (IS_CRUX_HASHABLE(key)) {
       if (!objectTableSet(vm, table, key, value)) {
         runtimePanic(currentModuleRecord, false, COLLECTION_SET,
-                     "Failed to set value in table");
+                     "Failed to set value in table.");
         return INTERPRET_RUNTIME_ERROR;
       }
     } else {
-      runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.",
-                   READ_STRING());
+      runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
       return INTERPRET_RUNTIME_ERROR;
     }
   }
@@ -1173,7 +1235,7 @@ OP_SET_LOCAL_INT_DIVIDE: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Integer division by zero in '//=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1203,7 +1265,7 @@ OP_SET_LOCAL_MODULUS: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Modulo by zero in '%=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1235,7 +1297,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Integer division by zero in '//=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1267,7 +1329,7 @@ OP_SET_UPVALUE_MODULUS: {
   int32_t ioperand = AS_INT(operandValue);
 
   if (ioperand == 0) {
-    runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+    runtimePanic(currentModuleRecord, false, MATH,
                  "Modulo by zero in '%=' assignment.");
     return INTERPRET_RUNTIME_ERROR;
   }
@@ -1655,12 +1717,54 @@ OP_TYPEOF: {
   DISPATCH();
 }
 
+OP_STATIC_ARRAY: {
+  uint16_t elementCount = READ_SHORT();
+  ObjectStaticArray *array = newStaticArray(vm, elementCount);
+  Value *values = array->values;
+  for (int i = elementCount - 1; i >= 0; i--) {
+    values[i] = POP(currentModuleRecord);
+  }
+  PUSH(currentModuleRecord, OBJECT_VAL(array));
+  DISPATCH();
+}
+
+OP_STATIC_TABLE: {
+  uint16_t elementCount = READ_SHORT();
+  ObjectStaticTable *table = newStaticTable(vm, elementCount);
+  for (int i = elementCount - 1; i >= 0; i--) {
+    Value value = POP(currentModuleRecord);
+    Value key = POP(currentModuleRecord);
+    if (IS_CRUX_HASHABLE(key)) {
+      if (!objectStaticTableSet(vm, table, key, value)) {
+        runtimePanic(currentModuleRecord, false, COLLECTION_SET,
+                     "Failed to set value in static table.");
+        return INTERPRET_RUNTIME_ERROR;
+      }
+    } else {
+      runtimePanic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+  }
+  PUSH(currentModuleRecord, OBJECT_VAL(table));
+  DISPATCH();
+}
+
+OP_STRUCT: {
+  printf("We made a struct!\n");
+  DISPATCH();
+}
+
+OP_STRUCT_16: {
+  printf("We made a struct with 16-bit name!\n");
+  DISPATCH();
+}
+
 end: {
   printf("        ");
   for (Value *slot = currentModuleRecord->stack;
        slot < currentModuleRecord->stackTop; slot++) {
     printf("[");
-    printValue(*slot);
+    printValue(*slot, false);
     printf("]");
   }
   printf("\n");

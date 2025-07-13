@@ -31,6 +31,8 @@
 #define IS_CRUX_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) isObjectType(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) isObjectType(value, OBJECT_MODULE_RECORD)
+#define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
+#define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -56,6 +58,8 @@
 #define AS_CRUX_MODULE_RECORD(value)                                           \
   ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -78,6 +82,8 @@ typedef enum {
   OBJECT_RANDOM,
   OBJECT_FILE,
   OBJECT_MODULE_RECORD,
+  OBJECT_STATIC_ARRAY,
+  OBJECT_STATIC_TABLE,
 } ObjectType;
 
 struct Object {
@@ -136,10 +142,17 @@ typedef struct {
 
 typedef struct {
   Object object;
-  Value *array;
+  Value *values;
   uint32_t size;
   uint32_t capacity;
 } ObjectArray;
+
+typedef struct {
+  Object object;
+  Value* values;
+  uint32_t size; // size and capacity will always be the same
+  uint32_t hash;
+} ObjectStaticArray;
 
 typedef struct {
   Object object;
@@ -148,8 +161,8 @@ typedef struct {
 
 typedef enum {
   SYNTAX,
-  DIVISION_BY_ZERO,
-  INDEX_OUT_OF_BOUNDS,
+  MATH, // Division by zero
+  BOUNDS, // Index out of bounds
   RUNTIME,
   TYPE,
   LOOP_EXTENT,
@@ -161,7 +174,6 @@ typedef enum {
   NAME,
   COLLECTION_EXTENT,
   VARIABLE_EXTENT,
-  VARIABLE_DECLARATION_MISMATCH,
   RETURN_EXTENT,
   ARGUMENT_MISMATCH,
   STACK_OVERFLOW,
@@ -232,9 +244,16 @@ typedef struct {
 typedef struct {
   Object object;
   ObjectTableEntry *entries;
-  uint16_t capacity;
-  uint16_t size;
+  uint32_t capacity;
+  uint32_t size;
 } ObjectTable;
+
+typedef struct {
+  Object object;
+  ObjectTableEntry *entries;
+  uint32_t capacity;
+  uint32_t size;
+} ObjectStaticTable ;
 
 typedef struct {
   Object object;
@@ -560,8 +579,9 @@ ObjectString *toString(VM *vm, Value value);
  * bound methods, arrays, tables and errors.
  *
  * @param value The Value to print.
+ * @param inCollection is this object in a collection?
  */
-void printObject(Value value);
+void printObject(Value value, bool inCollection);
 
 void printType(Value value);
 
@@ -609,7 +629,8 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(const ObjectTable *table, Value key, Value *value);
+bool objectTableGet(ObjectTableEntry *entries, const uint32_t size,
+                    const uint32_t capacity, const Value key, Value *value);
 void markObjectTable(VM *vm, const ObjectTable *table);
 
 /**
@@ -643,21 +664,6 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * otherwise (index out of bounds).
  */
 bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
-
-/**
- * @brief Retrieves a value from an array at a specific index.
- *
- * This function retrieves a Value from an ObjectArray at a given index.
- * It does not perform bounds checking.
- *
- * @param array The ObjectArray to access.
- * @param index The index from which to retrieve the value.
- * @param value A pointer to a Value where the retrieved value will be stored.
- *
- * @return true if the array is not NULL and the value was retrieved, false
- * otherwise (array is NULL).
- */
-bool arrayGet(const ObjectArray *array, uint32_t index, Value *value);
 
 /**
  * @brief Adds a value to the end of an array.
@@ -727,4 +733,9 @@ bool objectTableRemove(ObjectTable *table, Value key);
  */
 bool objectTableContainsKey(ObjectTable *table, Value key);
 
+ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount);
+
+ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
+
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
 #endif

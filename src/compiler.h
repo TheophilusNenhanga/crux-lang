@@ -25,7 +25,7 @@ typedef struct {
 
 // Precedence in order from lowest to highest
 typedef enum {
-	PREC_NONE,
+	PREC_NONE, // No precedence
 	PREC_ASSIGNMENT, // =
 	PREC_OR, // or
 	PREC_AND, // and

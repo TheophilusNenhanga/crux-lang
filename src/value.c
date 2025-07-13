@@ -28,7 +28,7 @@ void freeValueArray(VM *vm, ValueArray *array) {
   initValueArray(array);
 }
 
-void printValue(const Value value) {
+void printValue(const Value value, const bool inCollection) {
   if (IS_BOOL(value)) {
     printf(AS_BOOL(value) ? "true" : "false");
   } else if (IS_NIL(value)) {
@@ -38,7 +38,7 @@ void printValue(const Value value) {
   } else if (IS_INT(value)) {
     printf("%d", AS_INT(value));
   } else if (IS_CRUX_OBJECT(value)) {
-    printObject(value);
+    printObject(value, inCollection);
   }
 }
 

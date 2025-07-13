@@ -720,6 +720,7 @@ static void dot(const bool canAssign) {
     }
   }
 }
+
 /**
  * Parses an expression. Entry point for expression parsing.
  */
@@ -1127,25 +1128,33 @@ static void anonymousFunction(bool canAssign) {
   }
 }
 
-static void arrayLiteral(bool canAssign) {
+static void createArray(const OpCode creationOpCode, const char *typeName) {
   uint16_t elementCount = 0;
 
   if (!match(TOKEN_RIGHT_SQUARE)) {
     do {
       expression();
       if (elementCount >= UINT16_MAX) {
-        compilerPanic(&parser, "Too many elements in array literal",
-                      COLLECTION_EXTENT);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Too many elements in %s literal.",
+                 typeName);
+        compilerPanic(&parser, buffer, COLLECTION_EXTENT);
       }
       elementCount++;
     } while (match(TOKEN_COMMA));
     consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
   }
-  emitByte(OP_ARRAY);
+  emitByte(creationOpCode);
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void tableLiteral(bool canAssign) {
+static void arrayLiteral(bool canAssign) { createArray(OP_ARRAY, "array"); }
+
+static void staticArrayLiteral(bool canAssign) {
+  createArray(OP_STATIC_ARRAY, "static array");
+}
+
+static void createTable(const OpCode creationOpCode, const char *typeName) {
   uint16_t elementCount = 0;
 
   if (!match(TOKEN_RIGHT_BRACE)) {
@@ -1154,16 +1163,26 @@ static void tableLiteral(bool canAssign) {
       consume(TOKEN_COLON, "Expected ':' after <table> key");
       expression();
       if (elementCount >= UINT16_MAX) {
-        compilerPanic(&parser, "Too many elements in table literal",
-                      COLLECTION_EXTENT);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Too many elements in %s literal.",
+                 typeName);
+        compilerPanic(&parser, buffer, COLLECTION_EXTENT);
       }
       elementCount++;
     } while (match(TOKEN_COMMA));
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
   }
-  emitByte(OP_TABLE);
+  emitByte(creationOpCode);
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
+
+static void tableLiteral(bool canAssign) { createTable(OP_TABLE, "table"); }
+
+static void staticTableLiteral(bool canAssign) {
+  createTable(OP_STATIC_TABLE, "static table");
+}
+
+static void structCreationLiteral(bool canAssign) {}
 
 /**
  * Parses a collection index access expression (e.g., array[index]).
@@ -1173,7 +1192,7 @@ static void tableLiteral(bool canAssign) {
  */
 static void collectionIndex(const bool canAssign) {
   expression();
-  consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
+  consume(TOKEN_RIGHT_SQUARE, "Expected ']' after index");
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
@@ -1396,6 +1415,52 @@ static void useStatement() {
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
+//
+// How to declare a struct
+// struct SimpleStruct {
+//   field1,
+//   field2,
+// }
+//
+// How to define a struct
+// let my_struct = SimpleStruct < $ >{
+// 		field1: <some_value>,
+// 		field2: <some_value>,
+// }
+//
+// The fields of the struct will need to be unique - these fields will be used
+// as indexes The '$' signifies that the struct is static - once the fields are
+// set they cannot be updated All structs do not allow dynamically adding
+// fields.
+//
+
+static void structDeclaration() {
+  consume(TOKEN_IDENTIFIER, "Expected class name");
+  const Token structName = parser.previous;
+  const uint16_t nameConstant = identifierConstant(&parser.previous);
+  declareVariable();
+
+  if (nameConstant <= UINT8_MAX) {
+    emitBytes(OP_STRUCT, (uint8_t)nameConstant);
+  } else {
+    emitByte(OP_STRUCT_16);
+    emitBytes(((nameConstant >> 8) & 0xff), (nameConstant & 0xff));
+  }
+  defineVariable(nameConstant);
+
+  consume(TOKEN_LEFT_BRACE, "Expected '{' before struct body");
+  uint16_t fieldCount = 0;
+
+  if (!match(TOKEN_RIGHT_BRACE)) {
+    do {
+      // Parse field name
+      // have a compile time hash table of structs with the names of their
+      // fields
+    } while (match(TOKEN_COMMA));
+  }
+  consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
+}
+
 /**
  * Synchronizes the parser after encountering a syntax error.
  *
@@ -1435,6 +1500,8 @@ static void publicDeclaration() {
     varDeclaration();
   } else if (match(TOKEN_CLASS)) {
     classDeclaration();
+  } else if (match(TOKEN_STRUCT)) {
+    structDeclaration();
   } else {
     compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.",
                   SYNTAX);
@@ -1636,6 +1703,8 @@ static void declaration() {
     classDeclaration();
   } else if (match(TOKEN_FN)) {
     fnDeclaration();
+  } else if (match(TOKEN_STRUCT)) {
+    structDeclaration();
   } else if (match(TOKEN_PUB)) {
     publicDeclaration();
   } else {
@@ -1933,6 +2002,10 @@ ParseRule rules[] = {
     [TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
     [TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
     [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_CALL},
+    [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
+    [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
+    [TOKEN_DOLLAR_IDENTIFIER] = {structCreationLiteral, NULL, PREC_NONE},
+    [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

@@ -83,7 +83,7 @@ static int constantInstruction(const char *name, const Chunk *chunk,
                                const int offset) {
   const uint8_t constant = chunk->code[offset + 1]; // Get the constant index
   printf("%-16s %4d '", name, constant);         // Print the name of the opcode
-  printValue(chunk->constants.values[constant]); // print the constant's value
+  printValue(chunk->constants.values[constant], false); // print the constant's value
   printf("'\n");
   return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
@@ -104,7 +104,7 @@ static int invokeInstruction(const char *name, const Chunk *chunk,
   const uint8_t constant = chunk->code[offset + 1];
   const uint8_t argCount = chunk->code[offset + 2];
   printf("%-16s (%d args) %4d '", name, argCount, constant);
-  printValue(chunk->constants.values[constant]);
+  printValue(chunk->constants.values[constant], false);
   printf("'\n");
   return offset + 3;
 }
@@ -570,7 +570,7 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
     offset++;
     const uint8_t constant = chunk->code[offset++];
     printf("%-16s %4d ", "OP_CLOSURE", constant);
-    printValue(chunk->constants.values[constant]);
+    printValue(chunk->constants.values[constant], false);
     printf("\n");
 
     const ObjectFunction *function =
@@ -670,7 +670,7 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
   case OP_USE_MODULE: {
     const uint8_t nameCount = chunk->code[offset + 1];
     printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
-    printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]]);
+    printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]], false);
     printf("\n");
     return offset + nameCount + 3;
   }
