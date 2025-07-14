@@ -11,6 +11,7 @@
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
+#include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -1437,28 +1438,48 @@ static void useStatement() {
 static void structDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token structName = parser.previous;
-  const uint16_t nameConstant = identifierConstant(&parser.previous);
+  ObjectString *structNameString =
+      copyString(current->owner, structName.start, structName.length);
+  const uint16_t nameConstant = identifierConstant(&structName);
+  ObjectStruct *structObject = newStruct(current->owner, structNameString);
+
   declareVariable();
 
-  if (nameConstant <= UINT8_MAX) {
-    emitBytes(OP_STRUCT, (uint8_t)nameConstant);
+  const uint16_t structConstant = makeConstant(OBJECT_VAL(structObject));
+  if (structConstant <= UINT8_MAX) {
+    emitBytes(OP_STRUCT, (uint8_t)structConstant);
   } else {
     emitByte(OP_STRUCT_16);
-    emitBytes(((nameConstant >> 8) & 0xff), (nameConstant & 0xff));
+    emitBytes(((structConstant >> 8) & 0xff), (structConstant & 0xff));
   }
+
   defineVariable(nameConstant);
 
+  ObjectString *fieldNames[UINT16_MAX];
   consume(TOKEN_LEFT_BRACE, "Expected '{' before struct body");
-  uint16_t fieldCount = 0;
+  int fieldCount = 0;
 
   if (!match(TOKEN_RIGHT_BRACE)) {
     do {
-      // Parse field name
-      // have a compile time hash table of structs with the names of their
-      // fields
+      if (fieldCount >= UINT16_MAX) {
+        compilerPanic(&parser, "Too many fields in struct", SYNTAX);
+        break;
+      }
+
+      consume(TOKEN_IDENTIFIER, "Expected field name");
+      ObjectString *fieldName = copyString(
+          current->owner, parser.previous.start, parser.previous.length);
+      fieldNames[fieldCount] = fieldName;
+      fieldCount++;
     } while (match(TOKEN_COMMA));
   }
-  consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
+  if (fieldCount != 0) {
+    consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
+  }
+
+  for (int i = 0; i < fieldCount; i++) {
+    tableSet(current->owner, &structObject->fields, fieldNames[i], NIL_VAL);
+  }
 }
 
 /**
@@ -1475,6 +1496,7 @@ static void synchronize() {
       return;
     switch (parser.current.type) {
     case TOKEN_CLASS:
+    case TOKEN_PUB:
     case TOKEN_FN:
     case TOKEN_LET:
     case TOKEN_FOR:

@@ -1750,12 +1750,14 @@ OP_STATIC_TABLE: {
 }
 
 OP_STRUCT: {
-  printf("We made a struct!\n");
+  ObjectStruct *structObject = AS_CRUX_STRUCT(READ_CONSTANT());
+  PUSH(currentModuleRecord, OBJECT_VAL(structObject));
   DISPATCH();
 }
 
 OP_STRUCT_16: {
-  printf("We made a struct with 16-bit name!\n");
+  ObjectStruct *structObject = AS_CRUX_STRUCT(READ_CONSTANT_16());
+  PUSH(currentModuleRecord, OBJECT_VAL(structObject));
   DISPATCH();
 }
 

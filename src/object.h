@@ -33,6 +33,7 @@
 #define IS_CRUX_MODULE_RECORD(value) isObjectType(value, OBJECT_MODULE_RECORD)
 #define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
 #define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
+#define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -60,6 +61,7 @@
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -84,6 +86,7 @@ typedef enum {
   OBJECT_MODULE_RECORD,
   OBJECT_STATIC_ARRAY,
   OBJECT_STATIC_TABLE,
+  OBJECT_STRUCT,
 } ObjectType;
 
 struct Object {
@@ -263,6 +266,12 @@ typedef struct {
   uint64_t position;
   bool isOpen;
 } ObjectFile;
+
+typedef struct {
+	Object object;
+	ObjectString* name;
+	Table fields;
+}ObjectStruct;
 
 typedef enum {
   STATE_LOADING,
@@ -738,4 +747,6 @@ ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount);
 ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
 
 bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
+
+ObjectStruct* newStruct(VM *vm, ObjectString* name);
 #endif

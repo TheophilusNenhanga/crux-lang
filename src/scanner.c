@@ -173,7 +173,7 @@ static CruxTokenType identifierType() {
         return checkKeyword(2, 3, "per", TOKEN_SUPER);
       case 't': {
             if (scanner.current - scanner.start > 2) {
-                return checkKeyword(2, 3, "ruct", TOKEN_STRUCT);
+                return checkKeyword(2, 4, "ruct", TOKEN_STRUCT);
             }
           }
       default:;

@@ -536,6 +536,11 @@ void printObject(const Value value, const bool inCollection) {
     printf("<module record>");
     break;
   }
+
+  case OBJECT_STRUCT: {
+    printf("<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
+    break;
+  }
   }
 }
 
@@ -1234,4 +1239,11 @@ bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key,
   entry->isOccupied = true;
 
   return true;
+}
+
+ObjectStruct *newStruct(VM *vm, ObjectString *name) {
+  ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct, OBJECT_STRUCT);
+  structObject->name = name;
+  initTable(&structObject->fields);
+  return structObject;
 }
