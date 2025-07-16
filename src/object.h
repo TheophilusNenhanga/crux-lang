@@ -34,6 +34,8 @@
 #define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
 #define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
 #define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
+#define IS_CRUX_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STRUCT_INSTANCE)
+#define IS_CRUX_STATIC_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STATIC_STRUCT_INSTANCE)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -62,6 +64,8 @@
 #define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STATIC_STRUCT_INSTANCE(value) ((ObjectStaticStructInstance *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -87,6 +91,8 @@ typedef enum {
   OBJECT_STATIC_ARRAY,
   OBJECT_STATIC_TABLE,
   OBJECT_STRUCT,
+  OBJECT_STATIC_STRUCT_INSTANCE,
+  OBJECT_STRUCT_INSTANCE,
 } ObjectType;
 
 struct Object {
@@ -270,8 +276,22 @@ typedef struct {
 typedef struct {
 	Object object;
 	ObjectString* name;
-	Table fields;
+	Table fields; // <field_name: index>
+	uint32_t fieldCount;
 }ObjectStruct;
+
+
+typedef struct {
+	Object object;
+	ObjectStruct* structType;
+	Value* fields;
+} ObjectStructInstance;
+
+typedef struct {
+	Object object;
+	ObjectStruct* structType;
+	Value* fields;
+} ObjectStaticStructInstance;
 
 typedef enum {
   STATE_LOADING,
@@ -748,5 +768,11 @@ ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
 
 bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
 
-ObjectStruct* newStruct(VM *vm, ObjectString* name);
+ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount);
+
+ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
+                                        uint16_t fieldCount);
+
+ObjectStaticStructInstance *newStaticStructInstance(VM *vm, ObjectStruct *structType,
+                                        uint16_t fieldCount);
 #endif

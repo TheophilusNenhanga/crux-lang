@@ -1241,9 +1241,28 @@ bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key,
   return true;
 }
 
-ObjectStruct *newStruct(VM *vm, ObjectString *name) {
+ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount) {
   ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct, OBJECT_STRUCT);
   structObject->name = name;
   initTable(&structObject->fields);
+  structObject->fieldCount = fieldCount;
   return structObject;
+}
+
+ObjectStaticStructInstance *
+newStaticStructInstance(VM *vm, ObjectStruct *structType, uint16_t fieldCount) {
+  ObjectStaticStructInstance *structInstance = ALLOCATE_OBJECT(
+      vm, ObjectStaticStructInstance, OBJECT_STATIC_STRUCT_INSTANCE);
+  structInstance->structType = structType;
+  structInstance->fields = ALLOCATE(vm, Value, fieldCount);
+  return structInstance;
+}
+
+ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
+                                        uint16_t fieldCount) {
+  ObjectStructInstance *structInstance =
+      ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
+  structInstance->structType = structType;
+  structInstance->fields = ALLOCATE(vm, Value, fieldCount);
+  return structInstance;
 }

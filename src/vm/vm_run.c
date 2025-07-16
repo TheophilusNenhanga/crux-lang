@@ -136,6 +136,11 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STATIC_TABLE,
                                   &&OP_STRUCT,
                                   &&OP_STRUCT_16,
+                                  &&OP_STATIC_STRUCT_INSTANCE_START,
+                                  &&OP_STRUCT_INSTANCE_START,
+                                  &&OP_STRUCT_NAMED_FIELD,
+                                  &&OP_STRUCT_NAMED_FIELD_16,
+                                  &&OP_STRUCT_INSTANCE_END,
                                   &&end};
 
   uint8_t instruction;
@@ -1760,6 +1765,40 @@ OP_STRUCT_16: {
   PUSH(currentModuleRecord, OBJECT_VAL(structObject));
   DISPATCH();
 }
+
+  // We need a struct initialization stack. This stack will allow us to keep
+  // track of the current struct that is being initialized. We also need to
+  // limit the number of nested stack initializations that can be done A nested
+  // struct initialization would look like this:
+  // struct Point3 { x3, y3 }
+  // let p = Point { x3:X3 { 1, 2, 3 }, y3: Y3 { 1, 2, 3 } }
+
+OP_STATIC_STRUCT_INSTANCE_START: {
+  Value value = PEEK(currentModuleRecord, 0);
+  ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
+  ObjectStaticStructInstance *structInstance =
+      newStaticStructInstance(vm, objectStruct, objectStruct->fieldCount);
+  POP(currentModuleRecord);                              // pop the struct type
+  PUSH(currentModuleRecord, OBJECT_VAL(structInstance)); // push the instance
+
+  DISPATCH();
+}
+
+OP_STRUCT_INSTANCE_START: {
+  Value value = PEEK(currentModuleRecord, 0);
+  ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
+  ObjectStructInstance *structInstance =
+      newStructInstance(vm, objectStruct, objectStruct->fieldCount);
+  POP(currentModuleRecord);                              // pop the struct type
+  PUSH(currentModuleRecord, OBJECT_VAL(structInstance)); // push the instance
+  DISPATCH();
+}
+
+OP_STRUCT_NAMED_FIELD: { DISPATCH(); }
+
+OP_STRUCT_NAMED_FIELD_16: { DISPATCH(); }
+
+OP_STRUCT_INSTANCE_END: { DISPATCH(); }
 
 end: {
   printf("        ");

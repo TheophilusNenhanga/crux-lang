@@ -11,6 +11,7 @@
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
+#include "scanner.h"
 #include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -926,8 +927,56 @@ static void namedVariable(Token name, const bool canAssign) {
   emitBytes(getOp, arg);
 }
 
-static void variable(const bool canAssign) {
+void structInstance(bool canAssign) {
+  // We need to get the struct type value stored in the name.
   namedVariable(parser.previous, canAssign);
+
+  bool isStatic;
+  if (match(TOKEN_LEFT_BRACE)) {
+    isStatic = false;
+  } else if (match(TOKEN_DOLLAR_LEFT_CURLY)) {
+    isStatic = true;
+  }
+  uint16_t fieldCount = 0;
+  isStatic ? emitByte(OP_STATIC_STRUCT_INSTANCE_START)
+           : emitByte(OP_STRUCT_INSTANCE_START);
+
+  if (!match(TOKEN_RIGHT_BRACE)) {
+    do {
+      if (fieldCount == UINT16_MAX) {
+        compilerPanic(&parser, "Too many fields in struct initializer", SYNTAX);
+        return;
+      }
+      consume(TOKEN_IDENTIFIER, "Expected field name.");
+      // field_name: value
+      ObjectString *fieldName = copyString(
+          current->owner, parser.previous.start, parser.previous.length);
+      consume(TOKEN_COLON, "Expected ':' after struct field name.");
+      expression();
+      uint16_t fieldNameConstant = makeConstant(OBJECT_VAL(fieldName));
+      if (fieldNameConstant <= UINT8_MAX) {
+        emitBytes(OP_STRUCT_NAMED_FIELD, (uint8_t)fieldNameConstant);
+      } else {
+        emitByte(OP_STRUCT_NAMED_FIELD_16);
+        emitBytes(fieldNameConstant >> 8 & 0xff, fieldNameConstant & 0xff);
+      }
+
+      fieldCount++;
+    } while (match(TOKEN_COMMA));
+  }
+
+  if (fieldCount != 0) {
+    consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct field list.");
+  }
+  emitByte(OP_STRUCT_INSTANCE_END);
+}
+
+static void variable(const bool canAssign) {
+  if (check(TOKEN_LEFT_BRACE) || check(TOKEN_DOLLAR_LEFT_CURLY)) {
+    structInstance(canAssign);
+  } else {
+    namedVariable(parser.previous, canAssign);
+  }
 }
 
 /**
@@ -1182,8 +1231,6 @@ static void tableLiteral(bool canAssign) { createTable(OP_TABLE, "table"); }
 static void staticTableLiteral(bool canAssign) {
   createTable(OP_STATIC_TABLE, "static table");
 }
-
-static void structCreationLiteral(bool canAssign) {}
 
 /**
  * Parses a collection index access expression (e.g., array[index]).
@@ -1441,7 +1488,9 @@ static void structDeclaration() {
   ObjectString *structNameString =
       copyString(current->owner, structName.start, structName.length);
   const uint16_t nameConstant = identifierConstant(&structName);
-  ObjectStruct *structObject = newStruct(current->owner, structNameString);
+  ObjectStruct *structObject =
+      newStructType(current->owner, structNameString,
+                    0); // field count has not been determined yet
 
   declareVariable();
 
@@ -1455,7 +1504,6 @@ static void structDeclaration() {
 
   defineVariable(nameConstant);
 
-  ObjectString *fieldNames[UINT16_MAX];
   consume(TOKEN_LEFT_BRACE, "Expected '{' before struct body");
   int fieldCount = 0;
 
@@ -1469,17 +1517,23 @@ static void structDeclaration() {
       consume(TOKEN_IDENTIFIER, "Expected field name");
       ObjectString *fieldName = copyString(
           current->owner, parser.previous.start, parser.previous.length);
-      fieldNames[fieldCount] = fieldName;
+
+      Value fieldNameCheck;
+      if (tableGet(&structObject->fields, fieldName, &fieldNameCheck)) {
+        compilerPanic(&parser, "Duplicate field name in struct declaration",
+                      SYNTAX);
+        break;
+      }
+
+      tableSet(current->owner, &structObject->fields, fieldName,
+               INT_VAL(fieldCount));
       fieldCount++;
     } while (match(TOKEN_COMMA));
   }
   if (fieldCount != 0) {
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
   }
-
-  for (int i = 0; i < fieldCount; i++) {
-    tableSet(current->owner, &structObject->fields, fieldNames[i], NIL_VAL);
-  }
+  structObject->fieldCount = fieldCount;
 }
 
 /**
@@ -2026,7 +2080,6 @@ ParseRule rules[] = {
     [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_CALL},
     [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
     [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
-    [TOKEN_DOLLAR_IDENTIFIER] = {structCreationLiteral, NULL, PREC_NONE},
     [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
