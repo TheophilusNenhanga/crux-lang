@@ -1249,15 +1249,6 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount) {
   return structObject;
 }
 
-ObjectStaticStructInstance *
-newStaticStructInstance(VM *vm, ObjectStruct *structType, uint16_t fieldCount) {
-  ObjectStaticStructInstance *structInstance = ALLOCATE_OBJECT(
-      vm, ObjectStaticStructInstance, OBJECT_STATIC_STRUCT_INSTANCE);
-  structInstance->structType = structType;
-  structInstance->fields = ALLOCATE(vm, Value, fieldCount);
-  return structInstance;
-}
-
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
                                         uint16_t fieldCount) {
   ObjectStructInstance *structInstance =

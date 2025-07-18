@@ -8,6 +8,7 @@ typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 typedef struct ObjectResult ObjectResult;
+typedef struct ObjectStructInstance ObjectStructInstance;
 
 typedef enum {
   INTERPRET_OK,
@@ -53,6 +54,12 @@ typedef struct {
   uint32_t capacity;
 } ImportStack;
 
+typedef struct  {
+	ObjectStructInstance** structs;
+	uint32_t count;
+  	uint32_t capacity;
+}StructInstanceStack;
+
 struct VM {
   Object *objects;
   Table strings;
@@ -75,6 +82,8 @@ struct VM {
   Table errorType;
   Table fileType;
   Table resultType;
+
+  StructInstanceStack structInstanceStack;
 
   NativeModules nativeModules;
   MatchHandler matchHandler;

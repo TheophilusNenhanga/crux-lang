@@ -115,4 +115,8 @@ bool call(ObjectModuleRecord* moduleRecord, ObjectClosure *closure, int argCount
 
 Value typeofValue(VM* vm, Value value);
 
+ObjectStructInstance* popStructStack(VM *vm);
+bool pushStructStack(VM *vm, ObjectStructInstance *structInstance);
+ObjectStructInstance* peekStructStack(const VM *vm);
+
 #endif //VM_HELPERS_H

@@ -35,9 +35,8 @@
 #define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
 #define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
 #define IS_CRUX_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STRUCT_INSTANCE)
-#define IS_CRUX_STATIC_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STATIC_STRUCT_INSTANCE)
-
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
+
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_FUNCTION(value)                                         \
@@ -65,7 +64,6 @@
 #define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_STATIC_STRUCT_INSTANCE(value) ((ObjectStaticStructInstance *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -91,7 +89,6 @@ typedef enum {
   OBJECT_STATIC_ARRAY,
   OBJECT_STATIC_TABLE,
   OBJECT_STRUCT,
-  OBJECT_STATIC_STRUCT_INSTANCE,
   OBJECT_STRUCT_INSTANCE,
 } ObjectType;
 
@@ -281,17 +278,11 @@ typedef struct {
 }ObjectStruct;
 
 
-typedef struct {
+struct ObjectStructInstance{
 	Object object;
 	ObjectStruct* structType;
 	Value* fields;
-} ObjectStructInstance;
-
-typedef struct {
-	Object object;
-	ObjectStruct* structType;
-	Value* fields;
-} ObjectStaticStructInstance;
+} ;
 
 typedef enum {
   STATE_LOADING,
@@ -773,6 +764,4 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount);
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
                                         uint16_t fieldCount);
 
-ObjectStaticStructInstance *newStaticStructInstance(VM *vm, ObjectStruct *structType,
-                                        uint16_t fieldCount);
 #endif

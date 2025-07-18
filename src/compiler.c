@@ -930,16 +930,12 @@ static void namedVariable(Token name, const bool canAssign) {
 void structInstance(bool canAssign) {
   // We need to get the struct type value stored in the name.
   namedVariable(parser.previous, canAssign);
-
-  bool isStatic;
-  if (match(TOKEN_LEFT_BRACE)) {
-    isStatic = false;
-  } else if (match(TOKEN_DOLLAR_LEFT_CURLY)) {
-    isStatic = true;
+  if (!match(TOKEN_LEFT_BRACE)) {
+    compilerPanic(&parser, "Expected '{' to start struct instance.", SYNTAX);
+    return;
   }
   uint16_t fieldCount = 0;
-  isStatic ? emitByte(OP_STATIC_STRUCT_INSTANCE_START)
-           : emitByte(OP_STRUCT_INSTANCE_START);
+  emitByte(OP_STRUCT_INSTANCE_START);
 
   if (!match(TOKEN_RIGHT_BRACE)) {
     do {
@@ -953,7 +949,7 @@ void structInstance(bool canAssign) {
           current->owner, parser.previous.start, parser.previous.length);
       consume(TOKEN_COLON, "Expected ':' after struct field name.");
       expression();
-      uint16_t fieldNameConstant = makeConstant(OBJECT_VAL(fieldName));
+      const uint16_t fieldNameConstant = makeConstant(OBJECT_VAL(fieldName));
       if (fieldNameConstant <= UINT8_MAX) {
         emitBytes(OP_STRUCT_NAMED_FIELD, (uint8_t)fieldNameConstant);
       } else {

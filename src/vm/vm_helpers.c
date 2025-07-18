@@ -23,6 +23,31 @@ void initImportStack(VM *vm) {
   vm->importStack.capacity = 0;
 }
 
+bool pushStructStack(VM *vm, ObjectStructInstance *structInstance) {
+  if (vm->structInstanceStack.count == vm->structInstanceStack.capacity - 1) {
+    return false;
+  }
+  vm->structInstanceStack.structs[vm->structInstanceStack.count] =
+      structInstance;
+  vm->structInstanceStack.count++;
+  return true;
+}
+
+ObjectStructInstance* popStructStack(VM *vm) {
+  if (vm->structInstanceStack.count == 0) {
+    return NULL;
+  }
+  vm->structInstanceStack.count--;
+  return vm->structInstanceStack.structs[vm->structInstanceStack.count];
+}
+
+ObjectStructInstance* peekStructStack(const VM *vm) {
+  if (vm->structInstanceStack.count < vm->structInstanceStack.capacity) {
+    return vm->structInstanceStack.structs[vm->structInstanceStack.count-1];
+  }
+  return NULL;
+}
+
 void freeImportStack(VM *vm) {
   FREE_ARRAY(vm, ObjectString *, vm->importStack.paths,
              vm->importStack.capacity);
@@ -378,7 +403,8 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
     if (tableGet(&instance->fields, name, &value)) {
       return callValue(vm, value, argCount);
     }
-    return invokeFromClass(currentModuleRecord, instance->klass, name, argCount);
+    return invokeFromClass(currentModuleRecord, instance->klass, name,
+                           argCount);
   }
   default: {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -556,6 +582,8 @@ void initVM(VM *vm, const int argc, const char **argv) {
   vm->matchHandler.matchBind = NIL_VAL;
   vm->matchHandler.matchTarget = NIL_VAL;
 
+  vm->importCount = 0;
+
   initTable(&vm->moduleCache);
   initImportStack(vm);
 
@@ -567,6 +595,11 @@ void initVM(VM *vm, const int argc, const char **argv) {
   initTable(&vm->fileType);
   initTable(&vm->resultType);
   initTable(&vm->strings);
+
+  vm->structInstanceStack =
+      (StructInstanceStack){.structs = ALLOCATE(vm, ObjectStructInstance *, 16),
+                            .count = 0,
+                            .capacity = 16};
 
   vm->initString = NULL;
   vm->initString = copyString(vm, "init", 4);
@@ -694,8 +727,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_DIVIDE: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, MATH,
-                     "Division by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Division by zero.");
         return false;
       }
       popTwo(currentModuleRecord);
@@ -720,8 +752,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_MODULUS: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, MATH,
-                     "Modulo by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Modulo by zero.");
         return false;
       }
 
@@ -801,8 +832,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       break;
     case OP_DIVIDE: {
       if (doubleB == 0.0) {
-        runtimePanic(currentModuleRecord, false, MATH,
-                     "Division by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Division by zero.");
         return false;
       }
       popTwo(currentModuleRecord);
@@ -1072,73 +1102,73 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
   return errorResult;
 }
 
-Value typeofValue(VM* vm, const Value value) {
-    if (IS_CRUX_OBJECT(value)) {
-        const ObjectType type = AS_CRUX_OBJECT(value)->type;
+Value typeofValue(VM *vm, const Value value) {
+  if (IS_CRUX_OBJECT(value)) {
+    const ObjectType type = AS_CRUX_OBJECT(value)->type;
 
-        switch (type) {
-            case OBJECT_STRING:
-                return OBJECT_VAL(copyString(vm, "string", 6));
+    switch (type) {
+    case OBJECT_STRING:
+      return OBJECT_VAL(copyString(vm, "string", 6));
 
-            case OBJECT_FUNCTION:
-            case OBJECT_NATIVE_FUNCTION:
-            case OBJECT_NATIVE_METHOD:
-            case OBJECT_CLOSURE:
-            case OBJECT_BOUND_METHOD:
-            case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
-            case OBJECT_NATIVE_INFALLIBLE_METHOD:
-                return OBJECT_VAL(copyString(vm, "function", 8));
+    case OBJECT_FUNCTION:
+    case OBJECT_NATIVE_FUNCTION:
+    case OBJECT_NATIVE_METHOD:
+    case OBJECT_CLOSURE:
+    case OBJECT_BOUND_METHOD:
+    case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
+    case OBJECT_NATIVE_INFALLIBLE_METHOD:
+      return OBJECT_VAL(copyString(vm, "function", 8));
 
-            case OBJECT_UPVALUE: {
-                const ObjectUpvalue* upvalue = AS_CRUX_UPVALUE(value);
-                return typeofValue(vm, upvalue->closed);
-            }
-
-            case OBJECT_CLASS:
-                return OBJECT_VAL(copyString(vm, "class", 5));
-
-            case OBJECT_INSTANCE:
-                return OBJECT_VAL(copyString(vm, "instance", 8));
-
-            case OBJECT_ARRAY:
-                return OBJECT_VAL(copyString(vm, "array", 5));
-
-            case OBJECT_TABLE:
-                return OBJECT_VAL(copyString(vm, "table", 5));
-
-            case OBJECT_ERROR:
-                return OBJECT_VAL(copyString(vm, "error", 5));
-
-            case OBJECT_RESULT:
-                return OBJECT_VAL(copyString(vm, "result", 6));
-
-            case OBJECT_RANDOM:
-                return OBJECT_VAL(copyString(vm, "random", 6));
-
-            case OBJECT_FILE:
-                return OBJECT_VAL(copyString(vm, "file", 4));
-
-            case OBJECT_MODULE_RECORD:
-                return OBJECT_VAL(copyString(vm, "module", 6));
-        }
+    case OBJECT_UPVALUE: {
+      const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+      return typeofValue(vm, upvalue->closed);
     }
 
-    if (IS_INT(value)) {
-        return OBJECT_VAL(copyString(vm, "int", 3));
-    }
+    case OBJECT_CLASS:
+      return OBJECT_VAL(copyString(vm, "class", 5));
 
-    if (IS_FLOAT(value)) {
-        return OBJECT_VAL(copyString(vm, "float", 5));
-    }
+    case OBJECT_INSTANCE:
+      return OBJECT_VAL(copyString(vm, "instance", 8));
 
-    if (IS_BOOL(value)) {
-        return OBJECT_VAL(copyString(vm, "boolean", 7));
-    }
+    case OBJECT_ARRAY:
+      return OBJECT_VAL(copyString(vm, "array", 5));
 
-    if (IS_NIL(value)) {
-        return OBJECT_VAL(copyString(vm, "nil", 3));
-    }
+    case OBJECT_TABLE:
+      return OBJECT_VAL(copyString(vm, "table", 5));
 
-    // unreacheable
-    return OBJECT_VAL(copyString(vm, "unknown", 7));
+    case OBJECT_ERROR:
+      return OBJECT_VAL(copyString(vm, "error", 5));
+
+    case OBJECT_RESULT:
+      return OBJECT_VAL(copyString(vm, "result", 6));
+
+    case OBJECT_RANDOM:
+      return OBJECT_VAL(copyString(vm, "random", 6));
+
+    case OBJECT_FILE:
+      return OBJECT_VAL(copyString(vm, "file", 4));
+
+    case OBJECT_MODULE_RECORD:
+      return OBJECT_VAL(copyString(vm, "module", 6));
+    }
+  }
+
+  if (IS_INT(value)) {
+    return OBJECT_VAL(copyString(vm, "int", 3));
+  }
+
+  if (IS_FLOAT(value)) {
+    return OBJECT_VAL(copyString(vm, "float", 5));
+  }
+
+  if (IS_BOOL(value)) {
+    return OBJECT_VAL(copyString(vm, "boolean", 7));
+  }
+
+  if (IS_NIL(value)) {
+    return OBJECT_VAL(copyString(vm, "nil", 3));
+  }
+
+  // unreacheable
+  return OBJECT_VAL(copyString(vm, "unknown", 7));
 }

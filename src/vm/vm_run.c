@@ -136,7 +136,6 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STATIC_TABLE,
                                   &&OP_STRUCT,
                                   &&OP_STRUCT_16,
-                                  &&OP_STATIC_STRUCT_INSTANCE_START,
                                   &&OP_STRUCT_INSTANCE_START,
                                   &&OP_STRUCT_NAMED_FIELD,
                                   &&OP_STRUCT_NAMED_FIELD_16,
@@ -1766,39 +1765,70 @@ OP_STRUCT_16: {
   DISPATCH();
 }
 
-  // We need a struct initialization stack. This stack will allow us to keep
-  // track of the current struct that is being initialized. We also need to
-  // limit the number of nested stack initializations that can be done A nested
-  // struct initialization would look like this:
-  // struct Point3 { x3, y3 }
-  // let p = Point { x3:X3 { 1, 2, 3 }, y3: Y3 { 1, 2, 3 } }
-
-OP_STATIC_STRUCT_INSTANCE_START: {
-  Value value = PEEK(currentModuleRecord, 0);
-  ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
-  ObjectStaticStructInstance *structInstance =
-      newStaticStructInstance(vm, objectStruct, objectStruct->fieldCount);
-  POP(currentModuleRecord);                              // pop the struct type
-  PUSH(currentModuleRecord, OBJECT_VAL(structInstance)); // push the instance
-
-  DISPATCH();
-}
-
 OP_STRUCT_INSTANCE_START: {
   Value value = PEEK(currentModuleRecord, 0);
   ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
   ObjectStructInstance *structInstance =
       newStructInstance(vm, objectStruct, objectStruct->fieldCount);
-  POP(currentModuleRecord);                              // pop the struct type
-  PUSH(currentModuleRecord, OBJECT_VAL(structInstance)); // push the instance
+  POP(currentModuleRecord); // struct type
+  if (!pushStructStack(vm, structInstance)) {
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Failed to push struct onto stack.");
+  }
   DISPATCH();
 }
 
-OP_STRUCT_NAMED_FIELD: { DISPATCH(); }
+OP_STRUCT_NAMED_FIELD: {
+  ObjectStructInstance*  structInstance = peekStructStack(vm);
+  if (structInstance == NULL) {
+    runtimePanic(currentModuleRecord, false, RUNTIME, "Failed to get struct from stack.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
 
-OP_STRUCT_NAMED_FIELD_16: { DISPATCH(); }
+  ObjectString* fieldName = READ_STRING();
 
-OP_STRUCT_INSTANCE_END: { DISPATCH(); }
+  ObjectStruct* structType = structInstance->structType;
+  Value indexValue;
+  if (!tableGet(&structType->fields, fieldName, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, RUNTIME,"Field '%s' does not exist on strut type '%s'.", fieldName->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  uint16_t index = (uint16_t) AS_INT(indexValue);
+  structInstance->fields[index] = POP(currentModuleRecord);
+  DISPATCH();
+}
+
+OP_STRUCT_NAMED_FIELD_16: {
+  ObjectStructInstance*  structInstance = peekStructStack(vm);
+  if (structInstance == NULL) {
+    runtimePanic(currentModuleRecord, false, RUNTIME, "Failed to get struct from stack.");
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  ObjectString* fieldName = READ_STRING_16();
+
+  ObjectStruct* structType = structInstance->structType;
+  Value indexValue;
+  if (!tableGet(&structType->fields, fieldName, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, RUNTIME,"Field '%s' does not exist on struct type '%s'.", fieldName->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  uint16_t index = (uint16_t) AS_INT(indexValue);
+  structInstance->fields[index] = POP(currentModuleRecord);
+  DISPATCH();
+}
+
+OP_STRUCT_INSTANCE_END: {
+  ObjectStructInstance* structInstance = popStructStack(vm);
+  if (structInstance == NULL) {
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Failed to pop struct from stack.");
+  }
+  PUSH(currentModuleRecord, OBJECT_VAL(structInstance));
+  DISPATCH();
+}
 
 end: {
   printf("        ");
