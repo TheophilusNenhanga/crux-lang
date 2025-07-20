@@ -60,27 +60,6 @@ bool callValue(VM *vm, Value callee, int argCount);
  */
 ObjectUpvalue *captureUpvalue(VM *vm, Value *local);
 
-
-/**
- * Binds a method from a class to an instance.
- * @param vm The virtual machine
- * @param klass The class containing the method
- * @param name The name of the method to bind
- * @return true if the binding succeeds, false otherwise
- */
-bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name);
-
-/**
- * Invokes a method from a class with the given arguments.
- * @param moduleRecord The currently executing module
- * @param klass The class containing the method
- * @param name The name of the method to invoke
- * @param argCount Number of arguments on the stack
- * @return true if the method invocation succeeds, false otherwise
- */
-bool invokeFromClass(ObjectModuleRecord* moduleRecord, const ObjectClass *klass,
-														const ObjectString *name, int argCount);
-
 bool handleInvoke(VM *vm, int argCount, Value receiver,
 Value original, Value value);
 

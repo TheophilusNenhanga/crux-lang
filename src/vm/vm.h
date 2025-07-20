@@ -57,7 +57,7 @@ typedef struct {
 typedef struct  {
 	ObjectStructInstance** structs;
 	uint32_t count;
-  	uint32_t capacity;
+  uint32_t capacity;
 }StructInstanceStack;
 
 struct VM {
@@ -74,7 +74,6 @@ struct VM {
   int grayCapacity;
   int grayCount;
 
-  ObjectString *initString;
   Table randomType;
   Table stringType;
   Table arrayType;

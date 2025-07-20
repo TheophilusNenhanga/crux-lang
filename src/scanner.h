@@ -46,7 +46,6 @@ typedef enum {
   // Keywords. //
   TOKEN_AND,         // and
   TOKEN_NOT,         // not
-  TOKEN_CLASS,       // class
   TOKEN_ELSE,        // else
   TOKEN_FALSE,       // false
   TOKEN_FOR,         // for
@@ -55,8 +54,6 @@ typedef enum {
   TOKEN_NIL,         // nil
   TOKEN_OR,          // or
   TOKEN_RETURN,      // return
-  TOKEN_SUPER,       // super
-  TOKEN_SELF,        // self
   TOKEN_TRUE,        // true
   TOKEN_LET,         // let
   TOKEN_WHILE,       // while

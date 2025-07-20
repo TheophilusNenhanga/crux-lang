@@ -82,8 +82,9 @@ static int jumpInstruction(const char *name, const int sign, const Chunk *chunk,
 static int constantInstruction(const char *name, const Chunk *chunk,
                                const int offset) {
   const uint8_t constant = chunk->code[offset + 1]; // Get the constant index
-  printf("%-16s %4d '", name, constant);         // Print the name of the opcode
-  printValue(chunk->constants.values[constant], false); // print the constant's value
+  printf("%-16s %4d '", name, constant); // Print the name of the opcode
+  printValue(chunk->constants.values[constant],
+             false); // print the constant's value
   printf("'\n");
   return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
@@ -209,15 +210,6 @@ static void fileWriteValue(const Value value, FILE *file) {
       break;
     case OBJECT_UPVALUE:
       fprintf(file, "<upvalue>");
-      break;
-    case OBJECT_CLASS:
-      fprintf(file, "<class>");
-      break;
-    case OBJECT_INSTANCE:
-      fprintf(file, "<instance>");
-      break;
-    case OBJECT_BOUND_METHOD:
-      fprintf(file, "<bound method>");
       break;
     case OBJECT_ARRAY:
       fprintf(file, "<array>");
@@ -382,15 +374,10 @@ static int fileDisassembleInstruction(const Chunk *chunk, int offset,
   }
   case OP_CLOSE_UPVALUE:
     return fileSimpleInstruction("OP_CLOSE_UPVALUE", offset, file);
-  case OP_CLASS: {
-    return fileConstantInstruction("OP_CLASS", chunk, offset, file);
-  }
   case OP_GET_PROPERTY:
     return fileConstantInstruction("OP_GET_PROPERTY", chunk, offset, file);
   case OP_SET_PROPERTY:
     return fileConstantInstruction("OP_SET_PROPERTY", chunk, offset, file);
-  case OP_METHOD:
-    return fileConstantInstruction("OP_METHOD", chunk, offset, file);
   case OP_ARRAY:
     return fileConstantInstruction("OP_ARRAY", chunk, offset, file);
   case OP_TABLE:
@@ -401,12 +388,6 @@ static int fileDisassembleInstruction(const Chunk *chunk, int offset,
     return fileConstantInstruction("OP_SET_COLLECTION", chunk, offset, file);
   case OP_INVOKE:
     return fileInvokeInstruction("OP_INVOKE", chunk, offset, file);
-  case OP_INHERIT:
-    return fileSimpleInstruction("OP_INHERIT", offset, file);
-  case OP_GET_SUPER:
-    return fileConstantInstruction("OP_GET_SUPER", chunk, offset, file);
-  case OP_SUPER_INVOKE:
-    return fileInvokeInstruction("OP_SUPER_INVOKE", chunk, offset, file);
   case OP_SET_LOCAL_SLASH:
     return fileSimpleInstruction("OP_SET_LOCAL_SLASH", offset, file);
   case OP_SET_LOCAL_STAR:
@@ -585,15 +566,10 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
   }
   case OP_CLOSE_UPVALUE:
     return simpleInstruction("OP_CLOSE_UPVALUE", offset);
-  case OP_CLASS: {
-    return constantInstruction("OP_CLASS", chunk, offset);
-  }
   case OP_GET_PROPERTY:
     return constantInstruction("OP_GET_PROPERTY", chunk, offset);
   case OP_SET_PROPERTY:
     return constantInstruction("OP_SET_PROPERTY", chunk, offset);
-  case OP_METHOD:
-    return constantInstruction("OP_METHOD", chunk, offset);
   case OP_ARRAY:
     return constantInstruction("OP_ARRAY", chunk, offset);
   case OP_TABLE:
@@ -604,12 +580,6 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
     return constantInstruction("OP_SET_COLLECTION", chunk, offset);
   case OP_INVOKE:
     return invokeInstruction("OP_INVOKE", chunk, offset);
-  case OP_INHERIT:
-    return simpleInstruction("OP_INHERIT", offset);
-  case OP_GET_SUPER:
-    return constantInstruction("OP_GET_SUPER", chunk, offset);
-  case OP_SUPER_INVOKE:
-    return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
   case OP_SET_LOCAL_SLASH: {
     return simpleInstruction("OP_SET_LOCAL_SLASH", offset);
   }
@@ -670,7 +640,8 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
   case OP_USE_MODULE: {
     const uint8_t nameCount = chunk->code[offset + 1];
     printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
-    printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]], false);
+    printValue(chunk->constants.values[chunk->code[offset + nameCount + 2]],
+               false);
     printf("\n");
     return offset + nameCount + 3;
   }

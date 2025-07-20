@@ -33,7 +33,7 @@ bool pushStructStack(VM *vm, ObjectStructInstance *structInstance) {
   return true;
 }
 
-ObjectStructInstance* popStructStack(VM *vm) {
+ObjectStructInstance *popStructStack(VM *vm) {
   if (vm->structInstanceStack.count == 0) {
     return NULL;
   }
@@ -41,9 +41,9 @@ ObjectStructInstance* popStructStack(VM *vm) {
   return vm->structInstanceStack.structs[vm->structInstanceStack.count];
 }
 
-ObjectStructInstance* peekStructStack(const VM *vm) {
+ObjectStructInstance *peekStructStack(const VM *vm) {
   if (vm->structInstanceStack.count < vm->structInstanceStack.capacity) {
-    return vm->structInstanceStack.structs[vm->structInstanceStack.count-1];
+    return vm->structInstanceStack.structs[vm->structInstanceStack.count - 1];
   }
   return NULL;
 }
@@ -242,53 +242,12 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
       PUSH(currentModuleRecord, result);
       return true;
     }
-    case OBJECT_CLASS: {
-      ObjectClass *klass = AS_CRUX_CLASS(callee);
-      currentModuleRecord->stackTop[-argCount - 1] =
-          OBJECT_VAL(newInstance(vm, klass));
-      Value initializer;
-
-      if (tableGet(&klass->methods, vm->initString, &initializer)) {
-        return call(currentModuleRecord, AS_CRUX_CLOSURE(initializer),
-                    argCount);
-      }
-      if (argCount != 0) {
-        runtimePanic(currentModuleRecord, false, ARGUMENT_MISMATCH,
-                     "Expected 0 arguments but got %d arguments.", argCount);
-        return false;
-      }
-      return true;
-    }
-    case OBJECT_BOUND_METHOD: {
-      const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
-      currentModuleRecord->stackTop[-argCount - 1] = bound->receiver;
-      return call(currentModuleRecord, bound->method, argCount);
-    }
     default:
       break;
     }
   }
   runtimePanic(currentModuleRecord, false, TYPE,
-               "Can only call functions and classes.");
-  return false;
-}
-
-/**
- * Invokes a method from a class with the given arguments.
- * @param moduleRecord The currently executing module
- * @param klass The class containing the method
- * @param name The name of the method to invoke
- * @param argCount Number of arguments on the stack
- * @return true if the method invocation succeeds, false otherwise
- */
-bool invokeFromClass(ObjectModuleRecord *moduleRecord, const ObjectClass *klass,
-                     const ObjectString *name, const int argCount) {
-  Value method;
-  if (tableGet(&klass->methods, name, &method)) {
-    return call(moduleRecord, AS_CRUX_CLOSURE(method), argCount);
-  }
-  runtimePanic(moduleRecord, false, NAME, "Undefined property '%s'.",
-               name->chars);
+               "Only functions can be called.");
   return false;
 }
 
@@ -395,23 +354,13 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
                  name->chars);
     return false;
   }
-  case OBJECT_INSTANCE: {
-    argCount--;
-    const ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
-
-    Value value;
-    if (tableGet(&instance->fields, name, &value)) {
-      return callValue(vm, value, argCount);
-    }
-    return invokeFromClass(currentModuleRecord, instance->klass, name,
-                           argCount);
-  }
-    case OBJECT_STRUCT_INSTANCE: {
+  case OBJECT_STRUCT_INSTANCE: {
     argCount--;
     const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
     Value indexValue;
     if (tableGet(&instance->structType->fields, name, &indexValue)) {
-      return callValue(vm, instance->fields[(uint16_t)AS_INT(indexValue)], argCount);
+      return callValue(vm, instance->fields[(uint16_t)AS_INT(indexValue)],
+                       argCount);
     }
     runtimePanic(currentModuleRecord, false, NAME, "Undefined method '%s'.",
                  name->chars);
@@ -423,29 +372,6 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
     return false;
   }
   }
-}
-
-/**
- * Binds a method from a class to an instance.
- * @param vm The virtual machine
- * @param klass The class containing the method
- * @param name The name of the method to bind
- * @return true if the binding succeeds, false otherwise
- */
-bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name) {
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Undefined property '%s'",
-                 name->chars);
-    return false;
-  }
-
-  ObjectBoundMethod *bound =
-      newBoundMethod(vm, PEEK(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
-  POP(currentModuleRecord);
-  PUSH(currentModuleRecord, OBJECT_VAL(bound));
-  return true;
 }
 
 ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
@@ -485,20 +411,6 @@ void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last) {
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
     moduleRecord->openUpvalues = upvalue->next;
-  }
-}
-
-/**
- * Defines a method on a class.
- * @param vm The virtual machine
- * @param name The name of the method
- */
-void defineMethod(VM *vm, ObjectString *name) {
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value method = PEEK(currentModuleRecord, 0);
-  ObjectClass *klass = AS_CRUX_CLASS(PEEK(currentModuleRecord, 1));
-  if (tableSet(vm, &klass->methods, name, method)) {
-    POP(currentModuleRecord);
   }
 }
 
@@ -612,9 +524,6 @@ void initVM(VM *vm, const int argc, const char **argv) {
                             .count = 0,
                             .capacity = 16};
 
-  vm->initString = NULL;
-  vm->initString = copyString(vm, "init", 4);
-
   vm->args.argc = argc;
   vm->args.argv = argv;
 
@@ -659,8 +568,6 @@ void freeVM(VM *vm) {
   }
   FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules,
              vm->nativeModules.capacity);
-
-  vm->initString = NULL;
 
   freeTable(vm, &vm->moduleCache);
 
@@ -1125,7 +1032,6 @@ Value typeofValue(VM *vm, const Value value) {
     case OBJECT_NATIVE_FUNCTION:
     case OBJECT_NATIVE_METHOD:
     case OBJECT_CLOSURE:
-    case OBJECT_BOUND_METHOD:
     case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
     case OBJECT_NATIVE_INFALLIBLE_METHOD:
       return OBJECT_VAL(copyString(vm, "function", 8));
@@ -1134,12 +1040,6 @@ Value typeofValue(VM *vm, const Value value) {
       const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
       return typeofValue(vm, upvalue->closed);
     }
-
-    case OBJECT_CLASS:
-      return OBJECT_VAL(copyString(vm, "class", 5));
-
-    case OBJECT_INSTANCE:
-      return OBJECT_VAL(copyString(vm, "instance", 8));
 
     case OBJECT_ARRAY:
       return OBJECT_VAL(copyString(vm, "array", 5));
@@ -1161,6 +1061,14 @@ Value typeofValue(VM *vm, const Value value) {
 
     case OBJECT_MODULE_RECORD:
       return OBJECT_VAL(copyString(vm, "module", 6));
+    case OBJECT_STATIC_ARRAY:
+      return OBJECT_VAL(copyString(vm, "static array", 12));
+    case OBJECT_STATIC_TABLE:
+      return OBJECT_VAL(copyString(vm, "static table", 12));
+    case OBJECT_STRUCT:
+      return OBJECT_VAL(copyString(vm, "struct", 6));
+    case OBJECT_STRUCT_INSTANCE:
+      return OBJECT_VAL(copyString(vm, "struct instance", 15));
     }
   }
 
@@ -1179,7 +1087,6 @@ Value typeofValue(VM *vm, const Value value) {
   if (IS_NIL(value)) {
     return OBJECT_VAL(copyString(vm, "nil", 3));
   }
-
-  // unreacheable
+  __builtin_unreachable();
   return OBJECT_VAL(copyString(vm, "unknown", 7));
 }

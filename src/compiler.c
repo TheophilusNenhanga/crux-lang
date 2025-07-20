@@ -26,8 +26,6 @@ Parser parser;
 
 Compiler *current = NULL;
 
-ClassCompiler *currentClass = NULL;
-
 Chunk *compilingChunk;
 
 static void expression();
@@ -134,16 +132,11 @@ static void patchJump(const int offset) {
 /**
  * Emits an instruction that signals the end of a scope.
  * Depending on the scope one of these three OP CODES can be emitted:
- * OP_GET_LOCAL 0,
  * OP_NIL,
- * OP_RETURN 0
+ * OP_RETURN
  */
 static void emitReturn() {
-  if (current->type == TYPE_INITIALIZER) {
-    emitBytes(OP_GET_LOCAL, 0);
-  } else {
-    emitByte(OP_NIL);
-  }
+  emitByte(OP_NIL);
   emitByte(OP_RETURN);
 }
 
@@ -988,41 +981,6 @@ static Token syntheticToken(const char *text) {
   return token;
 }
 
-static void super_(bool canAssign) {
-  if (currentClass == NULL) {
-    compilerPanic(&parser, "Cannot use 'super' outside of a class", NAME);
-  } else if (!currentClass->hasSuperclass) {
-    compilerPanic(
-        &parser,
-        "Cannot use 'super' in a class that does not have a superclass", NAME);
-  }
-
-  consume(TOKEN_DOT, "Expected '.' after 'super'.");
-  consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
-  const uint16_t name = identifierConstant(&parser.previous);
-
-  if (match(TOKEN_LEFT_PAREN)) {
-    const uint8_t argCount = argumentList();
-    namedVariable(syntheticToken("super"), false);
-    if (name <= UINT8_MAX) {
-      emitBytes(OP_SUPER_INVOKE, (uint8_t)name);
-      emitByte(argCount);
-    } else {
-      emitByte(OP_SUPER_INVOKE_16);
-      emitBytes(((name >> 8) & 0xff), (name & 0xff));
-      emitByte(argCount);
-    }
-  } else {
-    namedVariable(syntheticToken("super"), false);
-    if (name <= UINT8_MAX) {
-      emitBytes(OP_GET_SUPER, (uint8_t)name);
-    } else {
-      emitByte(OP_GET_SUPER_16);
-      emitBytes(((name >> 8) & 0xff), (name & 0xff));
-    }
-  }
-}
-
 static void block() {
   while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
     declaration();
@@ -1061,82 +1019,6 @@ static void function(const FunctionType type) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
     emitByte(compiler.upvalues[i].index);
   }
-}
-
-static void method() {
-  consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
-  consume(TOKEN_IDENTIFIER, "Expected method name.");
-  const uint16_t constant = identifierConstant(&parser.previous);
-
-  FunctionType type = TYPE_METHOD;
-
-  if (parser.previous.length == 4 &&
-      memcmp(parser.previous.start, "init", 4) == 0) {
-    type = TYPE_INITIALIZER;
-  }
-
-  function(type);
-
-  if (constant <= UINT8_MAX) {
-    emitBytes(OP_METHOD, (uint8_t)constant);
-  } else {
-    emitByte(OP_METHOD_16);
-    emitBytes(((constant >> 8) & 0xff), (constant & 0xff));
-  }
-}
-
-static void classDeclaration() {
-  consume(TOKEN_IDENTIFIER, "Expected class name");
-  const Token className = parser.previous;
-  const uint16_t nameConstant = identifierConstant(&parser.previous);
-  declareVariable();
-
-  if (nameConstant <= UINT8_MAX) {
-    emitBytes(OP_CLASS, (uint8_t)nameConstant);
-  } else {
-    emitByte(OP_CLASS_16);
-    emitBytes(((nameConstant >> 8) & 0xff), (nameConstant & 0xff));
-  }
-  defineVariable(nameConstant);
-
-  ClassCompiler classCompiler;
-  classCompiler.enclosing = currentClass;
-  classCompiler.hasSuperclass = false;
-  currentClass = &classCompiler;
-
-  if (match(TOKEN_COLON)) {
-    consume(TOKEN_IDENTIFIER, "Expected super class name after ':'.");
-    variable(false);
-
-    if (identifiersEqual(&className, &parser.previous)) {
-      compilerPanic(&parser, "A class cannot inherit from itself", NAME);
-    }
-
-    beginScope();
-    addLocal(syntheticToken("super"));
-    defineVariable(0);
-
-    namedVariable(className, false);
-    emitByte(OP_INHERIT);
-    classCompiler.hasSuperclass = true;
-  }
-
-  namedVariable(className, false);
-
-  consume(TOKEN_LEFT_BRACE, "Expected '{' before class body");
-
-  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-    method();
-  }
-
-  consume(TOKEN_RIGHT_BRACE, "Expected '}' after class body");
-  emitByte(OP_POP);
-
-  if (classCompiler.hasSuperclass) {
-    endScope();
-  }
-
-  currentClass = classCompiler.enclosing;
 }
 
 static void fnDeclaration() {
@@ -1356,10 +1238,6 @@ static void returnStatement() {
   if (match(TOKEN_SEMICOLON)) {
     emitReturn();
   } else {
-    if (current->type == TYPE_INITIALIZER) {
-      compilerPanic(&parser, "Cannot return a value from an 'init' function",
-                    SYNTAX);
-    }
     expression();
     consume(TOKEN_SEMICOLON, "Expected ';' after return value");
     emitByte(OP_RETURN);
@@ -1459,33 +1337,13 @@ static void useStatement() {
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
-//
-// How to declare a struct
-// struct SimpleStruct {
-//   field1,
-//   field2,
-// }
-//
-// How to define a struct
-// let my_struct = SimpleStruct < $ >{
-// 		field1: <some_value>,
-// 		field2: <some_value>,
-// }
-//
-// The fields of the struct will need to be unique - these fields will be used
-// as indexes The '$' signifies that the struct is static - once the fields are
-// set they cannot be updated All structs do not allow dynamically adding
-// fields.
-//
-
 static void structDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token structName = parser.previous;
   ObjectString *structNameString =
       copyString(current->owner, structName.start, structName.length);
   const uint16_t nameConstant = identifierConstant(&structName);
-  ObjectStruct *structObject =
-      newStructType(current->owner, structNameString);
+  ObjectStruct *structObject = newStructType(current->owner, structNameString);
 
   declareVariable();
 
@@ -1543,7 +1401,7 @@ static void synchronize() {
     if (parser.previous.type == TOKEN_SEMICOLON)
       return;
     switch (parser.current.type) {
-    case TOKEN_CLASS:
+    case TOKEN_STRUCT:
     case TOKEN_PUB:
     case TOKEN_FN:
     case TOKEN_LET:
@@ -1568,12 +1426,10 @@ static void publicDeclaration() {
     fnDeclaration();
   } else if (match(TOKEN_LET)) {
     varDeclaration();
-  } else if (match(TOKEN_CLASS)) {
-    classDeclaration();
   } else if (match(TOKEN_STRUCT)) {
     structDeclaration();
   } else {
-    compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.",
+    compilerPanic(&parser, "Expected 'fn', 'let', or 'struct' after 'pub'.",
                   SYNTAX);
   }
 }
@@ -1769,8 +1625,6 @@ static void breakStatement() {
 static void declaration() {
   if (match(TOKEN_LET)) {
     varDeclaration();
-  } else if (match(TOKEN_CLASS)) {
-    classDeclaration();
   } else if (match(TOKEN_FN)) {
     fnDeclaration();
   } else if (match(TOKEN_STRUCT)) {
@@ -1966,22 +1820,6 @@ static void string(bool canAssign) {
 }
 
 /**
- * Parses a 'self' expression (referring to the current object instance within a
- * class method).
- *
- * @param canAssign Whether the 'self' expression can be the target of an
- * assignment.
- */
-static void self(bool canAssign) {
-  if (currentClass == NULL) {
-    compilerPanic(&parser, "'self' cannot be used outside of a class.", NAME);
-    return;
-  }
-
-  variable(false);
-}
-
-/**
  * Parses a unary operator expression.
  *
  * @param canAssign Whether the unary expression can be the target of an
@@ -2050,7 +1888,6 @@ ParseRule rules[] = {
     [TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
     [TOKEN_BREAK] = {NULL, NULL, PREC_NONE},
     [TOKEN_AND] = {NULL, and_, PREC_AND},
-    [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
     [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
@@ -2059,8 +1896,6 @@ ParseRule rules[] = {
     [TOKEN_NIL] = {literal, NULL, PREC_NONE},
     [TOKEN_OR] = {NULL, or_, PREC_OR},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_SUPER] = {super_, NULL, PREC_NONE},
-    [TOKEN_SELF] = {self, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_LET] = {NULL, NULL, PREC_NONE},
     [TOKEN_USE] = {NULL, NULL, PREC_NONE},

@@ -73,14 +73,9 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_GET_UPVALUE,
                                   &&OP_SET_UPVALUE,
                                   &&OP_CLOSE_UPVALUE,
-                                  &&OP_CLASS,
                                   &&OP_GET_PROPERTY,
                                   &&OP_SET_PROPERTY,
                                   &&OP_INVOKE,
-                                  &&OP_METHOD,
-                                  &&OP_INHERIT,
-                                  &&OP_GET_SUPER,
-                                  &&OP_SUPER_INVOKE,
                                   &&OP_ARRAY,
                                   &&OP_GET_COLLECTION,
                                   &&OP_SET_COLLECTION,
@@ -127,10 +122,6 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_GET_PROPERTY_16,
                                   &&OP_SET_PROPERTY_16,
                                   &&OP_INVOKE_16,
-                                  &&OP_SUPER_INVOKE_16,
-                                  &&OP_GET_SUPER_16,
-                                  &&OP_CLASS_16,
-                                  &&OP_METHOD_16,
                                   &&OP_TYPEOF,
                                   &&OP_STATIC_ARRAY,
                                   &&OP_STATIC_TABLE,
@@ -419,25 +410,23 @@ OP_CLOSE_UPVALUE: {
   DISPATCH();
 }
 
-OP_CLASS: {
-  PUSH(currentModuleRecord, OBJECT_VAL(newClass(vm, READ_STRING())));
-  DISPATCH();
-}
-
 OP_GET_PROPERTY: {
   Value receiver = POP(currentModuleRecord);
   if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
-    runtimePanic(currentModuleRecord, false, TYPE, "Cannot get property on non 'struct instance' type.");
+    runtimePanic(currentModuleRecord, false, TYPE,
+                 "Cannot get property on non 'struct instance' type.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
   ObjectString *name = READ_STRING();
-  ObjectStructInstance* instance = AS_CRUX_STRUCT_INSTANCE(receiver);
-  ObjectStruct* structType = instance->structType;
+  ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+  ObjectStruct *structType = instance->structType;
 
   Value indexValue;
   if (!tableGet(&structType->fields, name, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, NAME,
+                 "Property '%s' does not exist on struct '%s'.", name->chars,
+                 structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -453,17 +442,20 @@ OP_SET_PROPERTY: {
     ObjectString *name = READ_STRING();
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Cannot set property '%s' on non struct instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "struct instance"));
+                 name->chars,
+                 typeErrorMessage(vm, receiver, "struct instance"));
     return INTERPRET_RUNTIME_ERROR;
   }
 
   ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
-  ObjectStruct* structType = instance->structType;
+  ObjectStruct *structType = instance->structType;
 
   Value indexValue;
   if (!tableGet(&structType->fields, name, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, NAME,
+                 "Property '%s' does not exist on struct '%s'.", name->chars,
+                 structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -477,47 +469,6 @@ OP_INVOKE: {
   ObjectString *methodName = READ_STRING();
   int argCount = READ_BYTE();
   if (!invoke(vm, methodName, argCount)) {
-    return INTERPRET_RUNTIME_ERROR;
-  }
-  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
-  DISPATCH();
-}
-
-OP_METHOD: {
-  defineMethod(vm, READ_STRING());
-  DISPATCH();
-}
-
-OP_INHERIT: {
-  Value superClass = PEEK(currentModuleRecord, 1);
-
-  if (!IS_CRUX_CLASS(superClass)) {
-    runtimePanic(currentModuleRecord, false, TYPE,
-                 "Cannot inherit from non class object.");
-    return INTERPRET_RUNTIME_ERROR;
-  }
-
-  ObjectClass *subClass = AS_CRUX_CLASS(PEEK(currentModuleRecord, 0));
-  tableAddAll(vm, &AS_CRUX_CLASS(superClass)->methods, &subClass->methods);
-  POP(currentModuleRecord);
-  DISPATCH();
-}
-
-OP_GET_SUPER: {
-  ObjectString *name = READ_STRING();
-  ObjectClass *superClass = AS_CRUX_CLASS(POP(currentModuleRecord));
-
-  if (!bindMethod(vm, superClass, name)) {
-    return INTERPRET_RUNTIME_ERROR;
-  }
-  DISPATCH();
-}
-
-OP_SUPER_INVOKE: {
-  ObjectString *method = READ_STRING();
-  int argCount = READ_BYTE();
-  ObjectClass *superClass = AS_CRUX_CLASS(POP(currentModuleRecord));
-  if (!invokeFromClass(currentModuleRecord, superClass, method, argCount)) {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
@@ -1624,17 +1575,20 @@ OP_SET_GLOBAL_16: {
 OP_GET_PROPERTY_16: {
   Value receiver = POP(currentModuleRecord);
   if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
-    runtimePanic(currentModuleRecord, false, TYPE, "Cannot get property on non 'struct instance' type.");
+    runtimePanic(currentModuleRecord, false, TYPE,
+                 "Cannot get property on non 'struct instance' type.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
   ObjectString *name = READ_STRING_16();
-  ObjectStructInstance* instance = AS_CRUX_STRUCT_INSTANCE(receiver);
-  ObjectStruct* structType = instance->structType;
+  ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+  ObjectStruct *structType = instance->structType;
 
   Value indexValue;
   if (!tableGet(&structType->fields, name, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, NAME,
+                 "Property '%s' does not exist on struct '%s'.", name->chars,
+                 structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1650,17 +1604,20 @@ OP_SET_PROPERTY_16: {
     ObjectString *name = READ_STRING_16();
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Cannot set property '%s' on non struct instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "struct instance"));
+                 name->chars,
+                 typeErrorMessage(vm, receiver, "struct instance"));
     return INTERPRET_RUNTIME_ERROR;
   }
 
   ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
-  ObjectStruct* structType = instance->structType;
+  ObjectStruct *structType = instance->structType;
 
   Value indexValue;
   if (!tableGet(&structType->fields, name, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, NAME,
+                 "Property '%s' does not exist on struct '%s'.", name->chars,
+                 structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
@@ -1677,37 +1634,6 @@ OP_INVOKE_16: {
     return INTERPRET_RUNTIME_ERROR;
   }
   frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
-  DISPATCH();
-}
-
-OP_SUPER_INVOKE_16: {
-  ObjectString *method = READ_STRING_16();
-  int argCount = READ_BYTE();
-  ObjectClass *superClass = AS_CRUX_CLASS(POP(currentModuleRecord));
-  if (!invokeFromClass(currentModuleRecord, superClass, method, argCount)) {
-    return INTERPRET_RUNTIME_ERROR;
-  }
-  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
-  DISPATCH();
-}
-
-OP_GET_SUPER_16: {
-  ObjectString *name = READ_STRING_16();
-  ObjectClass *superClass = AS_CRUX_CLASS(POP(currentModuleRecord));
-
-  if (!bindMethod(vm, superClass, name)) {
-    return INTERPRET_RUNTIME_ERROR;
-  }
-  DISPATCH();
-}
-
-OP_CLASS_16: {
-  PUSH(currentModuleRecord, OBJECT_VAL(newClass(vm, READ_STRING_16())));
-  DISPATCH();
-}
-
-OP_METHOD_16: {
-  defineMethod(vm, READ_STRING_16());
   DISPATCH();
 }
 
@@ -1777,49 +1703,55 @@ OP_STRUCT_INSTANCE_START: {
 }
 
 OP_STRUCT_NAMED_FIELD: {
-  ObjectStructInstance*  structInstance = peekStructStack(vm);
+  ObjectStructInstance *structInstance = peekStructStack(vm);
   if (structInstance == NULL) {
-    runtimePanic(currentModuleRecord, false, RUNTIME, "Failed to get struct from stack.");
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Failed to get struct from stack.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectString* fieldName = READ_STRING();
+  ObjectString *fieldName = READ_STRING();
 
-  ObjectStruct* structType = structInstance->structType;
+  ObjectStruct *structType = structInstance->structType;
   Value indexValue;
   if (!tableGet(&structType->fields, fieldName, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, RUNTIME,"Field '%s' does not exist on strut type '%s'.", fieldName->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Field '%s' does not exist on strut type '%s'.",
+                 fieldName->chars, structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  uint16_t index = (uint16_t) AS_INT(indexValue);
+  uint16_t index = (uint16_t)AS_INT(indexValue);
   structInstance->fields[index] = POP(currentModuleRecord);
   DISPATCH();
 }
 
 OP_STRUCT_NAMED_FIELD_16: {
-  ObjectStructInstance*  structInstance = peekStructStack(vm);
+  ObjectStructInstance *structInstance = peekStructStack(vm);
   if (structInstance == NULL) {
-    runtimePanic(currentModuleRecord, false, RUNTIME, "Failed to get struct from stack.");
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Failed to get struct from stack.");
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectString* fieldName = READ_STRING_16();
+  ObjectString *fieldName = READ_STRING_16();
 
-  ObjectStruct* structType = structInstance->structType;
+  ObjectStruct *structType = structInstance->structType;
   Value indexValue;
   if (!tableGet(&structType->fields, fieldName, &indexValue)) {
-    runtimePanic(currentModuleRecord, false, RUNTIME,"Field '%s' does not exist on struct type '%s'.", fieldName->chars, structType->name->chars);
+    runtimePanic(currentModuleRecord, false, RUNTIME,
+                 "Field '%s' does not exist on struct type '%s'.",
+                 fieldName->chars, structType->name->chars);
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  uint16_t index = (uint16_t) AS_INT(indexValue);
+  uint16_t index = (uint16_t)AS_INT(indexValue);
   structInstance->fields[index] = POP(currentModuleRecord);
   DISPATCH();
 }
 
 OP_STRUCT_INSTANCE_END: {
-  ObjectStructInstance* structInstance = popStructStack(vm);
+  ObjectStructInstance *structInstance = popStructStack(vm);
   if (structInstance == NULL) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to pop struct from stack.");

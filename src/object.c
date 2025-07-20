@@ -146,17 +146,10 @@ void printType(const Value value) {
   case OBJECT_NATIVE_METHOD:
   case OBJECT_NATIVE_INFALLIBLE_METHOD:
   case OBJECT_CLOSURE:
-  case OBJECT_BOUND_METHOD:
     printf("'function'");
     break;
   case OBJECT_UPVALUE:
     printf("'upvalue'");
-    break;
-  case OBJECT_CLASS:
-    printf("'class'");
-    break;
-  case OBJECT_INSTANCE:
-    printf("'instance'");
     break;
   case OBJECT_ARRAY:
     printf("'array'");
@@ -179,22 +172,6 @@ void printType(const Value value) {
   default:
     printf("'unknown'");
   }
-}
-
-ObjectBoundMethod *newBoundMethod(VM *vm, const Value receiver,
-                                  ObjectClosure *method) {
-  ObjectBoundMethod *bound =
-      ALLOCATE_OBJECT(vm, ObjectBoundMethod, OBJECT_BOUND_METHOD);
-  bound->receiver = receiver;
-  bound->method = method;
-  return bound;
-}
-
-ObjectClass *newClass(VM *vm, ObjectString *name) {
-  ObjectClass *klass = ALLOCATE_OBJECT(vm, ObjectClass, OBJECT_CLASS);
-  initTable(&klass->methods);
-  klass->name = name;
-  return klass;
 }
 
 ObjectUpvalue *newUpvalue(VM *vm, Value *slot) {
@@ -413,17 +390,16 @@ static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
   printf("}");
 }
 
+static void printError(ObjectError *error) {}
 
-static void printError(ObjectError* error) {}
-
-static void printStructInstance(const ObjectStructInstance* instance) {
+static void printStructInstance(const ObjectStructInstance *instance) {
   printf("{");
   uint32_t printed = 0;
-  const ObjectStruct* type = instance->structType;
-  for (int i =0; i < type->fields.capacity; i++) {
+  const ObjectStruct *type = instance->structType;
+  for (int i = 0; i < type->fields.capacity; i++) {
     if (type->fields.entries[i].key != NULL) {
-      const uint16_t index = (uint16_t) AS_INT(type->fields.entries[i].value);
-      const ObjectString* fieldName = type->fields.entries[i].key;
+      const uint16_t index = (uint16_t)AS_INT(type->fields.entries[i].value);
+      const ObjectString *fieldName = type->fields.entries[i].key;
       printf("%s: ", fieldName->chars);
       printValue(instance->fields[index], true);
       if (printed != type->fields.count - 1) {
@@ -449,10 +425,6 @@ static void printResult(const ObjectResult *result) {
 
 void printObject(const Value value, const bool inCollection) {
   switch (OBJECT_TYPE(value)) {
-  case OBJECT_CLASS: {
-    printf("'%s' <class>", AS_CRUX_CLASS(value)->name->chars);
-    break;
-  }
   case OBJECT_STRING: {
     if (inCollection) {
       printf("'%s'", AS_C_STRING(value));
@@ -499,14 +471,6 @@ void printObject(const Value value, const bool inCollection) {
   }
   case OBJECT_UPVALUE: {
     printValue(value, false);
-    break;
-  }
-  case OBJECT_INSTANCE: {
-    printf("'%s' <instance>", AS_CRUX_INSTANCE(value)->klass->name->chars);
-    break;
-  }
-  case OBJECT_BOUND_METHOD: {
-    printFunction(AS_CRUX_BOUND_METHOD(value)->method->function);
     break;
   }
   case OBJECT_ARRAY: {
@@ -561,10 +525,10 @@ void printObject(const Value value, const bool inCollection) {
     printf("<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
     break;
   }
-    case OBJECT_STRUCT_INSTANCE: {
-      printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
-      break;
-    }
+  case OBJECT_STRUCT_INSTANCE: {
+    printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
+    break;
+  }
   }
 }
 
@@ -698,30 +662,6 @@ ObjectString *toString(VM *vm, const Value value) {
     return copyString(vm, "<upvalue>", 9);
   }
 
-  case OBJECT_CLASS: {
-    const ObjectClass *klass = AS_CRUX_CLASS(value);
-    char buffer[256];
-    const int length =
-        snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
-  case OBJECT_INSTANCE: {
-    const ObjectInstance *instance = AS_CRUX_INSTANCE(value);
-    char buffer[256];
-    const int length = snprintf(buffer, sizeof(buffer), "%s <instance>",
-                                instance->klass->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
-  case OBJECT_BOUND_METHOD: {
-    const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(value);
-    char buffer[256];
-    const int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>",
-                                bound->method->function->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
   case OBJECT_ARRAY: {
     const ObjectArray *array = AS_CRUX_ARRAY(value);
     size_t bufSize = 2; // [] minimum
@@ -818,7 +758,7 @@ ObjectString *toString(VM *vm, const Value value) {
     printf("<struct type %s>", structObject->name->chars);
   }
 
-    case OBJECT_STRUCT_INSTANCE: {
+  case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
     printStructInstance(instance);
   }
@@ -836,14 +776,6 @@ ObjectFunction *newFunction(VM *vm) {
   function->upvalueCount = 0;
   initChunk(&function->chunk);
   return function;
-}
-
-ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
-  ObjectInstance *instance =
-      ALLOCATE_OBJECT(vm, ObjectInstance, OBJECT_INSTANCE);
-  instance->klass = klass;
-  initTable(&instance->fields);
-  return instance;
 }
 
 ObjectNativeFunction *newNativeFunction(VM *vm, const CruxCallable function,
@@ -1283,7 +1215,7 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name) {
 }
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        uint16_t fieldCount) {
+                                        const uint16_t fieldCount) {
   ObjectStructInstance *structInstance =
       ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
   structInstance->structType = structType;

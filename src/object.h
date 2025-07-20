@@ -17,8 +17,6 @@
   isObjectType(value, OBJECT_NATIVE_FUNCTION)
 #define IS_CRUX_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
 #define IS_CRUX_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
-#define IS_CRUX_CLASS(value) isObjectType(value, OBJECT_CLASS)
-#define IS_CRUX_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
 #define IS_CRUX_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_CRUX_TABLE(value) isObjectType(value, OBJECT_TABLE)
@@ -44,8 +42,6 @@
 #define AS_CRUX_NATIVE_METHOD(value)                                           \
   ((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_CLASS(value) ((ObjectClass *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_INSTANCE(value) ((ObjectInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TABLE(value) ((ObjectTable *)AS_CRUX_OBJECT(value))
@@ -74,9 +70,6 @@ typedef enum {
   OBJECT_NATIVE_METHOD,
   OBJECT_CLOSURE,
   OBJECT_UPVALUE,
-  OBJECT_CLASS,
-  OBJECT_INSTANCE,
-  OBJECT_BOUND_METHOD,
   OBJECT_ARRAY,
   OBJECT_TABLE,
   OBJECT_ERROR,
@@ -128,23 +121,6 @@ typedef struct ObjectClosure {
   int upvalueCount;
 } ObjectClosure;
 
-typedef struct {
-  Object object;
-  ObjectString *name;
-  Table methods;
-} ObjectClass;
-
-typedef struct {
-  Object object;
-  ObjectClass *klass;
-  Table fields;
-} ObjectInstance;
-
-typedef struct {
-  Object object;
-  Value receiver;
-  ObjectClosure *method;
-} ObjectBoundMethod;
 
 typedef struct {
   Object object;
@@ -331,22 +307,6 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
                       bool isPanic);
 
 /**
- * @brief Creates a new bound method object.
- *
- * A bound method combines a receiver object (the instance) with a method
- * (closure) to be called on that receiver. This function allocates and
- * initializes a new ObjectBoundMethod.
- *
- * @param vm The virtual machine.
- * @param receiver The receiver Value (the instance).
- * @param method The method ObjectClosure.
- *
- * @return A pointer to the newly created ObjectBoundMethod.
- */
-ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver,
-                                  ObjectClosure *method);
-
-/**
  * @brief Creates a new upvalue object.
  *
  * Upvalues are used to implement closures, capturing variables from enclosing
@@ -452,34 +412,6 @@ newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
  * @return A pointer to the newly created ObjectFunction.
  */
 ObjectFunction *newFunction(VM *vm);
-
-/**
- * @brief Creates a new class object.
- *
- * This function allocates and initializes a new ObjectClass, representing a
- * class in the crux language. It initializes the class's method table and sets
- * its name.
- *
- * @param vm The virtual machine.
- * @param name The name of the class as an ObjectString.
- *
- * @return A pointer to the newly created ObjectClass.
- */
-ObjectClass *newClass(VM *vm, ObjectString *name);
-
-/**
- * @brief Creates a new instance object.
- *
- * This function allocates and initializes a new ObjectInstance, representing
- * an instance of a class in the crux language. It associates the instance
- * with its class and initializes its field table.
- *
- * @param vm The virtual machine.
- * @param klass The ObjectClass of which this is an instance.
- *
- * @return A pointer to the newly created ObjectInstance.
- */
-ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
 
 /**
  * @brief Creates a new object table.
@@ -593,10 +525,6 @@ ObjectString *toString(VM *vm, Value value);
  * @brief Prints a Value to the console for debugging purposes.
  *
  * This function provides a human-readable representation of a Value,
- * dispatching to different printing logic based on the Value's type. It handles
- * strings, functions, native functions, closures, upvalues, classes, instances,
- * bound methods, arrays, tables and errors.
- *
  * @param value The Value to print.
  * @param inCollection is this object in a collection?
  */

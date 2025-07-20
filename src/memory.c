@@ -151,27 +151,6 @@ static void blackenObject(VM *vm, Object *object) {
     break;
   }
 
-  case OBJECT_CLASS: {
-    const ObjectClass *klass = (ObjectClass *)object;
-    markObject(vm, (Object *)klass->name);
-    markTable(vm, &klass->methods);
-    break;
-  }
-
-  case OBJECT_INSTANCE: {
-    const ObjectInstance *instance = (ObjectInstance *)object;
-    markObject(vm, (Object *)instance->klass);
-    markTable(vm, &instance->fields);
-    break;
-  }
-
-  case OBJECT_BOUND_METHOD: {
-    const ObjectBoundMethod *bound = (ObjectBoundMethod *)object;
-    markValue(vm, bound->receiver);
-    markObject(vm, (Object *)bound->method);
-    break;
-  }
-
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
     markObjectArray(vm, array);
@@ -322,22 +301,6 @@ static void freeObject(VM *vm, Object *object) {
     FREE(vm, ObjectUpvalue, object);
     break;
   }
-  case OBJECT_CLASS: {
-    ObjectClass *klass = (ObjectClass *)object;
-    freeTable(vm, &klass->methods);
-    FREE(vm, ObjectClass, object);
-    break;
-  }
-  case OBJECT_INSTANCE: {
-    ObjectInstance *instance = (ObjectInstance *)object;
-    freeTable(vm, &instance->fields);
-    FREE(vm, ObjectInstance, object);
-    break;
-  }
-  case OBJECT_BOUND_METHOD: {
-    FREE(vm, ObjectBoundMethod, object);
-    break;
-  }
 
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
@@ -440,7 +403,6 @@ void markRoots(VM *vm) {
   markTable(vm, &vm->fileType);
   markTable(vm, &vm->moduleCache);
   markCompilerRoots(vm);
-  markObject(vm, (Object *)vm->initString);
   markValue(vm, vm->matchHandler.matchBind);
   markValue(vm, vm->matchHandler.matchTarget);
 }
