@@ -425,52 +425,51 @@ OP_CLASS: {
 }
 
 OP_GET_PROPERTY: {
-  Value receiver = PEEK(currentModuleRecord, 0);
-  if (!IS_CRUX_INSTANCE(receiver)) {
-    ObjectString *name = READ_STRING();
-    runtimePanic(currentModuleRecord, false, TYPE,
-                 "Cannot access property '%s' on non-instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "instance"));
+  Value receiver = POP(currentModuleRecord);
+  if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
+    runtimePanic(currentModuleRecord, false, TYPE, "Cannot get property on non 'struct instance' type.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
+
   ObjectString *name = READ_STRING();
+  ObjectStructInstance* instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+  ObjectStruct* structType = instance->structType;
 
-  Value value;
-  bool fieldFound = false;
-  if (tableGet(&instance->fields, name, &value)) {
-    POP(currentModuleRecord);
-    PUSH(currentModuleRecord, value);
-    fieldFound = true;
-    DISPATCH();
+  Value indexValue;
+  if (!tableGet(&structType->fields, name, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
   }
 
-  if (!fieldFound) {
-    if (!bindMethod(vm, instance->klass, name)) {
-      runtimePanic(currentModuleRecord, false, RUNTIME,
-                   "Failed to bind method '%s'", name->chars);
-      return INTERPRET_RUNTIME_ERROR;
-    }
-  }
+  PUSH(currentModuleRecord, instance->fields[(uint16_t)AS_INT(indexValue)]);
   DISPATCH();
 }
 
 OP_SET_PROPERTY: {
-  Value receiver = PEEK(currentModuleRecord, 1);
-  if (!IS_CRUX_INSTANCE(receiver)) {
+  Value valueToSet = POP(currentModuleRecord);
+  Value receiver = POP(currentModuleRecord);
+
+  if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING();
     runtimePanic(currentModuleRecord, false, TYPE,
-                 "Cannot set property '%s' on non-instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "instance"));
+                 "Cannot set property '%s' on non struct instance value. %s",
+                 name->chars, typeErrorMessage(vm, receiver, "struct instance"));
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
+  ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
   ObjectString *name = READ_STRING();
+  ObjectStruct* structType = instance->structType;
 
-  tableSet(vm, &instance->fields, name, PEEK(currentModuleRecord, 0));
-  Value value = POP(currentModuleRecord);
-  popPush(currentModuleRecord, value);
+  Value indexValue;
+  if (!tableGet(&structType->fields, name, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  instance->fields[(uint16_t)AS_INT(indexValue)] = valueToSet;
+  PUSH(currentModuleRecord, valueToSet);
+
   DISPATCH();
 }
 
@@ -1623,52 +1622,51 @@ OP_SET_GLOBAL_16: {
 }
 
 OP_GET_PROPERTY_16: {
-  Value receiver = PEEK(currentModuleRecord, 0);
-  if (!IS_CRUX_INSTANCE(receiver)) {
-    ObjectString *name = READ_STRING_16();
-    runtimePanic(currentModuleRecord, false, TYPE,
-                 "Cannot access property '%s' on non-instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "instance"));
+  Value receiver = POP(currentModuleRecord);
+  if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
+    runtimePanic(currentModuleRecord, false, TYPE, "Cannot get property on non 'struct instance' type.");
     return INTERPRET_RUNTIME_ERROR;
   }
-  ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
+
   ObjectString *name = READ_STRING_16();
+  ObjectStructInstance* instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+  ObjectStruct* structType = instance->structType;
 
-  Value value;
-  bool fieldFound = false;
-  if (tableGet(&instance->fields, name, &value)) {
-    POP(currentModuleRecord);
-    PUSH(currentModuleRecord, value);
-    fieldFound = true;
-    DISPATCH();
+  Value indexValue;
+  if (!tableGet(&structType->fields, name, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
   }
 
-  if (!fieldFound) {
-    if (!bindMethod(vm, instance->klass, name)) {
-      runtimePanic(currentModuleRecord, RUNTIME, false,
-                   "Failed to bind method '%s'", name->chars);
-      return INTERPRET_RUNTIME_ERROR;
-    }
-  }
+  PUSH(currentModuleRecord, instance->fields[(uint16_t)AS_INT(indexValue)]);
   DISPATCH();
 }
 
 OP_SET_PROPERTY_16: {
-  Value receiver = PEEK(currentModuleRecord, 1);
-  if (!IS_CRUX_INSTANCE(receiver)) {
+  Value valueToSet = POP(currentModuleRecord);
+  Value receiver = POP(currentModuleRecord);
+
+  if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
     ObjectString *name = READ_STRING_16();
     runtimePanic(currentModuleRecord, false, TYPE,
-                 "Cannot set property '%s' on non-instance value. %s",
-                 name->chars, typeErrorMessage(vm, receiver, "instance"));
+                 "Cannot set property '%s' on non struct instance value. %s",
+                 name->chars, typeErrorMessage(vm, receiver, "struct instance"));
     return INTERPRET_RUNTIME_ERROR;
   }
 
-  ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
-  ObjectString *name = READ_STRING_16();
+  ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+  ObjectString *name = READ_STRING();
+  ObjectStruct* structType = instance->structType;
 
-  tableSet(vm, &instance->fields, name, PEEK(currentModuleRecord, 0));
-  Value value = POP(currentModuleRecord);
-  popPush(currentModuleRecord, value);
+  Value indexValue;
+  if (!tableGet(&structType->fields, name, &indexValue)) {
+    runtimePanic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars, structType->name->chars);
+    return INTERPRET_RUNTIME_ERROR;
+  }
+
+  instance->fields[(uint16_t)AS_INT(indexValue)] = valueToSet;
+  PUSH(currentModuleRecord, valueToSet);
+
   DISPATCH();
 }
 
@@ -1769,7 +1767,7 @@ OP_STRUCT_INSTANCE_START: {
   Value value = PEEK(currentModuleRecord, 0);
   ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
   ObjectStructInstance *structInstance =
-      newStructInstance(vm, objectStruct, objectStruct->fieldCount);
+      newStructInstance(vm, objectStruct, objectStruct->fields.count);
   POP(currentModuleRecord); // struct type
   if (!pushStructStack(vm, structInstance)) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
@@ -1853,6 +1851,7 @@ end: {
 #undef BINARY_OP
 #undef BOOL_BINARY_OP
 #undef READ_STRING
+#undef READ_STRING_16
 #undef READ_SHORT
 #undef READ_CONSTANT_16
 #undef READ_STRING_16

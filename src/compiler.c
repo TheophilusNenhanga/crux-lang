@@ -1485,8 +1485,7 @@ static void structDeclaration() {
       copyString(current->owner, structName.start, structName.length);
   const uint16_t nameConstant = identifierConstant(&structName);
   ObjectStruct *structObject =
-      newStructType(current->owner, structNameString,
-                    0); // field count has not been determined yet
+      newStructType(current->owner, structNameString);
 
   declareVariable();
 
@@ -1529,7 +1528,6 @@ static void structDeclaration() {
   if (fieldCount != 0) {
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
   }
-  structObject->fieldCount = fieldCount;
 }
 
 /**

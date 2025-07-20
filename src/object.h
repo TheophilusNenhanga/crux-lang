@@ -274,7 +274,6 @@ typedef struct {
 	Object object;
 	ObjectString* name;
 	Table fields; // <field_name: index>
-	uint32_t fieldCount;
 }ObjectStruct;
 
 
@@ -282,7 +281,7 @@ struct ObjectStructInstance{
 	Object object;
 	ObjectStruct* structType;
 	Value* fields;
-} ;
+};
 
 typedef enum {
   STATE_LOADING,
@@ -759,7 +758,7 @@ ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
 
 bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
 
-ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount);
+ObjectStruct *newStructType(VM *vm, ObjectString *name);
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
                                         uint16_t fieldCount);

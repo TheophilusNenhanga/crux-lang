@@ -406,6 +406,17 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
     return invokeFromClass(currentModuleRecord, instance->klass, name,
                            argCount);
   }
+    case OBJECT_STRUCT_INSTANCE: {
+    argCount--;
+    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+    Value indexValue;
+    if (tableGet(&instance->structType->fields, name, &indexValue)) {
+      return callValue(vm, instance->fields[(uint16_t)AS_INT(indexValue)], argCount);
+    }
+    runtimePanic(currentModuleRecord, false, NAME, "Undefined method '%s'.",
+                 name->chars);
+    return false;
+  }
   default: {
     runtimePanic(currentModuleRecord, false, TYPE,
                  "Only instances have methods");

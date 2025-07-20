@@ -284,52 +284,6 @@ ObjectString *copyString(VM *vm, const char *chars, const uint32_t length) {
   return allocateString(vm, heapChars, length, hash);
 }
 
-/**
- * @brief Prints the name of a function object.
- *
- * This static helper function prints the name of a function object to the
- * console, used for debugging and representation. If the function is
- * anonymous (name is NULL), it prints "<script>".
- *
- * @param function The ObjectFunction to print the name of.
- */
-static void printFunction(const ObjectFunction *function) {
-  if (function->name == NULL) {
-    printf("<script>");
-    return;
-  }
-  printf("<fn %s>", function->name->chars);
-}
-
-static void printArray(const Value *values, const uint32_t size) {
-  printf("[");
-  for (int i = 0; i < size; i++) {
-    printValue(values[i], true);
-    if (i != size - 1) {
-      printf(", ");
-    }
-  }
-  printf("]");
-}
-
-static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
-                       const uint32_t size) {
-  uint16_t printed = 0;
-  printf("{");
-  for (int i = 0; i < capacity; i++) {
-    if (entries[i].isOccupied) {
-      printValue(entries[i].key, true);
-      printf(":");
-      printValue(entries[i].value, true);
-      if (printed != size - 1) {
-        printf(", ");
-      }
-      printed++;
-    }
-  }
-  printf("}");
-}
-
 static void printErrorType(const ErrorType type) {
   switch (type) {
   case SYNTAX:
@@ -413,7 +367,73 @@ static void printErrorType(const ErrorType type) {
   }
 }
 
-static void printError() {}
+/**
+ * @brief Prints the name of a function object.
+ *
+ * This static helper function prints the name of a function object to the
+ * console, used for debugging and representation. If the function is
+ * anonymous (name is NULL), it prints "<script>".
+ *
+ * @param function The ObjectFunction to print the name of.
+ */
+static void printFunction(const ObjectFunction *function) {
+  if (function->name == NULL) {
+    printf("<script>");
+    return;
+  }
+  printf("<fn %s>", function->name->chars);
+}
+
+static void printArray(const Value *values, const uint32_t size) {
+  printf("[");
+  for (int i = 0; i < size; i++) {
+    printValue(values[i], true);
+    if (i != size - 1) {
+      printf(", ");
+    }
+  }
+  printf("]");
+}
+
+static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
+                       const uint32_t size) {
+  uint32_t printed = 0;
+  printf("{");
+  for (int i = 0; i < capacity; i++) {
+    if (entries[i].isOccupied) {
+      printValue(entries[i].key, true);
+      printf(":");
+      printValue(entries[i].value, true);
+      if (printed != size - 1) {
+        printf(", ");
+      }
+      printed++;
+    }
+  }
+  printf("}");
+}
+
+
+static void printError(ObjectError* error) {}
+
+static void printStructInstance(const ObjectStructInstance* instance) {
+  printf("{");
+  uint32_t printed = 0;
+  const ObjectStruct* type = instance->structType;
+  for (int i =0; i < type->fields.capacity; i++) {
+    if (type->fields.entries[i].key != NULL) {
+      const uint16_t index = (uint16_t) AS_INT(type->fields.entries[i].value);
+      const ObjectString* fieldName = type->fields.entries[i].key;
+      printf("%s: ", fieldName->chars);
+      printValue(instance->fields[index], true);
+      if (printed != type->fields.count - 1) {
+        printf(", ");
+      }
+      printed++;
+    }
+  }
+  printf("}");
+}
 
 static void printResult(const ObjectResult *result) {
   if (result->isOk) {
@@ -541,6 +561,10 @@ void printObject(const Value value, const bool inCollection) {
     printf("<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
     break;
   }
+    case OBJECT_STRUCT_INSTANCE: {
+      printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
+      break;
+    }
   }
 }
 
@@ -787,6 +811,16 @@ ObjectString *toString(VM *vm, const Value value) {
 
   case OBJECT_FILE: {
     return copyString(vm, "<file>", 6);
+  }
+
+  case OBJECT_STRUCT: {
+    const ObjectStruct *structObject = AS_CRUX_STRUCT(value);
+    printf("<struct type %s>", structObject->name->chars);
+  }
+
+    case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
+    printStructInstance(instance);
   }
 
   default:
@@ -1241,11 +1275,10 @@ bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key,
   return true;
 }
 
-ObjectStruct *newStructType(VM *vm, ObjectString *name, uint16_t fieldCount) {
+ObjectStruct *newStructType(VM *vm, ObjectString *name) {
   ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct, OBJECT_STRUCT);
   structObject->name = name;
   initTable(&structObject->fields);
-  structObject->fieldCount = fieldCount;
   return structObject;
 }
 
@@ -1255,5 +1288,8 @@ ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
       ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
   structInstance->structType = structType;
   structInstance->fields = ALLOCATE(vm, Value, fieldCount);
+  for (int i = 0; i < fieldCount; i++) {
+    structInstance->fields[i] = NIL_VAL;
+  }
   return structInstance;
 }
