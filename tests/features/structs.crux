@@ -1,0 +1,32 @@
+struct Test {}
+assert((typeof Test) == "struct", "Failed to create struct with no fields.");
+
+struct Point { x, y }
+assert((typeof Point) == "struct", "Failed to create struct with fields.");
+
+let t = Test {};
+assert((typeof t) == "struct instance", "Failed to make an instance with no fields.");
+
+let p = Point {};
+assert((typeof p) == "struct instance", "Failed to make an instance of a struct that has two fields");
+
+let p1 = Point { x: 12 };
+assert(p1.x == 12, "Failed to create struct and set field value");
+
+let p2 = Point { x: 12, y: 23 };
+p2.y = -11;
+assert(p2.y == -11, "Failed to update struct instance value");
+
+// c1..c4: corner1..corner4
+struct Quad { c1, c2, c3, c4 }
+
+let q = Quad {
+    c1: Point { x:14, y:39 },
+    c2: Point { x:15, y:34 },
+    c3: Point { x:17, y:32 },
+    c4: Point { x:16, y:36 }
+};
+
+assert(q.c1.x == 14, "Failed to set value in nested struct.");
+
+

@@ -131,6 +131,7 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STRUCT_NAMED_FIELD,
                                   &&OP_STRUCT_NAMED_FIELD_16,
                                   &&OP_STRUCT_INSTANCE_END,
+                                  &&OP_NIL_RETURN,
                                   &&end};
 
   uint8_t instruction;
@@ -1757,6 +1758,22 @@ OP_STRUCT_INSTANCE_END: {
                  "Failed to pop struct from stack.");
   }
   PUSH(currentModuleRecord, OBJECT_VAL(structInstance));
+  DISPATCH();
+}
+
+OP_NIL_RETURN: {
+  closeUpvalues(currentModuleRecord, frame->slots);
+  currentModuleRecord->frameCount--;
+  if (currentModuleRecord->frameCount == 0) {
+    POP(currentModuleRecord);
+    return INTERPRET_OK;
+  }
+  currentModuleRecord->stackTop = frame->slots;
+  PUSH(currentModuleRecord, NIL_VAL);
+  frame = &currentModuleRecord->frames[currentModuleRecord->frameCount - 1];
+
+  if (isAnonymousFrame)
+    return INTERPRET_OK;
   DISPATCH();
 }
 

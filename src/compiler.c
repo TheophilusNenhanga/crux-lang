@@ -18,10 +18,6 @@
 #include "debug.h"
 #endif
 
-#ifdef DUMP_BYTECODE
-#include "debug.h"
-#endif
-
 Parser parser;
 
 Compiler *current = NULL;
@@ -130,15 +126,9 @@ static void patchJump(const int offset) {
 }
 
 /**
- * Emits an instruction that signals the end of a scope.
- * Depending on the scope one of these three OP CODES can be emitted:
- * OP_NIL,
- * OP_RETURN
+ * Emits OP_NIL_RETURN that signals the end of a scope.
  */
-static void emitReturn() {
-  emitByte(OP_NIL);
-  emitByte(OP_RETURN);
-}
+static void emitReturn() { emitByte(OP_NIL_RETURN); }
 
 /**
  * Creates a constant value and adds it to the current chunk's constant pool.
@@ -573,22 +563,6 @@ static ObjectFunction *endCompiler() {
   }
 #endif
 
-#ifdef DUMP_BYTECODE
-  if (!parser.hadError) {
-    char filename[256];
-    const char *name =
-        function->name != NULL ? function->name->chars : "script";
-    snprintf(filename, sizeof(filename), "%s.cruxbc", name);
-    FILE *file = fopen(filename, "w");
-    if (file != NULL) {
-      dumpBytecodeToFile(currentChunk(), name, file);
-      fclose(file);
-      printf("Bytecode dumped to %s\n", filename);
-    } else {
-      fprintf(stderr, "Could not open file %s for bytecode dump\n", filename);
-    }
-  }
-#endif
   function->moduleRecord = current->owner->currentModuleRecord;
   current = current->enclosing;
   return function;
@@ -1844,7 +1818,7 @@ static void unary(bool canAssign) {
 }
 
 static void typeofExpression(bool canAssign) {
-  expression();
+  parsePrecedence(PREC_UNARY);
   emitByte(OP_TYPEOF);
 }
 
@@ -1906,7 +1880,7 @@ ParseRule rules[] = {
     [TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
     [TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
-    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_CALL},
+    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_UNARY},
     [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
     [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
     [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},

@@ -524,7 +524,7 @@ ObjectString *toString(VM *vm, Value value);
 /**
  * @brief Prints a Value to the console for debugging purposes.
  *
- * This function provides a human-readable representation of a Value,
+ * This function provides a human-readable representation of a Value.
  * @param value The Value to print.
  * @param inCollection is this object in a collection?
  */
@@ -568,7 +568,9 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  *
  * This function looks up a value in an ObjectTable based on a given key.
  *
- * @param table The ObjectTable to search.
+ * @param entries The table's entries
+ * @param size The number of actual entries
+ * @param capacity The maximum capacity of entries
  * @param key The key Value to look up.
  * @param value A pointer to a Value where the retrieved value will be stored if
  * the key is found.
@@ -576,9 +578,11 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(ObjectTableEntry *entries, const uint32_t size,
-                    const uint32_t capacity, const Value key, Value *value);
-void markObjectTable(VM *vm, const ObjectTable *table);
+bool objectTableGet(ObjectTableEntry *entries, uint32_t size,
+                    uint32_t capacity, Value key, Value *value);
+
+
+void markObjectTable(VM *vm, const ObjectTableEntry* entries, const uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -600,7 +604,7 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * @brief Sets a value at a specific index in an array.
  *
  * This function sets a Value at a given index in an ObjectArray. It performs
- * bounds checking to ensure the index is within the array's current size.
+ * bound checking to ensure the index is within the array's current size.
  *
  * @param vm The virtual machine.
  * @param array The ObjectArray to modify.
@@ -690,5 +694,7 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name);
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
                                         uint16_t fieldCount);
+
+void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
 
 #endif

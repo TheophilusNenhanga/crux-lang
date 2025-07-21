@@ -32,16 +32,5 @@ void disassembleChunk(const Chunk *chunk, const char *name);
  */
 int disassembleInstruction(const Chunk *chunk, int offset);
 
-/**
- * @brief Dumps bytecode to a text file
- *
- * Writes a text representation of the bytecode to the specified file.
- * Similar to disassembleChunk but writes to a file instead of stdout.
- *
- * @param chunk Pointer to the Chunk to dump
- * @param name Name of the chunk for identification in output
- * @param file File pointer to write to (must be opened for writing)
- */
-void dumpBytecodeToFile(const Chunk *chunk, const char *name, FILE *file);
 
 #endif // DEBUG_H

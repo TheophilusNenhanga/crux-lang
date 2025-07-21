@@ -84,11 +84,12 @@ void markArray(VM *vm, const ValueArray *array) {
  * for each element, marking any contained objects.
  *
  * @param vm The virtual machine.
- * @param array The ObjectArray whose elements should be marked.
+ * @param values the values of the array
+ * @param size The size of the array
  */
-void markObjectArray(VM *vm, const ObjectArray *array) {
-  for (int i = 0; i < array->size; i++) {
-    markValue(vm, array->values[i]);
+void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
+  for (int i = 0; i < size; i++) {
+    markValue(vm, values[i]);
   }
 }
 
@@ -100,15 +101,22 @@ void markObjectArray(VM *vm, const ObjectArray *array) {
  * objects.
  *
  * @param vm The virtual machine.
- * @param table The ObjectTable whose entries should be marked.
+ * @param entries The entries in the table
+ * @param capacity The capacity of the table
  */
-void markObjectTable(VM *vm, const ObjectTable *table) {
-  for (int i = 0; i < table->capacity; i++) {
-    if (table->entries[i].isOccupied) {
-      markValue(vm, table->entries[i].value);
-      markValue(vm, table->entries[i].key);
+void markObjectTable(VM *vm, const ObjectTableEntry *entries,
+                     const uint32_t capacity) {
+  for (int i = 0; i < capacity; i++) {
+    if (entries[i].isOccupied) {
+      markValue(vm, entries[i].value);
+      markValue(vm, entries[i].key);
     }
   }
+}
+
+static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
+  markObject(vm, (Object *)structure->name);
+  markTable(vm, &structure->fields);
 }
 
 /**
@@ -151,15 +159,25 @@ static void blackenObject(VM *vm, Object *object) {
     break;
   }
 
+  case OBJECT_STATIC_ARRAY: {
+    const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+    markObjectArray(vm, staticArray->values, staticArray->size);
+    break;
+  }
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
-    markObjectArray(vm, array);
+    markObjectArray(vm, array->values, array->size);
     break;
   }
 
+  case OBJECT_STATIC_TABLE: {
+    const ObjectStaticTable *table = (ObjectStaticTable *)object;
+    markObjectTable(vm, table->entries, table->size);
+    break;
+  }
   case OBJECT_TABLE: {
     const ObjectTable *table = (ObjectTable *)object;
-    markObjectTable(vm, table);
+    markObjectTable(vm, table->entries, table->capacity);
     break;
   }
 
@@ -240,6 +258,20 @@ static void blackenObject(VM *vm, Object *object) {
     break;
   }
 
+  case OBJECT_STRUCT: {
+    const ObjectStruct *structure = (ObjectStruct *)object;
+    markObjectStruct(vm, structure);
+  }
+
+  case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    const ObjectStruct *structure = instance->structType;
+    for (int i = 0; i < structure->fields.count; i++) {
+      markValue(vm, instance->fields[i]);
+    }
+    markObjectStruct(vm, structure);
+  }
+
   case OBJECT_STRING: {
     // Strings are primitives in terms of GC reachability in this implementation
     break;
@@ -302,6 +334,20 @@ static void freeObject(VM *vm, Object *object) {
     break;
   }
 
+  case OBJECT_STATIC_ARRAY: {
+    const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+    FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
+    FREE(vm, ObjectArray, object);
+    break;
+  }
+
+  case OBJECT_STATIC_TABLE: {
+    ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
+    freeObjectStaticTable(vm, staticTable);
+    FREE(vm, ObjectStaticTable, object);
+    break;
+  }
+
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
     FREE_ARRAY(vm, Value, array->values, array->capacity);
@@ -342,6 +388,20 @@ static void freeObject(VM *vm, Object *object) {
     ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
     freeObjectModuleRecord(vm, moduleRecord);
     break;
+  }
+
+  case OBJECT_STRUCT: {
+    ObjectStruct *structure = (ObjectStruct *)object;
+    freeTable(vm, &structure->fields);
+    FREE(vm, ObjectStruct, object);
+  }
+
+  case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    FREE_ARRAY(
+        vm, Value, instance->fields,
+        instance->structType->fields.count); // This is probably going to break
+    FREE(vm, ObjectStructInstance, object);
   }
   }
 }
