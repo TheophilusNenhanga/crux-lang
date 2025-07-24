@@ -1022,7 +1022,15 @@ static void anonymousFunction(bool canAssign) {
   consume(TOKEN_LEFT_BRACE, "Expected '{' before function body");
   block();
   ObjectFunction *function = endCompiler();
-  emitBytes(OP_ANON_FUNCTION, makeConstant(OBJECT_VAL(function)));
+
+  const uint16_t constantIndex = makeConstant(OBJECT_VAL(function));
+  if (constantIndex > UINT8_MAX) {
+    emitByte(OP_ANON_FUNCTION_16);
+    emitBytes(constantIndex >> 8 & 0xff, constantIndex & 0xff);
+  }else {
+    emitBytes(OP_ANON_FUNCTION, (uint8_t) constantIndex);
+  }
+
 
   for (int i = 0; i < function->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);

@@ -257,6 +257,7 @@ struct ObjectStructInstance{
 	Object object;
 	ObjectStruct* structType;
 	Value* fields;
+  uint16_t fieldCount;
 };
 
 typedef enum {

@@ -132,6 +132,7 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STRUCT_NAMED_FIELD_16,
                                   &&OP_STRUCT_INSTANCE_END,
                                   &&OP_NIL_RETURN,
+                                  &&OP_ANON_FUNCTION_16,
                                   &&end};
 
   uint8_t instruction;
@@ -1776,6 +1777,23 @@ OP_NIL_RETURN: {
     return INTERPRET_OK;
   DISPATCH();
 }
+
+  OP_ANON_FUNCTION_16: {
+    ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT_16());
+    ObjectClosure *closure = newClosure(vm, function);
+    PUSH(currentModuleRecord, OBJECT_VAL(closure));
+    for (int i = 0; i < closure->upvalueCount; i++) {
+      uint8_t isLocal = READ_BYTE();
+      uint8_t index = READ_BYTE();
+
+      if (isLocal) {
+        closure->upvalues[i] = captureUpvalue(vm, frame->slots + index);
+      } else {
+        closure->upvalues[i] = frame->closure->upvalues[index];
+      }
+    }
+    DISPATCH();
+  }
 
 end: {
   printf("        ");

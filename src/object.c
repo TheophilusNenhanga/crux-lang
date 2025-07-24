@@ -1223,5 +1223,6 @@ ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
   for (int i = 0; i < fieldCount; i++) {
     structInstance->fields[i] = NIL_VAL;
   }
+  structInstance->fieldCount = fieldCount;
   return structInstance;
 }

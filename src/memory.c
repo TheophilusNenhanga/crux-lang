@@ -399,8 +399,7 @@ static void freeObject(VM *vm, Object *object) {
   case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = (ObjectStructInstance *)object;
     FREE_ARRAY(
-        vm, Value, instance->fields,
-        instance->structType->fields.count); // This is probably going to break
+        vm, Value, instance->fields, instance->fieldCount);
     FREE(vm, ObjectStructInstance, object);
   }
   }
