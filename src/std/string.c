@@ -71,7 +71,7 @@ ObjectResult *stringGetMethod(VM *vm, int argCount, const Value *args) {
                                 "<index> must be a non negative number that is "
                                 "less than the length of the string.",
                                 81),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   if (string->length == 0) {
@@ -180,12 +180,12 @@ ObjectResult *stringSubstringMethod(VM *vm, int argCount, const Value *args) {
     return newErrorResult(
         vm,
         newError(vm, copyString(vm, "<start> index cannot be negative.", 32),
-                 INDEX_OUT_OF_BOUNDS, false));
+                 BOUNDS, false));
   }
   if (rawEndIndex < 0) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "<end> index cannot be negative.", 30),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   const uint32_t startIndex = (uint32_t)rawStartIndex;
@@ -195,7 +195,7 @@ ObjectResult *stringSubstringMethod(VM *vm, int argCount, const Value *args) {
       startIndex > endIndex) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Index out of bounds.", 20),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   const char *substring = string->chars + startIndex;

@@ -16,15 +16,16 @@ static ErrorDetails getErrorDetails(const ErrorType type) {
         "Syntax Error",
         "Check for missing delimiters or incorrect syntax",
     };
-  case DIVISION_BY_ZERO:
+  case MATH:
     return (ErrorDetails){
-        "Zero Division Error",
+        "Math Error",
         "Divide by a non-zero number",
     };
-  case INDEX_OUT_OF_BOUNDS:
+  case BOUNDS:
     return (ErrorDetails){
-        "Index Error",
-        "Array index must be within the array's size",
+        "Bounds Error",
+        "Use an index that is greater than or equal to zero, but less than the "
+        "size of the container by one.",
     };
   case LOOP_EXTENT: {
     return (ErrorDetails){
@@ -65,11 +66,6 @@ static ErrorDetails getErrorDetails(const ErrorType type) {
   case VARIABLE_EXTENT: {
     return (ErrorDetails){"Variable Extent Error",
                           "Cannot declare more than 255 variables at a time."};
-  }
-  case VARIABLE_DECLARATION_MISMATCH: {
-    return (ErrorDetails){
-        "Mismatch Error"
-        "The number of variable names and expressions must be equal."};
   }
   case RETURN_EXTENT: {
     return (ErrorDetails){"Return Extent Error",

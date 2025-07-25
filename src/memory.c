@@ -84,11 +84,12 @@ void markArray(VM *vm, const ValueArray *array) {
  * for each element, marking any contained objects.
  *
  * @param vm The virtual machine.
- * @param array The ObjectArray whose elements should be marked.
+ * @param values the values of the array
+ * @param size The size of the array
  */
-void markObjectArray(VM *vm, const ObjectArray *array) {
-  for (int i = 0; i < array->size; i++) {
-    markValue(vm, array->array[i]);
+void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
+  for (int i = 0; i < size; i++) {
+    markValue(vm, values[i]);
   }
 }
 
@@ -100,15 +101,22 @@ void markObjectArray(VM *vm, const ObjectArray *array) {
  * objects.
  *
  * @param vm The virtual machine.
- * @param table The ObjectTable whose entries should be marked.
+ * @param entries The entries in the table
+ * @param capacity The capacity of the table
  */
-void markObjectTable(VM *vm, const ObjectTable *table) {
-  for (int i = 0; i < table->capacity; i++) {
-    if (table->entries[i].isOccupied) {
-      markValue(vm, table->entries[i].value);
-      markValue(vm, table->entries[i].key);
+void markObjectTable(VM *vm, const ObjectTableEntry *entries,
+                     const uint32_t capacity) {
+  for (int i = 0; i < capacity; i++) {
+    if (entries[i].isOccupied) {
+      markValue(vm, entries[i].value);
+      markValue(vm, entries[i].key);
     }
   }
+}
+
+static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
+  markObject(vm, (Object *)structure->name);
+  markTable(vm, &structure->fields);
 }
 
 /**
@@ -151,36 +159,25 @@ static void blackenObject(VM *vm, Object *object) {
     break;
   }
 
-  case OBJECT_CLASS: {
-    const ObjectClass *klass = (ObjectClass *)object;
-    markObject(vm, (Object *)klass->name);
-    markTable(vm, &klass->methods);
+  case OBJECT_STATIC_ARRAY: {
+    const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+    markObjectArray(vm, staticArray->values, staticArray->size);
     break;
   }
-
-  case OBJECT_INSTANCE: {
-    const ObjectInstance *instance = (ObjectInstance *)object;
-    markObject(vm, (Object *)instance->klass);
-    markTable(vm, &instance->fields);
-    break;
-  }
-
-  case OBJECT_BOUND_METHOD: {
-    const ObjectBoundMethod *bound = (ObjectBoundMethod *)object;
-    markValue(vm, bound->receiver);
-    markObject(vm, (Object *)bound->method);
-    break;
-  }
-
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
-    markObjectArray(vm, array);
+    markObjectArray(vm, array->values, array->size);
     break;
   }
 
+  case OBJECT_STATIC_TABLE: {
+    const ObjectStaticTable *table = (ObjectStaticTable *)object;
+    markObjectTable(vm, table->entries, table->size);
+    break;
+  }
   case OBJECT_TABLE: {
     const ObjectTable *table = (ObjectTable *)object;
-    markObjectTable(vm, table);
+    markObjectTable(vm, table->entries, table->capacity);
     break;
   }
 
@@ -261,6 +258,19 @@ static void blackenObject(VM *vm, Object *object) {
     break;
   }
 
+  case OBJECT_STRUCT: {
+    const ObjectStruct *structure = (ObjectStruct *)object;
+    markObjectStruct(vm, structure);
+  }
+
+  case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    for (int i = 0; i < instance->fieldCount; i++) {
+      markValue(vm, instance->fields[i]);
+    }
+    markObjectStruct(vm, instance->structType);
+  }
+
   case OBJECT_STRING: {
     // Strings are primitives in terms of GC reachability in this implementation
     break;
@@ -322,26 +332,24 @@ static void freeObject(VM *vm, Object *object) {
     FREE(vm, ObjectUpvalue, object);
     break;
   }
-  case OBJECT_CLASS: {
-    ObjectClass *klass = (ObjectClass *)object;
-    freeTable(vm, &klass->methods);
-    FREE(vm, ObjectClass, object);
+
+  case OBJECT_STATIC_ARRAY: {
+    const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+    FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
+    FREE(vm, ObjectArray, object);
     break;
   }
-  case OBJECT_INSTANCE: {
-    ObjectInstance *instance = (ObjectInstance *)object;
-    freeTable(vm, &instance->fields);
-    FREE(vm, ObjectInstance, object);
-    break;
-  }
-  case OBJECT_BOUND_METHOD: {
-    FREE(vm, ObjectBoundMethod, object);
+
+  case OBJECT_STATIC_TABLE: {
+    ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
+    freeObjectStaticTable(vm, staticTable);
+    FREE(vm, ObjectStaticTable, object);
     break;
   }
 
   case OBJECT_ARRAY: {
     const ObjectArray *array = (ObjectArray *)object;
-    FREE_ARRAY(vm, Value, array->array, array->capacity);
+    FREE_ARRAY(vm, Value, array->values, array->capacity);
     FREE(vm, ObjectArray, object);
     break;
   }
@@ -378,6 +386,21 @@ static void freeObject(VM *vm, Object *object) {
   case OBJECT_MODULE_RECORD: {
     ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
     freeObjectModuleRecord(vm, moduleRecord);
+    break;
+  }
+
+  case OBJECT_STRUCT: {
+    ObjectStruct *structure = (ObjectStruct *)object;
+    freeTable(vm, &structure->fields);
+    FREE(vm, ObjectStruct, object);
+    break;
+  }
+
+  case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    FREE_ARRAY(
+        vm, Value, instance->fields, instance->fieldCount);
+    FREE(vm, ObjectStructInstance, object);
     break;
   }
   }
@@ -440,7 +463,6 @@ void markRoots(VM *vm) {
   markTable(vm, &vm->fileType);
   markTable(vm, &vm->moduleCache);
   markCompilerRoots(vm);
-  markObject(vm, (Object *)vm->initString);
   markValue(vm, vm->matchHandler.matchBind);
   markValue(vm, vm->matchHandler.matchTarget);
 }

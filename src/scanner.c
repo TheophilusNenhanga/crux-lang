@@ -48,8 +48,7 @@ static char peekNext() {
  * @return true if the character can start an identifier, false otherwise
  */
 static bool isIdentifierStarter(const char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' ||
-         c == '$';
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
 /**
@@ -126,14 +125,11 @@ static CruxTokenType identifierType() {
   case 'c': {
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
-      case 'l':
-        return checkKeyword(2, 3, "ass", TOKEN_CLASS);
       case 'o':
         return checkKeyword(2, 6, "ntinue", TOKEN_CONTINUE);
       default:;
       }
     }
-    return checkKeyword(1, 4, "lass", TOKEN_CLASS);
   }
   case 'd': {
     return checkKeyword(1, 6, "efault", TOKEN_DEFAULT);
@@ -156,6 +152,9 @@ static CruxTokenType identifierType() {
       case 'i': {
         return checkKeyword(2, 1, "l", TOKEN_NIL);
       }
+      case 'e': {
+        return checkKeyword(2, 1, "w", TOKEN_NEW);
+      }
       default:;
       }
     }
@@ -166,12 +165,11 @@ static CruxTokenType identifierType() {
   case 's':
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
-      case 'e':
+      case 't': {
         if (scanner.current - scanner.start > 2) {
-          return checkKeyword(2, 2, "lf", TOKEN_SELF);
+          return checkKeyword(2, 4, "ruct", TOKEN_STRUCT);
         }
-      case 'u':
-        return checkKeyword(2, 3, "per", TOKEN_SUPER);
+      }
       default:;
       }
     }
@@ -195,15 +193,15 @@ static CruxTokenType identifierType() {
     return checkKeyword(1, 4, "atch", TOKEN_MATCH);
   }
   case 't':
-      if (scanner.current - scanner.start > 1) {
-        switch (scanner.start[1]) {
-          case 'r':
-            return checkKeyword(2, 2, "ue", TOKEN_TRUE);
-          case 'y':
-            return checkKeyword(2, 4, "peof", TOKEN_TYPEOF);
-          default:;
-        }
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
+      case 'r':
+        return checkKeyword(2, 2, "ue", TOKEN_TRUE);
+      case 'y':
+        return checkKeyword(2, 4, "peof", TOKEN_TYPEOF);
+      default:;
       }
+    }
   case 'u':
     return checkKeyword(1, 2, "se", TOKEN_USE);
   case 'p':
@@ -445,6 +443,17 @@ Token scanToken() {
     return doubleString();
   case '\'':
     return singleString();
+  case '$': {
+    if (match('{')) {
+      return makeToken(TOKEN_DOLLAR_LEFT_CURLY);
+    }
+    if (match('[')) {
+      return makeToken(TOKEN_DOLLAR_LEFT_SQUARE);
+    }
+    if (isIdentifierStarter(peek())) {
+      return makeToken(TOKEN_DOLLAR_IDENTIFIER);
+    }
+  }
   default:;
   }
   return errorToken("Unexpected character.");

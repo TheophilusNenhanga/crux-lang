@@ -19,84 +19,13 @@ static FILE *getChannel(const char *channel) {
   return NULL;
 }
 
-static void valuePrint(Value value, bool inCollection);
-
-static void printArray(const ObjectArray *array) {
-  printf("[");
-  for (int i = 0; i < array->size; i++) {
-    valuePrint(array->array[i], true);
-    if (i != array->size - 1) {
-      printf(", ");
-    }
-  }
-  printf("]");
-}
-
-static void printTable(const ObjectTable *table) {
-  uint16_t printed = 0;
-  printf("{");
-  for (int i = 0; i < table->capacity; i++) {
-    if (table->entries[i].isOccupied) {
-      valuePrint(table->entries[i].key, true);
-      printf(":");
-      valuePrint(table->entries[i].value, true);
-      if (printed != table->size - 1) {
-        printf(", ");
-      }
-      printed++;
-    }
-  }
-  printf("}");
-}
-
-static void printResult(const ObjectResult *result) {
-  if (result->isOk) {
-    printf("Ok<");
-    printType(result->as.value);
-    printf(">");
-  } else {
-    printf("Err<");
-    // TODO: Make this print the error's type
-    printf("%s", result->as.error->message->chars);
-    printf(">");
-  }
-}
-
-void valuePrint(const Value value, bool inCollection) {
-  if (IS_BOOL(value)) {
-    printf(AS_BOOL(value) ? "true" : "false");
-  } else if (IS_NIL(value)) {
-    printf("nil");
-  } else if (IS_INT(value)) {
-    printf("%d", AS_INT(value));
-  } else if (IS_FLOAT(value)) {
-    printf("%f", AS_FLOAT(value));
-  } else if (IS_CRUX_ARRAY(value)) {
-    printArray(AS_CRUX_ARRAY(value));
-  } else if (IS_CRUX_TABLE(value)) {
-    printTable(AS_CRUX_TABLE(value));
-  } else if (IS_CRUX_RESULT(value)) {
-    printResult(AS_CRUX_RESULT(value));
-  } else if (IS_CRUX_STRING(value)) {
-    if (inCollection) {
-      printf("\"%s\"", AS_C_STRING(value));
-    } else {
-      printf("%s", AS_C_STRING(value));
-    }
-
-  } else if (IS_CRUX_OBJECT(value)) {
-    printObject(value);
-  }
-}
-
-// Standard I/O Functions
 Value printFunction(VM *vm, int argCount, const Value *args) {
-  valuePrint(args[0], false);
+  printValue(args[0], false);
   return NIL_VAL;
 }
 
 Value printlnFunction(VM *vm, const int argCount, const Value *args) {
-  printFunction(vm, argCount, args);
+  printValue(args[0], false);
   printf("\n");
   return NIL_VAL;
 }

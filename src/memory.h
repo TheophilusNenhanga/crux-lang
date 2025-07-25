@@ -12,7 +12,7 @@
 
 #define FREE(vm, type, pointer) reallocate(vm, pointer, sizeof(type), 0)
 
-#define GROW_CAPACITY(capacity) ((capacity) < 16 ? 16 : (capacity) * 2)
+#define GROW_CAPACITY(capacity) ((capacity) < 2 ? 2 : (capacity) * 2)
 
 #define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                      \
   (type *)reallocate(vm, pointer, sizeof(type) * (oldCount),                   \

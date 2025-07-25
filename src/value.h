@@ -119,7 +119,8 @@ void freeValueArray(VM *vm, ValueArray *array);
  * - Objects are printed using the printObject function
  *
  * @param value The Value to print
+ * @param inCollection is the value in a collection?
  */
-void printValue(Value value);
+void printValue(Value value, bool inCollection);
 
 #endif // VALUE_H

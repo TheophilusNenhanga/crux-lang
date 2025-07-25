@@ -25,7 +25,7 @@ typedef struct {
 
 // Precedence in order from lowest to highest
 typedef enum {
-	PREC_NONE,
+	PREC_NONE, // No precedence
 	PREC_ASSIGNMENT, // =
 	PREC_OR, // or
 	PREC_AND, // and
@@ -60,7 +60,7 @@ typedef struct {
 	bool isLocal;
 } Upvalue;
 
-typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_INITIALIZER, TYPE_ANONYMOUS } FunctionType;
+typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_ANONYMOUS } FunctionType;
 
 typedef enum { LOOP_FOR, LOOP_WHILE } LoopType;
 
@@ -93,10 +93,5 @@ struct Compiler {
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 };
-
-typedef struct ClassCompiler {
-	struct ClassCompiler *enclosing;
-	bool hasSuperclass;
-} ClassCompiler;
 
 #endif // COMPILER_H

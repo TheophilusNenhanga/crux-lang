@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -126,9 +127,14 @@ static uint32_t hashValue(const Value value) {
 }
 
 void printType(const Value value) {
-  if (!IS_CRUX_OBJECT(value)) {
-    printValue(value);
-    return;
+  if (IS_INT(value)) {
+    printf("'int'");
+  } else if (IS_FLOAT(value)) {
+    printf("'float'");
+  } else if (IS_BOOL(value)) {
+    printf("'bool'");
+  } else if (IS_NIL(value)) {
+    printf("'nil'");
   }
   switch (OBJECT_TYPE(value)) {
   case OBJECT_STRING:
@@ -140,17 +146,10 @@ void printType(const Value value) {
   case OBJECT_NATIVE_METHOD:
   case OBJECT_NATIVE_INFALLIBLE_METHOD:
   case OBJECT_CLOSURE:
-  case OBJECT_BOUND_METHOD:
     printf("'function'");
     break;
   case OBJECT_UPVALUE:
     printf("'upvalue'");
-    break;
-  case OBJECT_CLASS:
-    printf("'class'");
-    break;
-  case OBJECT_INSTANCE:
-    printf("'instance'");
     break;
   case OBJECT_ARRAY:
     printf("'array'");
@@ -173,22 +172,6 @@ void printType(const Value value) {
   default:
     printf("'unknown'");
   }
-}
-
-ObjectBoundMethod *newBoundMethod(VM *vm, const Value receiver,
-                                  ObjectClosure *method) {
-  ObjectBoundMethod *bound =
-      ALLOCATE_OBJECT(vm, ObjectBoundMethod, OBJECT_BOUND_METHOD);
-  bound->receiver = receiver;
-  bound->method = method;
-  return bound;
-}
-
-ObjectClass *newClass(VM *vm, ObjectString *name) {
-  ObjectClass *klass = ALLOCATE_OBJECT(vm, ObjectClass, OBJECT_CLASS);
-  initTable(&klass->methods);
-  klass->name = name;
-  return klass;
 }
 
 ObjectUpvalue *newUpvalue(VM *vm, Value *slot) {
@@ -278,6 +261,89 @@ ObjectString *copyString(VM *vm, const char *chars, const uint32_t length) {
   return allocateString(vm, heapChars, length, hash);
 }
 
+static void printErrorType(const ErrorType type) {
+  switch (type) {
+  case SYNTAX:
+    printf("syntax");
+    break;
+  case MATH:
+    printf("math");
+    break;
+  case BOUNDS:
+    printf("bounds");
+    break;
+  case RUNTIME:
+    printf("runtime");
+    break;
+  case TYPE:
+    printf("type");
+    break;
+  case LOOP_EXTENT:
+    printf("loop");
+    break;
+  case LIMIT:
+    printf("limit");
+    break;
+  case BRANCH_EXTENT:
+    printf("branch");
+    break;
+  case CLOSURE_EXTENT:
+    printf("closure");
+    break;
+  case LOCAL_EXTENT:
+    printf("local");
+    break;
+  case ARGUMENT_EXTENT:
+    printf("argument");
+    break;
+  case NAME:
+    printf("name");
+    break;
+  case COLLECTION_EXTENT:
+    printf("collection");
+    break;
+  case VARIABLE_EXTENT:
+    printf("variable");
+    break;
+  case RETURN_EXTENT:
+    printf("return");
+    break;
+  case ARGUMENT_MISMATCH:
+    printf("argument mismatch");
+    break;
+  case STACK_OVERFLOW:
+    printf("stack overflow");
+    break;
+  case COLLECTION_GET:
+    printf("collection get");
+    break;
+  case COLLECTION_SET:
+    printf("collection set");
+    break;
+  case UNPACK_MISMATCH:
+    printf("unpack mismatch");
+    break;
+  case MEMORY:
+    printf("memory");
+    break;
+  case VALUE:
+    printf("value");
+    break;
+  case ASSERT:
+    printf("assert");
+    break;
+  case IMPORT_EXTENT:
+    printf("import");
+    break;
+  case IO:
+    printf("io");
+    break;
+  case IMPORT:
+    printf("import");
+    break;
+  }
+}
+
 /**
  * @brief Prints the name of a function object.
  *
@@ -295,13 +361,75 @@ static void printFunction(const ObjectFunction *function) {
   printf("<fn %s>", function->name->chars);
 }
 
-void printObject(const Value value) {
-  switch (OBJECT_TYPE(value)) {
-  case OBJECT_CLASS: {
-    printf("'%s' <class>", AS_CRUX_CLASS(value)->name->chars);
-    break;
+static void printArray(const Value *values, const uint32_t size) {
+  printf("[");
+  for (int i = 0; i < size; i++) {
+    printValue(values[i], true);
+    if (i != size - 1) {
+      printf(", ");
+    }
   }
+  printf("]");
+}
+
+static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
+                       const uint32_t size) {
+  uint32_t printed = 0;
+  printf("{");
+  for (int i = 0; i < capacity; i++) {
+    if (entries[i].isOccupied) {
+      printValue(entries[i].key, true);
+      printf(":");
+      printValue(entries[i].value, true);
+      if (printed != size - 1) {
+        printf(", ");
+      }
+      printed++;
+    }
+  }
+  printf("}");
+}
+
+static void printError(ObjectError *error) {}
+
+static void printStructInstance(const ObjectStructInstance *instance) {
+  printf("{");
+  uint32_t printed = 0;
+  const ObjectStruct *type = instance->structType;
+  for (int i = 0; i < type->fields.capacity; i++) {
+    if (type->fields.entries[i].key != NULL) {
+      const uint16_t index = (uint16_t)AS_INT(type->fields.entries[i].value);
+      const ObjectString *fieldName = type->fields.entries[i].key;
+      printf("%s: ", fieldName->chars);
+      printValue(instance->fields[index], true);
+      if (printed != type->fields.count - 1) {
+        printf(", ");
+      }
+      printed++;
+    }
+  }
+  printf("}");
+}
+
+static void printResult(const ObjectResult *result) {
+  if (result->isOk) {
+    printf("Ok<");
+    printType(result->as.value);
+    printf(">");
+  } else {
+    printf("Err<");
+    printErrorType(result->as.error->type);
+    printf(">");
+  }
+}
+
+void printObject(const Value value, const bool inCollection) {
+  switch (OBJECT_TYPE(value)) {
   case OBJECT_STRING: {
+    if (inCollection) {
+      printf("'%s'", AS_C_STRING(value));
+      break;
+    }
     printf("%s", AS_C_STRING(value));
     break;
   }
@@ -342,31 +470,37 @@ void printObject(const Value value) {
     break;
   }
   case OBJECT_UPVALUE: {
-    printf("<upvalue>");
-    break;
-  }
-  case OBJECT_INSTANCE: {
-    printf("'%s' <instance>", AS_CRUX_INSTANCE(value)->klass->name->chars);
-    break;
-  }
-  case OBJECT_BOUND_METHOD: {
-    printFunction(AS_CRUX_BOUND_METHOD(value)->method->function);
+    printValue(value, false);
     break;
   }
   case OBJECT_ARRAY: {
-    printf("<array>");
+    const ObjectArray *array = AS_CRUX_ARRAY(value);
+    printArray(array->values, array->size);
+    break;
+  }
+  case OBJECT_STATIC_ARRAY: {
+    const ObjectStaticArray *staticArray = AS_CRUX_STATIC_ARRAY(value);
+    printArray(staticArray->values, staticArray->size);
     break;
   }
   case OBJECT_TABLE: {
-    printf("<table>");
+    const ObjectTable *table = AS_CRUX_TABLE(value);
+    printTable(table->entries, table->capacity, table->size);
+    break;
+  }
+  case OBJECT_STATIC_TABLE: {
+    const ObjectStaticTable *table = AS_CRUX_STATIC_TABLE(value);
+    printTable(table->entries, table->capacity, table->size);
     break;
   }
   case OBJECT_ERROR: {
-    printf("<error>");
+    printf("<error ");
+    printErrorType(AS_CRUX_ERROR(value)->type);
+    printf(">");
     break;
   }
   case OBJECT_RESULT: {
-    printf("<result>");
+    printResult(AS_CRUX_RESULT(value));
     break;
   }
   case OBJECT_RANDOM: {
@@ -384,6 +518,15 @@ void printObject(const Value value) {
 
   case OBJECT_MODULE_RECORD: {
     printf("<module record>");
+    break;
+  }
+
+  case OBJECT_STRUCT: {
+    printf("<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
+    break;
+  }
+  case OBJECT_STRUCT_INSTANCE: {
+    printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
     break;
   }
   }
@@ -519,35 +662,11 @@ ObjectString *toString(VM *vm, const Value value) {
     return copyString(vm, "<upvalue>", 9);
   }
 
-  case OBJECT_CLASS: {
-    const ObjectClass *klass = AS_CRUX_CLASS(value);
-    char buffer[256];
-    const int length =
-        snprintf(buffer, sizeof(buffer), "%s <class>", klass->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
-  case OBJECT_INSTANCE: {
-    const ObjectInstance *instance = AS_CRUX_INSTANCE(value);
-    char buffer[256];
-    const int length = snprintf(buffer, sizeof(buffer), "%s <instance>",
-                                instance->klass->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
-  case OBJECT_BOUND_METHOD: {
-    const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(value);
-    char buffer[256];
-    const int length = snprintf(buffer, sizeof(buffer), "<bound fn %s>",
-                                bound->method->function->name->chars);
-    return copyString(vm, buffer, length);
-  }
-
   case OBJECT_ARRAY: {
     const ObjectArray *array = AS_CRUX_ARRAY(value);
     size_t bufSize = 2; // [] minimum
     for (int i = 0; i < array->size; i++) {
-      const ObjectString *element = toString(vm, array->array[i]);
+      const ObjectString *element = toString(vm, array->values[i]);
       bufSize += element->length + 2; // element + ", "
     }
 
@@ -560,7 +679,7 @@ ObjectString *toString(VM *vm, const Value value) {
         *ptr++ = ',';
         *ptr++ = ' ';
       }
-      const ObjectString *element = toString(vm, array->array[i]);
+      const ObjectString *element = toString(vm, array->values[i]);
       memcpy(ptr, element->chars, element->length);
       ptr += element->length;
     }
@@ -634,6 +753,16 @@ ObjectString *toString(VM *vm, const Value value) {
     return copyString(vm, "<file>", 6);
   }
 
+  case OBJECT_STRUCT: {
+    const ObjectStruct *structObject = AS_CRUX_STRUCT(value);
+    printf("<struct type %s>", structObject->name->chars);
+  }
+
+  case OBJECT_STRUCT_INSTANCE: {
+    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
+    printStructInstance(instance);
+  }
+
   default:
     return copyString(vm, "<crux object>", 13);
   }
@@ -647,14 +776,6 @@ ObjectFunction *newFunction(VM *vm) {
   function->upvalueCount = 0;
   initChunk(&function->chunk);
   return function;
-}
-
-ObjectInstance *newInstance(VM *vm, ObjectClass *klass) {
-  ObjectInstance *instance =
-      ALLOCATE_OBJECT(vm, ObjectInstance, OBJECT_INSTANCE);
-  instance->klass = klass;
-  initTable(&instance->fields);
-  return instance;
 }
 
 ObjectNativeFunction *newNativeFunction(VM *vm, const CruxCallable function,
@@ -714,6 +835,13 @@ ObjectTable *newTable(VM *vm, const int elementCount) {
 }
 
 void freeObjectTable(VM *vm, ObjectTable *table) {
+  FREE_ARRAY(vm, ObjectTableEntry, table->entries, table->capacity);
+  table->entries = NULL;
+  table->capacity = 0;
+  table->size = 0;
+}
+
+void freeObjectStaticTable(VM *vm, ObjectStaticTable *table) {
   FREE_ARRAY(vm, ObjectTableEntry, table->entries, table->capacity);
   table->entries = NULL;
   table->capacity = 0;
@@ -859,21 +987,29 @@ bool objectTableRemove(ObjectTable *table, const Value key) {
 }
 
 bool objectTableContainsKey(ObjectTable *table, const Value key) {
-  if (!table) {
+  if (!table)
     return false;
-  }
+
   const ObjectTableEntry *entry =
       findEntry(table->entries, table->capacity, key);
   return entry->isOccupied;
 }
 
-bool objectTableGet(const ObjectTable *table, const Value key, Value *value) {
-  if (table->size == 0) {
+bool entriesContainsKey(ObjectTableEntry *entries, const Value key,
+                        const uint32_t capacity) {
+  if (!entries)
+    return false;
+  const ObjectTableEntry *entry = findEntry(entries, capacity, key);
+  return entry->isOccupied;
+}
+
+bool objectTableGet(ObjectTableEntry *entries, const uint32_t size,
+                    const uint32_t capacity, const Value key, Value *value) {
+  if (size == 0) {
     return false;
   }
 
-  const ObjectTableEntry *entry =
-      findEntry(table->entries, table->capacity, key);
+  const ObjectTableEntry *entry = findEntry(entries, capacity, key);
   if (!entry->isOccupied) {
     return false;
   }
@@ -885,9 +1021,9 @@ ObjectArray *newArray(VM *vm, const uint32_t elementCount) {
   ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
   array->capacity = calculateCollectionCapacity(elementCount);
   array->size = 0;
-  array->array = ALLOCATE(vm, Value, array->capacity);
+  array->values = ALLOCATE(vm, Value, array->capacity);
   for (int i = 0; i < array->capacity; i++) {
-    array->array[i] = NIL_VAL;
+    array->values[i] = NIL_VAL;
   }
   return array;
 }
@@ -904,14 +1040,14 @@ bool ensureCapacity(VM *vm, ObjectArray *array, const uint32_t capacityNeeded) {
     newCapacity *= 2;
   }
   Value *newArray =
-      GROW_ARRAY(vm, Value, array->array, array->capacity, newCapacity);
+      GROW_ARRAY(vm, Value, array->values, array->capacity, newCapacity);
   if (newArray == NULL) {
     return false;
   }
   for (uint32_t i = array->capacity; i < newCapacity; i++) {
     newArray[i] = NIL_VAL;
   }
-  array->array = newArray;
+  array->values = newArray;
   array->capacity = newCapacity;
   return true;
 }
@@ -924,15 +1060,7 @@ bool arraySet(VM *vm, const ObjectArray *array, const uint32_t index,
   if (IS_CRUX_OBJECT(value)) {
     markValue(vm, value);
   }
-  array->array[index] = value;
-  return true;
-}
-
-bool arrayGet(const ObjectArray *array, const uint32_t index, Value *value) {
-  if (array == NULL) {
-    return false;
-  }
-  *value = array->array[index];
+  array->values[index] = value;
   return true;
 }
 
@@ -944,7 +1072,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, const Value value,
   if (IS_CRUX_OBJECT(value)) {
     markValue(vm, value);
   }
-  array->array[index] = value;
+  array->values[index] = value;
   array->size++;
   return true;
 }
@@ -953,7 +1081,7 @@ bool arrayAddBack(VM *vm, ObjectArray *array, const Value value) {
   if (!ensureCapacity(vm, array, array->size + 1)) {
     return false;
   }
-  array->array[array->size] = value;
+  array->values[array->size] = value;
   array->size++;
   return true;
 }
@@ -995,7 +1123,8 @@ ObjectRandom *newRandom(VM *vm) {
 }
 
 ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,
-                                          bool isRepl, bool isMain) {
+                                          const bool isRepl,
+                                          const bool isMain) {
   ObjectModuleRecord *moduleRecord =
       ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
   moduleRecord->path = path;
@@ -1032,4 +1161,68 @@ void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
   record->stack = NULL;
   freeTable(vm, &record->globals);
   freeTable(vm, &record->publics);
+}
+
+ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount) {
+  ObjectStaticArray *array =
+      ALLOCATE_OBJECT(vm, ObjectStaticArray, OBJECT_STATIC_ARRAY);
+  array->size = elementCount;
+  array->values = ALLOCATE(vm, Value, elementCount);
+  return array;
+}
+
+ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount) {
+  ObjectStaticTable *table =
+      ALLOCATE_OBJECT(vm, ObjectStaticTable, OBJECT_STATIC_TABLE);
+  table->capacity = calculateCollectionCapacity(
+      (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
+
+  table->size = 0;
+  table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
+  for (int i = 0; i < table->capacity; i++) {
+    table->entries[i].value = NIL_VAL;
+    table->entries[i].key = NIL_VAL;
+    table->entries[i].isOccupied = false;
+  }
+  return table;
+}
+
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key,
+                          const Value value) {
+  ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
+  const bool isNewKey = !entry->isOccupied;
+  if (isNewKey) {
+    table->size++;
+  }
+
+  if (IS_CRUX_OBJECT(key))
+    markValue(vm, key);
+  if (IS_CRUX_OBJECT(value))
+    markValue(vm, value);
+
+  entry->key = key;
+  entry->value = value;
+  entry->isOccupied = true;
+
+  return true;
+}
+
+ObjectStruct *newStructType(VM *vm, ObjectString *name) {
+  ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct, OBJECT_STRUCT);
+  structObject->name = name;
+  initTable(&structObject->fields);
+  return structObject;
+}
+
+ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
+                                        const uint16_t fieldCount) {
+  ObjectStructInstance *structInstance =
+      ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
+  structInstance->structType = structType;
+  structInstance->fields = ALLOCATE(vm, Value, fieldCount);
+  for (int i = 0; i < fieldCount; i++) {
+    structInstance->fields[i] = NIL_VAL;
+  }
+  structInstance->fieldCount = fieldCount;
+  return structInstance;
 }

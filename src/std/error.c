@@ -66,13 +66,13 @@ ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args) {
     return newOkResult(vm, OBJECT_VAL(type));
   }
 
-  case DIVISION_BY_ZERO: {
-    ObjectString *type = copyString(vm, "<zero division error>", 21);
+  case MATH: {
+    ObjectString *type = copyString(vm, "<math error>", 12);
     return newOkResult(vm, OBJECT_VAL(type));
   }
 
-  case INDEX_OUT_OF_BOUNDS: {
-    ObjectString *type = copyString(vm, "<index error>", 13);
+  case BOUNDS: {
+    ObjectString *type = copyString(vm, "<bounds error>", 14);
     return newOkResult(vm, OBJECT_VAL(type));
   }
   case RUNTIME: {
@@ -127,10 +127,6 @@ ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args) {
     return newOkResult(vm, OBJECT_VAL(type));
   }
 
-  case VARIABLE_DECLARATION_MISMATCH: {
-    ObjectString *type = copyString(vm, "<variable mismatch error>", 25);
-    return newOkResult(vm, OBJECT_VAL(type));
-  }
   case RETURN_EXTENT: {
     ObjectString *type = copyString(vm, "<return extent error>", 21);
     return newOkResult(vm, OBJECT_VAL(type));

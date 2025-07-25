@@ -28,11 +28,11 @@ ObjectResult *arrayPopMethod(VM *vm, int argCount, const Value *args) {
         vm, newError(vm,
                      copyString(
                          vm, "Cannot remove a value from an empty array.", 42),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
-  const Value popped = array->array[array->size - 1];
-  array->array[array->size - 1] = NIL_VAL;
+  const Value popped = array->values[array->size - 1];
+  array->values[array->size - 1] = NIL_VAL;
   array->size--;
 
   return newOkResult(vm, popped);
@@ -54,15 +54,15 @@ ObjectResult *arrayInsertMethod(VM *vm, int argCount, const Value *args) {
   if (insertAt > array->size) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "<index> is out of bounds.", 25),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   if (ensureCapacity(vm, array, array->size + 1)) {
     for (uint32_t i = array->size; i > insertAt; i--) {
-      array->array[i] = array->array[i - 1];
+      array->values[i] = array->values[i - 1];
     }
 
-    array->array[insertAt] = toInsert;
+    array->values[insertAt] = toInsert;
     array->size++;
   } else {
     return newErrorResult(
@@ -90,13 +90,13 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, const Value *args) {
   if (removeAt >= array->size) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "<index> is out of bounds.", 25),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
-  const Value removedElement = array->array[removeAt];
+  const Value removedElement = array->values[removeAt];
 
   for (uint32_t i = removeAt; i < array->size - 1; i++) {
-    array->array[i] = array->array[i + 1];
+    array->values[i] = array->values[i + 1];
   }
 
   array->size--;
@@ -121,15 +121,15 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, const Value *args) {
         vm,
         newError(vm,
                  copyString(vm, "Size of resultant array out of bounds.", 38),
-                 INDEX_OUT_OF_BOUNDS, false));
+                 BOUNDS, false));
   }
 
   ObjectArray *resultArray = newArray(vm, combinedSize);
 
   for (uint32_t i = 0; i < combinedSize; i++) {
-    resultArray->array[i] = (i < array->size)
-                                ? array->array[i]
-                                : targetArray->array[i - array->size];
+    resultArray->values[i] = i < array->size
+                                ? array->values[i]
+                                : targetArray->values[i - array->size];
   }
 
   resultArray->size = combinedSize;
@@ -161,26 +161,26 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, const Value *args) {
   if (startIndex > array->size) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "<start_index> out of bounds.", 28),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   if (endIndex > array->size) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "<end_index> out of bounds.", 26),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   if (endIndex < startIndex) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "indexes out of bounds.", 22),
-                     INDEX_OUT_OF_BOUNDS, false));
+                     BOUNDS, false));
   }
 
   const size_t sliceSize = endIndex - startIndex;
   ObjectArray *slicedArray = newArray(vm, sliceSize);
 
   for (size_t i = 0; i < sliceSize; i++) {
-    slicedArray->array[i] = array->array[startIndex + i];
+    slicedArray->values[i] = array->values[startIndex + i];
     slicedArray->size += 1;
   }
 
@@ -202,11 +202,11 @@ ObjectResult *arrayReverseMethod(VM *vm, int argCount, const Value *args) {
   }
 
   for (uint32_t i = 0; i < array->size; i++) {
-    values[i] = array->array[i];
+    values[i] = array->values[i];
   }
 
   for (uint32_t i = 0; i < array->size; i++) {
-    array->array[i] = values[array->size - 1 - i];
+    array->values[i] = values[array->size - 1 - i];
   }
 
   free(values);
@@ -219,7 +219,7 @@ ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, const Value *args) {
   const Value target = args[1];
 
   for (uint32_t i = 0; i < array->size; i++) {
-    if (valuesEqual(target, array->array[i])) {
+    if (valuesEqual(target, array->values[i])) {
       return newOkResult(vm, INT_VAL(i));
     }
   }
@@ -234,7 +234,7 @@ Value arrayContainsMethod(VM *vm, int argCount, const Value *args) {
   const Value target = args[1];
 
   for (uint32_t i = 0; i < array->size; i++) {
-    if (valuesEqual(target, array->array[i])) {
+    if (valuesEqual(target, array->values[i])) {
       return BOOL_VAL(true);
     }
   }
@@ -245,7 +245,7 @@ Value arrayClearMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   for (uint32_t i = 0; i < array->size; i++) {
-    array->array[i] = NIL_VAL;
+    array->values[i] = NIL_VAL;
   }
   array->size = 0;
 
@@ -265,7 +265,7 @@ Value arrayEqualsMethod(VM *vm, int argCount, const Value *args) {
   }
 
   for (uint32_t i = 0; i < array->size; i++) {
-    if (!valuesEqual(array->array[i], targetArray->array[i])) {
+    if (!valuesEqual(array->values[i], targetArray->values[i])) {
       return BOOL_VAL(false);
     }
   }
@@ -301,7 +301,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
   ObjectArray *resultArray = newArray(vm, array->size);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   for (uint32_t i = 0; i < array->size; i++) {
-    const Value arrayValue = array->array[i];
+    const Value arrayValue = array->values[i];
     PUSH(currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
@@ -352,7 +352,7 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   uint32_t addCount = 0;
   for (uint32_t i = 0; i < array->size; i++) {
-    const Value arrayValue = array->array[i];
+    const Value arrayValue = array->values[i];
     PUSH(currentModuleRecord, arrayValue);
     InterpretResult res;
     ObjectResult *result = executeUserFunction(vm, closure, 1, &res);
@@ -404,7 +404,7 @@ ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
   Value accumulator = args[2];
 
   for (uint32_t i = 0; i < array->size; i++) {
-    const Value arrayValue = array->array[i];
+    const Value arrayValue = array->values[i];
 
     PUSH(currentModuleRecord, arrayValue);
     PUSH(currentModuleRecord, accumulator);
@@ -484,7 +484,7 @@ static bool areAllElementsSortable(const ObjectArray *array) {
   bool hasInt = false, hasFloat = false, hasString = false;
 
   for (uint32_t i = 0; i < array->size; i++) {
-    const Value val = array->array[i];
+    const Value val = array->values[i];
     if (IS_INT(val)) {
       hasInt = true;
     } else if (IS_FLOAT(val)) {
@@ -552,11 +552,11 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
   PUSH(currentModuleRecord, OBJECT_VAL(sortedArray));
 
   for (uint32_t i = 0; i < array->size; i++) {
-    sortedArray->array[i] = array->array[i];
+    sortedArray->values[i] = array->values[i];
   }
   sortedArray->size = array->size;
 
-  quickSort(sortedArray->array, 0, (int)sortedArray->size - 1);
+  quickSort(sortedArray->values, 0, (int)sortedArray->size - 1);
 
   POP(currentModuleRecord);
   return newOkResult(vm, OBJECT_VAL(sortedArray));
@@ -597,7 +597,7 @@ ObjectResult *arrayJoinMethod(VM *vm, int argCount, const Value *args) {
   size_t actualLength = 0;
 
   for (uint32_t i = 0; i < array->size; i++) {
-    const ObjectString *element = toString(vm, array->array[i]);
+    const ObjectString *element = toString(vm, array->values[i]);
 
     size_t neededSpace = element->length;
     if (i > 0) {

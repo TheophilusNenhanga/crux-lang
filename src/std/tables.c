@@ -19,7 +19,7 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args) {
   for (uint16_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
-      values->array[lastInsert] = entry.value;
+      values->values[lastInsert] = entry.value;
       lastInsert++;
     }
   }
@@ -49,7 +49,7 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args) {
   for (uint16_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
-      keys->array[lastInsert] = entry.key;
+      keys->values[lastInsert] = entry.key;
       lastInsert++;
     }
   }
@@ -91,11 +91,11 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args) {
                 MEMORY, false));
       }
 
-      pair->array[0] = entry.key;
-      pair->array[1] = entry.value;
+      pair->values[0] = entry.key;
+      pair->values[1] = entry.value;
       pair->size = 2;
 
-      pairs->array[lastInsert] = OBJECT_VAL(pair);
+      pairs->values[lastInsert] = OBJECT_VAL(pair);
       lastInsert++;
     }
   }
@@ -135,7 +135,8 @@ ObjectResult *tableGetMethod(VM *vm, int argCount, const Value *args) {
   const Value key = args[1];
   if (IS_CRUX_HASHABLE(key)) {
     Value value;
-    const bool result = objectTableGet(table, key, &value);
+    const bool result = objectTableGet(table->entries, table->size,
+                                       table->capacity, key, &value);
     if (!result) {
       return newErrorResult(
           vm,
@@ -171,7 +172,8 @@ Value tableGetOrElseMethod(VM *vm, int argCount, const Value *args) {
   const Value defaultValue = args[2];
   if (IS_CRUX_HASHABLE(key)) {
     Value value;
-    const bool result = objectTableGet(table, key, &value);
+    const bool result = objectTableGet(table->entries, table->size,
+                                       table->capacity, key, &value);
     if (!result) {
       return defaultValue;
     }

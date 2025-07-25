@@ -11,8 +11,8 @@ let d = nil;
 let e = [1, 2, 3];
 let f = {a: 1, b: 2};
 let g = fn (test) { return test; };
-class Test {}
-let h = Test();
+struct Test {}
+let h = new Test {};
 let j = len(e);
 let k = 1.0;
 let r = Random();
@@ -37,8 +37,8 @@ assert(dType == "nil", "d is not nil");
 assert(eType == "array", "e is not array");
 assert(fType == "table", "f is not table");
 assert(gType == "function", "g is not function");
-assert(hType == "instance", "h is not instance");
-assert(iType == "class", "i is not class");
+assert(hType == "struct instance", "h is not a struct instance");
+assert(iType == "struct", "i is not struct");
 assert(jType == "result", "j is not result");
 assert(kType == "float", "k is not a float");
 assert(rType == "random", "r is not a Random");

@@ -11,20 +11,16 @@
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
+#include "scanner.h"
+#include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
-#include "debug.h"
-#endif
-
-#ifdef DUMP_BYTECODE
 #include "debug.h"
 #endif
 
 Parser parser;
 
 Compiler *current = NULL;
-
-ClassCompiler *currentClass = NULL;
 
 Chunk *compilingChunk;
 
@@ -130,20 +126,9 @@ static void patchJump(const int offset) {
 }
 
 /**
- * Emits an instruction that signals the end of a scope.
- * Depending on the scope one of these three OP CODES can be emitted:
- * OP_GET_LOCAL 0,
- * OP_NIL,
- * OP_RETURN 0
+ * Emits OP_NIL_RETURN that signals the end of a scope.
  */
-static void emitReturn() {
-  if (current->type == TYPE_INITIALIZER) {
-    emitBytes(OP_GET_LOCAL, 0);
-  } else {
-    emitByte(OP_NIL);
-  }
-  emitByte(OP_RETURN);
-}
+static void emitReturn() { emitByte(OP_NIL_RETURN); }
 
 /**
  * Creates a constant value and adds it to the current chunk's constant pool.
@@ -578,22 +563,6 @@ static ObjectFunction *endCompiler() {
   }
 #endif
 
-#ifdef DUMP_BYTECODE
-  if (!parser.hadError) {
-    char filename[256];
-    const char *name =
-        function->name != NULL ? function->name->chars : "script";
-    snprintf(filename, sizeof(filename), "%s.cruxbc", name);
-    FILE *file = fopen(filename, "w");
-    if (file != NULL) {
-      dumpBytecodeToFile(currentChunk(), name, file);
-      fclose(file);
-      printf("Bytecode dumped to %s\n", filename);
-    } else {
-      fprintf(stderr, "Could not open file %s for bytecode dump\n", filename);
-    }
-  }
-#endif
   function->moduleRecord = current->owner->currentModuleRecord;
   current = current->enclosing;
   return function;
@@ -720,6 +689,7 @@ static void dot(const bool canAssign) {
     }
   }
 }
+
 /**
  * Parses an expression. Entry point for expression parsing.
  */
@@ -924,6 +894,46 @@ static void namedVariable(Token name, const bool canAssign) {
   emitBytes(getOp, arg);
 }
 
+void structInstance(bool canAssign) {
+  consume(TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
+  namedVariable(parser.previous, canAssign);
+  if (!match(TOKEN_LEFT_BRACE)) {
+    compilerPanic(&parser, "Expected '{' to start struct instance.", SYNTAX);
+    return;
+  }
+  uint16_t fieldCount = 0;
+  emitByte(OP_STRUCT_INSTANCE_START);
+
+  if (!match(TOKEN_RIGHT_BRACE)) {
+    do {
+      if (fieldCount == UINT16_MAX) {
+        compilerPanic(&parser, "Too many fields in struct initializer", SYNTAX);
+        return;
+      }
+      consume(TOKEN_IDENTIFIER, "Expected field name.");
+      // field_name: value
+      ObjectString *fieldName = copyString(
+          current->owner, parser.previous.start, parser.previous.length);
+      consume(TOKEN_COLON, "Expected ':' after struct field name.");
+      expression();
+      const uint16_t fieldNameConstant = makeConstant(OBJECT_VAL(fieldName));
+      if (fieldNameConstant <= UINT8_MAX) {
+        emitBytes(OP_STRUCT_NAMED_FIELD, (uint8_t)fieldNameConstant);
+      } else {
+        emitByte(OP_STRUCT_NAMED_FIELD_16);
+        emitBytes(fieldNameConstant >> 8 & 0xff, fieldNameConstant & 0xff);
+      }
+
+      fieldCount++;
+    } while (match(TOKEN_COMMA));
+  }
+
+  if (fieldCount != 0) {
+    consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct field list.");
+  }
+  emitByte(OP_STRUCT_INSTANCE_END);
+}
+
 static void variable(const bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
@@ -939,41 +949,6 @@ static Token syntheticToken(const char *text) {
   token.start = text;
   token.length = (int)strlen(text);
   return token;
-}
-
-static void super_(bool canAssign) {
-  if (currentClass == NULL) {
-    compilerPanic(&parser, "Cannot use 'super' outside of a class", NAME);
-  } else if (!currentClass->hasSuperclass) {
-    compilerPanic(
-        &parser,
-        "Cannot use 'super' in a class that does not have a superclass", NAME);
-  }
-
-  consume(TOKEN_DOT, "Expected '.' after 'super'.");
-  consume(TOKEN_IDENTIFIER, "Expected superclass method name.");
-  const uint16_t name = identifierConstant(&parser.previous);
-
-  if (match(TOKEN_LEFT_PAREN)) {
-    const uint8_t argCount = argumentList();
-    namedVariable(syntheticToken("super"), false);
-    if (name <= UINT8_MAX) {
-      emitBytes(OP_SUPER_INVOKE, (uint8_t)name);
-      emitByte(argCount);
-    } else {
-      emitByte(OP_SUPER_INVOKE_16);
-      emitBytes(((name >> 8) & 0xff), (name & 0xff));
-      emitByte(argCount);
-    }
-  } else {
-    namedVariable(syntheticToken("super"), false);
-    if (name <= UINT8_MAX) {
-      emitBytes(OP_GET_SUPER, (uint8_t)name);
-    } else {
-      emitByte(OP_GET_SUPER_16);
-      emitBytes(((name >> 8) & 0xff), (name & 0xff));
-    }
-  }
 }
 
 static void block() {
@@ -1016,82 +991,6 @@ static void function(const FunctionType type) {
   }
 }
 
-static void method() {
-  consume(TOKEN_FN, "Expected 'fn' to start a method declaration.");
-  consume(TOKEN_IDENTIFIER, "Expected method name.");
-  const uint16_t constant = identifierConstant(&parser.previous);
-
-  FunctionType type = TYPE_METHOD;
-
-  if (parser.previous.length == 4 &&
-      memcmp(parser.previous.start, "init", 4) == 0) {
-    type = TYPE_INITIALIZER;
-  }
-
-  function(type);
-
-  if (constant <= UINT8_MAX) {
-    emitBytes(OP_METHOD, (uint8_t)constant);
-  } else {
-    emitByte(OP_METHOD_16);
-    emitBytes(((constant >> 8) & 0xff), (constant & 0xff));
-  }
-}
-
-static void classDeclaration() {
-  consume(TOKEN_IDENTIFIER, "Expected class name");
-  const Token className = parser.previous;
-  const uint16_t nameConstant = identifierConstant(&parser.previous);
-  declareVariable();
-
-  if (nameConstant <= UINT8_MAX) {
-    emitBytes(OP_CLASS, (uint8_t)nameConstant);
-  } else {
-    emitByte(OP_CLASS_16);
-    emitBytes(((nameConstant >> 8) & 0xff), (nameConstant & 0xff));
-  }
-  defineVariable(nameConstant);
-
-  ClassCompiler classCompiler;
-  classCompiler.enclosing = currentClass;
-  classCompiler.hasSuperclass = false;
-  currentClass = &classCompiler;
-
-  if (match(TOKEN_COLON)) {
-    consume(TOKEN_IDENTIFIER, "Expected super class name after ':'.");
-    variable(false);
-
-    if (identifiersEqual(&className, &parser.previous)) {
-      compilerPanic(&parser, "A class cannot inherit from itself", NAME);
-    }
-
-    beginScope();
-    addLocal(syntheticToken("super"));
-    defineVariable(0);
-
-    namedVariable(className, false);
-    emitByte(OP_INHERIT);
-    classCompiler.hasSuperclass = true;
-  }
-
-  namedVariable(className, false);
-
-  consume(TOKEN_LEFT_BRACE, "Expected '{' before class body");
-
-  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-    method();
-  }
-
-  consume(TOKEN_RIGHT_BRACE, "Expected '}' after class body");
-  emitByte(OP_POP);
-
-  if (classCompiler.hasSuperclass) {
-    endScope();
-  }
-
-  currentClass = classCompiler.enclosing;
-}
-
 static void fnDeclaration() {
   const uint16_t global = parseVariable("Expected function name");
   markInitialized();
@@ -1119,7 +1018,15 @@ static void anonymousFunction(bool canAssign) {
   consume(TOKEN_LEFT_BRACE, "Expected '{' before function body");
   block();
   ObjectFunction *function = endCompiler();
-  emitBytes(OP_ANON_FUNCTION, makeConstant(OBJECT_VAL(function)));
+
+  const uint16_t constantIndex = makeConstant(OBJECT_VAL(function));
+  if (constantIndex > UINT8_MAX) {
+    emitByte(OP_ANON_FUNCTION_16);
+    emitBytes(constantIndex >> 8 & 0xff, constantIndex & 0xff);
+  }else {
+    emitBytes(OP_ANON_FUNCTION, (uint8_t) constantIndex);
+  }
+
 
   for (int i = 0; i < function->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
@@ -1127,25 +1034,33 @@ static void anonymousFunction(bool canAssign) {
   }
 }
 
-static void arrayLiteral(bool canAssign) {
+static void createArray(const OpCode creationOpCode, const char *typeName) {
   uint16_t elementCount = 0;
 
   if (!match(TOKEN_RIGHT_SQUARE)) {
     do {
       expression();
       if (elementCount >= UINT16_MAX) {
-        compilerPanic(&parser, "Too many elements in array literal",
-                      COLLECTION_EXTENT);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Too many elements in %s literal.",
+                 typeName);
+        compilerPanic(&parser, buffer, COLLECTION_EXTENT);
       }
       elementCount++;
     } while (match(TOKEN_COMMA));
     consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array elements");
   }
-  emitByte(OP_ARRAY);
+  emitByte(creationOpCode);
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void tableLiteral(bool canAssign) {
+static void arrayLiteral(bool canAssign) { createArray(OP_ARRAY, "array"); }
+
+static void staticArrayLiteral(bool canAssign) {
+  createArray(OP_STATIC_ARRAY, "static array");
+}
+
+static void createTable(const OpCode creationOpCode, const char *typeName) {
   uint16_t elementCount = 0;
 
   if (!match(TOKEN_RIGHT_BRACE)) {
@@ -1154,15 +1069,23 @@ static void tableLiteral(bool canAssign) {
       consume(TOKEN_COLON, "Expected ':' after <table> key");
       expression();
       if (elementCount >= UINT16_MAX) {
-        compilerPanic(&parser, "Too many elements in table literal",
-                      COLLECTION_EXTENT);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "Too many elements in %s literal.",
+                 typeName);
+        compilerPanic(&parser, buffer, COLLECTION_EXTENT);
       }
       elementCount++;
     } while (match(TOKEN_COMMA));
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
   }
-  emitByte(OP_TABLE);
+  emitByte(creationOpCode);
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+}
+
+static void tableLiteral(bool canAssign) { createTable(OP_TABLE, "table"); }
+
+static void staticTableLiteral(bool canAssign) {
+  createTable(OP_STATIC_TABLE, "static table");
 }
 
 /**
@@ -1173,7 +1096,7 @@ static void tableLiteral(bool canAssign) {
  */
 static void collectionIndex(const bool canAssign) {
   expression();
-  consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array index");
+  consume(TOKEN_RIGHT_SQUARE, "Expected ']' after index");
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
@@ -1293,10 +1216,6 @@ static void returnStatement() {
   if (match(TOKEN_SEMICOLON)) {
     emitReturn();
   } else {
-    if (current->type == TYPE_INITIALIZER) {
-      compilerPanic(&parser, "Cannot return a value from an 'init' function",
-                    SYNTAX);
-    }
     expression();
     consume(TOKEN_SEMICOLON, "Expected ';' after return value");
     emitByte(OP_RETURN);
@@ -1396,6 +1315,57 @@ static void useStatement() {
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
+static void structDeclaration() {
+  consume(TOKEN_IDENTIFIER, "Expected class name");
+  const Token structName = parser.previous;
+  ObjectString *structNameString =
+      copyString(current->owner, structName.start, structName.length);
+  const uint16_t nameConstant = identifierConstant(&structName);
+  ObjectStruct *structObject = newStructType(current->owner, structNameString);
+
+  declareVariable();
+
+  const uint16_t structConstant = makeConstant(OBJECT_VAL(structObject));
+  if (structConstant <= UINT8_MAX) {
+    emitBytes(OP_STRUCT, (uint8_t)structConstant);
+  } else {
+    emitByte(OP_STRUCT_16);
+    emitBytes(((structConstant >> 8) & 0xff), (structConstant & 0xff));
+  }
+
+  defineVariable(nameConstant);
+
+  consume(TOKEN_LEFT_BRACE, "Expected '{' before struct body");
+  int fieldCount = 0;
+
+  if (!match(TOKEN_RIGHT_BRACE)) {
+    do {
+      if (fieldCount >= UINT16_MAX) {
+        compilerPanic(&parser, "Too many fields in struct", SYNTAX);
+        break;
+      }
+
+      consume(TOKEN_IDENTIFIER, "Expected field name");
+      ObjectString *fieldName = copyString(
+          current->owner, parser.previous.start, parser.previous.length);
+
+      Value fieldNameCheck;
+      if (tableGet(&structObject->fields, fieldName, &fieldNameCheck)) {
+        compilerPanic(&parser, "Duplicate field name in struct declaration",
+                      SYNTAX);
+        break;
+      }
+
+      tableSet(current->owner, &structObject->fields, fieldName,
+               INT_VAL(fieldCount));
+      fieldCount++;
+    } while (match(TOKEN_COMMA));
+  }
+  if (fieldCount != 0) {
+    consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
+  }
+}
+
 /**
  * Synchronizes the parser after encountering a syntax error.
  *
@@ -1409,7 +1379,8 @@ static void synchronize() {
     if (parser.previous.type == TOKEN_SEMICOLON)
       return;
     switch (parser.current.type) {
-    case TOKEN_CLASS:
+    case TOKEN_STRUCT:
+    case TOKEN_PUB:
     case TOKEN_FN:
     case TOKEN_LET:
     case TOKEN_FOR:
@@ -1433,10 +1404,10 @@ static void publicDeclaration() {
     fnDeclaration();
   } else if (match(TOKEN_LET)) {
     varDeclaration();
-  } else if (match(TOKEN_CLASS)) {
-    classDeclaration();
+  } else if (match(TOKEN_STRUCT)) {
+    structDeclaration();
   } else {
-    compilerPanic(&parser, "Expected 'fn', 'let', or 'class' after 'pub'.",
+    compilerPanic(&parser, "Expected 'fn', 'let', or 'struct' after 'pub'.",
                   SYNTAX);
   }
 }
@@ -1632,10 +1603,10 @@ static void breakStatement() {
 static void declaration() {
   if (match(TOKEN_LET)) {
     varDeclaration();
-  } else if (match(TOKEN_CLASS)) {
-    classDeclaration();
   } else if (match(TOKEN_FN)) {
     fnDeclaration();
+  } else if (match(TOKEN_STRUCT)) {
+    structDeclaration();
   } else if (match(TOKEN_PUB)) {
     publicDeclaration();
   } else {
@@ -1827,22 +1798,6 @@ static void string(bool canAssign) {
 }
 
 /**
- * Parses a 'self' expression (referring to the current object instance within a
- * class method).
- *
- * @param canAssign Whether the 'self' expression can be the target of an
- * assignment.
- */
-static void self(bool canAssign) {
-  if (currentClass == NULL) {
-    compilerPanic(&parser, "'self' cannot be used outside of a class.", NAME);
-    return;
-  }
-
-  variable(false);
-}
-
-/**
  * Parses a unary operator expression.
  *
  * @param canAssign Whether the unary expression can be the target of an
@@ -1867,7 +1822,7 @@ static void unary(bool canAssign) {
 }
 
 static void typeofExpression(bool canAssign) {
-  expression();
+  parsePrecedence(PREC_UNARY);
   emitByte(OP_TYPEOF);
 }
 
@@ -1911,7 +1866,6 @@ ParseRule rules[] = {
     [TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
     [TOKEN_BREAK] = {NULL, NULL, PREC_NONE},
     [TOKEN_AND] = {NULL, and_, PREC_AND},
-    [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
     [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
@@ -1920,8 +1874,6 @@ ParseRule rules[] = {
     [TOKEN_NIL] = {literal, NULL, PREC_NONE},
     [TOKEN_OR] = {NULL, or_, PREC_OR},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_SUPER] = {super_, NULL, PREC_NONE},
-    [TOKEN_SELF] = {self, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_LET] = {NULL, NULL, PREC_NONE},
     [TOKEN_USE] = {NULL, NULL, PREC_NONE},
@@ -1932,7 +1884,11 @@ ParseRule rules[] = {
     [TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
     [TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
-    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_CALL},
+    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_UNARY},
+    [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
+    [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
+    [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},
+    [TOKEN_NEW] = {structInstance, NULL, PREC_UNARY},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

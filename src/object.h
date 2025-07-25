@@ -17,8 +17,6 @@
   isObjectType(value, OBJECT_NATIVE_FUNCTION)
 #define IS_CRUX_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
 #define IS_CRUX_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
-#define IS_CRUX_CLASS(value) isObjectType(value, OBJECT_CLASS)
-#define IS_CRUX_INSTANCE(value) isObjectType(value, OBJECT_INSTANCE)
 #define IS_CRUX_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
 #define IS_CRUX_TABLE(value) isObjectType(value, OBJECT_TABLE)
@@ -31,8 +29,12 @@
 #define IS_CRUX_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) isObjectType(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) isObjectType(value, OBJECT_MODULE_RECORD)
-
+#define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
+#define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
+#define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
+#define IS_CRUX_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STRUCT_INSTANCE)
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
+
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_FUNCTION(value)                                         \
@@ -40,8 +42,6 @@
 #define AS_CRUX_NATIVE_METHOD(value)                                           \
   ((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_CLASS(value) ((ObjectClass *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_INSTANCE(value) ((ObjectInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TABLE(value) ((ObjectTable *)AS_CRUX_OBJECT(value))
@@ -56,6 +56,10 @@
 #define AS_CRUX_MODULE_RECORD(value)                                           \
   ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -66,9 +70,6 @@ typedef enum {
   OBJECT_NATIVE_METHOD,
   OBJECT_CLOSURE,
   OBJECT_UPVALUE,
-  OBJECT_CLASS,
-  OBJECT_INSTANCE,
-  OBJECT_BOUND_METHOD,
   OBJECT_ARRAY,
   OBJECT_TABLE,
   OBJECT_ERROR,
@@ -78,6 +79,10 @@ typedef enum {
   OBJECT_RANDOM,
   OBJECT_FILE,
   OBJECT_MODULE_RECORD,
+  OBJECT_STATIC_ARRAY,
+  OBJECT_STATIC_TABLE,
+  OBJECT_STRUCT,
+  OBJECT_STRUCT_INSTANCE,
 } ObjectType;
 
 struct Object {
@@ -116,30 +121,20 @@ typedef struct ObjectClosure {
   int upvalueCount;
 } ObjectClosure;
 
-typedef struct {
-  Object object;
-  ObjectString *name;
-  Table methods;
-} ObjectClass;
 
 typedef struct {
   Object object;
-  ObjectClass *klass;
-  Table fields;
-} ObjectInstance;
-
-typedef struct {
-  Object object;
-  Value receiver;
-  ObjectClosure *method;
-} ObjectBoundMethod;
-
-typedef struct {
-  Object object;
-  Value *array;
+  Value *values;
   uint32_t size;
   uint32_t capacity;
 } ObjectArray;
+
+typedef struct {
+  Object object;
+  Value* values;
+  uint32_t size; // size and capacity will always be the same
+  uint32_t hash;
+} ObjectStaticArray;
 
 typedef struct {
   Object object;
@@ -148,8 +143,8 @@ typedef struct {
 
 typedef enum {
   SYNTAX,
-  DIVISION_BY_ZERO,
-  INDEX_OUT_OF_BOUNDS,
+  MATH, // Division by zero
+  BOUNDS, // Index out of bounds
   RUNTIME,
   TYPE,
   LOOP_EXTENT,
@@ -161,7 +156,6 @@ typedef enum {
   NAME,
   COLLECTION_EXTENT,
   VARIABLE_EXTENT,
-  VARIABLE_DECLARATION_MISMATCH,
   RETURN_EXTENT,
   ARGUMENT_MISMATCH,
   STACK_OVERFLOW,
@@ -232,9 +226,16 @@ typedef struct {
 typedef struct {
   Object object;
   ObjectTableEntry *entries;
-  uint16_t capacity;
-  uint16_t size;
+  uint32_t capacity;
+  uint32_t size;
 } ObjectTable;
+
+typedef struct {
+  Object object;
+  ObjectTableEntry *entries;
+  uint32_t capacity;
+  uint32_t size;
+} ObjectStaticTable ;
 
 typedef struct {
   Object object;
@@ -244,6 +245,20 @@ typedef struct {
   uint64_t position;
   bool isOpen;
 } ObjectFile;
+
+typedef struct {
+	Object object;
+	ObjectString* name;
+	Table fields; // <field_name: index>
+}ObjectStruct;
+
+
+struct ObjectStructInstance{
+	Object object;
+	ObjectStruct* structType;
+	Value* fields;
+  uint16_t fieldCount;
+};
 
 typedef enum {
   STATE_LOADING,
@@ -291,22 +306,6 @@ static bool isObjectType(const Value value, const ObjectType type) {
  */
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
                       bool isPanic);
-
-/**
- * @brief Creates a new bound method object.
- *
- * A bound method combines a receiver object (the instance) with a method
- * (closure) to be called on that receiver. This function allocates and
- * initializes a new ObjectBoundMethod.
- *
- * @param vm The virtual machine.
- * @param receiver The receiver Value (the instance).
- * @param method The method ObjectClosure.
- *
- * @return A pointer to the newly created ObjectBoundMethod.
- */
-ObjectBoundMethod *newBoundMethod(VM *vm, Value receiver,
-                                  ObjectClosure *method);
 
 /**
  * @brief Creates a new upvalue object.
@@ -414,34 +413,6 @@ newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
  * @return A pointer to the newly created ObjectFunction.
  */
 ObjectFunction *newFunction(VM *vm);
-
-/**
- * @brief Creates a new class object.
- *
- * This function allocates and initializes a new ObjectClass, representing a
- * class in the crux language. It initializes the class's method table and sets
- * its name.
- *
- * @param vm The virtual machine.
- * @param name The name of the class as an ObjectString.
- *
- * @return A pointer to the newly created ObjectClass.
- */
-ObjectClass *newClass(VM *vm, ObjectString *name);
-
-/**
- * @brief Creates a new instance object.
- *
- * This function allocates and initializes a new ObjectInstance, representing
- * an instance of a class in the crux language. It associates the instance
- * with its class and initializes its field table.
- *
- * @param vm The virtual machine.
- * @param klass The ObjectClass of which this is an instance.
- *
- * @return A pointer to the newly created ObjectInstance.
- */
-ObjectInstance *newInstance(VM *vm, ObjectClass *klass);
 
 /**
  * @brief Creates a new object table.
@@ -554,14 +525,11 @@ ObjectString *toString(VM *vm, Value value);
 /**
  * @brief Prints a Value to the console for debugging purposes.
  *
- * This function provides a human-readable representation of a Value,
- * dispatching to different printing logic based on the Value's type. It handles
- * strings, functions, native functions, closures, upvalues, classes, instances,
- * bound methods, arrays, tables and errors.
- *
+ * This function provides a human-readable representation of a Value.
  * @param value The Value to print.
+ * @param inCollection is this object in a collection?
  */
-void printObject(Value value);
+void printObject(Value value, bool inCollection);
 
 void printType(Value value);
 
@@ -601,7 +569,9 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  *
  * This function looks up a value in an ObjectTable based on a given key.
  *
- * @param table The ObjectTable to search.
+ * @param entries The table's entries
+ * @param size The number of actual entries
+ * @param capacity The maximum capacity of entries
  * @param key The key Value to look up.
  * @param value A pointer to a Value where the retrieved value will be stored if
  * the key is found.
@@ -609,8 +579,11 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(const ObjectTable *table, Value key, Value *value);
-void markObjectTable(VM *vm, const ObjectTable *table);
+bool objectTableGet(ObjectTableEntry *entries, uint32_t size,
+                    uint32_t capacity, Value key, Value *value);
+
+
+void markObjectTable(VM *vm, const ObjectTableEntry* entries, const uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -632,7 +605,7 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * @brief Sets a value at a specific index in an array.
  *
  * This function sets a Value at a given index in an ObjectArray. It performs
- * bounds checking to ensure the index is within the array's current size.
+ * bound checking to ensure the index is within the array's current size.
  *
  * @param vm The virtual machine.
  * @param array The ObjectArray to modify.
@@ -643,21 +616,6 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * otherwise (index out of bounds).
  */
 bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
-
-/**
- * @brief Retrieves a value from an array at a specific index.
- *
- * This function retrieves a Value from an ObjectArray at a given index.
- * It does not perform bounds checking.
- *
- * @param array The ObjectArray to access.
- * @param index The index from which to retrieve the value.
- * @param value A pointer to a Value where the retrieved value will be stored.
- *
- * @return true if the array is not NULL and the value was retrieved, false
- * otherwise (array is NULL).
- */
-bool arrayGet(const ObjectArray *array, uint32_t index, Value *value);
 
 /**
  * @brief Adds a value to the end of an array.
@@ -726,5 +684,18 @@ bool objectTableRemove(ObjectTable *table, Value key);
  * is not found).
  */
 bool objectTableContainsKey(ObjectTable *table, Value key);
+
+ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount);
+
+ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
+
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
+
+ObjectStruct *newStructType(VM *vm, ObjectString *name);
+
+ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
+                                        uint16_t fieldCount);
+
+void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
 
 #endif

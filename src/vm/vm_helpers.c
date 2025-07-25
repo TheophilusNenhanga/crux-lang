@@ -23,6 +23,31 @@ void initImportStack(VM *vm) {
   vm->importStack.capacity = 0;
 }
 
+bool pushStructStack(VM *vm, ObjectStructInstance *structInstance) {
+  if (vm->structInstanceStack.count == vm->structInstanceStack.capacity - 1) {
+    return false;
+  }
+  vm->structInstanceStack.structs[vm->structInstanceStack.count] =
+      structInstance;
+  vm->structInstanceStack.count++;
+  return true;
+}
+
+ObjectStructInstance *popStructStack(VM *vm) {
+  if (vm->structInstanceStack.count == 0) {
+    return NULL;
+  }
+  vm->structInstanceStack.count--;
+  return vm->structInstanceStack.structs[vm->structInstanceStack.count];
+}
+
+ObjectStructInstance *peekStructStack(const VM *vm) {
+  if (vm->structInstanceStack.count < vm->structInstanceStack.capacity) {
+    return vm->structInstanceStack.structs[vm->structInstanceStack.count - 1];
+  }
+  return NULL;
+}
+
 void freeImportStack(VM *vm) {
   FREE_ARRAY(vm, ObjectString *, vm->importStack.paths,
              vm->importStack.capacity);
@@ -217,53 +242,12 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
       PUSH(currentModuleRecord, result);
       return true;
     }
-    case OBJECT_CLASS: {
-      ObjectClass *klass = AS_CRUX_CLASS(callee);
-      currentModuleRecord->stackTop[-argCount - 1] =
-          OBJECT_VAL(newInstance(vm, klass));
-      Value initializer;
-
-      if (tableGet(&klass->methods, vm->initString, &initializer)) {
-        return call(currentModuleRecord, AS_CRUX_CLOSURE(initializer),
-                    argCount);
-      }
-      if (argCount != 0) {
-        runtimePanic(currentModuleRecord, false, ARGUMENT_MISMATCH,
-                     "Expected 0 arguments but got %d arguments.", argCount);
-        return false;
-      }
-      return true;
-    }
-    case OBJECT_BOUND_METHOD: {
-      const ObjectBoundMethod *bound = AS_CRUX_BOUND_METHOD(callee);
-      currentModuleRecord->stackTop[-argCount - 1] = bound->receiver;
-      return call(currentModuleRecord, bound->method, argCount);
-    }
     default:
       break;
     }
   }
   runtimePanic(currentModuleRecord, false, TYPE,
-               "Can only call functions and classes.");
-  return false;
-}
-
-/**
- * Invokes a method from a class with the given arguments.
- * @param moduleRecord The currently executing module
- * @param klass The class containing the method
- * @param name The name of the method to invoke
- * @param argCount Number of arguments on the stack
- * @return true if the method invocation succeeds, false otherwise
- */
-bool invokeFromClass(ObjectModuleRecord *moduleRecord, const ObjectClass *klass,
-                     const ObjectString *name, const int argCount) {
-  Value method;
-  if (tableGet(&klass->methods, name, &method)) {
-    return call(moduleRecord, AS_CRUX_CLOSURE(method), argCount);
-  }
-  runtimePanic(moduleRecord, false, NAME, "Undefined property '%s'.",
-               name->chars);
+               "Only functions can be called.");
   return false;
 }
 
@@ -370,15 +354,17 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
                  name->chars);
     return false;
   }
-  case OBJECT_INSTANCE: {
+  case OBJECT_STRUCT_INSTANCE: {
     argCount--;
-    const ObjectInstance *instance = AS_CRUX_INSTANCE(receiver);
-
-    Value value;
-    if (tableGet(&instance->fields, name, &value)) {
-      return callValue(vm, value, argCount);
+    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+    Value indexValue;
+    if (tableGet(&instance->structType->fields, name, &indexValue)) {
+      return callValue(vm, instance->fields[(uint16_t)AS_INT(indexValue)],
+                       argCount);
     }
-    return invokeFromClass(currentModuleRecord, instance->klass, name, argCount);
+    runtimePanic(currentModuleRecord, false, NAME, "Undefined method '%s'.",
+                 name->chars);
+    return false;
   }
   default: {
     runtimePanic(currentModuleRecord, false, TYPE,
@@ -386,29 +372,6 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
     return false;
   }
   }
-}
-
-/**
- * Binds a method from a class to an instance.
- * @param vm The virtual machine
- * @param klass The class containing the method
- * @param name The name of the method to bind
- * @return true if the binding succeeds, false otherwise
- */
-bool bindMethod(VM *vm, const ObjectClass *klass, const ObjectString *name) {
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
-    runtimePanic(currentModuleRecord, false, NAME, "Undefined property '%s'",
-                 name->chars);
-    return false;
-  }
-
-  ObjectBoundMethod *bound =
-      newBoundMethod(vm, PEEK(currentModuleRecord, 0), AS_CRUX_CLOSURE(method));
-  POP(currentModuleRecord);
-  PUSH(currentModuleRecord, OBJECT_VAL(bound));
-  return true;
 }
 
 ObjectUpvalue *captureUpvalue(VM *vm, Value *local) {
@@ -448,20 +411,6 @@ void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last) {
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
     moduleRecord->openUpvalues = upvalue->next;
-  }
-}
-
-/**
- * Defines a method on a class.
- * @param vm The virtual machine
- * @param name The name of the method
- */
-void defineMethod(VM *vm, ObjectString *name) {
-  ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  const Value method = PEEK(currentModuleRecord, 0);
-  ObjectClass *klass = AS_CRUX_CLASS(PEEK(currentModuleRecord, 1));
-  if (tableSet(vm, &klass->methods, name, method)) {
-    POP(currentModuleRecord);
   }
 }
 
@@ -556,6 +505,8 @@ void initVM(VM *vm, const int argc, const char **argv) {
   vm->matchHandler.matchBind = NIL_VAL;
   vm->matchHandler.matchTarget = NIL_VAL;
 
+  vm->importCount = 0;
+
   initTable(&vm->moduleCache);
   initImportStack(vm);
 
@@ -568,8 +519,10 @@ void initVM(VM *vm, const int argc, const char **argv) {
   initTable(&vm->resultType);
   initTable(&vm->strings);
 
-  vm->initString = NULL;
-  vm->initString = copyString(vm, "init", 4);
+  vm->structInstanceStack =
+      (StructInstanceStack){.structs = ALLOCATE(vm, ObjectStructInstance *, 16),
+                            .count = 0,
+                            .capacity = 16};
 
   vm->args.argc = argc;
   vm->args.argv = argv;
@@ -615,8 +568,6 @@ void freeVM(VM *vm) {
   }
   FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules,
              vm->nativeModules.capacity);
-
-  vm->initString = NULL;
 
   freeTable(vm, &vm->moduleCache);
 
@@ -694,8 +645,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_DIVIDE: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
-                     "Division by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Division by zero.");
         return false;
       }
       popTwo(currentModuleRecord);
@@ -704,7 +654,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_INT_DIVIDE: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Integer division by zero.");
         return false;
       }
@@ -720,8 +670,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
     }
     case OP_MODULUS: {
       if (intB == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
-                     "Modulo by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Modulo by zero.");
         return false;
       }
 
@@ -801,8 +750,7 @@ bool binaryOperation(VM *vm, const OpCode operation) {
       break;
     case OP_DIVIDE: {
       if (doubleB == 0.0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
-                     "Division by zero.");
+        runtimePanic(currentModuleRecord, false, MATH, "Division by zero.");
         return false;
       }
       popTwo(currentModuleRecord);
@@ -918,7 +866,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
     case OP_SET_GLOBAL_SLASH: {
       if (ioperand == 0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero in '%s %s'.", name->chars, operation);
         return INTERPRET_RUNTIME_ERROR;
       }
@@ -981,7 +929,7 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
     }
     case OP_SET_GLOBAL_SLASH: {
       if (doperand == 0.0) {
-        runtimePanic(currentModuleRecord, false, DIVISION_BY_ZERO,
+        runtimePanic(currentModuleRecord, false, MATH,
                      "Division by zero in '%s %s'.", name->chars, operation);
         return INTERPRET_RUNTIME_ERROR;
       }
@@ -1072,73 +1020,73 @@ ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure,
   return errorResult;
 }
 
-Value typeofValue(VM* vm, const Value value) {
-    if (IS_CRUX_OBJECT(value)) {
-        const ObjectType type = AS_CRUX_OBJECT(value)->type;
+Value typeofValue(VM *vm, const Value value) {
+  if (IS_CRUX_OBJECT(value)) {
+    const ObjectType type = AS_CRUX_OBJECT(value)->type;
 
-        switch (type) {
-            case OBJECT_STRING:
-                return OBJECT_VAL(copyString(vm, "string", 6));
+    switch (type) {
+    case OBJECT_STRING:
+      return OBJECT_VAL(copyString(vm, "string", 6));
 
-            case OBJECT_FUNCTION:
-            case OBJECT_NATIVE_FUNCTION:
-            case OBJECT_NATIVE_METHOD:
-            case OBJECT_CLOSURE:
-            case OBJECT_BOUND_METHOD:
-            case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
-            case OBJECT_NATIVE_INFALLIBLE_METHOD:
-                return OBJECT_VAL(copyString(vm, "function", 8));
+    case OBJECT_FUNCTION:
+    case OBJECT_NATIVE_FUNCTION:
+    case OBJECT_NATIVE_METHOD:
+    case OBJECT_CLOSURE:
+    case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
+    case OBJECT_NATIVE_INFALLIBLE_METHOD:
+      return OBJECT_VAL(copyString(vm, "function", 8));
 
-            case OBJECT_UPVALUE: {
-                const ObjectUpvalue* upvalue = AS_CRUX_UPVALUE(value);
-                return typeofValue(vm, upvalue->closed);
-            }
-
-            case OBJECT_CLASS:
-                return OBJECT_VAL(copyString(vm, "class", 5));
-
-            case OBJECT_INSTANCE:
-                return OBJECT_VAL(copyString(vm, "instance", 8));
-
-            case OBJECT_ARRAY:
-                return OBJECT_VAL(copyString(vm, "array", 5));
-
-            case OBJECT_TABLE:
-                return OBJECT_VAL(copyString(vm, "table", 5));
-
-            case OBJECT_ERROR:
-                return OBJECT_VAL(copyString(vm, "error", 5));
-
-            case OBJECT_RESULT:
-                return OBJECT_VAL(copyString(vm, "result", 6));
-
-            case OBJECT_RANDOM:
-                return OBJECT_VAL(copyString(vm, "random", 6));
-
-            case OBJECT_FILE:
-                return OBJECT_VAL(copyString(vm, "file", 4));
-
-            case OBJECT_MODULE_RECORD:
-                return OBJECT_VAL(copyString(vm, "module", 6));
-        }
+    case OBJECT_UPVALUE: {
+      const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+      return typeofValue(vm, upvalue->closed);
     }
 
-    if (IS_INT(value)) {
-        return OBJECT_VAL(copyString(vm, "int", 3));
-    }
+    case OBJECT_ARRAY:
+      return OBJECT_VAL(copyString(vm, "array", 5));
 
-    if (IS_FLOAT(value)) {
-        return OBJECT_VAL(copyString(vm, "float", 5));
-    }
+    case OBJECT_TABLE:
+      return OBJECT_VAL(copyString(vm, "table", 5));
 
-    if (IS_BOOL(value)) {
-        return OBJECT_VAL(copyString(vm, "boolean", 7));
-    }
+    case OBJECT_ERROR:
+      return OBJECT_VAL(copyString(vm, "error", 5));
 
-    if (IS_NIL(value)) {
-        return OBJECT_VAL(copyString(vm, "nil", 3));
-    }
+    case OBJECT_RESULT:
+      return OBJECT_VAL(copyString(vm, "result", 6));
 
-    // unreacheable
-    return OBJECT_VAL(copyString(vm, "unknown", 7));
+    case OBJECT_RANDOM:
+      return OBJECT_VAL(copyString(vm, "random", 6));
+
+    case OBJECT_FILE:
+      return OBJECT_VAL(copyString(vm, "file", 4));
+
+    case OBJECT_MODULE_RECORD:
+      return OBJECT_VAL(copyString(vm, "module", 6));
+    case OBJECT_STATIC_ARRAY:
+      return OBJECT_VAL(copyString(vm, "static array", 12));
+    case OBJECT_STATIC_TABLE:
+      return OBJECT_VAL(copyString(vm, "static table", 12));
+    case OBJECT_STRUCT:
+      return OBJECT_VAL(copyString(vm, "struct", 6));
+    case OBJECT_STRUCT_INSTANCE:
+      return OBJECT_VAL(copyString(vm, "struct instance", 15));
+    }
+  }
+
+  if (IS_INT(value)) {
+    return OBJECT_VAL(copyString(vm, "int", 3));
+  }
+
+  if (IS_FLOAT(value)) {
+    return OBJECT_VAL(copyString(vm, "float", 5));
+  }
+
+  if (IS_BOOL(value)) {
+    return OBJECT_VAL(copyString(vm, "boolean", 7));
+  }
+
+  if (IS_NIL(value)) {
+    return OBJECT_VAL(copyString(vm, "nil", 3));
+  }
+  __builtin_unreachable();
+  return OBJECT_VAL(copyString(vm, "unknown", 7));
 }
