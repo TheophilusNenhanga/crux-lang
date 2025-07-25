@@ -1,3 +1,6 @@
+println("=== START OF TESTING STRUCTS ===");
+
+// Basic struct creation and typing
 struct Test {}
 assert((typeof Test) == "struct", "Failed to create struct with no fields.");
 
@@ -17,7 +20,7 @@ let p2 = Point { x: 12, y: 23 };
 p2.y = -11;
 assert(p2.y == -11, "Failed to update struct instance value");
 
-// c1..c4: corner1..corner4
+// Nested structs
 struct Quad { c1, c2, c3, c4 }
 
 let q = Quad {
@@ -29,4 +32,193 @@ let q = Quad {
 
 assert(q.c1.x == 14, "Failed to set value in nested struct.");
 
+// Function fields
+struct Calculator {
+    add,
+    multiply,
+    result
+}
 
+let calc = Calculator {
+    result: 0,
+    add: fn(a, b) { return a + b; },
+    multiply: fn(a, b) { return a * b; }
+};
+
+assert(calc.add(5, 3) == 8, "Failed to call function field - addition");
+assert(calc.multiply(4, 6) == 24, "Failed to call function field - multiplication");
+assert((typeof calc.add) == "function", "Function field should have function type");
+
+// Function fields with closure over struct data
+struct Counter {
+    value,
+    increment,
+    get_value
+}
+
+let counter = Counter {
+    value: 0,
+    increment: fn() { counter.value = counter.value + 1; },
+    get_value: fn() { return counter.value; }
+};
+
+counter.increment();
+counter.increment();
+assert(counter.get_value() == 2, "Failed function field closure over struct data");
+
+// Default/uninitialized field values
+let p_empty = Point {};
+assert(p_empty.x == nil, "Uninitialized field should be null/undefined");
+
+// Field reassignment
+let p_reassign = Point { x: 10, y: 20 };
+p_reassign.x = 100;
+p_reassign.y = 200;
+assert(p_reassign.x == 100 and p_reassign.y == 200, "Failed to reassign struct fields");
+
+// Multiple instances independence
+let p_a = Point { x: 1, y: 2 };
+let p_b = Point { x: 3, y: 4 };
+p_a.x = 999;
+assert(p_b.x == 3, "Struct instances should be independent");
+
+// Function field reassignment
+struct Greeter { say_hello }
+
+let greeter1 = Greeter {
+    say_hello: fn() { return "Hello!"; }
+};
+
+let greeter2 = Greeter {
+    say_hello: fn() { return "Hi there!"; }
+};
+
+assert(greeter1.say_hello() == "Hello!", "First greeter function failed");
+assert(greeter2.say_hello() == "Hi there!", "Second greeter function failed");
+
+// Reassign function field
+greeter1.say_hello = fn() { return "Goodbye!"; };
+assert(greeter1.say_hello() == "Goodbye!", "Failed to reassign function field");
+
+// Complex nested structures with functions
+struct Person {
+    name,
+    age,
+    address,
+    greet
+}
+
+struct Address {
+    street,
+    city,
+    get_full_address
+}
+
+let addr = Address {
+    street: "123 Main St",
+    city: "Springfield",
+    get_full_address: fn() { return addr.street + ", " + addr.city; }
+};
+
+let person = Person {
+    name: "John",
+    age: 30,
+    address: addr,
+    greet: fn() { return "Hi, I'm " + person.name + " from " + person.address.get_full_address(); }
+};
+
+assert(person.greet() == "Hi, I'm John from 123 Main St, Springfield", "Failed complex nested struct with functions");
+
+// Function parameters and return values
+struct MathOps {
+    apply_operation
+}
+
+let math_ops = MathOps {
+    apply_operation: fn(operation, a, b) {
+        return operation(a, b);
+    }
+};
+
+let add_func = fn(x, y) { return x + y; };
+let result = math_ops.apply_operation(add_func, 10, 5);
+assert(result == 15, "Failed passing function as parameter to struct function");
+
+// Array of structs
+let points = [
+    Point { x: 0, y: 0 },
+    Point { x: 1, y: 1 },
+    Point { x: 2, y: 2 }
+];
+
+assert(points[1].x == 1 and points[1].y == 1, "Failed array of struct instances");
+
+// Struct with mixed field types
+struct Mixed {
+    number_field,
+    string_field,
+    boolean_field,
+    function_field,
+    struct_field
+}
+
+let mixed = Mixed {
+    number_field: 42,
+    string_field: "test",
+    boolean_field: true,
+    function_field: fn() { return "function result"; },
+    struct_field: Point { x: 5, y: 10 }
+};
+
+assert(mixed.number_field == 42, "Failed mixed struct - number field");
+assert(mixed.string_field == "test", "Failed mixed struct - string field");
+assert(mixed.boolean_field == true, "Failed mixed struct - boolean field");
+assert(mixed.function_field() == "function result", "Failed mixed struct - function field");
+assert(mixed.struct_field.x == 5, "Failed mixed struct - nested struct field");
+
+// Function field with multiple parameters
+struct Formatter {
+    format_name
+}
+
+let formatter = Formatter {
+    format_name: fn(first, last, title) {
+        return title + " " + first + " " + last;
+    }
+};
+
+assert(formatter.format_name("John", "Doe", "Mr.") == "Mr. John Doe", "Failed function field with multiple parameters");
+
+// Recursive struct references (if supported)
+struct Node {
+    value,
+    next
+}
+
+let node1 = Node { value: 1, next: nil };
+let node2 = Node { value: 2, next: node1 };
+
+assert(node2.next.value == 1, "Failed recursive struct reference");
+
+// Function field that modifies struct state
+struct StatefulCounter {
+    count,
+    increment,
+    reset,
+    get_count
+}
+
+let stateful = StatefulCounter {
+    count: 0,
+    increment: fn() { stateful.count = stateful.count + 1; },
+    reset: fn() { stateful.count = 0; },
+    get_count: fn() { return stateful.count; }
+};
+
+stateful.increment();
+stateful.increment();
+assert(stateful.get_count() == 2, "Failed stateful function increment");
+stateful.reset();
+assert(stateful.get_count() == 0, "Failed stateful function reset");
+
+println("=== END OF TESTING STRUCTS ===");
