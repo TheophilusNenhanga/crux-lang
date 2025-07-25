@@ -265,11 +265,10 @@ static void blackenObject(VM *vm, Object *object) {
 
   case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = (ObjectStructInstance *)object;
-    const ObjectStruct *structure = instance->structType;
-    for (int i = 0; i < structure->fields.count; i++) {
+    for (int i = 0; i < instance->fieldCount; i++) {
       markValue(vm, instance->fields[i]);
     }
-    markObjectStruct(vm, structure);
+    markObjectStruct(vm, instance->structType);
   }
 
   case OBJECT_STRING: {
@@ -394,6 +393,7 @@ static void freeObject(VM *vm, Object *object) {
     ObjectStruct *structure = (ObjectStruct *)object;
     freeTable(vm, &structure->fields);
     FREE(vm, ObjectStruct, object);
+    break;
   }
 
   case OBJECT_STRUCT_INSTANCE: {
@@ -401,6 +401,7 @@ static void freeObject(VM *vm, Object *object) {
     FREE_ARRAY(
         vm, Value, instance->fields, instance->fieldCount);
     FREE(vm, ObjectStructInstance, object);
+    break;
   }
   }
 }

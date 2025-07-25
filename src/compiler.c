@@ -895,7 +895,7 @@ static void namedVariable(Token name, const bool canAssign) {
 }
 
 void structInstance(bool canAssign) {
-  // We need to get the struct type value stored in the name.
+  consume(TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
   namedVariable(parser.previous, canAssign);
   if (!match(TOKEN_LEFT_BRACE)) {
     compilerPanic(&parser, "Expected '{' to start struct instance.", SYNTAX);
@@ -935,11 +935,7 @@ void structInstance(bool canAssign) {
 }
 
 static void variable(const bool canAssign) {
-  if (check(TOKEN_LEFT_BRACE) || check(TOKEN_DOLLAR_LEFT_CURLY)) {
-    structInstance(canAssign);
-  } else {
-    namedVariable(parser.previous, canAssign);
-  }
+  namedVariable(parser.previous, canAssign);
 }
 
 /**
@@ -1892,6 +1888,7 @@ ParseRule rules[] = {
     [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
     [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
     [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},
+    [TOKEN_NEW] = {structInstance, NULL, PREC_UNARY},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
 };
 

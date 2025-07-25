@@ -152,6 +152,9 @@ static CruxTokenType identifierType() {
       case 'i': {
         return checkKeyword(2, 1, "l", TOKEN_NIL);
       }
+      case 'e': {
+        return checkKeyword(2, 1, "w", TOKEN_NEW);
+      }
       default:;
       }
     }

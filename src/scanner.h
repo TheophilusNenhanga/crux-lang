@@ -72,6 +72,7 @@ typedef enum {
   TOKEN_DEFAULT,     // default
   TOKEN_GIVE,        // give
   TOKEN_TYPEOF,      // typeof
+  TOKEN_NEW,         // new
 
   TOKEN_DOLLAR_LEFT_CURLY,  // ${
   TOKEN_DOLLAR_LEFT_SQUARE, // $[
