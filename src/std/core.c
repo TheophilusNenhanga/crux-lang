@@ -116,15 +116,17 @@ static Value castTable(VM *vm, const Value *args) {
   return OBJECT_VAL(table);
 }
 
-static Value castInt(VM *vm, const Value *args, bool *success) {
-  const Value value = args[0];
-
-  if (IS_INT(value)) {
-    return value;
+static Value castInt(VM *vm, const Value arg, bool *success) {
+  if (IS_INT(arg)) {
+    return arg;
   }
 
-  if (IS_CRUX_STRING(value)) {
-    const char *str = AS_C_STRING(value);
+  if (IS_FLOAT(arg)) {
+    return INT_VAL((uint32_t) AS_FLOAT(arg));
+  }
+
+  if (IS_CRUX_STRING(arg)) {
+    const char *str = AS_C_STRING(arg);
     char *end;
     const double num = strtod(str, &end);
 
@@ -135,11 +137,11 @@ static Value castInt(VM *vm, const Value *args, bool *success) {
     }
   }
 
-  if (IS_BOOL(value)) {
-    return INT_VAL(AS_BOOL(value) ? 1 : 0);
+  if (IS_BOOL(arg)) {
+    return INT_VAL(AS_BOOL(arg) ? 1 : 0);
   }
 
-  if (IS_NIL(value)) {
+  if (IS_NIL(arg)) {
     return INT_VAL(0);
   }
 
@@ -178,7 +180,8 @@ static Value castFloat(VM *vm, const Value *args, bool *success) {
 
 ObjectResult *intFunction(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  const Value value = castInt(vm, args, &success);
+  Value argument = args[0];
+  const Value value = castInt(vm, argument, &success);
   if (!success) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Cannot convert value to number.", 30),
@@ -221,7 +224,8 @@ ObjectResult *tableFunction(VM *vm, int argCount, const Value *args) {
 
 Value intFunction_(VM *vm, int argCount, const Value *args) {
   bool success = true;
-  return castInt(vm, args, &success);
+  Value argument = args[0];
+  return castInt(vm, argument, &success);
 }
 
 Value floatFunction_(VM *vm, int argCount, const Value *args) {

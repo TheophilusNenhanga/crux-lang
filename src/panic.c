@@ -100,7 +100,7 @@ static ErrorDetails getErrorDetails(const ErrorType type) {
   case ASSERT: {
     return (ErrorDetails){
         "Assert Error",
-        "The assert statement failed. Check your program's logic."};
+        "The assert statement failed."};
   }
   case IMPORT_EXTENT: {
     return (ErrorDetails){"Import Extent Error",

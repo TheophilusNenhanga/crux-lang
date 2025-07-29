@@ -89,6 +89,10 @@ static int constantInstruction(const char *name, const Chunk *chunk,
   return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
 
+static int constantInstruction16(const char *name, const Chunk *chunk, const int offset) {
+
+}
+
 /**
  * @brief Formats and prints a method invocation instruction
  *
@@ -145,6 +149,9 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
     return simpleInstruction("OP_DIVIDE", offset);
   case OP_NOT:
     return simpleInstruction("OP_NOT", offset);
+      case OP_NOT_EQUAL: {
+      return simpleInstruction("OP_NOT_EQUAL", offset);
+    }
   case OP_EQUAL:
     return simpleInstruction("OP_EQUAL", offset);
   case OP_GREATER:

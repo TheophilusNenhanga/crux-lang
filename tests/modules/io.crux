@@ -1,0 +1,8 @@
+use open_file, print_to from "crux:io";
+
+let f1 = open_file("test.txt", "w");
+f1 = match f1 {
+    Ok(file) => give file;
+    Err(e) => panic("Failed to open file in test case 1.\n" + e);
+};
+assert(typeof f1 == "file", "Failed to create file: test.txt");

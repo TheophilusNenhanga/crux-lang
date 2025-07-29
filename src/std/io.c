@@ -6,6 +6,7 @@
 #include "../memory.h"
 #include "../object.h"
 #include "../vm/vm.h"
+#include "../file_handler.h"
 
 #define MAX_LINE_LENGTH 4096
 
@@ -305,8 +306,7 @@ ObjectResult *openFileFunction(VM *vm, int argCount, const Value *args) {
   ObjectString *path = AS_CRUX_STRING(args[0]);
   ObjectString *mode = AS_CRUX_STRING(args[1]);
 
-  char *resolvedPath =
-      "./"; // resolvePath(vm->module->path->chars, path->chars);
+  char *resolvedPath = resolvePath(vm->currentModuleRecord->path->chars, path->chars);
   if (resolvedPath == NULL) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Could not resolve path to file.", 31),
