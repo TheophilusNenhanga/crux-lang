@@ -19,7 +19,7 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
     collectGarbage(vm);
 #endif
     if (vm->bytesAllocated > vm->nextGC) {
-      collectGarbage(vm);
+      // collectGarbage(vm);
     }
   }
 
@@ -117,6 +117,13 @@ void markObjectTable(VM *vm, const ObjectTableEntry *entries,
 static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
   markObject(vm, (Object *)structure->name);
   markTable(vm, &structure->fields);
+}
+
+static void markStructInstance(VM *vm, const ObjectStructInstance *instance) {
+  for (int i = 0; i < instance->fieldCount; i++) {
+    markValue(vm, instance->fields[i]);
+  }
+  markObjectStruct(vm, instance->structType);
 }
 
 /**
@@ -220,13 +227,10 @@ static void blackenObject(VM *vm, Object *object) {
     } else {
       markObject(vm, (Object *)result->as.error);
     }
+    break;
   }
 
   case OBJECT_RANDOM: {
-    ObjectRandom *random = (ObjectRandom *)object;
-    // mark the random object itself, because it doesn't have any other
-    // references within itself that will be marked
-    markObject(vm, (Object *)random);
     break;
   }
 
@@ -261,14 +265,18 @@ static void blackenObject(VM *vm, Object *object) {
   case OBJECT_STRUCT: {
     const ObjectStruct *structure = (ObjectStruct *)object;
     markObjectStruct(vm, structure);
+    break;
   }
 
   case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = (ObjectStructInstance *)object;
-    for (int i = 0; i < instance->fieldCount; i++) {
-      markValue(vm, instance->fields[i]);
-    }
-    markObjectStruct(vm, instance->structType);
+    markStructInstance(vm, instance);
+    break;
+  }
+
+  case OBJECT_VEC2:
+  case OBJECT_VEC3: {
+    break;
   }
 
   case OBJECT_STRING: {
@@ -398,9 +406,20 @@ static void freeObject(VM *vm, Object *object) {
 
   case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = (ObjectStructInstance *)object;
-    FREE_ARRAY(
-        vm, Value, instance->fields, instance->fieldCount);
+    FREE_ARRAY(vm, Value, instance->fields, instance->fieldCount);
     FREE(vm, ObjectStructInstance, object);
+    break;
+  }
+
+  case OBJECT_VEC2: {
+    const ObjectVec2 *vec2 = (ObjectVec2 *)object;
+    FREE(vm, ObjectVec2, object);
+    break;
+  }
+
+  case OBJECT_VEC3: {
+    const ObjectVec3 *vec3 = (ObjectVec3 *)object;
+    FREE(vm, ObjectVec3, object);
     break;
   }
   }
@@ -434,6 +453,12 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
   markObject(vm, (Object *)moduleRecord);
 }
 
+void markStructInstanceStack(VM *vm, const StructInstanceStack *stack) {
+  for (int i = 0; i < stack->count; i++) {
+    markStructInstance(vm, stack->structs[i]);
+  }
+}
+
 /**
  * @brief Marks all root objects reachable by the VM.
  *
@@ -456,13 +481,21 @@ void markRoots(VM *vm) {
     markTable(vm, vm->nativeModules.modules[i].names);
   }
 
+  markStructInstanceStack(vm, &vm->structInstanceStack);
+
   markTable(vm, &vm->randomType);
   markTable(vm, &vm->stringType);
   markTable(vm, &vm->arrayType);
   markTable(vm, &vm->errorType);
   markTable(vm, &vm->fileType);
+  markTable(vm, &vm->resultType);
+  markTable(vm, &vm->vec2Type);
+  markTable(vm, &vm->vec3Type);
+
   markTable(vm, &vm->moduleCache);
+
   markCompilerRoots(vm);
+
   markValue(vm, vm->matchHandler.matchBind);
   markValue(vm, vm->matchHandler.matchTarget);
 }
@@ -515,6 +548,7 @@ static void sweep(VM *vm) {
 }
 
 void collectGarbage(VM *vm) {
+  // printf("I GCd\n");
 #ifdef DEBUG_LOG_GC
   printf("-- gc begin\n");
   size_t before = vm->bytesAllocated;

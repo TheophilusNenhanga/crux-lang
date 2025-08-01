@@ -55,8 +55,8 @@ typedef struct {
 } ImportStack;
 
 typedef struct  {
-	ObjectStructInstance** structs;
-	uint32_t count;
+  ObjectStructInstance** structs;
+  uint32_t count;
   uint32_t capacity;
 }StructInstanceStack;
 
@@ -81,6 +81,8 @@ struct VM {
   Table errorType;
   Table fileType;
   Table resultType;
+  Table vec2Type;
+  Table vec3Type;
 
   StructInstanceStack structInstanceStack;
 

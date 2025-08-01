@@ -345,6 +345,24 @@ bool invoke(VM *vm, const ObjectString *name, int argCount) {
                  name->chars);
     return false;
   }
+  case OBJECT_VEC2: {
+    Value value;
+    if (tableGet(&vm->vec2Type, name, &value)) {
+      return handleInvoke(vm, argCount, receiver, original, value);
+    }
+    runtimePanic(currentModuleRecord, false, NAME, "Undefined method '%s'.",
+                 name->chars);
+    return false;
+  }
+  case OBJECT_VEC3: {
+    Value value;
+    if (tableGet(&vm->vec3Type, name, &value)) {
+      return handleInvoke(vm, argCount, receiver, original, value);
+    }
+    runtimePanic(currentModuleRecord, false, NAME, "Undefined method '%s'.",
+                 name->chars);
+    return false;
+  }
   case OBJECT_RESULT: {
     Value value;
     if (tableGet(&vm->resultType, name, &value)) {
@@ -518,6 +536,8 @@ void initVM(VM *vm, const int argc, const char **argv) {
   initTable(&vm->fileType);
   initTable(&vm->resultType);
   initTable(&vm->strings);
+  initTable(&vm->vec2Type);
+  initTable(&vm->vec3Type);
 
   vm->structInstanceStack =
       (StructInstanceStack){.structs = ALLOCATE(vm, ObjectStructInstance *, 16),
@@ -559,6 +579,8 @@ void freeVM(VM *vm) {
   freeTable(vm, &vm->randomType);
   freeTable(vm, &vm->fileType);
   freeTable(vm, &vm->resultType);
+  freeTable(vm, &vm->vec2Type);
+  freeTable(vm, &vm->vec3Type);
 
   for (int i = 0; i < vm->nativeModules.count; i++) {
     const NativeModule module = vm->nativeModules.modules[i];

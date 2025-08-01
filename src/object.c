@@ -129,12 +129,19 @@ static uint32_t hashValue(const Value value) {
 void printType(const Value value) {
   if (IS_INT(value)) {
     printf("'int'");
-  } else if (IS_FLOAT(value)) {
+    return;
+  }
+  if (IS_FLOAT(value)) {
     printf("'float'");
-  } else if (IS_BOOL(value)) {
+    return;
+  }
+  if (IS_BOOL(value)) {
     printf("'bool'");
-  } else if (IS_NIL(value)) {
+    return;
+  }
+  if (IS_NIL(value)) {
     printf("'nil'");
+    return;
   }
   switch (OBJECT_TYPE(value)) {
   case OBJECT_STRING:
@@ -168,6 +175,12 @@ void printType(const Value value) {
     break;
   case OBJECT_FILE:
     printf("'file'");
+    break;
+  case OBJECT_VEC2:
+    printf("'Vec2'");
+    break;
+  case OBJECT_VEC3:
+    printf("'Vec3'");
     break;
   default:
     printf("'unknown'");
@@ -529,6 +542,16 @@ void printObject(const Value value, const bool inCollection) {
     printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
     break;
   }
+  case OBJECT_VEC2: {
+    const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
+    printf("Vec2(%g, %g)", vec2->x, vec2->y);
+    break;
+  }
+  case OBJECT_VEC3: {
+    const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
+    printf("Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
+    break;
+  }
   }
 }
 
@@ -754,13 +777,34 @@ ObjectString *toString(VM *vm, const Value value) {
   }
 
   case OBJECT_STRUCT: {
-    const ObjectStruct *structObject = AS_CRUX_STRUCT(value);
-    printf("<struct type %s>", structObject->name->chars);
+    return copyString(vm, "<struct>", 8);
   }
 
   case OBJECT_STRUCT_INSTANCE: {
-    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
-    printStructInstance(instance);
+    return copyString(vm, "<struct instance>", 17);
+  }
+
+  case OBJECT_VEC2: {
+    const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
+    const int needed = snprintf(NULL, 0, "Vec2(%g, %g)", vec2->x, vec2->y);
+    char *buffer = ALLOCATE(vm, char, needed + 1);
+    if (buffer == NULL) {
+      return copyString(vm, "<crux object>", 13);
+    }
+    snprintf(buffer, needed, "Vec2(%g, %g)", vec2->x, vec2->y);
+    return takeString(vm, buffer, strlen(buffer));
+  }
+
+  case OBJECT_VEC3: {
+    const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
+    const int needed =
+        snprintf(NULL, 0, "Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
+    char *buffer = ALLOCATE(vm, char, needed + 1);
+    if (buffer == NULL) {
+      return copyString(vm, "<crux object>", 13);
+    }
+    snprintf(buffer, needed, "Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
+    return takeString(vm, buffer, strlen(buffer));
   }
 
   default:
@@ -1225,4 +1269,19 @@ ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
   }
   structInstance->fieldCount = fieldCount;
   return structInstance;
+}
+
+ObjectVec2 *newVec2(VM *vm, const double x, const double y) {
+  ObjectVec2 *vec2 = ALLOCATE_OBJECT(vm, ObjectVec2, OBJECT_VEC2);
+  vec2->x = x;
+  vec2->y = y;
+  return vec2;
+}
+
+ObjectVec3 *newVec3(VM *vm, const double x, const double y, const double z) {
+  ObjectVec3 *vec3 = ALLOCATE_OBJECT(vm, ObjectVec3, OBJECT_VEC3);
+  vec3->x = x;
+  vec3->y = y;
+  vec3->z = z;
+  return vec3;
 }

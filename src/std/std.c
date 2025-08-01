@@ -16,6 +16,7 @@
 #include "sys.h"
 #include "tables.h"
 #include "time.h"
+#include "vectors.h"
 
 #define ARRAY_COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -99,21 +100,21 @@ static const Callable coreFunctions[] = {
 };
 
 static const InfallibleCallable coreInfallibleFunctions[] = {
-    {"_len", lengthFunction_, 1},    {"println", printlnFunction, 1},
-    {"_print", printFunction, 1},
-    {"_int", intFunction_, 1},       {"_float", floatFunction_, 1},
-    {"_string", stringFunction_, 1}, {"_table", tableFunction_, 1},
-    {"_array", arrayFunction_, 1}};
+    {"_len", lengthFunction_, 1},  {"println", printlnFunction, 1},
+    {"_print", printFunction, 1},  {"_int", intFunction_, 1},
+    {"_float", floatFunction_, 1}, {"_string", stringFunction_, 1},
+    {"_table", tableFunction_, 1}, {"_array", arrayFunction_, 1}};
 
 static const Callable mathFunctions[] = {
-    {"pow", powFunction, 2},    {"sqrt", sqrtFunction, 1},
-    {"ceil", ceilFunction, 1},  {"floor", floorFunction, 1},
-    {"abs", absFunction, 1},    {"sin", sinFunction, 1},
-    {"cos", cosFunction, 1},    {"tan", tanFunction, 1},
-    {"atan", atanFunction, 1},  {"acos", acosFunction, 1},
-    {"asin", asinFunction, 1},  {"exp", expFunction, 1},
-    {"ln", lnFunction, 1},      {"log", log10Function, 1},
-    {"round", roundFunction, 1}};
+    {"pow", powFunction, 2},     {"sqrt", sqrtFunction, 1},
+    {"ceil", ceilFunction, 1},   {"floor", floorFunction, 1},
+    {"abs", absFunction, 1},     {"sin", sinFunction, 1},
+    {"cos", cosFunction, 1},     {"tan", tanFunction, 1},
+    {"atan", atanFunction, 1},   {"acos", acosFunction, 1},
+    {"asin", asinFunction, 1},   {"exp", expFunction, 1},
+    {"ln", lnFunction, 1},       {"log", log10Function, 1},
+    {"round", roundFunction, 1}, {"min", minFunction, 2},
+    {"max", maxFunction, 2}};
 
 static const InfallibleCallable mathInfallibleFunctions[] = {
     {"_e", eFunction, 0}, {"_pi", piFunction, 0}};
@@ -165,6 +166,52 @@ static const Callable fileSystemFunctions[] = {
     {"delete_dir", makeDirFunction, 1}, {"path_exists", pathExistsFunction, 1},
     {"rename", renameFunction, 2},      {"copy_file", copyFileFunction, 2},
     {"is_file_in", isFileInFunction, 2}};
+
+static const Callable vectorFunctions[] = {{"Vec2", newVec2Function, 2},
+                                           {"Vec3", newVec3Function, 3}};
+
+static const Callable vec2Methods[] = {
+    {"dot", vec2DotMethod, 2},
+    {"add", vec2AddMethod, 2},
+    {"subtract", vec2SubtractMethod, 2},
+    {"multiply", vec2MultiplyMethod, 2},
+    {"divide", vec2DivideMethod, 2},
+    {"magnitude", vec2MagnitudeMethod, 1},
+    {"normalize", vec2NormalizeMethod, 1},
+    {"distance", vec2DistanceMethod, 2},
+    {"angle", vec2AngleMethod, 1},
+    {"rotate", vec2RotateMethod, 2},
+    {"lerp", vec2LerpMethod, 3},
+    {"reflect", vec2ReflectMethod, 2},
+    {"equals", vec2EqualsMethod, 2},
+};
+
+static const InfallibleCallable vec2InfallibleMethods[] = {
+    {"x", vec2XMethod, 1},
+    {"y", vec2YMethod, 1},
+};
+
+static const Callable vec3Methods[] = {
+    {"dot", vec3DotMethod, 2},
+    {"add", vec3AddMethod, 2},
+    {"subtract", vec3SubtractMethod, 2},
+    {"multiply", vec3MultiplyMethod, 2},
+    {"divide", vec3DivideMethod, 2},
+    {"magnitude", vec3MagnitudeMethod, 1},
+    {"normalize", vec3NormalizeMethod, 1},
+    {"distance", vec3DistanceMethod, 2},
+    {"angle_between", vec3AngleBetweenMethod, 2},
+    {"cross", vec3CrossMethod, 2},
+    {"lerp", vec3LerpMethod, 3},
+    {"reflect", vec3ReflectMethod, 2},
+    {"equals", vec3EqualsMethod, 2},
+};
+
+static const InfallibleCallable vec3InfallibleMethods[] = {
+    {"x", vec3XMethod, 1},
+    {"y", vec3YMethod, 1},
+    {"z", vec3ZMethod, 1},
+};
 
 bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
                           const CruxCallable methodFunction, const int arity) {
@@ -372,6 +419,13 @@ bool initializeStdLib(VM *vm) {
   initTypeMethodTable(vm, &vm->resultType, NULL, 0, resultInfallibleMethods,
                       ARRAY_COUNT(resultInfallibleMethods));
 
+  initTypeMethodTable(vm, &vm->vec2Type, vec2Methods, ARRAY_COUNT(vec2Methods),
+                      vec2InfallibleMethods,
+                      ARRAY_COUNT(vec2InfallibleMethods));
+  initTypeMethodTable(vm, &vm->vec3Type, vec3Methods, ARRAY_COUNT(vec3Methods),
+                      vec3InfallibleMethods,
+                      ARRAY_COUNT(vec3InfallibleMethods));
+
   // Initialize standard library modules
   if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),
                   mathInfallibleFunctions,
@@ -402,6 +456,11 @@ bool initializeStdLib(VM *vm) {
 
   if (!initModule(vm, "fs", fileSystemFunctions,
                   ARRAY_COUNT(fileSystemFunctions), NULL, 0)) {
+    return false;
+  }
+
+  if (!initModule(vm, "vectors", vectorFunctions, ARRAY_COUNT(vectorFunctions),
+                  NULL, 0)) {
     return false;
   }
 
