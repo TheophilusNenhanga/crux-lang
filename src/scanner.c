@@ -108,7 +108,7 @@ static CruxTokenType checkKeyword(const int start, const int length,
  */
 static CruxTokenType identifierType() {
   switch (scanner.start[0]) {
-  case 'a':
+  case 'a': {
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
       case 's': {
@@ -120,6 +120,8 @@ static CruxTokenType identifierType() {
       default:;
       }
     }
+    break;
+  }
   case 'b':
     return checkKeyword(1, 4, "reak", TOKEN_BREAK);
   case 'c': {
@@ -130,6 +132,7 @@ static CruxTokenType identifierType() {
       default:;
       }
     }
+    break;
   }
   case 'd': {
     return checkKeyword(1, 6, "efault", TOKEN_DEFAULT);
@@ -157,12 +160,13 @@ static CruxTokenType identifierType() {
       }
       default:;
       }
+      break;
     }
   case 'o':
     return checkKeyword(1, 1, "r", TOKEN_OR);
   case 'r':
     return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
-  case 's':
+  case 's': {
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
       case 't': {
@@ -173,9 +177,12 @@ static CruxTokenType identifierType() {
       default:;
       }
     }
+    break;
+  }
   case 'w':
     return checkKeyword(1, 4, "hile", TOKEN_WHILE);
-  case 'f':
+  case 'f': {
+
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
       case 'a':
@@ -189,10 +196,12 @@ static CruxTokenType identifierType() {
       default:;
       }
     }
+    break;
+  }
   case 'm': {
     return checkKeyword(1, 4, "atch", TOKEN_MATCH);
   }
-  case 't':
+  case 't': {
     if (scanner.current - scanner.start > 1) {
       switch (scanner.start[1]) {
       case 'r':
@@ -202,6 +211,8 @@ static CruxTokenType identifierType() {
       default:;
       }
     }
+    break;
+  }
   case 'u':
     return checkKeyword(1, 2, "se", TOKEN_USE);
   case 'p':
@@ -403,7 +414,7 @@ Token scanToken() {
       return makeToken(TOKEN_BACK_SLASH_EQUAL);
     }
     return makeToken(TOKEN_BACKSLASH);
-  case '*':
+  case '*': {
     if (match('*')) {
       return makeToken(TOKEN_STAR_STAR);
     }
@@ -411,17 +422,18 @@ Token scanToken() {
       return makeToken(TOKEN_STAR_EQUAL);
     }
     return makeToken(TOKEN_STAR);
+  }
   case '%':
     if (match('=')) {
       return makeToken(TOKEN_PERCENT_EQUAL);
     }
     return makeToken(TOKEN_PERCENT);
-  case '!':
+  case '!': {
     if (match('=')) {
       return makeToken(TOKEN_BANG_EQUAL);
     }
-  case '=':
-    // we can have == or = or => as tokens
+  }
+  case '=': {
     if (match('=')) {
       return makeToken(TOKEN_EQUAL_EQUAL);
     }
@@ -429,6 +441,7 @@ Token scanToken() {
       return makeToken(TOKEN_EQUAL_ARROW);
     }
     return makeToken(TOKEN_EQUAL);
+  }
   case '<':
     if (match('<')) {
       return makeToken(TOKEN_LEFT_SHIFT);

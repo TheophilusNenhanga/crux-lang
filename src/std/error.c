@@ -2,14 +2,16 @@
 
 #include "../memory.h"
 
-ObjectResult *errorFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *errorFunction(VM *vm, int argCount __attribute__((unused)),
+                            const Value *args) {
   const Value message = args[0];
   ObjectString *errorMessage = toString(vm, message);
   ObjectError *error = newError(vm, errorMessage, RUNTIME, false);
   return newOkResult(vm, OBJECT_VAL(error));
 }
 
-ObjectResult *panicFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *panicFunction(VM *vm, int argCount __attribute__((unused)),
+                            const Value *args) {
   const Value value = args[0];
 
   if (IS_CRUX_ERROR(value)) {
@@ -22,7 +24,8 @@ ObjectResult *panicFunction(VM *vm, int argCount, const Value *args) {
   return newErrorResult(vm, error);
 }
 
-ObjectResult *assertFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *assertFunction(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args) {
   if (!IS_BOOL(args[0])) {
     ObjectError *error = newError(
         vm,
@@ -51,13 +54,15 @@ ObjectResult *assertFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *errorMessageMethod(VM *vm, int argCount, const Value *args) {
+Value errorMessageMethod(VM *vm __attribute__((unused)),
+                         int argCount __attribute__((unused)),
+                         const Value *args) {
   const ObjectError *error = AS_CRUX_ERROR(args[0]);
-
-  return newOkResult(vm, OBJECT_VAL(error->message));
+  return OBJECT_VAL(error->message);
 }
 
-ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *errorTypeMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   const ObjectError *error = AS_CRUX_ERROR(args[0]);
 
   switch (error->type) {
@@ -187,7 +192,8 @@ ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args) {
   }
 }
 
-ObjectResult *errFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *errFunction(VM *vm, int argCount __attribute__((unused)),
+                          const Value *args) {
 
   if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
     return newErrorResult(vm, AS_CRUX_ERROR(args[0]));
@@ -198,13 +204,14 @@ ObjectResult *errFunction(VM *vm, int argCount, const Value *args) {
   return newErrorResult(vm, error);
 }
 
-ObjectResult *okFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *okFunction(VM *vm, int argCount __attribute__((unused)),
+                         const Value *args) {
   return newOkResult(vm, args[0]);
 }
 
-Value unwrapFunction(VM *vm, int argCount, const Value *args) {
-  // arg0 - Result
-
+// arg0 - Result
+Value unwrapFunction(VM *vm __attribute__((unused)),
+                     int argCount __attribute__((unused)), const Value *args) {
   const ObjectResult *result = AS_CRUX_RESULT(args[0]);
   if (result->isOk) {
     return result->as.value;

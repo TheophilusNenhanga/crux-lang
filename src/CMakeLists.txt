@@ -10,14 +10,24 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# set(CMAKE_C_FLAGS "-Wall")
-
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+
+	if (UNIX)
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
+	endif ()
+
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fstack-protector-strong")
+
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra -Wpedantic")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat=2 -Wformat-security")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wnull-dereference -Wstack-protector")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Warray-bounds -Wshift-overflow")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_C_FLAGS_RELEASE "-O3")
 	set(CMAKE_C_FLAGS_RELEASE "-O3")
 endif()
 
@@ -42,6 +52,10 @@ add_executable(crux ${SOURCES} ${HEADERS})
 if (UNIX)
 	find_library(MATH_LIBRARY m)
 	target_link_libraries(crux PRIVATE ${MATH_LIBRARY})
+endif ()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND UNIX)
+	target_link_options(crux PRIVATE -fsanitize=address -fsanitize=undefined)
 endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Profile")

@@ -520,7 +520,7 @@ static uint8_t argumentList() {
  * @param canAssign Whether the 'and' expression can be the target of an
  * assignment.
  */
-static void and_(bool canAssign) {
+static void and_(bool canAssign __attribute__((unused))) {
   const int endJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   parsePrecedence(PREC_AND);
@@ -534,7 +534,7 @@ static void and_(bool canAssign) {
  * @param canAssign Whether the 'or' expression can be the target of an
  * assignment.
  */
-static void or_(bool canAssign) {
+static void or_(bool canAssign __attribute__((unused))) {
   const int elseJump = emitJump(OP_JUMP_IF_FALSE);
   const int endJump = emitJump(OP_JUMP);
 
@@ -568,7 +568,7 @@ static ObjectFunction *endCompiler() {
   return function;
 }
 
-static void binary(bool canAssign) {
+static void binary(bool canAssign __attribute__((unused))) {
   const CruxTokenType operatorType = parser.previous.type;
   const ParseRule *rule = getRule(operatorType);
   parsePrecedence(rule->precedence + 1);
@@ -625,7 +625,7 @@ static void binary(bool canAssign) {
   }
 }
 
-static void call(bool canAssign) {
+static void call(bool canAssign __attribute__((unused))) {
   const uint8_t argCount = argumentList();
   emitBytes(OP_CALL, argCount);
 }
@@ -636,7 +636,7 @@ static void call(bool canAssign) {
  * @param canAssign Whether the literal can be the target of an assignment
  * (always false).
  */
-static void literal(bool canAssign) {
+static void literal(bool canAssign __attribute__((unused))) {
   switch (parser.previous.type) {
   case TOKEN_FALSE:
     emitByte(OP_FALSE);
@@ -706,7 +706,7 @@ static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
  */
 static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
   switch (setOp) {
-  case OP_SET_LOCAL:
+  case OP_SET_LOCAL: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_LOCAL_PLUS;
@@ -720,8 +720,17 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_LOCAL_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_LOCAL_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
-  case OP_SET_UPVALUE:
+    }
+    break;
+  }
+  case OP_SET_UPVALUE: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_UPVALUE_PLUS;
@@ -735,8 +744,17 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_UPVALUE_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_UPVALUE_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
-  case OP_SET_GLOBAL:
+    }
+    break;
+  }
+  case OP_SET_GLOBAL: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_GLOBAL_PLUS;
@@ -750,10 +768,20 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_GLOBAL_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_GLOBAL_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
+    }
+    break;
+  }
   default:
     return setOp; // Should never happen
   }
+  return setOp;
 }
 
 /**
@@ -938,19 +966,6 @@ static void variable(const bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
-/**
- * Creates a synthetic token for internal compiler use.
- *
- * @param text The text of the synthetic token.
- * @return The created synthetic token.
- */
-static Token syntheticToken(const char *text) {
-  Token token;
-  token.start = text;
-  token.length = (int)strlen(text);
-  return token;
-}
-
 static void block() {
   while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
     declaration();
@@ -998,7 +1013,7 @@ static void fnDeclaration() {
   defineVariable(global);
 }
 
-static void anonymousFunction(bool canAssign) {
+static void anonymousFunction(bool canAssign __attribute__((unused))) {
   Compiler compiler;
   initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
   beginScope();
@@ -1023,10 +1038,9 @@ static void anonymousFunction(bool canAssign) {
   if (constantIndex > UINT8_MAX) {
     emitByte(OP_ANON_FUNCTION_16);
     emitBytes(constantIndex >> 8 & 0xff, constantIndex & 0xff);
-  }else {
-    emitBytes(OP_ANON_FUNCTION, (uint8_t) constantIndex);
+  } else {
+    emitBytes(OP_ANON_FUNCTION, (uint8_t)constantIndex);
   }
-
 
   for (int i = 0; i < function->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
@@ -1054,9 +1068,11 @@ static void createArray(const OpCode creationOpCode, const char *typeName) {
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void arrayLiteral(bool canAssign) { createArray(OP_ARRAY, "array"); }
+static void arrayLiteral(bool canAssign __attribute__((unused))) {
+  createArray(OP_ARRAY, "array");
+}
 
-static void staticArrayLiteral(bool canAssign) {
+static void staticArrayLiteral(bool canAssign __attribute__((unused))) {
   createArray(OP_STATIC_ARRAY, "static array");
 }
 
@@ -1082,9 +1098,11 @@ static void createTable(const OpCode creationOpCode, const char *typeName) {
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void tableLiteral(bool canAssign) { createTable(OP_TABLE, "table"); }
+static void tableLiteral(bool canAssign __attribute__((unused))) {
+  createTable(OP_TABLE, "table");
+}
 
-static void staticTableLiteral(bool canAssign) {
+static void staticTableLiteral(bool canAssign __attribute__((unused))) {
   createTable(OP_STATIC_TABLE, "static table");
 }
 
@@ -1440,7 +1458,7 @@ static void giveStatement() {
 /**
  * Parses a match expression.
  */
-static void matchExpression(bool canAssign) {
+static void matchExpression(bool canAssign __attribute__((unused))) {
   beginMatchScope();
   expression(); // compile match target
   consume(TOKEN_LEFT_BRACE, "Expected '{' after match target.");
@@ -1652,12 +1670,12 @@ static void statement() {
  * @param canAssign Whether the grouping expression can be the target of an
  * assignment.
  */
-static void grouping(bool canAssign) {
+static void grouping(bool canAssign __attribute__((unused))) {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
-static void number(bool canAssign) {
+static void number(bool canAssign __attribute__((unused))) {
   char *end;
   errno = 0;
 
@@ -1737,7 +1755,7 @@ static char processEscapeSequence(const char escape, bool *hasError) {
  * @param canAssign Whether the string literal can be the target of an
  * assignment.
  */
-static void string(bool canAssign) {
+static void string(bool canAssign __attribute__((unused))) {
   char *processed = ALLOCATE(current->owner, char, parser.previous.length);
 
   if (processed == NULL) {
@@ -1803,7 +1821,7 @@ static void string(bool canAssign) {
  * @param canAssign Whether the unary expression can be the target of an
  * assignment.
  */
-static void unary(bool canAssign) {
+static void unary(bool canAssign __attribute__((unused))) {
   const CruxTokenType operatorType = parser.previous.type;
 
   // compile the operand
@@ -1821,7 +1839,7 @@ static void unary(bool canAssign) {
   }
 }
 
-static void typeofExpression(bool canAssign) {
+static void typeofExpression(bool canAssign __attribute__((unused))) {
   parsePrecedence(PREC_UNARY);
   emitByte(OP_TYPEOF);
 }

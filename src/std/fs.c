@@ -1,37 +1,46 @@
 #include "fs.h"
 
-ObjectResult *listDirFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *listDirFunction(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *isFileFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *isFileFunction(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *isDirFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *isDirFunction(VM *vm, int argCount __attribute__((unused)),
+                            const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *makeDirFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *makeDirFunction(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *deleteDirFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *deleteDirFunction(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *pathExistsFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *pathExistsFunction(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *renameFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *renameFunction(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *copyFileFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *copyFileFunction(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *isFileInFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *isFileInFunction(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args __attribute__((unused))) {
   return newOkResult(vm, NIL_VAL);
 }

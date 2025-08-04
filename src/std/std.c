@@ -4,7 +4,6 @@
 
 #include "../memory.h"
 #include "../panic.h"
-#include "../vm/vm_helpers.h"
 #include "array.h"
 #include "core.h"
 #include "error.h"
@@ -68,8 +67,11 @@ static const InfallibleCallable tableInfallibleMethods[] = {
     {"_get_or_else", tableGetOrElseMethod, 3}};
 
 static const Callable errorMethods[] = {
-    {"message", errorMessageMethod, 1},
     {"type", errorTypeMethod, 1},
+};
+
+static const InfallibleCallable errorInfallibleMethods[] = {
+    {"message", errorMessageMethod, 1},
 };
 
 static const Callable randomMethods[] = {{"seed", randomSeedMethod, 2},
@@ -354,10 +356,7 @@ static bool initModule(VM *vm, const char *moduleName,
     vm->nativeModules.capacity = newCapacity;
   }
 
-  char *nameCopy = ALLOCATE(vm, char, strlen(moduleName) + 1);
-  if (nameCopy == NULL)
-    return false;
-  strcpy(nameCopy, moduleName);
+  ObjectString *nameCopy = copyString(vm, moduleName, (int)strlen(moduleName));
 
   vm->nativeModules.modules[vm->nativeModules.count] =
       (NativeModule){.name = nameCopy, .names = moduleTable};
@@ -407,7 +406,8 @@ bool initializeStdLib(VM *vm) {
                       ARRAY_COUNT(tableInfallibleMethods));
 
   initTypeMethodTable(vm, &vm->errorType, errorMethods,
-                      ARRAY_COUNT(errorMethods), NULL, 0);
+                      ARRAY_COUNT(errorMethods), errorInfallibleMethods,
+                      ARRAY_COUNT(errorInfallibleMethods));
 
   initTypeMethodTable(vm, &vm->randomType, randomMethods,
                       ARRAY_COUNT(randomMethods), randomInfallibleMethods,

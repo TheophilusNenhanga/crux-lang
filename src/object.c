@@ -253,7 +253,7 @@ static uint32_t hashString(const char *key, const size_t length) {
   static const uint32_t FNV_PRIME = 16777619u;
 
   uint32_t hash = FNV_OFFSET_BIAS;
-  for (int i = 0; i < length; i++) {
+  for (size_t i = 0; i < length; i++) {
     hash ^= (uint8_t)key[i];
     hash *= FNV_PRIME;
   }
@@ -376,7 +376,7 @@ static void printFunction(const ObjectFunction *function) {
 
 static void printArray(const Value *values, const uint32_t size) {
   printf("[");
-  for (int i = 0; i < size; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     printValue(values[i], true);
     if (i != size - 1) {
       printf(", ");
@@ -389,7 +389,7 @@ static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
                        const uint32_t size) {
   uint32_t printed = 0;
   printf("{");
-  for (int i = 0; i < capacity; i++) {
+  for (uint32_t i = 0; i < capacity; i++) {
     if (entries[i].isOccupied) {
       printValue(entries[i].key, true);
       printf(":");
@@ -403,11 +403,9 @@ static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
   printf("}");
 }
 
-static void printError(ObjectError *error) {}
-
 static void printStructInstance(const ObjectStructInstance *instance) {
   printf("{");
-  uint32_t printed = 0;
+  int printed = 0;
   const ObjectStruct *type = instance->structType;
   for (int i = 0; i < type->fields.capacity; i++) {
     if (type->fields.entries[i].key != NULL) {
@@ -688,7 +686,7 @@ ObjectString *toString(VM *vm, const Value value) {
   case OBJECT_ARRAY: {
     const ObjectArray *array = AS_CRUX_ARRAY(value);
     size_t bufSize = 2; // [] minimum
-    for (int i = 0; i < array->size; i++) {
+    for (uint32_t i = 0; i < array->size; i++) {
       const ObjectString *element = toString(vm, array->values[i]);
       bufSize += element->length + 2; // element + ", "
     }
@@ -697,7 +695,7 @@ ObjectString *toString(VM *vm, const Value value) {
     char *ptr = buffer;
     *ptr++ = '[';
 
-    for (int i = 0; i < array->size; i++) {
+    for (uint32_t i = 0; i < array->size; i++) {
       if (i > 0) {
         *ptr++ = ',';
         *ptr++ = ' ';
@@ -715,7 +713,7 @@ ObjectString *toString(VM *vm, const Value value) {
   case OBJECT_TABLE: {
     const ObjectTable *table = AS_CRUX_TABLE(value);
     size_t bufSize = 2; // {} minimum
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
       if (table->entries[i].isOccupied) {
         const ObjectString *k = toString(vm, table->entries[i].key);
         const ObjectString *v = toString(vm, table->entries[i].value);
@@ -728,7 +726,7 @@ ObjectString *toString(VM *vm, const Value value) {
     *ptr++ = '{';
 
     bool first = true;
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
       if (table->entries[i].isOccupied) {
         if (!first) {
           *ptr++ = ',';
@@ -870,7 +868,7 @@ ObjectTable *newTable(VM *vm, const int elementCount) {
       elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
   table->size = 0;
   table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
-  for (int i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;
@@ -921,7 +919,7 @@ ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
 static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
                                    const uint16_t capacity, const Value key) {
   const uint32_t hash = hashValue(key);
-  uint32_t index = hash & capacity - 1;
+  uint32_t index = hash & (capacity - 1);
   ObjectTableEntry *tombstone = NULL;
 
   while (1) {
@@ -936,7 +934,7 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
     } else if (valuesEqual(entry->key, key)) {
       return entry;
     }
-    index = index * 5 + 1 & capacity - 1; // new probe
+    index = (index * 5 + 1) & (capacity - 1); // new probe
   }
 }
 
@@ -968,7 +966,7 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, const int capacity) {
 
   table->size = 0;
 
-  for (int i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry *entry = &table->entries[i];
     if (!entry->isOccupied) {
       continue;
@@ -1066,7 +1064,7 @@ ObjectArray *newArray(VM *vm, const uint32_t elementCount) {
   array->capacity = calculateCollectionCapacity(elementCount);
   array->size = 0;
   array->values = ALLOCATE(vm, Value, array->capacity);
-  for (int i = 0; i < array->capacity; i++) {
+  for (uint32_t i = 0; i < array->capacity; i++) {
     array->values[i] = NIL_VAL;
   }
   return array;
@@ -1223,7 +1221,7 @@ ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount) {
 
   table->size = 0;
   table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
-  for (int i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;

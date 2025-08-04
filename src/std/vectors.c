@@ -1,10 +1,13 @@
 #include "vectors.h"
 #include "../object.h"
+#include "../panic.h"
 #include <math.h>
 
 #define EPSILON 1e-10
 
-ObjectResult *newVec2Function(VM *vm, const int argCount, const Value *args) {
+ObjectResult *newVec2Function(VM *vm,
+                              const int argCount __attribute__((unused)),
+                              const Value *args) {
   if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
       (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
     return newErrorResult(
@@ -22,7 +25,9 @@ ObjectResult *newVec2Function(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(newVec2(vm, x, y)));
 }
 
-ObjectResult *newVec3Function(VM *vm, const int argCount, const Value *args) {
+ObjectResult *newVec3Function(VM *vm,
+                              const int argCount __attribute__((unused)),
+                              const Value *args) {
   if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
       (!IS_INT(args[1]) && !IS_FLOAT(args[1])) ||
       (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
@@ -40,10 +45,11 @@ ObjectResult *newVec3Function(VM *vm, const int argCount, const Value *args) {
   const double z =
       IS_INT(args[2]) ? (double)AS_INT(args[2]) : AS_FLOAT(args[2]);
 
-  return newOkResult(vm, OBJECT_VAL(newVec3(vm, x, y, z)));
+  return newOkResult(vm, OBJECT_VAL(newVec3(vm, x, y, z))); // still to fix this
 }
 
-ObjectResult *vec2DotMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2DotMethod(VM *vm, const int argCount __attribute__((unused)),
+                            const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
         vm,
@@ -61,7 +67,8 @@ ObjectResult *vec2DotMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec3DotMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3DotMethod(VM *vm, const int argCount __attribute__((unused)),
+                            const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
         vm,
@@ -80,7 +87,8 @@ ObjectResult *vec3DotMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec2AddMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2AddMethod(VM *vm, const int argCount __attribute__((unused)),
+                            const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
         vm,
@@ -98,7 +106,8 @@ ObjectResult *vec2AddMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec3AddMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3AddMethod(VM *vm, const int argCount __attribute__((unused)),
+                            const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
         vm,
@@ -117,7 +126,8 @@ ObjectResult *vec3AddMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec2SubtractMethod(VM *vm, const int argCount,
+ObjectResult *vec2SubtractMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
@@ -137,7 +147,8 @@ ObjectResult *vec2SubtractMethod(VM *vm, const int argCount,
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec3SubtractMethod(VM *vm, const int argCount,
+ObjectResult *vec3SubtractMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
@@ -158,7 +169,8 @@ ObjectResult *vec3SubtractMethod(VM *vm, const int argCount,
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec2MultiplyMethod(VM *vm, const int argCount,
+ObjectResult *vec2MultiplyMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
     return newErrorResult(
@@ -181,7 +193,8 @@ ObjectResult *vec2MultiplyMethod(VM *vm, const int argCount,
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec3MultiplyMethod(VM *vm, const int argCount,
+ObjectResult *vec3MultiplyMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
 
   if (!IS_CRUX_VEC3(args[0]) || (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
@@ -206,7 +219,9 @@ ObjectResult *vec3MultiplyMethod(VM *vm, const int argCount,
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec2DivideMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2DivideMethod(VM *vm,
+                               const int argCount __attribute__((unused)),
+                               const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
     return newErrorResult(
         vm,
@@ -234,7 +249,9 @@ ObjectResult *vec2DivideMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec3DivideMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3DivideMethod(VM *vm,
+                               const int argCount __attribute__((unused)),
+                               const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
     return newErrorResult(
         vm,
@@ -263,7 +280,8 @@ ObjectResult *vec3DivideMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec2MagnitudeMethod(VM *vm, const int argCount,
+ObjectResult *vec2MagnitudeMethod(VM *vm,
+                                  const int argCount __attribute__((unused)),
                                   const Value *args) {
 
   if (!IS_CRUX_VEC2(args[0])) {
@@ -283,7 +301,8 @@ ObjectResult *vec2MagnitudeMethod(VM *vm, const int argCount,
   return newOkResult(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec3MagnitudeMethod(VM *vm, const int argCount,
+ObjectResult *vec3MagnitudeMethod(VM *vm,
+                                  const int argCount __attribute__((unused)),
                                   const Value *args) {
 
   if (!IS_CRUX_VEC3(args[0])) {
@@ -304,7 +323,8 @@ ObjectResult *vec3MagnitudeMethod(VM *vm, const int argCount,
   return newOkResult(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec2NormalizeMethod(VM *vm, const int argCount,
+ObjectResult *vec2NormalizeMethod(VM *vm,
+                                  const int argCount __attribute__((unused)),
                                   const Value *args) {
 
   if (!IS_CRUX_VEC2(args[0])) {
@@ -332,7 +352,8 @@ ObjectResult *vec2NormalizeMethod(VM *vm, const int argCount,
   return newOkResult(vm, OBJECT_VAL(result));
 }
 
-ObjectResult *vec3NormalizeMethod(VM *vm, const int argCount,
+ObjectResult *vec3NormalizeMethod(VM *vm,
+                                  const int argCount __attribute__((unused)),
                                   const Value *args) {
   if (!IS_CRUX_VEC3(args[0])) {
     return newErrorResult(
@@ -362,7 +383,8 @@ ObjectResult *vec3NormalizeMethod(VM *vm, const int argCount,
 }
 
 // argCount: 2
-ObjectResult *vec2DistanceMethod(VM *vm, const int argCount,
+ObjectResult *vec2DistanceMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
 
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
@@ -386,14 +408,17 @@ ObjectResult *vec2DistanceMethod(VM *vm, const int argCount,
 }
 
 // argCount: 1
-ObjectResult *vec2AngleMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2AngleMethod(VM *vm,
+                              const int argCount __attribute__((unused)),
+                              const Value *args) {
   const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
   const double result = atan2(vec->y, vec->x);
   return newOkResult(vm, FLOAT_VAL(result));
 }
 
 // argCount: 2
-ObjectResult *vec2AngleBetweenMethod(VM *vm, const int argCount,
+ObjectResult *vec2AngleBetweenMethod(VM *vm,
+                                     const int argCount __attribute__((unused)),
                                      const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
@@ -429,7 +454,9 @@ ObjectResult *vec2AngleBetweenMethod(VM *vm, const int argCount,
 }
 
 // argCount: 2
-ObjectResult *vec2RotateMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2RotateMethod(VM *vm,
+                               const int argCount __attribute__((unused)),
+                               const Value *args) {
 
   if (!IS_CRUX_VEC2(args[0]) || (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
     return newErrorResult(
@@ -458,7 +485,8 @@ ObjectResult *vec2RotateMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 3
-ObjectResult *vec2LerpMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2LerpMethod(VM *vm, const int argCount __attribute__((unused)),
+                             const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1]) ||
       (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
     return newErrorResult(
@@ -483,7 +511,9 @@ ObjectResult *vec2LerpMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec2ReflectMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2ReflectMethod(VM *vm,
+                                const int argCount __attribute__((unused)),
+                                const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
         vm, newError(
@@ -519,7 +549,8 @@ ObjectResult *vec2ReflectMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec3DistanceMethod(VM *vm, const int argCount,
+ObjectResult *vec3DistanceMethod(VM *vm,
+                                 const int argCount __attribute__((unused)),
                                  const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
@@ -543,7 +574,9 @@ ObjectResult *vec3DistanceMethod(VM *vm, const int argCount,
 }
 
 // argCount: 2
-ObjectResult *vec3CrossMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3CrossMethod(VM *vm,
+                              const int argCount __attribute__((unused)),
+                              const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
         vm,
@@ -565,7 +598,8 @@ ObjectResult *vec3CrossMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec3AngleBetweenMethod(VM *vm, const int argCount,
+ObjectResult *vec3AngleBetweenMethod(VM *vm,
+                                     const int argCount __attribute__((unused)),
                                      const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
@@ -603,7 +637,8 @@ ObjectResult *vec3AngleBetweenMethod(VM *vm, const int argCount,
 }
 
 // argCount: 3
-ObjectResult *vec3LerpMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3LerpMethod(VM *vm, const int argCount __attribute__((unused)),
+                             const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1]) ||
       (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
     return newErrorResult(
@@ -629,7 +664,9 @@ ObjectResult *vec3LerpMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec3ReflectMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3ReflectMethod(VM *vm,
+                                const int argCount __attribute__((unused)),
+                                const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
         vm, newError(
@@ -668,7 +705,9 @@ ObjectResult *vec3ReflectMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec2EqualsMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec2EqualsMethod(VM *vm,
+                               const int argCount __attribute__((unused)),
+                               const Value *args) {
   if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
     return newErrorResult(
         vm,
@@ -688,7 +727,9 @@ ObjectResult *vec2EqualsMethod(VM *vm, const int argCount, const Value *args) {
 }
 
 // argCount: 2
-ObjectResult *vec3EqualsMethod(VM *vm, const int argCount, const Value *args) {
+ObjectResult *vec3EqualsMethod(VM *vm,
+                               const int argCount __attribute__((unused)),
+                               const Value *args) {
   if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
     return newErrorResult(
         vm,
@@ -707,22 +748,27 @@ ObjectResult *vec3EqualsMethod(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, BOOL_VAL(equal));
 }
 
-Value vec2XMethod(VM *vm, int argCount, const Value *args) {
+Value vec2XMethod(VM *vm __attribute__((unused)),
+                  int argCount __attribute__((unused)), const Value *args) {
   return FLOAT_VAL(AS_CRUX_VEC2(args[0])->x);
 }
 
-Value vec2YMethod(VM *vm, int argCount, const Value *args) {
+Value vec2YMethod(VM *vm __attribute__((unused)),
+                  int argCount __attribute__((unused)), const Value *args) {
   return FLOAT_VAL(AS_CRUX_VEC2(args[0])->y);
 }
 
-Value vec3XMethod(VM *vm, int argCount, const Value *args) {
+Value vec3XMethod(VM *vm __attribute__((unused)),
+                  int argCount __attribute__((unused)), const Value *args) {
   return FLOAT_VAL(AS_CRUX_VEC3(args[0])->x);
 }
 
-Value vec3YMethod(VM *vm, int argCount, const Value *args) {
+Value vec3YMethod(VM *vm __attribute__((unused)),
+                  int argCount __attribute__((unused)), const Value *args) {
   return FLOAT_VAL(AS_CRUX_VEC3(args[0])->y);
 }
 
-Value vec3ZMethod(VM *vm, int argCount, const Value *args) {
+Value vec3ZMethod(VM *vm __attribute__((unused)),
+                  int argCount __attribute__((unused)), const Value *args) {
   return FLOAT_VAL(AS_CRUX_VEC3(args[0])->z);
 }

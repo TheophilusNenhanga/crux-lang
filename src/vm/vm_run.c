@@ -1316,8 +1316,7 @@ OP_USE_NATIVE: {
   ObjectString *moduleName = READ_STRING();
   int moduleIndex = -1;
   for (int i = 0; i < vm->nativeModules.count; i++) {
-    if (memcmp(moduleName->chars, vm->nativeModules.modules[i].name,
-               moduleName->length) == 0) {
+    if (moduleName == vm->nativeModules.modules[i].name) {
       moduleIndex = i;
       break;
     }
@@ -1700,12 +1699,12 @@ OP_STRUCT_INSTANCE_START: {
   if (!pushStructStack(vm, structInstance)) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to push struct onto stack.");
+    return INTERPRET_RUNTIME_ERROR;
   }
   DISPATCH();
 }
 
 OP_STRUCT_NAMED_FIELD: {
-  // printf("Got here\n");
   ObjectStructInstance *structInstance = peekStructStack(vm);
   if (structInstance == NULL) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
@@ -1758,6 +1757,7 @@ OP_STRUCT_INSTANCE_END: {
   if (structInstance == NULL) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to pop struct from stack.");
+    return INTERPRET_RUNTIME_ERROR;
   }
   PUSH(currentModuleRecord, OBJECT_VAL(structInstance));
   DISPATCH();

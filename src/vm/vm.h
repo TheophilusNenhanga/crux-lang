@@ -26,7 +26,7 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
-  char *name;
+  ObjectString* name;
   Table *names;
 } NativeModule;
 
@@ -39,8 +39,8 @@ typedef struct {
 
 typedef struct {
   NativeModule *modules;
-  int count;
-  int capacity;
+  uint8_t capacity;
+  uint8_t count;
 } NativeModules;
 
 typedef struct {
@@ -102,7 +102,6 @@ runtimePanic((moduleRecord), true, STACK_OVERFLOW, "Stack overflow error"); \
 
 #define POP(moduleRecord) \
 ({ \
-Value popped_value; \
 if (__builtin_expect((moduleRecord)->stackTop <= (moduleRecord)->stack, 0)) { \
 runtimePanic((moduleRecord), true, RUNTIME, "Stack underflow error"); \
 } \

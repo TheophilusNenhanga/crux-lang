@@ -19,7 +19,7 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
     collectGarbage(vm);
 #endif
     if (vm->bytesAllocated > vm->nextGC) {
-      // collectGarbage(vm);
+      collectGarbage(vm);
     }
   }
 
@@ -88,7 +88,7 @@ void markArray(VM *vm, const ValueArray *array) {
  * @param size The size of the array
  */
 void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
-  for (int i = 0; i < size; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     markValue(vm, values[i]);
   }
 }
@@ -106,7 +106,7 @@ void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
  */
 void markObjectTable(VM *vm, const ObjectTableEntry *entries,
                      const uint32_t capacity) {
-  for (int i = 0; i < capacity; i++) {
+  for (uint32_t i = 0; i < capacity; i++) {
     if (entries[i].isOccupied) {
       markValue(vm, entries[i].value);
       markValue(vm, entries[i].key);
@@ -412,13 +412,11 @@ static void freeObject(VM *vm, Object *object) {
   }
 
   case OBJECT_VEC2: {
-    const ObjectVec2 *vec2 = (ObjectVec2 *)object;
     FREE(vm, ObjectVec2, object);
     break;
   }
 
   case OBJECT_VEC3: {
-    const ObjectVec3 *vec3 = (ObjectVec3 *)object;
     FREE(vm, ObjectVec3, object);
     break;
   }
@@ -454,7 +452,7 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
 }
 
 void markStructInstanceStack(VM *vm, const StructInstanceStack *stack) {
-  for (int i = 0; i < stack->count; i++) {
+  for (uint32_t i = 0; i < stack->count; i++) {
     markStructInstance(vm, stack->structs[i]);
   }
 }
@@ -473,7 +471,7 @@ void markRoots(VM *vm) {
     markModuleRoots(vm, vm->currentModuleRecord);
   }
 
-  for (int i = 0; i < vm->importStack.count; i++) {
+  for (uint32_t i = 0; i < vm->importStack.count; i++) {
     markObject(vm, (Object *)vm->importStack.paths[i]);
   }
 
@@ -548,7 +546,6 @@ static void sweep(VM *vm) {
 }
 
 void collectGarbage(VM *vm) {
-  // printf("I GCd\n");
 #ifdef DEBUG_LOG_GC
   printf("-- gc begin\n");
   size_t before = vm->bytesAllocated;

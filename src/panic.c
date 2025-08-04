@@ -98,9 +98,7 @@ static ErrorDetails getErrorDetails(const ErrorType type) {
     return (ErrorDetails){"Memory Error", "Cannot allocate more memory."};
   }
   case ASSERT: {
-    return (ErrorDetails){
-        "Assert Error",
-        "The assert statement failed."};
+    return (ErrorDetails){"Assert Error", "The assert statement failed."};
   }
   case IMPORT_EXTENT: {
     return (ErrorDetails){"Import Extent Error",
@@ -246,7 +244,7 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 
       if (function->chunk.code != NULL && frame->ip >= function->chunk.code) {
         instruction = frame->ip - function->chunk.code - 1;
-        if (instruction >= function->chunk.count) {
+        if (instruction >= (size_t)function->chunk.count) {
           instruction =
               function->chunk.count > 0 ? function->chunk.count - 1 : 0;
         }
@@ -258,7 +256,7 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 
       int line = 0;
       if (function->chunk.lines != NULL &&
-          instruction < function->chunk.capacity) {
+          instruction < (size_t)function->chunk.capacity) {
         line = function->chunk.lines[instruction];
       } else if (function->chunk.lines != NULL &&
                  function->chunk.capacity > 0) {
@@ -311,7 +309,7 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 
 char *repeat(const char c, const int count) {
   static char buffer[256];
-  int i;
+  size_t i;
   for (i = 0; i < count && i < sizeof(buffer) - 1; i++) {
     buffer[i] = c;
   }

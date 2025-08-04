@@ -166,11 +166,15 @@ ObjectResult *roundFunction(VM *vm, const int argCount, const Value *args) {
   return newOkResult(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
 }
 
-Value piFunction(VM *vm, int argCount, const Value *args) {
+Value piFunction(VM *vm __attribute__((unused)),
+                 int argCount __attribute__((unused)),
+                 const Value *args __attribute__((unused))) {
   return FLOAT_VAL(3.14159265358979323846);
 }
 
-Value eFunction(VM *vm, int argCount, const Value *args) {
+Value eFunction(VM *vm __attribute__((unused)),
+                int argCount __attribute__((unused)),
+                const Value *args __attribute__((unused))) {
   return FLOAT_VAL(2.71828182845904523536);
 }
 

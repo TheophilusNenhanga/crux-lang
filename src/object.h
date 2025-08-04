@@ -100,7 +100,7 @@ struct Object {
 struct ObjectString {
   Object Object;
   char *chars;
-  uint32_t length;
+  uint32_t length; // this is the length without the null terminator
   uint32_t hash;
 };
 
