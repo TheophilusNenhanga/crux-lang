@@ -91,7 +91,7 @@ static bool stringEquals(const ObjectString *a, const ObjectString *b) {
 
 bool isInImportStack(const VM *vm, const ObjectString *path) {
   const ImportStack *stack = &vm->importStack;
-  for (int i = 0; i < stack->count; i++) {
+  for (uint32_t i = 0; i < stack->count; i++) {
     if (stack->paths[i] == path || stringEquals(stack->paths[i], path)) {
       return true;
     }
@@ -1091,6 +1091,10 @@ Value typeofValue(VM *vm, const Value value) {
       return OBJECT_VAL(copyString(vm, "struct", 6));
     case OBJECT_STRUCT_INSTANCE:
       return OBJECT_VAL(copyString(vm, "struct instance", 15));
+    case OBJECT_VEC2:
+      return OBJECT_VAL(copyString(vm, "vec2", 4));
+    case OBJECT_VEC3:
+      return OBJECT_VAL(copyString(vm, "vec3", 4));
     }
   }
 

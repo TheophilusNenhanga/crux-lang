@@ -3,7 +3,7 @@
 ObjectResult *tableValuesMethod(VM *vm, int argCount __attribute__((unused)),
                                 const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
-  ObjectArray *values = newArray(vm, table->size);
+  ObjectArray *values = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (values == NULL) {
     return newErrorResult(
@@ -34,7 +34,7 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount __attribute__((unused)),
                               const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-  ObjectArray *keys = newArray(vm, table->size);
+  ObjectArray *keys = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (keys == NULL) {
     return newErrorResult(
@@ -65,7 +65,7 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
                                const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-  ObjectArray *pairs = newArray(vm, table->size);
+  ObjectArray *pairs = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (pairs == NULL) {
     return newErrorResult(
@@ -82,7 +82,7 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
   for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
-      ObjectArray *pair = newArray(vm, 2);
+      ObjectArray *pair = newArray(vm, 2, vm->currentModuleRecord);
 
       if (pair == NULL) {
         return newErrorResult(

@@ -214,6 +214,7 @@ ObjectResult *stringSubstringMethod(VM *vm,
 
 ObjectResult *stringSplitMethod(VM *vm, int argCount __attribute__((unused)),
                                 const Value *args) {
+  ObjectModuleRecord* moduleRecord = vm->currentModuleRecord;
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(
         vm, newError(
@@ -231,13 +232,13 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount __attribute__((unused)),
   }
 
   if (string->length == 0) {
-    ObjectArray *resultArray = newArray(vm, 1);
+    ObjectArray *resultArray = newArray(vm, 1, moduleRecord);
     arrayAddBack(vm, resultArray, OBJECT_VAL(copyString(vm, "", 0)));
     return newOkResult(vm, OBJECT_VAL(resultArray));
   }
 
   if (delimiter->length > string->length) {
-    ObjectArray *resultArray = newArray(vm, 1);
+    ObjectArray *resultArray = newArray(vm, 1, moduleRecord);
     arrayAdd(vm, resultArray, OBJECT_VAL(string), 0);
     return newOkResult(vm, OBJECT_VAL(resultArray));
   }
@@ -256,7 +257,7 @@ ObjectResult *stringSplitMethod(VM *vm, int argCount __attribute__((unused)),
 
   // initial guess of splits size
   ObjectArray *resultArray =
-      newArray(vm, stringLength / (delimiterLength + 1) + 1);
+      newArray(vm, stringLength / (delimiterLength + 1) + 1, moduleRecord);
 
   uint32_t lastSplitIndex = 0;
   uint32_t j = 0;

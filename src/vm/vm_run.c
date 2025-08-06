@@ -479,7 +479,7 @@ OP_INVOKE: {
 
 OP_ARRAY: {
   uint16_t elementCount = READ_SHORT();
-  ObjectArray *array = newArray(vm, elementCount);
+  ObjectArray *array = newArray(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     arrayAdd(vm, array, POP(currentModuleRecord), i);
   }
@@ -1039,7 +1039,7 @@ OP_SET_GLOBAL_MINUS: {
 
 OP_TABLE: {
   uint16_t elementCount = READ_SHORT();
-  ObjectTable *table = newTable(vm, elementCount);
+  ObjectTable *table = newTable(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     Value value = POP(currentModuleRecord);
     Value key = POP(currentModuleRecord);
@@ -1648,7 +1648,7 @@ OP_TYPEOF: {
 
 OP_STATIC_ARRAY: {
   uint16_t elementCount = READ_SHORT();
-  ObjectStaticArray *array = newStaticArray(vm, elementCount);
+  ObjectStaticArray *array = newStaticArray(vm, elementCount, currentModuleRecord);
   Value *values = array->values;
   for (int i = elementCount - 1; i >= 0; i--) {
     values[i] = POP(currentModuleRecord);
@@ -1659,7 +1659,7 @@ OP_STATIC_ARRAY: {
 
 OP_STATIC_TABLE: {
   uint16_t elementCount = READ_SHORT();
-  ObjectStaticTable *table = newStaticTable(vm, elementCount);
+  ObjectStaticTable *table = newStaticTable(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     Value value = POP(currentModuleRecord);
     Value key = POP(currentModuleRecord);
@@ -1694,7 +1694,7 @@ OP_STRUCT_INSTANCE_START: {
   Value value = PEEK(currentModuleRecord, 0);
   ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
   ObjectStructInstance *structInstance =
-      newStructInstance(vm, objectStruct, objectStruct->fields.count);
+      newStructInstance(vm, objectStruct, objectStruct->fields.count, currentModuleRecord);
   POP(currentModuleRecord); // struct type
   if (!pushStructStack(vm, structInstance)) {
     runtimePanic(currentModuleRecord, false, RUNTIME,

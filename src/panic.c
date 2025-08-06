@@ -309,8 +309,8 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 
 char *repeat(const char c, const int count) {
   static char buffer[256];
-  size_t i;
-  for (i = 0; i < count && i < sizeof(buffer) - 1; i++) {
+  int i;
+  for (i = 0; i < count && i < (int)sizeof(buffer) - 1; i++) {
     buffer[i] = c;
   }
   buffer[i] = '\0';

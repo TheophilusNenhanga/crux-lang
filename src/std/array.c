@@ -129,7 +129,7 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount __attribute__((unused)),
                  BOUNDS, false));
   }
 
-  ObjectArray *resultArray = newArray(vm, combinedSize);
+  ObjectArray *resultArray = newArray(vm, combinedSize, vm->currentModuleRecord);
 
   for (uint32_t i = 0; i < combinedSize; i++) {
     resultArray->values[i] = i < array->size
@@ -183,7 +183,7 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount __attribute__((unused)),
   }
 
   const size_t sliceSize = endIndex - startIndex;
-  ObjectArray *slicedArray = newArray(vm, sliceSize);
+  ObjectArray *slicedArray = newArray(vm, sliceSize, vm->currentModuleRecord);
 
   for (size_t i = 0; i < sliceSize; i++) {
     slicedArray->values[i] = array->values[startIndex + i];
@@ -313,7 +313,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount __attribute__((unused)),
                  ARGUMENT_MISMATCH, true));
   }
 
-  ObjectArray *resultArray = newArray(vm, array->size);
+  ObjectArray *resultArray = newArray(vm, array->size, vm->currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   for (uint32_t i = 0; i < array->size; i++) {
     const Value arrayValue = array->values[i];
@@ -364,7 +364,7 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount __attribute__((unused)),
                  ARGUMENT_MISMATCH, true));
   }
 
-  ObjectArray *resultArray = newArray(vm, array->size);
+  ObjectArray *resultArray = newArray(vm, array->size, vm->currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   uint32_t addCount = 0;
   for (uint32_t i = 0; i < array->size; i++) {
@@ -565,7 +565,7 @@ ObjectResult *arraySortMethod(VM *vm, int argCount __attribute__((unused)),
                 TYPE, false));
   }
 
-  ObjectArray *sortedArray = newArray(vm, array->size);
+  ObjectArray *sortedArray = newArray(vm, array->size, vm->currentModuleRecord);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   PUSH(currentModuleRecord, OBJECT_VAL(sortedArray));
 

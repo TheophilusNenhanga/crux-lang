@@ -9,6 +9,37 @@
 #include "value.h"
 #include "vm/vm.h"
 
+#define GC_PROTECT_START(currentModuleRecord) Value* gcStackStart = (currentModuleRecord)->stackTop
+#define GC_PROTECT(currentModuleRecord, value) PUSH((currentModuleRecord), (value))
+#define GC_PROTECT_END(currentModuleRecord) (currentModuleRecord)->stackTop = gcStackStart
+
+#define STATIC_STRING_LEN(staticString) sizeof((staticString)) - 1
+
+// Only works with string literals
+#define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)\
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord);\
+ObjectString* message = copyString((vm), (gcSafeStaticMessage), STATIC_STRING_LEN((gcSafeStaticMessage)) );\
+GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));\
+ObjectError* gcSafeError = newError((vm), message, (gcSafeErrorType), false);\
+GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(gcSafeError));\
+ObjectResult* gcSafeErrorResult = newErrorResult((vm), gcSafeError);\
+GC_PROTECT_END((vm)->currentModuleRecord);\
+gcSafeErrorResult;\
+})
+
+// Only works with Objects - gcSafeCreateExpr must create an object
+#define MAKE_GC_SAFE_RESULT(vm, gcSafeCreateExpr) \
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord); \
+Value gcSafeTempValue = OBJECT_VAL((gcSafeCreateExpr)); \
+GC_PROTECT((vm)->currentModuleRecord, gcSafeTempValue); \
+ObjectResult* gcSafeResult = newOkResult((vm), gcSafeTempValue); \
+GC_PROTECT_END((vm)->currentModuleRecord); \
+gcSafeResult; \
+})
+
+
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
 #define IS_CRUX_STRING(value) isObjectType(value, OBJECT_STRING)
@@ -443,10 +474,11 @@ ObjectFunction *newFunction(VM *vm);
  * @param elementCount Hint for initial table size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount` (or 16 if
  * `elementCount` is less than 16).
+ * @param moduleRecord
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *newTable(VM *vm, int elementCount);
+ObjectTable *newTable(VM *vm, const int elementCount, ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -484,10 +516,11 @@ ObjectResult *newErrorResult(VM *vm, ObjectError *error);
  * @param vm The virtual machine.
  * @param elementCount Hint for initial array size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount`.
+ * @param moduleRecord
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *newArray(VM *vm, uint32_t elementCount);
+ObjectArray *newArray(VM *vm, uint32_t elementCount, ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -704,16 +737,16 @@ bool objectTableRemove(ObjectTable *table, Value key);
  */
 bool objectTableContainsKey(ObjectTable *table, Value key);
 
-ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount);
+ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
 
-ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
+ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
 
 bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
 
 ObjectStruct *newStructType(VM *vm, ObjectString *name);
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        uint16_t fieldCount);
+                                        uint16_t fieldCount, ObjectModuleRecord *moduleRecord);
 
 ObjectVec2* newVec2(VM* vm, double x, double y);
 

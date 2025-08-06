@@ -862,8 +862,10 @@ newNativeInfallibleMethod(VM *vm, const CruxInfallibleCallable function,
   return native;
 }
 
-ObjectTable *newTable(VM *vm, const int elementCount) {
+ObjectTable *newTable(VM *vm, const int elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
   table->capacity =
       elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
   table->size = 0;
@@ -873,6 +875,7 @@ ObjectTable *newTable(VM *vm, const int elementCount) {
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;
   }
+  GC_PROTECT_END(moduleRecord);
   return table;
 }
 
@@ -1059,14 +1062,17 @@ bool objectTableGet(ObjectTableEntry *entries, const uint32_t size,
   return true;
 }
 
-ObjectArray *newArray(VM *vm, const uint32_t elementCount) {
+ObjectArray *newArray(VM *vm, const uint32_t elementCount, ObjectModuleRecord* moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(array));
   array->capacity = calculateCollectionCapacity(elementCount);
   array->size = 0;
   array->values = ALLOCATE(vm, Value, array->capacity);
   for (uint32_t i = 0; i < array->capacity; i++) {
     array->values[i] = NIL_VAL;
   }
+  GC_PROTECT_END(moduleRecord);
   return array;
 }
 
@@ -1205,17 +1211,22 @@ void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
   freeTable(vm, &record->publics);
 }
 
-ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount) {
+ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStaticArray *array =
       ALLOCATE_OBJECT(vm, ObjectStaticArray, OBJECT_STATIC_ARRAY);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(array));
   array->size = elementCount;
   array->values = ALLOCATE(vm, Value, elementCount);
+  GC_PROTECT_END(moduleRecord);
   return array;
 }
 
-ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount) {
+ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStaticTable *table =
       ALLOCATE_OBJECT(vm, ObjectStaticTable, OBJECT_STATIC_TABLE);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
   table->capacity = calculateCollectionCapacity(
       (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
 
@@ -1226,6 +1237,7 @@ ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount) {
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;
   }
+  GC_PROTECT_END(moduleRecord);
   return table;
 }
 
@@ -1257,15 +1269,18 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name) {
 }
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        const uint16_t fieldCount) {
+                                        const uint16_t fieldCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStructInstance *structInstance =
       ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(structInstance));
   structInstance->structType = structType;
   structInstance->fields = ALLOCATE(vm, Value, fieldCount);
   for (int i = 0; i < fieldCount; i++) {
     structInstance->fields[i] = NIL_VAL;
   }
   structInstance->fieldCount = fieldCount;
+  GC_PROTECT_END(moduleRecord);
   return structInstance;
 }
 

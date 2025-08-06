@@ -16,8 +16,8 @@
 ObjectResult *argsFunction(VM *vm, int argCount __attribute__((unused)),
                            const Value *args __attribute__((unused))) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-  ObjectArray *resultArray = newArray(vm, 2);
-  ObjectArray *argvArray = newArray(vm, vm->args.argc);
+  ObjectArray *resultArray = newArray(vm, 2, currentModuleRecord);
+  ObjectArray *argvArray = newArray(vm, vm->args.argc, currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   PUSH(currentModuleRecord, OBJECT_VAL(argvArray));
 
