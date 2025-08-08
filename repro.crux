@@ -1,0 +1,2 @@
+struct Test {a, b}
+let a = new Test {a:1, b:2};

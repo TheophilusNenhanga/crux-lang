@@ -42,7 +42,7 @@ ObjectStructInstance *popStructStack(VM *vm) {
 }
 
 ObjectStructInstance *peekStructStack(const VM *vm) {
-  if (vm->structInstanceStack.count < vm->structInstanceStack.capacity) {
+  if (vm->structInstanceStack.count > 0) {
     return vm->structInstanceStack.structs[vm->structInstanceStack.count - 1];
   }
   return NULL;
@@ -625,16 +625,15 @@ void freeVM(VM *vm) {
   for (int i = 0; i < vm->nativeModules.count; i++) {
     const NativeModule module = vm->nativeModules.modules[i];
     freeTable(vm, module.names);
-    FREE(vm, char, module.name);
     FREE(vm, Table, module.names);
   }
-  FREE_ARRAY(vm, NativeModule, vm->nativeModules.modules,
-             vm->nativeModules.capacity);
+  freeNativeModules(&vm->nativeModules);
 
   freeTable(vm, &vm->moduleCache);
 
   freeImportStack(vm);
-  freeNativeModules(&vm->nativeModules);
+
+  freeStructInstanceStack(&vm->structInstanceStack);
 
   freeModuleRecord(vm, vm->currentModuleRecord);
 

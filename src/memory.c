@@ -344,7 +344,7 @@ static void freeObject(VM *vm, Object *object) {
   case OBJECT_STATIC_ARRAY: {
     const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
     FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
-    FREE(vm, ObjectArray, object);
+    FREE(vm, ObjectStaticArray, object);
     break;
   }
 
@@ -480,6 +480,7 @@ void markRoots(VM *vm) {
   if (vm->nativeModules.modules != NULL) {
   for (int i = 0; i < vm->nativeModules.count; i++) {
     markTable(vm, vm->nativeModules.modules[i].names);
+    markObject(vm, (Object*) vm->nativeModules.modules[i].name);
   }
   }
 
