@@ -817,6 +817,7 @@ ObjectFunction *newFunction(VM *vm) {
   function->name = NULL;
   function->upvalueCount = 0;
   initChunk(&function->chunk);
+  function->moduleRecord = vm->currentModuleRecord;
   return function;
 }
 
@@ -1168,6 +1169,48 @@ ObjectRandom *newRandom(VM *vm) {
   random->seed = tv.tv_sec ^ tv.tv_usec ^ (uint64_t)getpid();
 #endif
   return random;
+}
+
+bool initModuleRecord(ObjectModuleRecord* moduleRecord, ObjectString *path,
+                                          const bool isRepl,
+                                          const bool isMain) {
+  moduleRecord->object.isMarked = false;
+  moduleRecord->object.type = OBJECT_MODULE_RECORD;
+  moduleRecord->object.next = NULL;
+
+  moduleRecord->path = path;
+  initTable(&moduleRecord->globals);
+  initTable(&moduleRecord->publics);
+  moduleRecord->state = STATE_LOADING;
+  moduleRecord->moduleClosure = NULL;
+  moduleRecord->enclosingModule = NULL;
+
+  moduleRecord->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
+  if (moduleRecord->stack == NULL) {
+    return false;
+  }
+  moduleRecord->stackTop = moduleRecord->stack;
+  moduleRecord->stackLimit = moduleRecord->stack + STACK_MAX;
+  moduleRecord->openUpvalues = NULL;
+
+  moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
+  if (moduleRecord->frames == NULL) {
+    return false;
+  }
+  moduleRecord->frameCount = 0;
+  moduleRecord->frameCapacity = FRAMES_MAX;
+
+  moduleRecord->isMain = isMain;
+  moduleRecord->isRepl = isRepl;
+  return true;
+}
+
+void freeModuleRecord(VM* vm, ObjectModuleRecord* moduleRecord) {
+  freeTable(vm, &moduleRecord->globals);
+  freeTable(vm, &moduleRecord->publics);
+  free(moduleRecord->stack);
+  free(moduleRecord->frames);
+  free(moduleRecord);
 }
 
 ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,

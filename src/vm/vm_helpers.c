@@ -498,35 +498,58 @@ bool concatenate(VM *vm) {
   return true;
 }
 
+void initStructInstanceStack(StructInstanceStack* stack) {
+  stack->structs = NULL;
+  stack->capacity = STRUCT_INSTANCE_DEPTH;
+  stack->count = 0;
+}
+
+void freeStructInstanceStack(StructInstanceStack* stack) {
+  free(stack->structs);
+  stack->structs = NULL;
+  stack->capacity = 0;
+  stack->count = 0;
+}
+
+void initMatchHandler(MatchHandler* matchHandler) {
+  matchHandler->isMatchBind = false;
+  matchHandler->isMatchTarget = false;
+  matchHandler->matchBind = NIL_VAL;
+  matchHandler->matchTarget = NIL_VAL;
+}
+
+void initNativeModules(NativeModules *nativeModules) {
+  nativeModules->modules = NULL;
+  nativeModules->capacity = 0;
+  nativeModules->count = 0;
+}
+
+void freeNativeModules(NativeModules *nativeModules) {
+  free(nativeModules->modules);
+  nativeModules->modules = NULL;
+  nativeModules->capacity = 0;
+  nativeModules->count = 0;
+}
+
 void initVM(VM *vm, const int argc, const char **argv) {
   const bool isRepl = argc == 1 ? true : false;
-
+  vm->gcStatus = PAUSED;
   vm->objects = NULL;
   vm->bytesAllocated = 0;
   vm->nextGC = 1024 * 1024;
   vm->grayCount = 0;
   vm->grayCapacity = 0;
   vm->grayStack = NULL;
+  vm->structInstanceStack.structs = NULL;
 
-  vm->currentModuleRecord = newObjectModuleRecord(vm, NULL, isRepl, true);
+  vm->currentModuleRecord = (ObjectModuleRecord*) malloc(sizeof(ObjectModuleRecord));
+  if (vm->currentModuleRecord == NULL) {
+    fprintf(stderr, "Fatal Error: Could not allocate memory for module record.\nShutting Down!\n");
+    exit(1);
+  }
+  initModuleRecord(vm->currentModuleRecord, NULL, isRepl, true);
+
   resetStack(vm->currentModuleRecord);
-
-  initTable(&vm->currentModuleRecord->globals);
-  initTable(&vm->currentModuleRecord->publics);
-
-  vm->nativeModules = (NativeModules){
-      .modules = ALLOCATE(vm, NativeModule, 8), .count = 0, .capacity = 8};
-
-  vm->matchHandler.isMatchBind = false;
-  vm->matchHandler.isMatchTarget = false;
-
-  vm->matchHandler.matchBind = NIL_VAL;
-  vm->matchHandler.matchTarget = NIL_VAL;
-
-  vm->importCount = 0;
-
-  initTable(&vm->moduleCache);
-  initImportStack(vm);
 
   initTable(&vm->stringType);
   initTable(&vm->arrayType);
@@ -535,14 +558,36 @@ void initVM(VM *vm, const int argc, const char **argv) {
   initTable(&vm->randomType);
   initTable(&vm->fileType);
   initTable(&vm->resultType);
-  initTable(&vm->strings);
   initTable(&vm->vec2Type);
   initTable(&vm->vec3Type);
+  initTable(&vm->moduleCache);
 
-  vm->structInstanceStack =
-      (StructInstanceStack){.structs = ALLOCATE(vm, ObjectStructInstance *, 16),
-                            .count = 0,
-                            .capacity = 16};
+  initTable(&vm->strings);
+
+  initImportStack(vm);
+
+
+  initNativeModules(&vm->nativeModules);
+  vm->nativeModules.modules = (NativeModule*) malloc(sizeof(NativeModule) * NATIVE_MODULES_CAPACITY);
+  if (vm->nativeModules.modules == NULL) {
+    fprintf(stderr, "Fatal Error: Could not allocate memory for native modules.\nShutting Down!\n");
+    exit(1);
+  }
+
+  initMatchHandler(&vm->matchHandler);
+
+  if (!initializeStdLib(vm)) {
+    runtimePanic(vm->currentModuleRecord, true, RUNTIME,
+                 "Failed to initialize standard library.");
+  }
+  vm->importCount = 0;
+
+  initStructInstanceStack(&vm->structInstanceStack);
+  vm->structInstanceStack.structs = (ObjectStructInstance**) malloc(sizeof(ObjectStructInstance*) * STRUCT_INSTANCE_DEPTH);
+  if (vm->structInstanceStack.structs == NULL) {
+    fprintf(stderr, "Fatal Error: Could not allocate memory for stack struct.\nShutting Down!\n");
+    exit(1);
+  }
 
   vm->args.argc = argc;
   vm->args.argv = argv;
@@ -556,21 +601,16 @@ void initVM(VM *vm, const int argc, const char **argv) {
 #else
     path = copyString(vm, "./", 2);
 #endif
+    vm->gcStatus = RUNNING;
   }
 
   vm->currentModuleRecord->path = path;
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
            OBJECT_VAL(vm->currentModuleRecord));
-
-  if (!initializeStdLib(vm)) {
-    runtimePanic(vm->currentModuleRecord, true, RUNTIME,
-                 "Failed to initialize standard library.");
-  }
 }
 
 void freeVM(VM *vm) {
   freeTable(vm, &vm->strings);
-  freeTable(vm, &vm->currentModuleRecord->globals);
 
   freeTable(vm, &vm->stringType);
   freeTable(vm, &vm->arrayType);
@@ -594,7 +634,9 @@ void freeVM(VM *vm) {
   freeTable(vm, &vm->moduleCache);
 
   freeImportStack(vm);
-  freeObjectModuleRecord(vm, vm->currentModuleRecord);
+  freeNativeModules(&vm->nativeModules);
+
+  freeModuleRecord(vm, vm->currentModuleRecord);
 
   freeObjects(vm);
   free(vm);
@@ -981,13 +1023,15 @@ InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
 bool checkPreviousInstruction(const CallFrame *frame, const int instructionsAgo,
                               const OpCode instruction) {
   const uint8_t *current = frame->ip;
-  if (current - instructionsAgo < frame->closure->function->chunk.code) {
+  const uint8_t *codeStart = frame->closure->function->chunk.code;
+
+  // Check if we have enough bytes before current position,
+  if (current - (instructionsAgo + 2) < codeStart) {
     return false;
   }
-  return *(current - (instructionsAgo + 2)) ==
-         instruction; // +2 to account for offset
-}
 
+  return *(current - (instructionsAgo + 2)) == instruction;
+}
 InterpretResult interpret(VM *vm, char *source) {
   ObjectFunction *function = compile(vm, source);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;

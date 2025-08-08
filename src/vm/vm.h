@@ -60,6 +60,11 @@ typedef struct  {
   uint32_t capacity;
 }StructInstanceStack;
 
+typedef enum {
+  PAUSED,
+  RUNNING,
+}GC_STATUS;
+
 struct VM {
   Object *objects;
   Table strings;
@@ -67,12 +72,6 @@ struct VM {
   Table moduleCache;
   ObjectModuleRecord *currentModuleRecord;
   ImportStack importStack;
-
-  size_t bytesAllocated;
-  size_t nextGC;
-  Object **grayStack;
-  int grayCapacity;
-  int grayCount;
 
   Table randomType;
   Table stringType;
@@ -89,6 +88,14 @@ struct VM {
   NativeModules nativeModules;
   MatchHandler matchHandler;
   Args args;
+
+  size_t bytesAllocated;
+  size_t nextGC;
+  Object **grayStack;
+  int grayCapacity;
+  int grayCount;
+  GC_STATUS gcStatus;
+
   int importCount;
 };
 

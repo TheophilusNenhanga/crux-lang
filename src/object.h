@@ -754,4 +754,8 @@ ObjectVec3* newVec3(VM* vm, double x, double y, double z);
 
 void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
 
+bool initModuleRecord(ObjectModuleRecord* moduleRecord, ObjectString *path, bool isRepl, bool isMain);
+
+void freeModuleRecord(VM* vm, ObjectModuleRecord* moduleRecord);
+
 #endif

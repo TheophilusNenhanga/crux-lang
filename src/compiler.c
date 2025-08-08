@@ -1336,10 +1336,13 @@ static void useStatement() {
 static void structDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token structName = parser.previous;
+  GC_PROTECT_START(current->owner->currentModuleRecord);
   ObjectString *structNameString =
       copyString(current->owner, structName.start, structName.length);
+  GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(structNameString));
   const uint16_t nameConstant = identifierConstant(&structName);
   ObjectStruct *structObject = newStructType(current->owner, structNameString);
+  GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(structObject));
 
   declareVariable();
 
@@ -1367,6 +1370,8 @@ static void structDeclaration() {
       ObjectString *fieldName = copyString(
           current->owner, parser.previous.start, parser.previous.length);
 
+      GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(fieldName));
+
       Value fieldNameCheck;
       if (tableGet(&structObject->fields, fieldName, &fieldNameCheck)) {
         compilerPanic(&parser, "Duplicate field name in struct declaration",
@@ -1382,6 +1387,7 @@ static void structDeclaration() {
   if (fieldCount != 0) {
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
   }
+  GC_PROTECT_END(current->owner->currentModuleRecord);
 }
 
 /**

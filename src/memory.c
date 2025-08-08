@@ -452,8 +452,10 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
 }
 
 void markStructInstanceStack(VM *vm, const StructInstanceStack *stack) {
+  if (stack->structs!= NULL) {
   for (uint32_t i = 0; i < stack->count; i++) {
     markStructInstance(vm, stack->structs[i]);
+  }
   }
 }
 
@@ -475,8 +477,10 @@ void markRoots(VM *vm) {
     markObject(vm, (Object *)vm->importStack.paths[i]);
   }
 
+  if (vm->nativeModules.modules != NULL) {
   for (int i = 0; i < vm->nativeModules.count; i++) {
     markTable(vm, vm->nativeModules.modules[i].names);
+  }
   }
 
   markStructInstanceStack(vm, &vm->structInstanceStack);
@@ -546,6 +550,7 @@ static void sweep(VM *vm) {
 }
 
 void collectGarbage(VM *vm) {
+  if (vm->gcStatus == PAUSED) return;
 #ifdef DEBUG_LOG_GC
   printf("-- gc begin\n");
   size_t before = vm->bytesAllocated;
