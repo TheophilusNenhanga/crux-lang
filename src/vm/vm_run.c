@@ -133,6 +133,7 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STRUCT_INSTANCE_END,
                                   &&OP_NIL_RETURN,
                                   &&OP_ANON_FUNCTION_16,
+                                  &&OP_UNWRAP,
                                   &&end};
 
   uint8_t instruction;
@@ -1795,6 +1796,21 @@ OP_ANON_FUNCTION_16: {
   }
   DISPATCH();
 }
+
+  OP_UNWRAP: {
+    Value value = POP(currentModuleRecord);
+    if (!IS_CRUX_RESULT(value)) {
+      runtimePanic(currentModuleRecord, false, TYPE, "Only the 'result' type supports unwrapping.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    ObjectResult *result = AS_CRUX_RESULT(value);
+    if (result->isOk) {
+      PUSH(currentModuleRecord, result->as.value);
+    }else {
+      PUSH(currentModuleRecord, OBJECT_VAL(result->as.error));
+    }
+    DISPATCH();
+  }
 
 end: {
   printf("        ");

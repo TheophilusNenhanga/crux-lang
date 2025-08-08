@@ -96,6 +96,7 @@ typedef enum {
   OP_STRUCT_INSTANCE_END,
   OP_NIL_RETURN,
   OP_ANON_FUNCTION_16,
+  OP_UNWRAP,
 } OpCode;
 
 typedef struct {

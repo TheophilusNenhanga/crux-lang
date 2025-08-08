@@ -463,9 +463,9 @@ Token scanToken() {
     if (match('[')) {
       return makeToken(TOKEN_DOLLAR_LEFT_SQUARE);
     }
-    if (isIdentifierStarter(peek())) {
-      return makeToken(TOKEN_DOLLAR_IDENTIFIER);
-    }
+  }
+    case '?': {
+    return makeToken(TOKEN_QUESTION_MARK);
   }
   default:;
   }

@@ -46,6 +46,7 @@ typedef void (*ParseFn)(bool canAssign);
 typedef struct {
 	ParseFn prefix;
 	ParseFn infix;
+	ParseFn postfix;
 	Precedence precedence;
 } ParseRule;
 
