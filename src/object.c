@@ -867,10 +867,12 @@ ObjectTable *newTable(VM *vm, const int elementCount, ObjectModuleRecord *module
   GC_PROTECT_START(moduleRecord);
   ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
   GC_PROTECT(moduleRecord, OBJECT_VAL(table));
-  table->capacity =
-      elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
+  table->capacity = 0;
   table->size = 0;
-  table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
+  table->entries = NULL;
+  const uint32_t newCapacity =
+      elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
+  table->entries = ALLOCATE(vm, ObjectTableEntry, newCapacity);
   for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
@@ -1258,6 +1260,8 @@ ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount, ObjectMod
   GC_PROTECT_START(moduleRecord);
   ObjectStaticArray *array =
       ALLOCATE_OBJECT(vm, ObjectStaticArray, OBJECT_STATIC_ARRAY);
+  array->values = NULL;
+  array->size = 0;
   GC_PROTECT(moduleRecord, OBJECT_VAL(array));
   array->size = elementCount;
   array->values = ALLOCATE(vm, Value, elementCount);
@@ -1269,12 +1273,14 @@ ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount, ObjectMod
   GC_PROTECT_START(moduleRecord);
   ObjectStaticTable *table =
       ALLOCATE_OBJECT(vm, ObjectStaticTable, OBJECT_STATIC_TABLE);
-  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
-  table->capacity = calculateCollectionCapacity(
-      (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
-
+  table->capacity = 0;
   table->size = 0;
-  table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
+  table->entries = NULL;
+  const uint32_t newCapacity = calculateCollectionCapacity(
+      (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
+  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
+
+  table->entries = ALLOCATE(vm, ObjectTableEntry, newCapacity);
   for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
@@ -1318,6 +1324,8 @@ ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
       ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
   GC_PROTECT(moduleRecord, OBJECT_VAL(structInstance));
   structInstance->structType = structType;
+  structInstance->fields = NULL;
+  structInstance->fieldCount = 0;
   structInstance->fields = ALLOCATE(vm, Value, fieldCount);
   for (int i = 0; i < fieldCount; i++) {
     structInstance->fields[i] = NIL_VAL;
