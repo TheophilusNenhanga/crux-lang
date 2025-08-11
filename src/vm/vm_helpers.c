@@ -252,18 +252,28 @@ bool callValue(VM *vm, const Value callee, const int argCount) {
 }
 
 bool handleInvoke(VM *vm, const int argCount, const Value receiver,
-                  const Value original, const Value value) {
+                   const Value original, const Value value) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   // Save original stack order
   currentModuleRecord->stackTop[-argCount - 1] = value;
   currentModuleRecord->stackTop[-argCount] = receiver;
 
+  // Root 'receiver' and 'original' during the call to avoid GC collecting them
+  const Value previousTempBind = vm->matchHandler.matchBind;
+  const Value previousTempTarget = vm->matchHandler.matchTarget;
+  vm->matchHandler.matchBind = original;
+  vm->matchHandler.matchTarget = receiver;
+
   if (!callValue(vm, value, argCount)) {
+    vm->matchHandler.matchBind = previousTempBind;
+    vm->matchHandler.matchTarget = previousTempTarget;
     return false;
   }
 
   // restore the caller and put the result in the right place
   const Value result = POP(currentModuleRecord);
+  vm->matchHandler.matchBind = previousTempBind;
+  vm->matchHandler.matchTarget = previousTempTarget;
   PUSH(currentModuleRecord, original);
   PUSH(currentModuleRecord, result);
   return true;
