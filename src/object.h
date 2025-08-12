@@ -15,7 +15,7 @@
 
 #define STATIC_STRING_LEN(staticString) sizeof((staticString)) - 1
 
-// Only works with string literals
+// Only works with string literals -- gcSafeStaticMessage
 #define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)\
 ({ \
 GC_PROTECT_START((vm)->currentModuleRecord);\
@@ -28,17 +28,24 @@ GC_PROTECT_END((vm)->currentModuleRecord);\
 gcSafeErrorResult;\
 })
 
-// Only works with Objects - gcSafeCreateExpr must create an object
-#define MAKE_GC_SAFE_RESULT(vm, gcSafeCreateExpr) \
+#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue) \
 ({ \
 GC_PROTECT_START((vm)->currentModuleRecord); \
-Value gcSafeTempValue = OBJECT_VAL((gcSafeCreateExpr)); \
-GC_PROTECT((vm)->currentModuleRecord, gcSafeTempValue); \
-ObjectResult* gcSafeResult = newOkResult((vm), gcSafeTempValue); \
+GC_PROTECT((vm)->currentModuleRecord, alreadySafeValue); \
+ObjectResult* gcSafeResult = newOkResult((vm), alreadySafeValue); \
 GC_PROTECT_END((vm)->currentModuleRecord); \
 gcSafeResult; \
 })
 
+#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression) \
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord); \
+Value allocatedValue = (allocatingExpression); \
+GC_PROTECT((vm)->currentModuleRecord, allocatedValue); \
+ObjectResult* gcSafeResultWithAlloc = newOkResult((vm), allocatedValue); \
+GC_PROTECT_END((vm)->currentModuleRecord); \
+gcSafeResultWithAlloc; \
+})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 

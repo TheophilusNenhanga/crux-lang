@@ -35,7 +35,7 @@ static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
 
 #ifdef DEBUG_LOG_GC
   printf("%p mark ", (void *)object);
-  printValue(OBJECT_VAL(object));
+  printValue(OBJECT_VAL(object), false);
   printf("\n");
 #endif
 
@@ -407,6 +407,7 @@ static void printStructInstance(const ObjectStructInstance *instance) {
   printf("{");
   int printed = 0;
   const ObjectStruct *type = instance->structType;
+  if (instance->fields == NULL) {printf("}"); return;}
   for (int i = 0; i < type->fields.capacity; i++) {
     if (type->fields.entries[i].key != NULL) {
       const uint16_t index = (uint16_t)AS_INT(type->fields.entries[i].value);
@@ -996,8 +997,12 @@ bool objectTableSet(VM *vm, ObjectTable *table, const Value key,
                     const Value value) {
   if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
     const int capacity = GROW_CAPACITY(table->capacity);
-    if (!adjustCapacity(vm, table, capacity))
+    PUSH(vm->currentModuleRecord, OBJECT_VAL(table));
+    if (!adjustCapacity(vm, table, capacity)) {
+      POP(vm->currentModuleRecord);
       return false;
+    }
+    POP(vm->currentModuleRecord);
   }
 
   ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
@@ -1337,6 +1342,7 @@ ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
 
 ObjectVec2 *newVec2(VM *vm, const double x, const double y) {
   ObjectVec2 *vec2 = ALLOCATE_OBJECT(vm, ObjectVec2, OBJECT_VEC2);
+  vec2->object.isMarked =true;
   vec2->x = x;
   vec2->y = y;
   return vec2;
@@ -1344,6 +1350,7 @@ ObjectVec2 *newVec2(VM *vm, const double x, const double y) {
 
 ObjectVec3 *newVec3(VM *vm, const double x, const double y, const double z) {
   ObjectVec3 *vec3 = ALLOCATE_OBJECT(vm, ObjectVec3, OBJECT_VEC3);
+  vec3->object.isMarked = true;
   vec3->x = x;
   vec3->y = y;
   vec3->z = z;

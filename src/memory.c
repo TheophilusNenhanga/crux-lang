@@ -9,7 +9,7 @@
 #include <stdio.h>
 #endif
 
-#define GC_HEAP_GROW_FACTOR 1.75
+#define GC_HEAP_GROW_FACTOR 1.5
 
 void *reallocate(VM *vm, void *pointer, const size_t oldSize,
                  const size_t newSize) {
@@ -114,16 +114,18 @@ void markObjectTable(VM *vm, const ObjectTableEntry *entries,
   }
 }
 
-static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
+static void markObjectStruct(VM *vm, ObjectStruct *structure) {
   markObject(vm, (Object *)structure->name);
   markTable(vm, &structure->fields);
+  structure->object.isMarked = true;
 }
 
-static void markStructInstance(VM *vm, const ObjectStructInstance *instance) {
+static void markStructInstance(VM *vm, ObjectStructInstance *instance) {
   for (int i = 0; i < instance->fieldCount; i++) {
     markValue(vm, instance->fields[i]);
   }
   markObjectStruct(vm, instance->structType);
+  instance->object.isMarked = true;
 }
 
 /**
@@ -263,13 +265,13 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_STRUCT: {
-    const ObjectStruct *structure = (ObjectStruct *)object;
+    ObjectStruct *structure = (ObjectStruct *)object;
     markObjectStruct(vm, structure);
     break;
   }
 
   case OBJECT_STRUCT_INSTANCE: {
-    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    ObjectStructInstance *instance = (ObjectStructInstance *)object;
     markStructInstance(vm, instance);
     break;
   }
