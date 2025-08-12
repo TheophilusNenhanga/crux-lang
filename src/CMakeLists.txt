@@ -50,8 +50,7 @@ file(GLOB HEADERS
 add_executable(crux ${SOURCES} ${HEADERS})
 
 if (UNIX)
-	find_library(MATH_LIBRARY m)
-	target_link_libraries(crux PRIVATE ${MATH_LIBRARY})
+	target_link_libraries(crux PRIVATE m)
 endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND UNIX)

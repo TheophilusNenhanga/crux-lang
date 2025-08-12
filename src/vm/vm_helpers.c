@@ -601,12 +601,12 @@ void initVM(VM *vm, const int argc, const char **argv) {
 #else
     path = copyString(vm, "./", 2);
 #endif
-    vm->gcStatus = RUNNING;
   }
 
   vm->currentModuleRecord->path = path;
   tableSet(vm, &vm->moduleCache, vm->currentModuleRecord->path,
            OBJECT_VAL(vm->currentModuleRecord));
+  vm->gcStatus = RUNNING;
 }
 
 void freeVM(VM *vm) {

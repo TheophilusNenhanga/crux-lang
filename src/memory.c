@@ -9,7 +9,7 @@
 #include <stdio.h>
 #endif
 
-#define GC_HEAP_GROW_FACTOR 2
+#define GC_HEAP_GROW_FACTOR 1.75
 
 void *reallocate(VM *vm, void *pointer, const size_t oldSize,
                  const size_t newSize) {
@@ -139,7 +139,7 @@ static void markStructInstance(VM *vm, const ObjectStructInstance *instance) {
 static void blackenObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
   printf("%p blacken ", (void *)object);
-  printValue(OBJECT_VAL(object));
+  printValue(OBJECT_VAL(object), false);
   printf("\n");
 #endif
 
@@ -553,8 +553,8 @@ static void sweep(VM *vm) {
 void collectGarbage(VM *vm) {
   if (vm->gcStatus == PAUSED) return;
 #ifdef DEBUG_LOG_GC
-  printf("-- gc begin\n");
-  size_t before = vm->bytesAllocated;
+  printf("--- gc begin ---\n");
+  const size_t before = vm->bytesAllocated;
 #endif
 
   markRoots(vm);
@@ -564,7 +564,7 @@ void collectGarbage(VM *vm) {
   vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
-  printf("-- gc end\n");
+  printf("--- gc end ---\n");
   printf("    collected %zu bytes (from %zu to %zu) next at %zu\n",
          before - vm->bytesAllocated, before, vm->bytesAllocated, vm->nextGC);
 #endif
