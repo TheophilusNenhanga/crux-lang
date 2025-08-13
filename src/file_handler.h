@@ -13,10 +13,9 @@
 #define MAX_PATH_LENGTH PATH_MAX
 #endif
 
-
 typedef struct {
-  char *content;
-  char *error;
+	char *content;
+	char *error;
 } FileResult;
 
 /**

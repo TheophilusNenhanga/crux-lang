@@ -6,18 +6,18 @@
 #define TABLE_MAX_LOAD 0.6
 
 #define ALLOCATE(vm, type, count)                                              \
-  (type *)reallocate(vm, NULL, 0, sizeof(type) * count)
+	(type *)reallocate(vm, NULL, 0, sizeof(type) * count)
 
 #define FREE(vm, type, pointer) reallocate(vm, pointer, sizeof(type), 0)
 
 #define GROW_CAPACITY(capacity) ((capacity) < 2 ? 2 : (capacity) * 2)
 
 #define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                      \
-  (type *)reallocate(vm, pointer, sizeof(type) * (oldCount),                   \
-                     sizeof(type) * (newCount))
+	(type *)reallocate(vm, pointer, sizeof(type) * (oldCount),             \
+			   sizeof(type) * (newCount))
 
 #define FREE_ARRAY(vm, type, pointer, oldCount)                                \
-  reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
+	reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
 
 /**
  * @brief Reallocates a block of memory.

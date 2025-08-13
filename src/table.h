@@ -7,14 +7,14 @@
 typedef VM VM;
 
 typedef struct {
-  ObjectString *key;
-  Value value;
+	ObjectString *key;
+	Value value;
 } Entry;
 
 typedef struct {
-  Entry *entries;
-  int count;
-  int capacity;
+	Entry *entries;
+	int count;
+	int capacity;
 } Table;
 
 /**
@@ -82,8 +82,8 @@ void tableAddAll(VM *vm, const Table *from, Table *to);
  * @param hash Hash value of the string.
  * @return Pointer to the found string object, or NULL if not found.
  */
-ObjectString *tableFindString(const Table *table, const char *chars, uint64_t length,
-                              uint32_t hash);
+ObjectString *tableFindString(const Table *table, const char *chars,
+			      uint64_t length, uint32_t hash);
 
 /**
  * Removes all entries with unmarked keys during garbage collection.

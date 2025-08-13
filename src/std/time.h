@@ -10,7 +10,8 @@ Value timeMillisecondsFunction_(VM *vm, int argCount, const Value *args);
 
 // Sleep functions
 ObjectResult *sleepSecondsFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *sleepMillisecondsFunction(VM *vm, int argCount, const Value *args);
+ObjectResult *sleepMillisecondsFunction(VM *vm, int argCount,
+					const Value *args);
 
 // Date/Time functions
 Value yearFunction_(VM *vm, int argCount, const Value *args);

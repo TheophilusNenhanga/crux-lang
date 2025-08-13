@@ -9,50 +9,60 @@
 #include "value.h"
 #include "vm/vm.h"
 
-#define GC_PROTECT_START(currentModuleRecord) Value* gcStackStart = (currentModuleRecord)->stackTop
-#define GC_PROTECT(currentModuleRecord, value) PUSH((currentModuleRecord), (value))
-#define GC_PROTECT_END(currentModuleRecord) (currentModuleRecord)->stackTop = gcStackStart
+#define GC_PROTECT_START(currentModuleRecord)                                  \
+	Value *gcStackStart = (currentModuleRecord)->stackTop
+#define GC_PROTECT(currentModuleRecord, value)                                 \
+	PUSH((currentModuleRecord), (value))
+#define GC_PROTECT_END(currentModuleRecord)                                    \
+	(currentModuleRecord)->stackTop = gcStackStart
 
 #define STATIC_STRING_LEN(staticString) sizeof((staticString)) - 1
 
 // Only works with string literals -- gcSafeStaticMessage
-#define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)\
-({ \
-GC_PROTECT_START((vm)->currentModuleRecord);\
-ObjectString* message = copyString((vm), (gcSafeStaticMessage), STATIC_STRING_LEN((gcSafeStaticMessage)) );\
-GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));\
-ObjectError* gcSafeError = newError((vm), message, (gcSafeErrorType), false);\
-GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(gcSafeError));\
-ObjectResult* gcSafeErrorResult = newErrorResult((vm), gcSafeError);\
-GC_PROTECT_END((vm)->currentModuleRecord);\
-gcSafeErrorResult;\
-})
+#define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)           \
+	({                                                                     \
+		GC_PROTECT_START((vm)->currentModuleRecord);                   \
+		ObjectString *message =                                        \
+			copyString((vm), (gcSafeStaticMessage),                \
+				   STATIC_STRING_LEN((gcSafeStaticMessage)));  \
+		GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));    \
+		ObjectError *gcSafeError = newError((vm), message,             \
+						    (gcSafeErrorType), false); \
+		GC_PROTECT((vm)->currentModuleRecord,                          \
+			   OBJECT_VAL(gcSafeError));                           \
+		ObjectResult *gcSafeErrorResult = newErrorResult((vm),         \
+								 gcSafeError); \
+		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		gcSafeErrorResult;                                             \
+	})
 
-#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue) \
-({ \
-GC_PROTECT_START((vm)->currentModuleRecord); \
-GC_PROTECT((vm)->currentModuleRecord, alreadySafeValue); \
-ObjectResult* gcSafeResult = newOkResult((vm), alreadySafeValue); \
-GC_PROTECT_END((vm)->currentModuleRecord); \
-gcSafeResult; \
-})
+#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue)                              \
+	({                                                                     \
+		GC_PROTECT_START((vm)->currentModuleRecord);                   \
+		GC_PROTECT((vm)->currentModuleRecord, alreadySafeValue);       \
+		ObjectResult *gcSafeResult = newOkResult((vm),                 \
+							 alreadySafeValue);    \
+		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		gcSafeResult;                                                  \
+	})
 
-#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression) \
-({ \
-GC_PROTECT_START((vm)->currentModuleRecord); \
-Value allocatedValue = (allocatingExpression); \
-GC_PROTECT((vm)->currentModuleRecord, allocatedValue); \
-ObjectResult* gcSafeResultWithAlloc = newOkResult((vm), allocatedValue); \
-GC_PROTECT_END((vm)->currentModuleRecord); \
-gcSafeResultWithAlloc; \
-})
+#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression)               \
+	({                                                                     \
+		GC_PROTECT_START((vm)->currentModuleRecord);                   \
+		Value allocatedValue = (allocatingExpression);                 \
+		GC_PROTECT((vm)->currentModuleRecord, allocatedValue);         \
+		ObjectResult *gcSafeResultWithAlloc =                          \
+			newOkResult((vm), allocatedValue);                     \
+		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		gcSafeResultWithAlloc;                                         \
+	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
 #define IS_CRUX_STRING(value) isObjectType(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
 #define IS_CRUX_NATIVE_FUNCTION(value)                                         \
-  isObjectType(value, OBJECT_NATIVE_FUNCTION)
+	isObjectType(value, OBJECT_NATIVE_FUNCTION)
 #define IS_CRUX_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
 #define IS_CRUX_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
 #define IS_CRUX_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
@@ -61,16 +71,17 @@ gcSafeResultWithAlloc; \
 #define IS_CRUX_ERROR(value) isObjectType(value, OBJECT_ERROR)
 #define IS_CRUX_RESULT(value) isObjectType(value, OBJECT_RESULT)
 #define IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-  isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
+	isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
 #define IS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-  isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
+	isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
 #define IS_CRUX_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) isObjectType(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) isObjectType(value, OBJECT_MODULE_RECORD)
 #define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
 #define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
 #define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
-#define IS_CRUX_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STRUCT_INSTANCE)
+#define IS_CRUX_STRUCT_INSTANCE(value)                                         \
+	isObjectType(value, OBJECT_STRUCT_INSTANCE)
 #define IS_CRUX_VEC2(value) isObjectType(value, OBJECT_VEC2)
 #define IS_CRUX_VEC3(value) isObjectType(value, OBJECT_VEC3)
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
@@ -78,9 +89,9 @@ gcSafeResultWithAlloc; \
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_FUNCTION(value)                                         \
-  ((ObjectNativeFunction *)AS_CRUX_OBJECT(value))
+	((ObjectNativeFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_METHOD(value)                                           \
-  ((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
+	((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
@@ -88,263 +99,265 @@ gcSafeResultWithAlloc; \
 #define AS_CRUX_ERROR(value) ((ObjectError *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RESULT(value) ((ObjectResult *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-  ((ObjectNativeInfallibleFunction *)AS_CRUX_OBJECT(value))
+	((ObjectNativeInfallibleFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-  ((ObjectNativeInfallibleMethod *)AS_CRUX_OBJECT(value))
+	((ObjectNativeInfallibleMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANDOM(value) ((ObjectRandom *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_FILE(value) ((ObjectFile *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MODULE_RECORD(value)                                           \
-  ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
+	((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT_INSTANCE(value)                                         \
+	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VEC2(value) ((ObjectVec2 *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VEC3(value) ((ObjectVec3 *)AS_CRUX_OBJECT(value))
 
-#define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
+#define IS_CRUX_HASHABLE(value)                                                \
+	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
+	 IS_NIL(value) || IS_BOOL(value))
 
 typedef enum {
-  OBJECT_STRING,
-  OBJECT_FUNCTION,
-  OBJECT_NATIVE_FUNCTION,
-  OBJECT_NATIVE_METHOD,
-  OBJECT_CLOSURE,
-  OBJECT_UPVALUE,
-  OBJECT_ARRAY,
-  OBJECT_TABLE,
-  OBJECT_ERROR,
-  OBJECT_RESULT,
-  OBJECT_NATIVE_INFALLIBLE_FUNCTION,
-  OBJECT_NATIVE_INFALLIBLE_METHOD,
-  OBJECT_RANDOM,
-  OBJECT_FILE,
-  OBJECT_MODULE_RECORD,
-  OBJECT_STATIC_ARRAY,
-  OBJECT_STATIC_TABLE,
-  OBJECT_STRUCT,
-  OBJECT_STRUCT_INSTANCE,
-  OBJECT_VEC2,
-  OBJECT_VEC3,
+	OBJECT_STRING,
+	OBJECT_FUNCTION,
+	OBJECT_NATIVE_FUNCTION,
+	OBJECT_NATIVE_METHOD,
+	OBJECT_CLOSURE,
+	OBJECT_UPVALUE,
+	OBJECT_ARRAY,
+	OBJECT_TABLE,
+	OBJECT_ERROR,
+	OBJECT_RESULT,
+	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
+	OBJECT_NATIVE_INFALLIBLE_METHOD,
+	OBJECT_RANDOM,
+	OBJECT_FILE,
+	OBJECT_MODULE_RECORD,
+	OBJECT_STATIC_ARRAY,
+	OBJECT_STATIC_TABLE,
+	OBJECT_STRUCT,
+	OBJECT_STRUCT_INSTANCE,
+	OBJECT_VEC2,
+	OBJECT_VEC3,
 } ObjectType;
 
 struct Object {
-  Object *next;
-  ObjectType type;
-  bool isMarked;
+	Object *next;
+	ObjectType type;
+	bool isMarked;
 };
 
 struct ObjectString {
-  Object Object;
-  char *chars;
-  uint32_t length; // this is the length without the null terminator
-  uint32_t hash;
+	Object Object;
+	char *chars;
+	uint32_t length; // this is the length without the null terminator
+	uint32_t hash;
 };
 
 typedef struct {
-  Object object;
-  int arity;
-  int upvalueCount;
-  Chunk chunk;
-  ObjectString *name;
-  ObjectModuleRecord *moduleRecord;
+	Object object;
+	int arity;
+	int upvalueCount;
+	Chunk chunk;
+	ObjectString *name;
+	ObjectModuleRecord *moduleRecord;
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {
-  Object object;
-  Value *location;
-  Value closed;
-  ObjectUpvalue *next;
+	Object object;
+	Value *location;
+	Value closed;
+	ObjectUpvalue *next;
 } ObjectUpvalue;
 
 typedef struct ObjectClosure {
-  Object object;
-  ObjectFunction *function;
-  ObjectUpvalue **upvalues;
-  int upvalueCount;
+	Object object;
+	ObjectFunction *function;
+	ObjectUpvalue **upvalues;
+	int upvalueCount;
 } ObjectClosure;
 
-
 typedef struct {
-  Object object;
-  Value *values;
-  uint32_t size;
-  uint32_t capacity;
+	Object object;
+	Value *values;
+	uint32_t size;
+	uint32_t capacity;
 } ObjectArray;
 
 typedef struct {
-  Object object;
-  Value* values;
-  uint32_t size; // size and capacity will always be the same
-  uint32_t hash;
+	Object object;
+	Value *values;
+	uint32_t size; // size and capacity will always be the same
+	uint32_t hash;
 } ObjectStaticArray;
 
 typedef struct {
-  Object object;
-  uint64_t seed;
+	Object object;
+	uint64_t seed;
 } ObjectRandom;
 
 typedef enum {
-  SYNTAX,
-  MATH, // Division by zero
-  BOUNDS, // Index out of bounds
-  RUNTIME,
-  TYPE,
-  LOOP_EXTENT,
-  LIMIT,
-  BRANCH_EXTENT,
-  CLOSURE_EXTENT,
-  LOCAL_EXTENT,
-  ARGUMENT_EXTENT,
-  NAME,
-  COLLECTION_EXTENT,
-  VARIABLE_EXTENT,
-  RETURN_EXTENT,
-  ARGUMENT_MISMATCH,
-  STACK_OVERFLOW,
-  COLLECTION_GET,
-  COLLECTION_SET,
-  UNPACK_MISMATCH,
-  MEMORY,
-  VALUE, // correct type, but incorrect value
-  ASSERT,
-  IMPORT_EXTENT,
-  IO,
-  IMPORT,
+	SYNTAX,
+	MATH, // Division by zero
+	BOUNDS, // Index out of bounds
+	RUNTIME,
+	TYPE,
+	LOOP_EXTENT,
+	LIMIT,
+	BRANCH_EXTENT,
+	CLOSURE_EXTENT,
+	LOCAL_EXTENT,
+	ARGUMENT_EXTENT,
+	NAME,
+	COLLECTION_EXTENT,
+	VARIABLE_EXTENT,
+	RETURN_EXTENT,
+	ARGUMENT_MISMATCH,
+	STACK_OVERFLOW,
+	COLLECTION_GET,
+	COLLECTION_SET,
+	UNPACK_MISMATCH,
+	MEMORY,
+	VALUE, // correct type, but incorrect value
+	ASSERT,
+	IMPORT_EXTENT,
+	IO,
+	IMPORT,
 } ErrorType;
 
 typedef struct {
-  Object object;
-  ObjectString *message;
-  ErrorType type;
-  bool isPanic;
+	Object object;
+	ObjectString *message;
+	ErrorType type;
+	bool isPanic;
 } ObjectError;
 
 struct ObjectResult {
-  Object object;
-  bool isOk;
-  union {
-    Value value;
-    ObjectError *error;
-  } as;
+	Object object;
+	bool isOk;
+	union {
+		Value value;
+		ObjectError *error;
+	} as;
 };
 
 typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, const Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount, const Value *args);
+typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount,
+					const Value *args);
 
 typedef struct {
-  Object object;
-  CruxCallable function;
-  ObjectString *name;
-  int arity;
+	Object object;
+	CruxCallable function;
+	ObjectString *name;
+	int arity;
 } ObjectNativeFunction;
 
 typedef struct {
-  Object object;
-  CruxCallable function;
-  ObjectString *name;
-  int arity;
+	Object object;
+	CruxCallable function;
+	ObjectString *name;
+	int arity;
 } ObjectNativeMethod;
 
 typedef struct {
-  Object object;
-  CruxInfallibleCallable function;
-  ObjectString *name;
-  int arity;
+	Object object;
+	CruxInfallibleCallable function;
+	ObjectString *name;
+	int arity;
 } ObjectNativeInfallibleFunction;
 
 typedef struct {
-  Object object;
-  CruxInfallibleCallable function;
-  ObjectString *name;
-  int arity;
+	Object object;
+	CruxInfallibleCallable function;
+	ObjectString *name;
+	int arity;
 } ObjectNativeInfallibleMethod;
 
 typedef struct {
-  Value key;
-  Value value;
-  bool isOccupied;
+	Value key;
+	Value value;
+	bool isOccupied;
 } ObjectTableEntry;
 
 typedef struct {
-  Object object;
-  ObjectTableEntry *entries;
-  uint32_t capacity;
-  uint32_t size;
+	Object object;
+	ObjectTableEntry *entries;
+	uint32_t capacity;
+	uint32_t size;
 } ObjectTable;
 
 typedef struct {
-  Object object;
-  ObjectTableEntry *entries;
-  uint32_t capacity;
-  uint32_t size;
-} ObjectStaticTable ;
+	Object object;
+	ObjectTableEntry *entries;
+	uint32_t capacity;
+	uint32_t size;
+} ObjectStaticTable;
 
 typedef struct {
-  Object object;
-  ObjectString *path;
-  ObjectString *mode;
-  FILE *file;
-  uint64_t position;
-  bool isOpen;
+	Object object;
+	ObjectString *path;
+	ObjectString *mode;
+	FILE *file;
+	uint64_t position;
+	bool isOpen;
 } ObjectFile;
 
 typedef struct {
 	Object object;
-	ObjectString* name;
+	ObjectString *name;
 	Table fields; // <field_name: index>
-}ObjectStruct;
+} ObjectStruct;
 
-
-struct ObjectStructInstance{
+struct ObjectStructInstance {
 	Object object;
-	ObjectStruct* structType;
-	Value* fields;
-  uint16_t fieldCount;
+	ObjectStruct *structType;
+	Value *fields;
+	uint16_t fieldCount;
 };
 
 typedef struct {
-  Object object;
-  double x;
-  double y;
+	Object object;
+	double x;
+	double y;
 } ObjectVec2;
 
 typedef struct {
-  Object object;
-  double x;
-  double y;
-  double z;
+	Object object;
+	double x;
+	double y;
+	double z;
 } ObjectVec3;
 
 typedef enum {
-  STATE_LOADING,
-  STATE_LOADED,
-  STATE_ERROR,
+	STATE_LOADING,
+	STATE_LOADED,
+	STATE_ERROR,
 } ModuleState;
 
 struct ObjectModuleRecord {
-  Object object;
-  ObjectString *path;
-  Table globals;
-  Table publics;
-  ObjectClosure *moduleClosure;
-  ObjectModuleRecord *enclosingModule;
-  ObjectUpvalue* openUpvalues;
-  Value* stack;
-  Value* stackTop;
-  Value* stackLimit;
-  CallFrame *frames;
-  uint8_t frameCount;
-  uint8_t frameCapacity;
-  bool isRepl;
-  bool isMain;
-  ModuleState state;
+	Object object;
+	ObjectString *path;
+	Table globals;
+	Table publics;
+	ObjectClosure *moduleClosure;
+	ObjectModuleRecord *enclosingModule;
+	ObjectUpvalue *openUpvalues;
+	Value *stack;
+	Value *stackTop;
+	Value *stackLimit;
+	CallFrame *frames;
+	uint8_t frameCount;
+	uint8_t frameCapacity;
+	bool isRepl;
+	bool isMain;
+	ModuleState state;
 };
 
-
-static bool isObjectType(const Value value, const ObjectType type) {
-  return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
+static bool isObjectType(const Value value, const ObjectType type)
+{
+	return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
 }
 
 /**
@@ -362,7 +375,7 @@ static bool isObjectType(const Value value, const ObjectType type) {
  * @return A pointer to the newly created ObjectError.
  */
 ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
-                      bool isPanic);
+		      bool isPanic);
 
 /**
  * @brief Creates a new upvalue object.
@@ -408,7 +421,7 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
  * @return A pointer to the newly created ObjectNativeFunction.
  */
 ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
-                                        int arity, ObjectString *name);
+					int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native method object.
@@ -425,7 +438,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
  * @return A pointer to the newly created ObjectNativeMethod.
  */
 ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
-                                    ObjectString *name);
+				    ObjectString *name);
 
 /**
  * @brief Creates a new native infallible function object.
@@ -445,7 +458,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
  */
 ObjectNativeInfallibleFunction *
 newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
-                            ObjectString *name);
+			    ObjectString *name);
 
 /**
  * @brief Creates a new native infallible method object.
@@ -456,7 +469,7 @@ newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
  */
 ObjectNativeInfallibleMethod *
 newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
-                          ObjectString *name);
+			  ObjectString *name);
 
 /**
  * @brief Creates a new function object.
@@ -485,7 +498,8 @@ ObjectFunction *newFunction(VM *vm);
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *newTable(VM *vm, int elementCount, ObjectModuleRecord *moduleRecord);
+ObjectTable *newTable(VM *vm, int elementCount,
+		      ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -527,7 +541,8 @@ ObjectResult *newErrorResult(VM *vm, ObjectError *error);
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *newArray(VM *vm, uint32_t elementCount, ObjectModuleRecord *moduleRecord);
+ObjectArray *newArray(VM *vm, uint32_t elementCount,
+		      ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -638,11 +653,11 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(ObjectTableEntry *entries, uint32_t size,
-                    uint32_t capacity, Value key, Value *value);
+bool objectTableGet(ObjectTableEntry *entries, uint32_t size, uint32_t capacity,
+		    Value key, Value *value);
 
-
-void markObjectTable(VM *vm, const ObjectTableEntry* entries, uint32_t capacity);
+void markObjectTable(VM *vm, const ObjectTableEntry *entries,
+		     uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -715,13 +730,14 @@ ObjectRandom *newRandom(VM *vm);
 
 ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode);
 
-ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path, bool isRepl, bool isMain);
+ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,
+					  bool isRepl, bool isMain);
 
 /**
  * @brief Removes a value from an object table.
  *
- * This function removes a value associated with a given key from an ObjectTable.
- * It marks the entry as empty and decrements the table's size.
+ * This function removes a value associated with a given key from an
+ * ObjectTable. It marks the entry as empty and decrements the table's size.
  * verify that key is hashable before calling
  * @param table The ObjectTable to modify.
  * @param key The key associated with the value to remove.
@@ -744,25 +760,30 @@ bool objectTableRemove(ObjectTable *table, Value key);
  */
 bool objectTableContainsKey(ObjectTable *table, Value key);
 
-ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
+ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount,
+				  ObjectModuleRecord *moduleRecord);
 
-ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
+ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount,
+				  ObjectModuleRecord *moduleRecord);
 
-bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, Value key, Value value);
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, Value key,
+			  Value value);
 
 ObjectStruct *newStructType(VM *vm, ObjectString *name);
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        uint16_t fieldCount, ObjectModuleRecord *moduleRecord);
+					uint16_t fieldCount,
+					ObjectModuleRecord *moduleRecord);
 
-ObjectVec2* newVec2(VM* vm, double x, double y);
+ObjectVec2 *newVec2(VM *vm, double x, double y);
 
-ObjectVec3* newVec3(VM* vm, double x, double y, double z);
+ObjectVec3 *newVec3(VM *vm, double x, double y, double z);
 
 void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
 
-bool initModuleRecord(ObjectModuleRecord* moduleRecord, ObjectString *path, bool isRepl, bool isMain);
+bool initModuleRecord(ObjectModuleRecord *moduleRecord, ObjectString *path,
+		      bool isRepl, bool isMain);
 
-void freeModuleRecord(VM* vm, ObjectModuleRecord* moduleRecord);
+void freeModuleRecord(VM *vm, ObjectModuleRecord *moduleRecord);
 
 #endif

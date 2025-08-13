@@ -1,0 +1,83 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 8
+TabWidth: 8
+UseTab: Always
+ContinuationIndentWidth: 8
+
+ColumnLimit: 80
+
+BreakBeforeBraces: Linux
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignOperands: Align
+AlignTrailingComments: false
+
+IndentCaseLabels: false
+IndentCaseBlocks: false
+
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInConditionalStatement: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+IncludeCategories:
+  - Regex: '^<linux/.*'
+    Priority: 1
+  - Regex: '^<asm/.*'
+    Priority: 2
+  - Regex: '^<.*\.h>'
+    Priority: 3
+  - Regex: '^<.*'
+    Priority: 4
+  - Regex: '^".*'
+    Priority: 5
+  - Regex: '.*'
+    Priority: 6
+
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+InsertNewlineAtEOF: true
+DerivePointerAlignment: false
+PointerAlignment: Right
+
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+BinPackArguments: true
+BinPackParameters: true
+
+PenaltyBreakAssignment: 100
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+...
