@@ -98,6 +98,6 @@ void initScanner(const char *source);
  * Scans the next token from the source code.
  * @return The scanned token
  */
-Token scanToken();
+Token scanToken(void);
 
 #endif // SCANNER_H

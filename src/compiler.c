@@ -8,6 +8,7 @@
 
 #include "chunk.h"
 #include "errno.h"
+#include "file_handler.h"
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
@@ -24,7 +25,7 @@ Compiler *current = NULL;
 
 Chunk *compilingChunk;
 
-static void expression();
+static void expression(void);
 
 static void parsePrecedence(Precedence precedence);
 
@@ -38,13 +39,14 @@ static void grouping(bool canAssign);
 
 static void number(bool canAssign);
 
-static void statement();
+static void statement(void);
 
-static void declaration();
+static void declaration(void);
 
-static Chunk *currentChunk() { return &current->function->chunk; }
+static Chunk *currentChunk(void) { return &current->function->chunk; }
 
-static void advance() {
+static void advance(void) {
+  parser.prevPrevious = parser.previous;
   parser.previous = parser.current;
   for (;;) {
     parser.current = scanToken();
@@ -128,7 +130,7 @@ static void patchJump(const int offset) {
 /**
  * Emits OP_NIL_RETURN that signals the end of a scope.
  */
-static void emitReturn() { emitByte(OP_NIL_RETURN); }
+static void emitReturn(void) { emitByte(OP_NIL_RETURN); }
 
 /**
  * Creates a constant value and adds it to the current chunk's constant pool.
@@ -222,9 +224,9 @@ static uint16_t identifierConstant(const Token *name) {
  * Increases the scope depth, indicating that variables declared subsequently
  * are in a new, inner scope.
  */
-static void beginScope() { current->scopeDepth++; }
+static void beginScope(void) { current->scopeDepth++; }
 
-static void cleanupLocalsToDepth(int targetDepth) {
+static void cleanupLocalsToDepth(const int targetDepth) {
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth > targetDepth) {
     if (current->locals[current->localCount - 1].isCaptured) {
@@ -242,7 +244,7 @@ static void cleanupLocalsToDepth(int targetDepth) {
  * Decreases the scope depth and emits OP_POP instructions to remove local
  * variables that go out of scope.
  */
-static void endScope() {
+static void endScope(void) {
   current->scopeDepth--;
   cleanupLocalsToDepth(current->scopeDepth);
 }
@@ -297,7 +299,7 @@ static void pushLoopContext(const LoopType type, const int continueTarget) {
   context->scopeDepth = current->scopeDepth;
 }
 
-static void popLoopContext() {
+static void popLoopContext(void) {
   if (current->loopDepth <= 0) {
     return;
   }
@@ -328,7 +330,7 @@ static void addBreakJump(const int jumpOffset) {
   context->breakJumps = breakJump;
 }
 
-static int getCurrentContinueTarget() {
+static int getCurrentContinueTarget(void) {
   if (current->loopDepth <= 0) {
     compilerPanic(&parser, "Cannot use 'continue' outside of a loop.", SYNTAX);
     return -1;
@@ -424,7 +426,7 @@ static void addLocal(const Token name) {
  * Adds the variable name to the list of local variables, but does not mark it
  * as initialized yet.
  */
-static void declareVariable() {
+static void declareVariable(void) {
   if (current->scopeDepth == 0)
     return;
 
@@ -449,7 +451,7 @@ static void declareVariable() {
  *
  * This prevents reading a local variable before it has been assigned a value.
  */
-static void markInitialized() {
+static void markInitialized(void) {
   if (current->scopeDepth == 0)
     return;
   current->locals[current->localCount - 1].depth = current->scopeDepth;
@@ -498,7 +500,7 @@ static void defineVariable(const uint16_t global) {
  *
  * @return The number of arguments parsed.
  */
-static uint8_t argumentList() {
+static uint8_t argumentList(void) {
   uint8_t argCount = 0;
   if (!check(TOKEN_RIGHT_PAREN)) {
     do {
@@ -552,7 +554,7 @@ static void or_(bool canAssign __attribute__((unused))) {
  *
  * @return The compiled function object.
  */
-static ObjectFunction *endCompiler() {
+static ObjectFunction *endCompiler(void) {
   emitReturn();
   ObjectFunction *function = current->function;
 #ifdef DEBUG_PRINT_CODE
@@ -693,7 +695,7 @@ static void dot(const bool canAssign) {
 /**
  * Parses an expression. Entry point for expression parsing.
  */
-static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
+static void expression(void) { parsePrecedence(PREC_ASSIGNMENT); }
 
 /**
  * Gets the compound opcode based on the set opcode and compound operation.
@@ -922,7 +924,7 @@ static void namedVariable(Token name, const bool canAssign) {
   emitBytes(getOp, arg);
 }
 
-void structInstance(bool canAssign) {
+void structInstance(const bool canAssign) {
   consume(TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
   namedVariable(parser.previous, canAssign);
   if (!match(TOKEN_LEFT_BRACE)) {
@@ -966,7 +968,7 @@ static void variable(const bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
-static void block() {
+static void block(void) {
   while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
     declaration();
   }
@@ -1006,7 +1008,7 @@ static void function(const FunctionType type) {
   }
 }
 
-static void fnDeclaration() {
+static void fnDeclaration(void) {
   const uint16_t global = parseVariable("Expected function name");
   markInitialized();
   function(TYPE_FUNCTION);
@@ -1124,7 +1126,7 @@ static void collectionIndex(const bool canAssign) {
   }
 }
 
-static void varDeclaration() {
+static void varDeclaration(void) {
   const uint16_t global = parseVariable("Expected Variable Name.");
 
   if (match(TOKEN_EQUAL)) {
@@ -1136,13 +1138,13 @@ static void varDeclaration() {
   defineVariable(global);
 }
 
-static void expressionStatement() {
+static void expressionStatement(void) {
   expression();
   consume(TOKEN_SEMICOLON, "Expected ';' after expression");
   emitByte(OP_POP);
 }
 
-static void whileStatement() {
+static void whileStatement(void) {
   beginScope();
   const int loopStart = currentChunk()->count;
 
@@ -1163,7 +1165,7 @@ static void whileStatement() {
   endScope();
 }
 
-static void forStatement() {
+static void forStatement(void) {
   beginScope();
 
   if (match(TOKEN_SEMICOLON)) {
@@ -1211,7 +1213,7 @@ static void forStatement() {
   endScope();
 }
 
-static void ifStatement() {
+static void ifStatement(void) {
   expression();
   const int thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
@@ -1226,7 +1228,7 @@ static void ifStatement() {
   patchJump(elseJump);
 }
 
-static void returnStatement() {
+static void returnStatement(void) {
   if (current->type == TYPE_SCRIPT) {
     compilerPanic(&parser, "Cannot use <return> outside of a function", SYNTAX);
   }
@@ -1240,7 +1242,7 @@ static void returnStatement() {
   }
 }
 
-static void useStatement() {
+static void useStatement(void) {
   bool hasParen = false;
   if (parser.current.type == TOKEN_LEFT_PAREN) {
     consume(TOKEN_LEFT_PAREN, "Expected '(' after use statement");
@@ -1333,7 +1335,7 @@ static void useStatement() {
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
-static void structDeclaration() {
+static void structDeclaration(void) {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token structName = parser.previous;
   GC_PROTECT_START(current->owner->currentModuleRecord);
@@ -1394,13 +1396,47 @@ static void resultUnwrap(bool canAssign __attribute__((unused))) {
   emitByte(OP_UNWRAP);
 }
 
+static double getFloatFromSource(const Token *token) {
+  char *end;
+  errno = 0;
+
+  const char *numberStart = token->start;
+  const double number = strtod(numberStart, &end);
+
+  if (end == numberStart) {
+    compilerPanic(&parser, "Failed to form number", SYNTAX);
+    return 0;
+  }
+  if (errno == ERANGE) {
+    return number;
+  }
+  return number;
+}
+
+static int32_t getIntFromSource(const Token *token) {
+  char *end;
+  errno = 0;
+
+  const char *numberStart = token->start;
+  const int32_t number = (int32_t)strtod(numberStart, &end);
+
+  if (end == numberStart) {
+    compilerPanic(&parser, "Failed to form number", SYNTAX);
+    return 0;
+  }
+  if (errno == ERANGE) {
+    return number;
+  }
+  return number;
+}
+
 /**
  * Synchronizes the parser after encountering a syntax error.
  *
  * Discards tokens until a statement boundary is found to minimize cascading
  * errors.
  */
-static void synchronize() {
+static void synchronize(void) {
   parser.panicMode = false;
 
   while (parser.current.type != TOKEN_EOF) {
@@ -1422,7 +1458,7 @@ static void synchronize() {
   }
 }
 
-static void publicDeclaration() {
+static void publicDeclaration(void) {
   if (current->scopeDepth > 0) {
     compilerPanic(&parser, "Cannot declare public members in a local scope.",
                   SYNTAX);
@@ -1440,16 +1476,16 @@ static void publicDeclaration() {
   }
 }
 
-static void beginMatchScope() {
+static void beginMatchScope(void) {
   if (current->matchDepth > 0) {
     compilerPanic(&parser, "Nesting match statements is not allowed.", SYNTAX);
   }
   current->matchDepth++;
 }
 
-static void endMatchScope() { current->matchDepth--; }
+static void endMatchScope(void) { current->matchDepth--; }
 
-static void giveStatement() {
+static void giveStatement(void) {
   if (current->matchDepth == 0) {
     compilerPanic(&parser, "'give' can only be used inside a match expression.",
                   SYNTAX);
@@ -1602,7 +1638,7 @@ static void matchExpression(bool canAssign __attribute__((unused))) {
   endMatchScope();
 }
 
-static void continueStatement() {
+static void continueStatement(void) {
   consume(TOKEN_SEMICOLON, "Expected ';' after 'continue',");
   const int continueTarget = getCurrentContinueTarget();
   if (continueTarget == -1) {
@@ -1613,7 +1649,7 @@ static void continueStatement() {
   emitLoop(continueTarget);
 }
 
-static void breakStatement() {
+static void breakStatement(void) {
   consume(TOKEN_SEMICOLON, "Expected ';' after 'break'.");
   if (current->loopDepth <= 0) {
     compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
@@ -1628,7 +1664,7 @@ static void breakStatement() {
  * Parses a declaration, which can be a variable, function, or class
  * declaration.
  */
-static void declaration() {
+static void declaration(void) {
   if (match(TOKEN_LET)) {
     varDeclaration();
   } else if (match(TOKEN_FN)) {
@@ -1648,7 +1684,7 @@ static void declaration() {
 /**
  * Parses a statement.
  */
-static void statement() {
+static void statement(void) {
   if (match(TOKEN_IF)) {
     ifStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {

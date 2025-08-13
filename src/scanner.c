@@ -15,7 +15,7 @@ Scanner scanner;
  * Advances the scanner to the next character.
  * @return The character that was just consumed
  */
-static char advance() {
+static char advance(void) {
   scanner.current++;
   return scanner.current[-1];
 }
@@ -24,19 +24,19 @@ static char advance() {
  * Returns the current character without consuming it.
  * @return The current character
  */
-static char peek() { return *scanner.current; }
+static char peek(void) { return *scanner.current; }
 
 /**
  * Checks if the scanner has reached the end of the source.
  * @return true if at the end of source, false otherwise
  */
-static bool isAtEnd() { return *scanner.current == '\0'; }
+static bool isAtEnd(void) { return *scanner.current == '\0'; }
 
 /**
  * Returns the character after the current one without consuming any.
  * @return The next character, or '\0' if at the end of source
  */
-static char peekNext() {
+static char peekNext(void) {
   if (isAtEnd())
     return '\0';
   return scanner.current[1];
@@ -63,7 +63,7 @@ static bool isAlpha(const char c) {
 /**
  * Skips whitespace and comments in the source code.
  */
-static void skipWhitespace() {
+static void skipWhitespace(void) {
   for (;;) {
     const char c = peek();
     switch (c) {
@@ -106,7 +106,7 @@ static CruxTokenType checkKeyword(const int start, const int length,
  * Determines the token type of identifier.
  * @return The token type (keyword or identifier)
  */
-static CruxTokenType identifierType() {
+static CruxTokenType identifierType(void) {
   switch (scanner.start[0]) {
   case 'a': {
     if (scanner.current - scanner.start > 1) {
@@ -280,7 +280,7 @@ static bool match(const char expected) {
  * Scans a single-quoted string literal.
  * @return The string token or an error token
  */
-static Token singleString() {
+static Token singleString(void) {
   while (!isAtEnd()) {
     if (peek() == '\'')
       break;
@@ -308,7 +308,7 @@ static Token singleString() {
  * Scans a double-quoted string literal.
  * @return The string token or an error token
  */
-static Token doubleString() {
+static Token doubleString(void) {
   while (!isAtEnd()) {
     if (peek() == '"')
       break;
@@ -343,7 +343,7 @@ static bool isDigit(const char c) { return c >= '0' && c <= '9'; }
  * Scans a numeric literal (integer or float).
  * @return The numeric token (TOKEN_INT or TOKEN_FLOAT)
  */
-static Token number() {
+static Token number(void) {
   while (isDigit(peek()))
     advance();
   bool fpFound = false;
@@ -363,13 +363,13 @@ static Token number() {
  * Scans an identifier or keyword.
  * @return The identifier or keyword token
  */
-static Token identifier() {
+static Token identifier(void) {
   while (isAlpha(peek()) || isDigit(peek()))
     advance();
   return makeToken(identifierType());
 }
 
-Token scanToken() {
+Token scanToken(void) {
   skipWhitespace();
   scanner.start = scanner.current;
   if (isAtEnd())

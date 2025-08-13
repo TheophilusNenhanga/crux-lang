@@ -485,7 +485,7 @@ ObjectFunction *newFunction(VM *vm);
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *newTable(VM *vm, const int elementCount, ObjectModuleRecord *moduleRecord);
+ObjectTable *newTable(VM *vm, int elementCount, ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -642,7 +642,7 @@ bool objectTableGet(ObjectTableEntry *entries, uint32_t size,
                     uint32_t capacity, Value key, Value *value);
 
 
-void markObjectTable(VM *vm, const ObjectTableEntry* entries, const uint32_t capacity);
+void markObjectTable(VM *vm, const ObjectTableEntry* entries, uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -748,7 +748,7 @@ ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount, ObjectModuleRec
 
 ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
 
-bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, Value key, Value value);
 
 ObjectStruct *newStructType(VM *vm, ObjectString *name);
 

@@ -277,10 +277,7 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_VEC2:
-  case OBJECT_VEC3: {
-    break;
-  }
-
+  case OBJECT_VEC3:
   case OBJECT_STRING: {
     // Strings are primitives in terms of GC reachability in this implementation
     break;
