@@ -6,12 +6,13 @@
 
 ObjectFunction *compile(VM *vm, char *source);
 
-void markCompilerRoots(VM* vm);
+void markCompilerRoots(VM *vm);
 
 /**
  * @brief Parser state used during compilation.
  *
- * Holds the current and previous tokens, error status, and source code being parsed.
+ * Holds the current and previous tokens, error status, and source code being
+ * parsed.
  */
 typedef struct {
 	char *source;
@@ -21,7 +22,6 @@ typedef struct {
 	bool hadError;
 	bool panicMode;
 } Parser;
-
 
 // Precedence in order from lowest to highest
 typedef enum {
@@ -39,7 +39,14 @@ typedef enum {
 	PREC_PRIMARY
 } Precedence;
 
-typedef enum { COMPOUND_OP_PLUS, COMPOUND_OP_MINUS, COMPOUND_OP_STAR, COMPOUND_OP_SLASH, COMPOUND_OP_BACK_SLASH, COMPOUND_OP_PERCENT } CompoundOp;
+typedef enum {
+	COMPOUND_OP_PLUS,
+	COMPOUND_OP_MINUS,
+	COMPOUND_OP_STAR,
+	COMPOUND_OP_SLASH,
+	COMPOUND_OP_BACK_SLASH,
+	COMPOUND_OP_PERCENT
+} CompoundOp;
 
 typedef void (*ParseFn)(bool canAssign);
 
@@ -69,15 +76,15 @@ typedef struct BreakJump BreakJump;
 
 struct BreakJump {
 	int jumpOffset;
-	struct BreakJump* next;
+	struct BreakJump *next;
 };
 
 typedef struct {
 	LoopType type;
 	int continueTarget;
-	BreakJump* breakJumps;
+	BreakJump *breakJumps;
 	int scopeDepth;
-}LoopContext;
+} LoopContext;
 
 typedef struct Compiler Compiler;
 

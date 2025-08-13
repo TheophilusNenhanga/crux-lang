@@ -5,4 +5,4 @@
 
 InterpretResult run(VM *vm, bool isAnonymousFrame);
 
-#endif //VM_RUN_H
+#endif // VM_RUN_H

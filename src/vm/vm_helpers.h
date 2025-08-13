@@ -1,11 +1,10 @@
 #ifndef VM_HELPERS_H
 #define VM_HELPERS_H
 
-#include "vm.h"
 #include "../chunk.h"
+#include "vm.h"
 
-
-void resetStack(ObjectModuleRecord* moduleRecord);
+void resetStack(ObjectModuleRecord *moduleRecord);
 
 void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last);
 
@@ -20,7 +19,8 @@ void popImportStack(VM *vm);
 
 bool isInImportStack(const VM *vm, const ObjectString *path);
 
-ObjectResult* executeUserFunction(VM *vm, ObjectClosure *closure, int argCount, InterpretResult* result);
+ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
+				  InterpretResult *result);
 
 bool isFalsy(Value value);
 
@@ -39,8 +39,8 @@ bool concatenate(VM *vm);
  * @param instruction The opcode to check for
  * @return true if the previous instruction matches, false otherwise
  */
-bool checkPreviousInstruction(const CallFrame *frame,
-int instructionsAgo,OpCode instruction);
+bool checkPreviousInstruction(const CallFrame *frame, int instructionsAgo,
+			      OpCode instruction);
 
 /**
  * Calls a value as a function with the given arguments.
@@ -59,8 +59,8 @@ bool callValue(VM *vm, Value callee, int argCount);
  */
 ObjectUpvalue *captureUpvalue(VM *vm, Value *local);
 
-bool handleInvoke(VM *vm, int argCount, Value receiver,
-Value original, Value value);
+bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
+		  Value value);
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -79,7 +79,7 @@ bool invoke(VM *vm, const ObjectString *name, int argCount);
 void defineMethod(VM *vm, ObjectString *name);
 
 InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
-OpCode opcode, char *operation);
+					OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.
@@ -88,13 +88,13 @@ OpCode opcode, char *operation);
  * @param argCount Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-bool call(ObjectModuleRecord* moduleRecord, ObjectClosure *closure, int argCount);
+bool call(ObjectModuleRecord *moduleRecord, ObjectClosure *closure,
+	  int argCount);
 
+Value typeofValue(VM *vm, Value value);
 
-Value typeofValue(VM* vm, Value value);
-
-ObjectStructInstance* popStructStack(VM *vm);
+ObjectStructInstance *popStructStack(VM *vm);
 bool pushStructStack(VM *vm, ObjectStructInstance *structInstance);
-ObjectStructInstance* peekStructStack(const VM *vm);
+ObjectStructInstance *peekStructStack(const VM *vm);
 
-#endif //VM_HELPERS_H
+#endif // VM_HELPERS_H
