@@ -8,6 +8,7 @@
 
 #include "chunk.h"
 #include "errno.h"
+#include "file_handler.h"
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
@@ -24,7 +25,7 @@ Compiler *current = NULL;
 
 Chunk *compilingChunk;
 
-static void expression();
+static void expression(void);
 
 static void parsePrecedence(Precedence precedence);
 
@@ -38,13 +39,14 @@ static void grouping(bool canAssign);
 
 static void number(bool canAssign);
 
-static void statement();
+static void statement(void);
 
-static void declaration();
+static void declaration(void);
 
-static Chunk *currentChunk() { return &current->function->chunk; }
+static Chunk *currentChunk(void) { return &current->function->chunk; }
 
-static void advance() {
+static void advance(void) {
+  parser.prevPrevious = parser.previous;
   parser.previous = parser.current;
   for (;;) {
     parser.current = scanToken();
@@ -128,7 +130,7 @@ static void patchJump(const int offset) {
 /**
  * Emits OP_NIL_RETURN that signals the end of a scope.
  */
-static void emitReturn() { emitByte(OP_NIL_RETURN); }
+static void emitReturn(void) { emitByte(OP_NIL_RETURN); }
 
 /**
  * Creates a constant value and adds it to the current chunk's constant pool.
@@ -222,9 +224,9 @@ static uint16_t identifierConstant(const Token *name) {
  * Increases the scope depth, indicating that variables declared subsequently
  * are in a new, inner scope.
  */
-static void beginScope() { current->scopeDepth++; }
+static void beginScope(void) { current->scopeDepth++; }
 
-static void cleanupLocalsToDepth(int targetDepth) {
+static void cleanupLocalsToDepth(const int targetDepth) {
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth > targetDepth) {
     if (current->locals[current->localCount - 1].isCaptured) {
@@ -242,7 +244,7 @@ static void cleanupLocalsToDepth(int targetDepth) {
  * Decreases the scope depth and emits OP_POP instructions to remove local
  * variables that go out of scope.
  */
-static void endScope() {
+static void endScope(void) {
   current->scopeDepth--;
   cleanupLocalsToDepth(current->scopeDepth);
 }
@@ -297,7 +299,7 @@ static void pushLoopContext(const LoopType type, const int continueTarget) {
   context->scopeDepth = current->scopeDepth;
 }
 
-static void popLoopContext() {
+static void popLoopContext(void) {
   if (current->loopDepth <= 0) {
     return;
   }
@@ -328,7 +330,7 @@ static void addBreakJump(const int jumpOffset) {
   context->breakJumps = breakJump;
 }
 
-static int getCurrentContinueTarget() {
+static int getCurrentContinueTarget(void) {
   if (current->loopDepth <= 0) {
     compilerPanic(&parser, "Cannot use 'continue' outside of a loop.", SYNTAX);
     return -1;
@@ -424,7 +426,7 @@ static void addLocal(const Token name) {
  * Adds the variable name to the list of local variables, but does not mark it
  * as initialized yet.
  */
-static void declareVariable() {
+static void declareVariable(void) {
   if (current->scopeDepth == 0)
     return;
 
@@ -449,7 +451,7 @@ static void declareVariable() {
  *
  * This prevents reading a local variable before it has been assigned a value.
  */
-static void markInitialized() {
+static void markInitialized(void) {
   if (current->scopeDepth == 0)
     return;
   current->locals[current->localCount - 1].depth = current->scopeDepth;
@@ -498,7 +500,7 @@ static void defineVariable(const uint16_t global) {
  *
  * @return The number of arguments parsed.
  */
-static uint8_t argumentList() {
+static uint8_t argumentList(void) {
   uint8_t argCount = 0;
   if (!check(TOKEN_RIGHT_PAREN)) {
     do {
@@ -520,7 +522,7 @@ static uint8_t argumentList() {
  * @param canAssign Whether the 'and' expression can be the target of an
  * assignment.
  */
-static void and_(bool canAssign) {
+static void and_(bool canAssign __attribute__((unused))) {
   const int endJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   parsePrecedence(PREC_AND);
@@ -534,7 +536,7 @@ static void and_(bool canAssign) {
  * @param canAssign Whether the 'or' expression can be the target of an
  * assignment.
  */
-static void or_(bool canAssign) {
+static void or_(bool canAssign __attribute__((unused))) {
   const int elseJump = emitJump(OP_JUMP_IF_FALSE);
   const int endJump = emitJump(OP_JUMP);
 
@@ -552,7 +554,7 @@ static void or_(bool canAssign) {
  *
  * @return The compiled function object.
  */
-static ObjectFunction *endCompiler() {
+static ObjectFunction *endCompiler(void) {
   emitReturn();
   ObjectFunction *function = current->function;
 #ifdef DEBUG_PRINT_CODE
@@ -568,7 +570,7 @@ static ObjectFunction *endCompiler() {
   return function;
 }
 
-static void binary(bool canAssign) {
+static void binary(bool canAssign __attribute__((unused))) {
   const CruxTokenType operatorType = parser.previous.type;
   const ParseRule *rule = getRule(operatorType);
   parsePrecedence(rule->precedence + 1);
@@ -625,7 +627,7 @@ static void binary(bool canAssign) {
   }
 }
 
-static void call(bool canAssign) {
+static void call(bool canAssign __attribute__((unused))) {
   const uint8_t argCount = argumentList();
   emitBytes(OP_CALL, argCount);
 }
@@ -636,7 +638,7 @@ static void call(bool canAssign) {
  * @param canAssign Whether the literal can be the target of an assignment
  * (always false).
  */
-static void literal(bool canAssign) {
+static void literal(bool canAssign __attribute__((unused))) {
   switch (parser.previous.type) {
   case TOKEN_FALSE:
     emitByte(OP_FALSE);
@@ -693,7 +695,7 @@ static void dot(const bool canAssign) {
 /**
  * Parses an expression. Entry point for expression parsing.
  */
-static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
+static void expression(void) { parsePrecedence(PREC_ASSIGNMENT); }
 
 /**
  * Gets the compound opcode based on the set opcode and compound operation.
@@ -706,7 +708,7 @@ static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
  */
 static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
   switch (setOp) {
-  case OP_SET_LOCAL:
+  case OP_SET_LOCAL: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_LOCAL_PLUS;
@@ -720,8 +722,17 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_LOCAL_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_LOCAL_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
-  case OP_SET_UPVALUE:
+    }
+    break;
+  }
+  case OP_SET_UPVALUE: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_UPVALUE_PLUS;
@@ -735,8 +746,17 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_UPVALUE_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_UPVALUE_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
-  case OP_SET_GLOBAL:
+    }
+    break;
+  }
+  case OP_SET_GLOBAL: {
     switch (op) {
     case COMPOUND_OP_PLUS:
       return OP_SET_GLOBAL_PLUS;
@@ -750,10 +770,20 @@ static OpCode getCompoundOpcode(const OpCode setOp, const CompoundOp op) {
       return OP_SET_GLOBAL_INT_DIVIDE;
     case COMPOUND_OP_PERCENT:
       return OP_SET_GLOBAL_MODULUS;
+    default: {
+      compilerPanic(
+          &parser,
+          "Compiler Error: Failed to create bytecode for compound operation.",
+          RUNTIME);
+      break;
     }
+    }
+    break;
+  }
   default:
     return setOp; // Should never happen
   }
+  return setOp;
 }
 
 /**
@@ -894,7 +924,7 @@ static void namedVariable(Token name, const bool canAssign) {
   emitBytes(getOp, arg);
 }
 
-void structInstance(bool canAssign) {
+void structInstance(const bool canAssign) {
   consume(TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
   namedVariable(parser.previous, canAssign);
   if (!match(TOKEN_LEFT_BRACE)) {
@@ -938,20 +968,7 @@ static void variable(const bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
-/**
- * Creates a synthetic token for internal compiler use.
- *
- * @param text The text of the synthetic token.
- * @return The created synthetic token.
- */
-static Token syntheticToken(const char *text) {
-  Token token;
-  token.start = text;
-  token.length = (int)strlen(text);
-  return token;
-}
-
-static void block() {
+static void block(void) {
   while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
     declaration();
   }
@@ -991,14 +1008,14 @@ static void function(const FunctionType type) {
   }
 }
 
-static void fnDeclaration() {
+static void fnDeclaration(void) {
   const uint16_t global = parseVariable("Expected function name");
   markInitialized();
   function(TYPE_FUNCTION);
   defineVariable(global);
 }
 
-static void anonymousFunction(bool canAssign) {
+static void anonymousFunction(bool canAssign __attribute__((unused))) {
   Compiler compiler;
   initCompiler(&compiler, TYPE_ANONYMOUS, current->owner);
   beginScope();
@@ -1023,10 +1040,9 @@ static void anonymousFunction(bool canAssign) {
   if (constantIndex > UINT8_MAX) {
     emitByte(OP_ANON_FUNCTION_16);
     emitBytes(constantIndex >> 8 & 0xff, constantIndex & 0xff);
-  }else {
-    emitBytes(OP_ANON_FUNCTION, (uint8_t) constantIndex);
+  } else {
+    emitBytes(OP_ANON_FUNCTION, (uint8_t)constantIndex);
   }
-
 
   for (int i = 0; i < function->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
@@ -1054,9 +1070,11 @@ static void createArray(const OpCode creationOpCode, const char *typeName) {
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void arrayLiteral(bool canAssign) { createArray(OP_ARRAY, "array"); }
+static void arrayLiteral(bool canAssign __attribute__((unused))) {
+  createArray(OP_ARRAY, "array");
+}
 
-static void staticArrayLiteral(bool canAssign) {
+static void staticArrayLiteral(bool canAssign __attribute__((unused))) {
   createArray(OP_STATIC_ARRAY, "static array");
 }
 
@@ -1082,9 +1100,11 @@ static void createTable(const OpCode creationOpCode, const char *typeName) {
   emitBytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void tableLiteral(bool canAssign) { createTable(OP_TABLE, "table"); }
+static void tableLiteral(bool canAssign __attribute__((unused))) {
+  createTable(OP_TABLE, "table");
+}
 
-static void staticTableLiteral(bool canAssign) {
+static void staticTableLiteral(bool canAssign __attribute__((unused))) {
   createTable(OP_STATIC_TABLE, "static table");
 }
 
@@ -1106,7 +1126,7 @@ static void collectionIndex(const bool canAssign) {
   }
 }
 
-static void varDeclaration() {
+static void varDeclaration(void) {
   const uint16_t global = parseVariable("Expected Variable Name.");
 
   if (match(TOKEN_EQUAL)) {
@@ -1118,13 +1138,13 @@ static void varDeclaration() {
   defineVariable(global);
 }
 
-static void expressionStatement() {
+static void expressionStatement(void) {
   expression();
   consume(TOKEN_SEMICOLON, "Expected ';' after expression");
   emitByte(OP_POP);
 }
 
-static void whileStatement() {
+static void whileStatement(void) {
   beginScope();
   const int loopStart = currentChunk()->count;
 
@@ -1145,7 +1165,7 @@ static void whileStatement() {
   endScope();
 }
 
-static void forStatement() {
+static void forStatement(void) {
   beginScope();
 
   if (match(TOKEN_SEMICOLON)) {
@@ -1193,7 +1213,7 @@ static void forStatement() {
   endScope();
 }
 
-static void ifStatement() {
+static void ifStatement(void) {
   expression();
   const int thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
@@ -1208,7 +1228,7 @@ static void ifStatement() {
   patchJump(elseJump);
 }
 
-static void returnStatement() {
+static void returnStatement(void) {
   if (current->type == TYPE_SCRIPT) {
     compilerPanic(&parser, "Cannot use <return> outside of a function", SYNTAX);
   }
@@ -1222,7 +1242,7 @@ static void returnStatement() {
   }
 }
 
-static void useStatement() {
+static void useStatement(void) {
   bool hasParen = false;
   if (parser.current.type == TOKEN_LEFT_PAREN) {
     consume(TOKEN_LEFT_PAREN, "Expected '(' after use statement");
@@ -1315,13 +1335,16 @@ static void useStatement() {
   consume(TOKEN_SEMICOLON, "Expected semicolon after import statement.");
 }
 
-static void structDeclaration() {
+static void structDeclaration(void) {
   consume(TOKEN_IDENTIFIER, "Expected class name");
   const Token structName = parser.previous;
+  GC_PROTECT_START(current->owner->currentModuleRecord);
   ObjectString *structNameString =
       copyString(current->owner, structName.start, structName.length);
+  GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(structNameString));
   const uint16_t nameConstant = identifierConstant(&structName);
   ObjectStruct *structObject = newStructType(current->owner, structNameString);
+  GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(structObject));
 
   declareVariable();
 
@@ -1349,6 +1372,8 @@ static void structDeclaration() {
       ObjectString *fieldName = copyString(
           current->owner, parser.previous.start, parser.previous.length);
 
+      GC_PROTECT(current->owner->currentModuleRecord, OBJECT_VAL(fieldName));
+
       Value fieldNameCheck;
       if (tableGet(&structObject->fields, fieldName, &fieldNameCheck)) {
         compilerPanic(&parser, "Duplicate field name in struct declaration",
@@ -1364,6 +1389,45 @@ static void structDeclaration() {
   if (fieldCount != 0) {
     consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
   }
+  GC_PROTECT_END(current->owner->currentModuleRecord);
+}
+
+static void resultUnwrap(bool canAssign __attribute__((unused))) {
+  emitByte(OP_UNWRAP);
+}
+
+static double getFloatFromSource(const Token *token) {
+  char *end;
+  errno = 0;
+
+  const char *numberStart = token->start;
+  const double number = strtod(numberStart, &end);
+
+  if (end == numberStart) {
+    compilerPanic(&parser, "Failed to form number", SYNTAX);
+    return 0;
+  }
+  if (errno == ERANGE) {
+    return number;
+  }
+  return number;
+}
+
+static int32_t getIntFromSource(const Token *token) {
+  char *end;
+  errno = 0;
+
+  const char *numberStart = token->start;
+  const int32_t number = (int32_t)strtod(numberStart, &end);
+
+  if (end == numberStart) {
+    compilerPanic(&parser, "Failed to form number", SYNTAX);
+    return 0;
+  }
+  if (errno == ERANGE) {
+    return number;
+  }
+  return number;
 }
 
 /**
@@ -1372,7 +1436,7 @@ static void structDeclaration() {
  * Discards tokens until a statement boundary is found to minimize cascading
  * errors.
  */
-static void synchronize() {
+static void synchronize(void) {
   parser.panicMode = false;
 
   while (parser.current.type != TOKEN_EOF) {
@@ -1394,7 +1458,7 @@ static void synchronize() {
   }
 }
 
-static void publicDeclaration() {
+static void publicDeclaration(void) {
   if (current->scopeDepth > 0) {
     compilerPanic(&parser, "Cannot declare public members in a local scope.",
                   SYNTAX);
@@ -1412,16 +1476,16 @@ static void publicDeclaration() {
   }
 }
 
-static void beginMatchScope() {
+static void beginMatchScope(void) {
   if (current->matchDepth > 0) {
     compilerPanic(&parser, "Nesting match statements is not allowed.", SYNTAX);
   }
   current->matchDepth++;
 }
 
-static void endMatchScope() { current->matchDepth--; }
+static void endMatchScope(void) { current->matchDepth--; }
 
-static void giveStatement() {
+static void giveStatement(void) {
   if (current->matchDepth == 0) {
     compilerPanic(&parser, "'give' can only be used inside a match expression.",
                   SYNTAX);
@@ -1440,7 +1504,7 @@ static void giveStatement() {
 /**
  * Parses a match expression.
  */
-static void matchExpression(bool canAssign) {
+static void matchExpression(bool canAssign __attribute__((unused))) {
   beginMatchScope();
   expression(); // compile match target
   consume(TOKEN_LEFT_BRACE, "Expected '{' after match target.");
@@ -1574,7 +1638,7 @@ static void matchExpression(bool canAssign) {
   endMatchScope();
 }
 
-static void continueStatement() {
+static void continueStatement(void) {
   consume(TOKEN_SEMICOLON, "Expected ';' after 'continue',");
   const int continueTarget = getCurrentContinueTarget();
   if (continueTarget == -1) {
@@ -1585,7 +1649,7 @@ static void continueStatement() {
   emitLoop(continueTarget);
 }
 
-static void breakStatement() {
+static void breakStatement(void) {
   consume(TOKEN_SEMICOLON, "Expected ';' after 'break'.");
   if (current->loopDepth <= 0) {
     compilerPanic(&parser, "Cannot use 'break' outside of a loop.", SYNTAX);
@@ -1600,7 +1664,7 @@ static void breakStatement() {
  * Parses a declaration, which can be a variable, function, or class
  * declaration.
  */
-static void declaration() {
+static void declaration(void) {
   if (match(TOKEN_LET)) {
     varDeclaration();
   } else if (match(TOKEN_FN)) {
@@ -1620,7 +1684,7 @@ static void declaration() {
 /**
  * Parses a statement.
  */
-static void statement() {
+static void statement(void) {
   if (match(TOKEN_IF)) {
     ifStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {
@@ -1652,12 +1716,12 @@ static void statement() {
  * @param canAssign Whether the grouping expression can be the target of an
  * assignment.
  */
-static void grouping(bool canAssign) {
+static void grouping(bool canAssign __attribute__((unused))) {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
-static void number(bool canAssign) {
+static void number(bool canAssign __attribute__((unused))) {
   char *end;
   errno = 0;
 
@@ -1737,7 +1801,7 @@ static char processEscapeSequence(const char escape, bool *hasError) {
  * @param canAssign Whether the string literal can be the target of an
  * assignment.
  */
-static void string(bool canAssign) {
+static void string(bool canAssign __attribute__((unused))) {
   char *processed = ALLOCATE(current->owner, char, parser.previous.length);
 
   if (processed == NULL) {
@@ -1803,7 +1867,7 @@ static void string(bool canAssign) {
  * @param canAssign Whether the unary expression can be the target of an
  * assignment.
  */
-static void unary(bool canAssign) {
+static void unary(bool canAssign __attribute__((unused))) {
   const CruxTokenType operatorType = parser.previous.type;
 
   // compile the operand
@@ -1821,7 +1885,7 @@ static void unary(bool canAssign) {
   }
 }
 
-static void typeofExpression(bool canAssign) {
+static void typeofExpression(bool canAssign __attribute__((unused))) {
   parsePrecedence(PREC_UNARY);
   emitByte(OP_TYPEOF);
 }
@@ -1833,63 +1897,64 @@ static void typeofExpression(bool canAssign) {
  * type.
  */
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
-    [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_BRACE] = {tableLiteral, NULL, PREC_NONE},
-    [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_SQUARE] = {arrayLiteral, collectionIndex, PREC_CALL},
-    [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_COMMA] = {NULL, NULL, PREC_NONE},
-    [TOKEN_DOT] = {NULL, dot, PREC_CALL},
-    [TOKEN_MINUS] = {unary, binary, PREC_TERM},
-    [TOKEN_PLUS] = {NULL, binary, PREC_TERM},
-    [TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
-    [TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_BACKSLASH] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_STAR_STAR] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_PERCENT] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_LEFT_SHIFT] = {NULL, binary, PREC_SHIFT},
-    [TOKEN_RIGHT_SHIFT] = {NULL, binary, PREC_SHIFT},
-    [TOKEN_NOT] = {unary, NULL, PREC_NONE},
-    [TOKEN_BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
-    [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_EQUALITY},
-    [TOKEN_GREATER] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_LESS] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_LESS_EQUAL] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
-    [TOKEN_STRING] = {string, NULL, PREC_NONE},
-    [TOKEN_INT] = {number, NULL, PREC_NONE},
-    [TOKEN_FLOAT] = {number, NULL, PREC_NONE},
-    [TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_BREAK] = {NULL, NULL, PREC_NONE},
-    [TOKEN_AND] = {NULL, and_, PREC_AND},
-    [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
-    [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
-    [TOKEN_FN] = {anonymousFunction, NULL, PREC_NONE},
-    [TOKEN_IF] = {NULL, NULL, PREC_NONE},
-    [TOKEN_NIL] = {literal, NULL, PREC_NONE},
-    [TOKEN_OR] = {NULL, or_, PREC_OR},
-    [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
-    [TOKEN_LET] = {NULL, NULL, PREC_NONE},
-    [TOKEN_USE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_FROM] = {NULL, NULL, PREC_NONE},
-    [TOKEN_PUB] = {NULL, NULL, PREC_NONE},
-    [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
-    [TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_ARROW] = {NULL, NULL, PREC_NONE},
-    [TOKEN_MATCH] = {matchExpression, NULL, PREC_PRIMARY},
-    [TOKEN_TYPEOF] = {typeofExpression, NULL, PREC_UNARY},
-    [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, PREC_NONE},
-    [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, PREC_NONE},
-    [TOKEN_STRUCT] = {NULL, NULL, PREC_NONE},
-    [TOKEN_NEW] = {structInstance, NULL, PREC_UNARY},
-    [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_PAREN] = {grouping, call, NULL, PREC_CALL},
+    [TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_BRACE] = {tableLiteral, NULL, NULL, PREC_NONE},
+    [TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_SQUARE] = {arrayLiteral, collectionIndex, NULL, PREC_CALL},
+    [TOKEN_RIGHT_SQUARE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_COMMA] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_DOT] = {NULL, dot, NULL, PREC_CALL},
+    [TOKEN_MINUS] = {unary, binary, NULL, PREC_TERM},
+    [TOKEN_PLUS] = {NULL, binary, NULL, PREC_TERM},
+    [TOKEN_SEMICOLON] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_SLASH] = {NULL, binary, NULL, PREC_FACTOR},
+    [TOKEN_BACKSLASH] = {NULL, binary, NULL, PREC_FACTOR},
+    [TOKEN_STAR] = {NULL, binary, NULL, PREC_FACTOR},
+    [TOKEN_STAR_STAR] = {NULL, binary, NULL, PREC_FACTOR},
+    [TOKEN_PERCENT] = {NULL, binary, NULL, PREC_FACTOR},
+    [TOKEN_LEFT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
+    [TOKEN_RIGHT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
+    [TOKEN_NOT] = {unary, NULL, NULL, PREC_NONE},
+    [TOKEN_BANG_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
+    [TOKEN_EQUAL] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_EQUAL_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
+    [TOKEN_GREATER] = {NULL, binary, NULL, PREC_COMPARISON},
+    [TOKEN_GREATER_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
+    [TOKEN_LESS] = {NULL, binary, NULL, PREC_COMPARISON},
+    [TOKEN_LESS_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
+    [TOKEN_IDENTIFIER] = {variable, NULL, NULL, PREC_NONE},
+    [TOKEN_STRING] = {string, NULL, NULL, PREC_NONE},
+    [TOKEN_INT] = {number, NULL, NULL, PREC_NONE},
+    [TOKEN_FLOAT] = {number, NULL, NULL, PREC_NONE},
+    [TOKEN_CONTINUE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_BREAK] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_AND] = {NULL, and_, NULL, PREC_AND},
+    [TOKEN_ELSE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_FALSE] = {literal, NULL, NULL, PREC_NONE},
+    [TOKEN_FOR] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_FN] = {anonymousFunction, NULL, NULL, PREC_NONE},
+    [TOKEN_IF] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_NIL] = {literal, NULL, NULL, PREC_NONE},
+    [TOKEN_OR] = {NULL, or_, NULL, PREC_OR},
+    [TOKEN_RETURN] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_TRUE] = {literal, NULL, NULL, PREC_NONE},
+    [TOKEN_LET] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_USE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_FROM] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_PUB] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_WHILE] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_ERROR] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_DEFAULT] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_MATCH] = {matchExpression, NULL, NULL, PREC_PRIMARY},
+    [TOKEN_TYPEOF] = {typeofExpression, NULL, NULL, PREC_UNARY},
+    [TOKEN_DOLLAR_LEFT_CURLY] = {staticTableLiteral, NULL, NULL, PREC_NONE},
+    [TOKEN_DOLLAR_LEFT_SQUARE] = {staticArrayLiteral, NULL, NULL, PREC_NONE},
+    [TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_NEW] = {structInstance, NULL, NULL, PREC_UNARY},
+    [TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
+    [TOKEN_QUESTION_MARK] = {NULL, NULL, resultUnwrap, PREC_CALL},
 };
 
 /**
@@ -1909,8 +1974,12 @@ static void parsePrecedence(const Precedence precedence) {
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
-    const ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule(canAssign);
+    const ParseRule *rule = getRule(parser.previous.type);
+    if (rule->infix != NULL) {
+      rule->infix(canAssign);
+    } else if (rule->postfix != NULL) {
+      rule->postfix(canAssign);
+    }
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {

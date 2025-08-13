@@ -3,7 +3,6 @@
 
 #include "object.h"
 #include "scanner.h"
-#include "vm/vm.h"
 
 ObjectFunction *compile(VM *vm, char *source);
 
@@ -18,6 +17,7 @@ typedef struct {
 	char *source;
 	Token current;
 	Token previous;
+	Token prevPrevious;
 	bool hadError;
 	bool panicMode;
 } Parser;
@@ -46,6 +46,7 @@ typedef void (*ParseFn)(bool canAssign);
 typedef struct {
 	ParseFn prefix;
 	ParseFn infix;
+	ParseFn postfix;
 	Precedence precedence;
 } ParseRule;
 

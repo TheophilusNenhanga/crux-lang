@@ -9,6 +9,44 @@
 #include "value.h"
 #include "vm/vm.h"
 
+#define GC_PROTECT_START(currentModuleRecord) Value* gcStackStart = (currentModuleRecord)->stackTop
+#define GC_PROTECT(currentModuleRecord, value) PUSH((currentModuleRecord), (value))
+#define GC_PROTECT_END(currentModuleRecord) (currentModuleRecord)->stackTop = gcStackStart
+
+#define STATIC_STRING_LEN(staticString) sizeof((staticString)) - 1
+
+// Only works with string literals -- gcSafeStaticMessage
+#define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)\
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord);\
+ObjectString* message = copyString((vm), (gcSafeStaticMessage), STATIC_STRING_LEN((gcSafeStaticMessage)) );\
+GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));\
+ObjectError* gcSafeError = newError((vm), message, (gcSafeErrorType), false);\
+GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(gcSafeError));\
+ObjectResult* gcSafeErrorResult = newErrorResult((vm), gcSafeError);\
+GC_PROTECT_END((vm)->currentModuleRecord);\
+gcSafeErrorResult;\
+})
+
+#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue) \
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord); \
+GC_PROTECT((vm)->currentModuleRecord, alreadySafeValue); \
+ObjectResult* gcSafeResult = newOkResult((vm), alreadySafeValue); \
+GC_PROTECT_END((vm)->currentModuleRecord); \
+gcSafeResult; \
+})
+
+#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression) \
+({ \
+GC_PROTECT_START((vm)->currentModuleRecord); \
+Value allocatedValue = (allocatingExpression); \
+GC_PROTECT((vm)->currentModuleRecord, allocatedValue); \
+ObjectResult* gcSafeResultWithAlloc = newOkResult((vm), allocatedValue); \
+GC_PROTECT_END((vm)->currentModuleRecord); \
+gcSafeResultWithAlloc; \
+})
+
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
 #define IS_CRUX_STRING(value) isObjectType(value, OBJECT_STRING)
@@ -33,6 +71,8 @@
 #define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
 #define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
 #define IS_CRUX_STRUCT_INSTANCE(value) isObjectType(value, OBJECT_STRUCT_INSTANCE)
+#define IS_CRUX_VEC2(value) isObjectType(value, OBJECT_VEC2)
+#define IS_CRUX_VEC3(value) isObjectType(value, OBJECT_VEC3)
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -60,6 +100,8 @@
 #define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_VEC2(value) ((ObjectVec2 *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_VEC3(value) ((ObjectVec3 *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value) (IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
@@ -83,6 +125,8 @@ typedef enum {
   OBJECT_STATIC_TABLE,
   OBJECT_STRUCT,
   OBJECT_STRUCT_INSTANCE,
+  OBJECT_VEC2,
+  OBJECT_VEC3,
 } ObjectType;
 
 struct Object {
@@ -94,7 +138,7 @@ struct Object {
 struct ObjectString {
   Object Object;
   char *chars;
-  uint32_t length;
+  uint32_t length; // this is the length without the null terminator
   uint32_t hash;
 };
 
@@ -260,6 +304,19 @@ struct ObjectStructInstance{
   uint16_t fieldCount;
 };
 
+typedef struct {
+  Object object;
+  double x;
+  double y;
+} ObjectVec2;
+
+typedef struct {
+  Object object;
+  double x;
+  double y;
+  double z;
+} ObjectVec3;
+
 typedef enum {
   STATE_LOADING,
   STATE_LOADED,
@@ -424,10 +481,11 @@ ObjectFunction *newFunction(VM *vm);
  * @param elementCount Hint for initial table size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount` (or 16 if
  * `elementCount` is less than 16).
+ * @param moduleRecord
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *newTable(VM *vm, int elementCount);
+ObjectTable *newTable(VM *vm, int elementCount, ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -465,10 +523,11 @@ ObjectResult *newErrorResult(VM *vm, ObjectError *error);
  * @param vm The virtual machine.
  * @param elementCount Hint for initial array size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount`.
+ * @param moduleRecord
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *newArray(VM *vm, uint32_t elementCount);
+ObjectArray *newArray(VM *vm, uint32_t elementCount, ObjectModuleRecord *moduleRecord);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -583,7 +642,7 @@ bool objectTableGet(ObjectTableEntry *entries, uint32_t size,
                     uint32_t capacity, Value key, Value *value);
 
 
-void markObjectTable(VM *vm, const ObjectTableEntry* entries, const uint32_t capacity);
+void markObjectTable(VM *vm, const ObjectTableEntry* entries, uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -685,17 +744,25 @@ bool objectTableRemove(ObjectTable *table, Value key);
  */
 bool objectTableContainsKey(ObjectTable *table, Value key);
 
-ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount);
+ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
 
-ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount);
+ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount, ObjectModuleRecord *moduleRecord);
 
-bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, const Value key, const Value value);
+bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, Value key, Value value);
 
 ObjectStruct *newStructType(VM *vm, ObjectString *name);
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        uint16_t fieldCount);
+                                        uint16_t fieldCount, ObjectModuleRecord *moduleRecord);
+
+ObjectVec2* newVec2(VM* vm, double x, double y);
+
+ObjectVec3* newVec3(VM* vm, double x, double y, double z);
 
 void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
+
+bool initModuleRecord(ObjectModuleRecord* moduleRecord, ObjectString *path, bool isRepl, bool isMain);
+
+void freeModuleRecord(VM* vm, ObjectModuleRecord* moduleRecord);
 
 #endif

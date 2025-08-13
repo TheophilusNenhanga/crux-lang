@@ -24,6 +24,10 @@ ObjectResult *ceilFunction(VM *vm, int argCount, const Value *args);
 ObjectResult *floorFunction(VM *vm, int argCount, const Value *args);
 ObjectResult *roundFunction(VM *vm, int argCount, const Value *args);
 
+ObjectResult* minFunction(VM *vm, const int argCount, const Value *args);
+ObjectResult* maxFunction(VM *vm, const int argCount, const Value *args);
+
 Value piFunction(VM *vm, int argCount, const Value *args);
 Value eFunction(VM *vm, int argCount, const Value *args);
+
 #endif // MATH_H

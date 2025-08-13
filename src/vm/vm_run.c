@@ -133,6 +133,7 @@ InterpretResult run(VM *vm, const bool isAnonymousFrame) {
                                   &&OP_STRUCT_INSTANCE_END,
                                   &&OP_NIL_RETURN,
                                   &&OP_ANON_FUNCTION_16,
+                                  &&OP_UNWRAP,
                                   &&end};
 
   uint8_t instruction;
@@ -479,7 +480,7 @@ OP_INVOKE: {
 
 OP_ARRAY: {
   uint16_t elementCount = READ_SHORT();
-  ObjectArray *array = newArray(vm, elementCount);
+  ObjectArray *array = newArray(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     arrayAdd(vm, array, POP(currentModuleRecord), i);
   }
@@ -1039,7 +1040,7 @@ OP_SET_GLOBAL_MINUS: {
 
 OP_TABLE: {
   uint16_t elementCount = READ_SHORT();
-  ObjectTable *table = newTable(vm, elementCount);
+  ObjectTable *table = newTable(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     Value value = POP(currentModuleRecord);
     Value key = POP(currentModuleRecord);
@@ -1316,8 +1317,7 @@ OP_USE_NATIVE: {
   ObjectString *moduleName = READ_STRING();
   int moduleIndex = -1;
   for (int i = 0; i < vm->nativeModules.count; i++) {
-    if (memcmp(moduleName->chars, vm->nativeModules.modules[i].name,
-               moduleName->length) == 0) {
+    if (moduleName == vm->nativeModules.modules[i].name) {
       moduleIndex = i;
       break;
     }
@@ -1649,7 +1649,7 @@ OP_TYPEOF: {
 
 OP_STATIC_ARRAY: {
   uint16_t elementCount = READ_SHORT();
-  ObjectStaticArray *array = newStaticArray(vm, elementCount);
+  ObjectStaticArray *array = newStaticArray(vm, elementCount, currentModuleRecord);
   Value *values = array->values;
   for (int i = elementCount - 1; i >= 0; i--) {
     values[i] = POP(currentModuleRecord);
@@ -1660,7 +1660,7 @@ OP_STATIC_ARRAY: {
 
 OP_STATIC_TABLE: {
   uint16_t elementCount = READ_SHORT();
-  ObjectStaticTable *table = newStaticTable(vm, elementCount);
+  ObjectStaticTable *table = newStaticTable(vm, elementCount, currentModuleRecord);
   for (int i = elementCount - 1; i >= 0; i--) {
     Value value = POP(currentModuleRecord);
     Value key = POP(currentModuleRecord);
@@ -1695,11 +1695,12 @@ OP_STRUCT_INSTANCE_START: {
   Value value = PEEK(currentModuleRecord, 0);
   ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
   ObjectStructInstance *structInstance =
-      newStructInstance(vm, objectStruct, objectStruct->fields.count);
+      newStructInstance(vm, objectStruct, objectStruct->fields.count, currentModuleRecord);
   POP(currentModuleRecord); // struct type
   if (!pushStructStack(vm, structInstance)) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to push struct onto stack.");
+    return INTERPRET_RUNTIME_ERROR;
   }
   DISPATCH();
 }
@@ -1757,6 +1758,7 @@ OP_STRUCT_INSTANCE_END: {
   if (structInstance == NULL) {
     runtimePanic(currentModuleRecord, false, RUNTIME,
                  "Failed to pop struct from stack.");
+    return INTERPRET_RUNTIME_ERROR;
   }
   PUSH(currentModuleRecord, OBJECT_VAL(structInstance));
   DISPATCH();
@@ -1778,19 +1780,34 @@ OP_NIL_RETURN: {
   DISPATCH();
 }
 
-  OP_ANON_FUNCTION_16: {
-    ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT_16());
-    ObjectClosure *closure = newClosure(vm, function);
-    PUSH(currentModuleRecord, OBJECT_VAL(closure));
-    for (int i = 0; i < closure->upvalueCount; i++) {
-      uint8_t isLocal = READ_BYTE();
-      uint8_t index = READ_BYTE();
+OP_ANON_FUNCTION_16: {
+  ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT_16());
+  ObjectClosure *closure = newClosure(vm, function);
+  PUSH(currentModuleRecord, OBJECT_VAL(closure));
+  for (int i = 0; i < closure->upvalueCount; i++) {
+    uint8_t isLocal = READ_BYTE();
+    uint8_t index = READ_BYTE();
 
-      if (isLocal) {
-        closure->upvalues[i] = captureUpvalue(vm, frame->slots + index);
-      } else {
-        closure->upvalues[i] = frame->closure->upvalues[index];
-      }
+    if (isLocal) {
+      closure->upvalues[i] = captureUpvalue(vm, frame->slots + index);
+    } else {
+      closure->upvalues[i] = frame->closure->upvalues[index];
+    }
+  }
+  DISPATCH();
+}
+
+  OP_UNWRAP: {
+    Value value = POP(currentModuleRecord);
+    if (!IS_CRUX_RESULT(value)) {
+      runtimePanic(currentModuleRecord, false, TYPE, "Only the 'result' type supports unwrapping.");
+      return INTERPRET_RUNTIME_ERROR;
+    }
+    ObjectResult *result = AS_CRUX_RESULT(value);
+    if (result->isOk) {
+      PUSH(currentModuleRecord, result->as.value);
+    }else {
+      PUSH(currentModuleRecord, OBJECT_VAL(result->as.error));
     }
     DISPATCH();
   }

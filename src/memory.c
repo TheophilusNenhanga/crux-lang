@@ -9,7 +9,7 @@
 #include <stdio.h>
 #endif
 
-#define GC_HEAP_GROW_FACTOR 2
+#define GC_HEAP_GROW_FACTOR 1.5
 
 void *reallocate(VM *vm, void *pointer, const size_t oldSize,
                  const size_t newSize) {
@@ -88,7 +88,7 @@ void markArray(VM *vm, const ValueArray *array) {
  * @param size The size of the array
  */
 void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
-  for (int i = 0; i < size; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     markValue(vm, values[i]);
   }
 }
@@ -106,7 +106,7 @@ void markObjectArray(VM *vm, const Value *values, const uint32_t size) {
  */
 void markObjectTable(VM *vm, const ObjectTableEntry *entries,
                      const uint32_t capacity) {
-  for (int i = 0; i < capacity; i++) {
+  for (uint32_t i = 0; i < capacity; i++) {
     if (entries[i].isOccupied) {
       markValue(vm, entries[i].value);
       markValue(vm, entries[i].key);
@@ -114,9 +114,18 @@ void markObjectTable(VM *vm, const ObjectTableEntry *entries,
   }
 }
 
-static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
+static void markObjectStruct(VM *vm, ObjectStruct *structure) {
   markObject(vm, (Object *)structure->name);
   markTable(vm, &structure->fields);
+  structure->object.isMarked = true;
+}
+
+static void markStructInstance(VM *vm, ObjectStructInstance *instance) {
+  for (int i = 0; i < instance->fieldCount; i++) {
+    markValue(vm, instance->fields[i]);
+  }
+  markObjectStruct(vm, instance->structType);
+  instance->object.isMarked = true;
 }
 
 /**
@@ -132,7 +141,7 @@ static void markObjectStruct(VM *vm, const ObjectStruct *structure) {
 static void blackenObject(VM *vm, Object *object) {
 #ifdef DEBUG_LOG_GC
   printf("%p blacken ", (void *)object);
-  printValue(OBJECT_VAL(object));
+  printValue(OBJECT_VAL(object), false);
   printf("\n");
 #endif
 
@@ -220,13 +229,10 @@ static void blackenObject(VM *vm, Object *object) {
     } else {
       markObject(vm, (Object *)result->as.error);
     }
+    break;
   }
 
   case OBJECT_RANDOM: {
-    ObjectRandom *random = (ObjectRandom *)object;
-    // mark the random object itself, because it doesn't have any other
-    // references within itself that will be marked
-    markObject(vm, (Object *)random);
     break;
   }
 
@@ -259,18 +265,19 @@ static void blackenObject(VM *vm, Object *object) {
   }
 
   case OBJECT_STRUCT: {
-    const ObjectStruct *structure = (ObjectStruct *)object;
+    ObjectStruct *structure = (ObjectStruct *)object;
     markObjectStruct(vm, structure);
+    break;
   }
 
   case OBJECT_STRUCT_INSTANCE: {
-    const ObjectStructInstance *instance = (ObjectStructInstance *)object;
-    for (int i = 0; i < instance->fieldCount; i++) {
-      markValue(vm, instance->fields[i]);
-    }
-    markObjectStruct(vm, instance->structType);
+    ObjectStructInstance *instance = (ObjectStructInstance *)object;
+    markStructInstance(vm, instance);
+    break;
   }
 
+  case OBJECT_VEC2:
+  case OBJECT_VEC3:
   case OBJECT_STRING: {
     // Strings are primitives in terms of GC reachability in this implementation
     break;
@@ -336,7 +343,7 @@ static void freeObject(VM *vm, Object *object) {
   case OBJECT_STATIC_ARRAY: {
     const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
     FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
-    FREE(vm, ObjectArray, object);
+    FREE(vm, ObjectStaticArray, object);
     break;
   }
 
@@ -398,9 +405,18 @@ static void freeObject(VM *vm, Object *object) {
 
   case OBJECT_STRUCT_INSTANCE: {
     const ObjectStructInstance *instance = (ObjectStructInstance *)object;
-    FREE_ARRAY(
-        vm, Value, instance->fields, instance->fieldCount);
+    FREE_ARRAY(vm, Value, instance->fields, instance->fieldCount);
     FREE(vm, ObjectStructInstance, object);
+    break;
+  }
+
+  case OBJECT_VEC2: {
+    FREE(vm, ObjectVec2, object);
+    break;
+  }
+
+  case OBJECT_VEC3: {
+    FREE(vm, ObjectVec3, object);
     break;
   }
   }
@@ -434,6 +450,14 @@ void markModuleRoots(VM *vm, ObjectModuleRecord *moduleRecord) {
   markObject(vm, (Object *)moduleRecord);
 }
 
+void markStructInstanceStack(VM *vm, const StructInstanceStack *stack) {
+  if (stack->structs!= NULL) {
+  for (uint32_t i = 0; i < stack->count; i++) {
+    markStructInstance(vm, stack->structs[i]);
+  }
+  }
+}
+
 /**
  * @brief Marks all root objects reachable by the VM.
  *
@@ -448,21 +472,32 @@ void markRoots(VM *vm) {
     markModuleRoots(vm, vm->currentModuleRecord);
   }
 
-  for (int i = 0; i < vm->importStack.count; i++) {
+  for (uint32_t i = 0; i < vm->importStack.count; i++) {
     markObject(vm, (Object *)vm->importStack.paths[i]);
   }
 
+  if (vm->nativeModules.modules != NULL) {
   for (int i = 0; i < vm->nativeModules.count; i++) {
     markTable(vm, vm->nativeModules.modules[i].names);
+    markObject(vm, (Object*) vm->nativeModules.modules[i].name);
   }
+  }
+
+  markStructInstanceStack(vm, &vm->structInstanceStack);
 
   markTable(vm, &vm->randomType);
   markTable(vm, &vm->stringType);
   markTable(vm, &vm->arrayType);
   markTable(vm, &vm->errorType);
   markTable(vm, &vm->fileType);
+  markTable(vm, &vm->resultType);
+  markTable(vm, &vm->vec2Type);
+  markTable(vm, &vm->vec3Type);
+
   markTable(vm, &vm->moduleCache);
+
   markCompilerRoots(vm);
+
   markValue(vm, vm->matchHandler.matchBind);
   markValue(vm, vm->matchHandler.matchTarget);
 }
@@ -515,9 +550,10 @@ static void sweep(VM *vm) {
 }
 
 void collectGarbage(VM *vm) {
+  if (vm->gcStatus == PAUSED) return;
 #ifdef DEBUG_LOG_GC
-  printf("-- gc begin\n");
-  size_t before = vm->bytesAllocated;
+  printf("--- gc begin ---\n");
+  const size_t before = vm->bytesAllocated;
 #endif
 
   markRoots(vm);
@@ -527,7 +563,7 @@ void collectGarbage(VM *vm) {
   vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
-  printf("-- gc end\n");
+  printf("--- gc end ---\n");
   printf("    collected %zu bytes (from %zu to %zu) next at %zu\n",
          before - vm->bytesAllocated, before, vm->bytesAllocated, vm->nextGC);
 #endif

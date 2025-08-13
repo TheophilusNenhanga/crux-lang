@@ -145,6 +145,9 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
     return simpleInstruction("OP_DIVIDE", offset);
   case OP_NOT:
     return simpleInstruction("OP_NOT", offset);
+  case OP_NOT_EQUAL: {
+    return simpleInstruction("OP_NOT_EQUAL", offset);
+  }
   case OP_EQUAL:
     return simpleInstruction("OP_EQUAL", offset);
   case OP_GREATER:
@@ -343,11 +346,11 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
   case OP_STRUCT_INSTANCE_END: {
     return simpleInstruction("OP_STRUCT_INSTANCE_END", offset);
   }
-    case OP_NIL_RETURN: {
+  case OP_NIL_RETURN: {
     return simpleInstruction("OP_NIL_RETURN", offset);
   }
 
-    case OP_TYPEOF: {
+  case OP_TYPEOF: {
     return simpleInstruction("OP_TYPEOF", offset);
   }
 

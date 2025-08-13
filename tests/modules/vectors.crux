@@ -1,0 +1,31 @@
+use Vec2, Vec3 from "crux:vectors";
+
+let v2 = Vec2(1, 2);
+let v3 = Vec3(1, 2, 3);
+
+println(v2);
+println(v3);
+
+let v2_2 = Vec2(3, 4);
+let v3_2 = Vec3(4, 5, 6);
+
+println(v2.dot(v2_2));
+println(v3.dot(v3_2));
+
+println(v2.add(v2_2));
+println(v3.add(v3_2));
+
+println(v2.subtract(v2_2));
+println(v3.subtract(v3_2));
+
+println(v2.multiply(2));
+println(v3.multiply(2));
+
+println(v2.divide(2));
+println(v3.divide(2));
+
+println(v2.magnitude());
+println(v3.magnitude());
+
+println(v2.normalize());
+println(v3.normalize());

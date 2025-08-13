@@ -1,5 +1,6 @@
 #include "math.h"
 #include <math.h>
+#include <string.h>
 
 static bool numberArgs(const Value *args, const int argCount) {
   for (int i = 0; i < argCount; i++) {
@@ -10,15 +11,19 @@ static bool numberArgs(const Value *args, const int argCount) {
   return true;
 }
 
-ObjectResult *powFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(vm,
-                 copyString(
-                     vm, "Both arguments must be of type 'int' | 'float'.", 40),
-                 TYPE, false));
+#define NUMBER_ERROR_MESSAGE "Arguments must be of type 'int' | 'float'."
+
+#define CHECK_ARGS(args, argCount)                                             \
+  if (!numberArgs(args, argCount)) {                                           \
+    return newErrorResult(vm,                                                  \
+                          newError(vm,                                         \
+                                   copyString(vm, NUMBER_ERROR_MESSAGE,        \
+                                              strlen(NUMBER_ERROR_MESSAGE)),   \
+                                   TYPE, false));                              \
   }
+
+ObjectResult *powFunction(VM *vm, const int argCount, const Value *args) {
+  CHECK_ARGS(args, argCount);
 
   const double base = AS_FLOAT(args[0]);
   const double exponent = AS_FLOAT(args[1]);
@@ -27,13 +32,8 @@ ObjectResult *powFunction(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *sqrtFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
+
   const double number = AS_FLOAT(args[0]);
   if (number < 0) {
     return newErrorResult(
@@ -56,13 +56,7 @@ static int32_t absoluteValue(const int32_t x) {
 }
 
 ObjectResult *absFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   if (IS_INT(args[0])) {
     return newOkResult(vm, INT_VAL(absoluteValue(AS_INT(args[0]))));
   }
@@ -70,46 +64,22 @@ ObjectResult *absFunction(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *sinFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(sin(FLOAT_VAL(args[0]))));
 }
 
 ObjectResult *cosFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(cos(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *tanFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(tan(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *asinFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
 
   const double num = AS_FLOAT(args[0]);
   if (num < -1 || num > 1) {
@@ -123,13 +93,7 @@ ObjectResult *asinFunction(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *acosFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   const double num = AS_FLOAT(args[0]);
   if (num < -1 || num > 1) {
     return newErrorResult(
@@ -141,35 +105,17 @@ ObjectResult *acosFunction(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *atanFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(atan(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *expFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(exp(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *lnFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
 
   const double number = AS_FLOAT(args[0]);
   if (number < 0) {
@@ -187,13 +133,7 @@ ObjectResult *lnFunction(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *log10Function(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
 
   const double number = AS_FLOAT(args[0]);
   if (number < 0) {
@@ -212,42 +152,46 @@ ObjectResult *log10Function(VM *vm, const int argCount, const Value *args) {
 }
 
 ObjectResult *ceilFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *floorFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(floor(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *roundFunction(VM *vm, const int argCount, const Value *args) {
-  if (!numberArgs(args, argCount)) {
-    return newErrorResult(
-        vm,
-        newError(
-            vm, copyString(vm, "Argument must be of type 'int' | 'float'.", 34),
-            TYPE, false));
-  }
+  CHECK_ARGS(args, argCount);
   return newOkResult(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
 }
 
-Value piFunction(VM *vm, int argCount, const Value *args) {
+Value piFunction(VM *vm __attribute__((unused)),
+                 int argCount __attribute__((unused)),
+                 const Value *args __attribute__((unused))) {
   return FLOAT_VAL(3.14159265358979323846);
 }
 
-Value eFunction(VM *vm, int argCount, const Value *args) {
+Value eFunction(VM *vm __attribute__((unused)),
+                int argCount __attribute__((unused)),
+                const Value *args __attribute__((unused))) {
   return FLOAT_VAL(2.71828182845904523536);
+}
+
+ObjectResult *minFunction(VM *vm, const int argCount, const Value *args) {
+  CHECK_ARGS(args, argCount);
+  const double a =
+      IS_FLOAT(args[0]) ? AS_FLOAT(args[0]) : (double)AS_INT(args[0]);
+  const double b =
+      IS_FLOAT(args[1]) ? AS_FLOAT(args[1]) : (double)AS_INT(args[1]);
+  return a < b ? newOkResult(vm, args[0]) : newOkResult(vm, args[1]);
+}
+
+ObjectResult *maxFunction(VM *vm, const int argCount, const Value *args) {
+  CHECK_ARGS(args, argCount);
+  const double a =
+      IS_FLOAT(args[0]) ? AS_FLOAT(args[0]) : (double)AS_INT(args[0]);
+  const double b =
+      IS_FLOAT(args[1]) ? AS_FLOAT(args[1]) : (double)AS_INT(args[1]);
+  return a > b ? newOkResult(vm, args[0]) : newOkResult(vm, args[1]);
 }

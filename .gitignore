@@ -10,3 +10,4 @@ src/CMakeSettings.json
 /src/build
 /src/cmake-build-*
 /cmake-build-*
+/build-wsl

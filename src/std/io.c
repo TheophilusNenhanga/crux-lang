@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../file_handler.h"
 #include "../memory.h"
 #include "../object.h"
 #include "../vm/vm.h"
@@ -19,18 +20,22 @@ static FILE *getChannel(const char *channel) {
   return NULL;
 }
 
-Value printFunction(VM *vm, int argCount, const Value *args) {
+Value printFunction(VM *vm __attribute__((unused)),
+                    int argCount __attribute__((unused)), const Value *args) {
   printValue(args[0], false);
   return NIL_VAL;
 }
 
-Value printlnFunction(VM *vm, const int argCount, const Value *args) {
+Value printlnFunction(VM *vm __attribute__((unused)),
+                      const int argCount __attribute__((unused)),
+                      const Value *args) {
   printValue(args[0], false);
   printf("\n");
   return NIL_VAL;
 }
 
-ObjectResult *printToFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *printToFunction(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
 
   if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
     return newErrorResult(
@@ -58,7 +63,8 @@ ObjectResult *printToFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, BOOL_VAL(true));
 }
 
-ObjectResult *scanFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *scanFunction(VM *vm, int argCount __attribute__((unused)),
+                           const Value *args __attribute__((unused))) {
 
   const int ch = getchar();
   if (ch == EOF) {
@@ -75,7 +81,8 @@ ObjectResult *scanFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult *scanlnFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *scanlnFunction(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args __attribute__((unused))) {
 
   char buffer[1024];
   if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
@@ -93,7 +100,8 @@ ObjectResult *scanlnFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult *scanFromFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *scanFromFunction(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -124,7 +132,8 @@ ObjectResult *scanFromFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
 }
 
-ObjectResult *scanlnFromFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *scanlnFromFunction(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -164,7 +173,8 @@ ObjectResult *scanlnFromFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
 }
 
-ObjectResult *nscanFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
+                            const Value *args) {
 
   if (!IS_INT(args[0])) {
     return newErrorResult(
@@ -174,7 +184,7 @@ ObjectResult *nscanFunction(VM *vm, int argCount, const Value *args) {
                  TYPE, false));
   }
 
-  const int32_t n = AS_INT(args[0]);
+  const size_t n = (size_t)AS_INT(args[0]);
   if (n <= 0) {
     return newErrorResult(
         vm,
@@ -219,7 +229,8 @@ ObjectResult *nscanFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, string);
 }
 
-ObjectResult *nscanFromFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
 
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
@@ -242,7 +253,7 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount, const Value *args) {
                      VALUE, false));
   }
 
-  const int32_t n = AS_INT(args[1]);
+  const size_t n = (size_t)AS_INT(args[1]);
   if (n <= 0) {
     return newErrorResult(
         vm,
@@ -287,7 +298,8 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, string);
 }
 
-ObjectResult *openFileFunction(VM *vm, int argCount, const Value *args) {
+ObjectResult *openFileFunction(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   if (!IS_CRUX_STRING(args[0])) {
     return newErrorResult(
         vm, newError(
@@ -302,11 +314,11 @@ ObjectResult *openFileFunction(VM *vm, int argCount, const Value *args) {
                 IO, false));
   }
 
-  ObjectString *path = AS_CRUX_STRING(args[0]);
+  const ObjectString *path = AS_CRUX_STRING(args[0]);
   ObjectString *mode = AS_CRUX_STRING(args[1]);
 
   char *resolvedPath =
-      "./"; // resolvePath(vm->module->path->chars, path->chars);
+      resolvePath(vm->currentModuleRecord->path->chars, path->chars);
   if (resolvedPath == NULL) {
     return newErrorResult(
         vm, newError(vm, copyString(vm, "Could not resolve path to file.", 31),
@@ -348,7 +360,8 @@ static bool isAppendable(const ObjectString *mode) {
          strcmp(mode->chars, "rb") == 0;
 }
 
-ObjectResult *readlnFileMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *readlnFileMethod(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
@@ -389,7 +402,8 @@ ObjectResult *readlnFileMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, readCount)));
 }
 
-ObjectResult *readAllFileMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *readAllFileMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   const ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
@@ -421,13 +435,14 @@ ObjectResult *readAllFileMethod(VM *vm, int argCount, const Value *args) {
                      MEMORY, false));
   }
 
-  size_t _ = fread(buffer, 1, fileSize, file->file);
+  size_t _ __attribute__((unused)) = fread(buffer, 1, fileSize, file->file);
   buffer[fileSize] = '\0';
 
   return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
 }
 
-ObjectResult *closeFileMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *closeFileMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
   if (file->file == NULL) {
     return newErrorResult(
@@ -446,7 +461,8 @@ ObjectResult *closeFileMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *writeFileMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *writeFileMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
 
   if (file->file == NULL) {
@@ -480,7 +496,8 @@ ObjectResult *writeFileMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *writelnFileMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *writelnFileMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   ObjectFile *file = AS_CRUX_FILE(args[0]);
 
   if (file->file == NULL) {

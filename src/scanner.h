@@ -76,8 +76,9 @@ typedef enum {
 
   TOKEN_DOLLAR_LEFT_CURLY,  // ${
   TOKEN_DOLLAR_LEFT_SQUARE, // $[
-  TOKEN_DOLLAR_IDENTIFIER, // $identifier
   TOKEN_STRUCT, // struct
+
+  TOKEN_QUESTION_MARK,
 } CruxTokenType;
 
 typedef struct {
@@ -97,6 +98,6 @@ void initScanner(const char *source);
  * Scans the next token from the source code.
  * @return The scanned token
  */
-Token scanToken();
+Token scanToken(void);
 
 #endif // SCANNER_H

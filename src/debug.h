@@ -2,7 +2,6 @@
 #define DEBUG_H
 
 #include "chunk.h"
-#include <stdio.h>
 
 /**
  * @brief Disassembles and prints all instructions in a chunk

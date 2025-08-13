@@ -7,7 +7,8 @@
 // Adapted from
 // https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
-ObjectResult *randomSeedMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *randomSeedMethod(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   const Value seed = args[1];
   if (!IS_INT(seed)) {
     return newErrorResult(
@@ -36,17 +37,21 @@ double getNext(ObjectRandom *random) {
   return result;
 }
 
-Value randomNextMethod(VM *vm, int argCount, const Value *args) {
+Value randomNextMethod(VM *vm __attribute__((unused)),
+                       int argCount __attribute__((unused)),
+                       const Value *args) {
   ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
   return FLOAT_VAL(getNext(random));
 }
 
-Value randomInitFunction(VM *vm, int argCount, const Value *args) {
+Value randomInitFunction(VM *vm, int argCount __attribute__((unused)),
+                         const Value *args __attribute__((unused))) {
   return OBJECT_VAL(newRandom(vm));
 }
 
 // Returns a random integer in the range [min, max] inclusive
-ObjectResult *randomIntMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *randomIntMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   const Value min = args[1];
   const Value max = args[2];
 
@@ -75,7 +80,8 @@ ObjectResult *randomIntMethod(VM *vm, int argCount, const Value *args) {
 }
 
 // Returns a random double in the range [min, max]
-ObjectResult *randomDoubleMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *randomDoubleMethod(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args) {
   const Value min = args[1];
   const Value max = args[2];
 
@@ -114,7 +120,8 @@ ObjectResult *randomDoubleMethod(VM *vm, int argCount, const Value *args) {
 }
 
 // Returns true with probability p (0 <= p <= 1)
-ObjectResult *randomBoolMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *randomBoolMethod(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   const Value p = args[1];
   if (!IS_FLOAT(p) && !IS_INT(p)) {
     return newErrorResult(
@@ -140,7 +147,8 @@ ObjectResult *randomBoolMethod(VM *vm, int argCount, const Value *args) {
 }
 
 // Returns a random element from the array
-ObjectResult *randomChoiceMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *randomChoiceMethod(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args) {
   const Value array = args[1];
   if (!IS_CRUX_ARRAY(array)) {
     return newErrorResult(

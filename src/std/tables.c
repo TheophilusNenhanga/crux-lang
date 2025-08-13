@@ -1,8 +1,9 @@
 #include "tables.h"
 
-ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *tableValuesMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
-  ObjectArray *values = newArray(vm, table->size);
+  ObjectArray *values = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (values == NULL) {
     return newErrorResult(
@@ -16,7 +17,7 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args) {
 
   uint16_t lastInsert = 0;
 
-  for (uint16_t i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
       values->values[lastInsert] = entry.value;
@@ -29,10 +30,11 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(values));
 }
 
-ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *tableKeysMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-  ObjectArray *keys = newArray(vm, table->size);
+  ObjectArray *keys = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (keys == NULL) {
     return newErrorResult(
@@ -46,7 +48,7 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args) {
 
   uint16_t lastInsert = 0;
 
-  for (uint16_t i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
       keys->values[lastInsert] = entry.key;
@@ -59,10 +61,11 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(keys));
 }
 
-ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-  ObjectArray *pairs = newArray(vm, table->size);
+  ObjectArray *pairs = newArray(vm, table->size, vm->currentModuleRecord);
 
   if (pairs == NULL) {
     return newErrorResult(
@@ -76,10 +79,10 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args) {
 
   uint16_t lastInsert = 0;
 
-  for (uint16_t i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry entry = table->entries[i];
     if (entry.isOccupied) {
-      ObjectArray *pair = newArray(vm, 2);
+      ObjectArray *pair = newArray(vm, 2, vm->currentModuleRecord);
 
       if (pair == NULL) {
         return newErrorResult(
@@ -105,9 +108,10 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(pairs));
 }
 
-ObjectResult *tableRemoveMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - table
-  // arg1 - key
+// arg0 - table
+// arg1 - key
+ObjectResult *tableRemoveMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   if (IS_CRUX_HASHABLE(key)) {
@@ -128,9 +132,10 @@ ObjectResult *tableRemoveMethod(VM *vm, int argCount, const Value *args) {
                TYPE, false));
 }
 
-ObjectResult *tableGetMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - table
-  // arg1 - key
+// arg0 - table
+// arg1 - key
+ObjectResult *tableGetMethod(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   if (IS_CRUX_HASHABLE(key)) {
@@ -151,9 +156,11 @@ ObjectResult *tableGetMethod(VM *vm, int argCount, const Value *args) {
                TYPE, false));
 }
 
-Value tableHasKeyMethod(VM *vm, int argCount, const Value *args) {
-  // args[0] - table
-  // args[1] - key
+// args[0] - table
+// args[1] - key
+Value tableHasKeyMethod(VM *vm __attribute__((unused)),
+                        int argCount __attribute__((unused)),
+                        const Value *args) {
   ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   if (IS_CRUX_HASHABLE(key)) {
@@ -163,10 +170,12 @@ Value tableHasKeyMethod(VM *vm, int argCount, const Value *args) {
   return BOOL_VAL(false);
 }
 
-Value tableGetOrElseMethod(VM *vm, int argCount, const Value *args) {
-  // args[0] - table
-  // args[1] - key
-  // args[2] - default value
+// args[0] - table
+// args[1] - key
+// args[2] - default value
+Value tableGetOrElseMethod(VM *vm __attribute__((unused)),
+                           int argCount __attribute__((unused)),
+                           const Value *args) {
   const ObjectTable *table = AS_CRUX_TABLE(args[0]);
   const Value key = args[1];
   const Value defaultValue = args[2];

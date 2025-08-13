@@ -2,7 +2,6 @@
 #define VM_HELPERS_H
 
 #include "vm.h"
-#include "../object.h"
 #include "../chunk.h"
 
 

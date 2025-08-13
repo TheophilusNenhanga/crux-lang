@@ -35,7 +35,7 @@ static Object *allocateObject(VM *vm, size_t size, ObjectType type) {
 
 #ifdef DEBUG_LOG_GC
   printf("%p mark ", (void *)object);
-  printValue(OBJECT_VAL(object));
+  printValue(OBJECT_VAL(object), false);
   printf("\n");
 #endif
 
@@ -129,12 +129,19 @@ static uint32_t hashValue(const Value value) {
 void printType(const Value value) {
   if (IS_INT(value)) {
     printf("'int'");
-  } else if (IS_FLOAT(value)) {
+    return;
+  }
+  if (IS_FLOAT(value)) {
     printf("'float'");
-  } else if (IS_BOOL(value)) {
+    return;
+  }
+  if (IS_BOOL(value)) {
     printf("'bool'");
-  } else if (IS_NIL(value)) {
+    return;
+  }
+  if (IS_NIL(value)) {
     printf("'nil'");
+    return;
   }
   switch (OBJECT_TYPE(value)) {
   case OBJECT_STRING:
@@ -168,6 +175,12 @@ void printType(const Value value) {
     break;
   case OBJECT_FILE:
     printf("'file'");
+    break;
+  case OBJECT_VEC2:
+    printf("'Vec2'");
+    break;
+  case OBJECT_VEC3:
+    printf("'Vec3'");
     break;
   default:
     printf("'unknown'");
@@ -240,7 +253,7 @@ static uint32_t hashString(const char *key, const size_t length) {
   static const uint32_t FNV_PRIME = 16777619u;
 
   uint32_t hash = FNV_OFFSET_BIAS;
-  for (int i = 0; i < length; i++) {
+  for (size_t i = 0; i < length; i++) {
     hash ^= (uint8_t)key[i];
     hash *= FNV_PRIME;
   }
@@ -363,7 +376,7 @@ static void printFunction(const ObjectFunction *function) {
 
 static void printArray(const Value *values, const uint32_t size) {
   printf("[");
-  for (int i = 0; i < size; i++) {
+  for (uint32_t i = 0; i < size; i++) {
     printValue(values[i], true);
     if (i != size - 1) {
       printf(", ");
@@ -376,7 +389,7 @@ static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
                        const uint32_t size) {
   uint32_t printed = 0;
   printf("{");
-  for (int i = 0; i < capacity; i++) {
+  for (uint32_t i = 0; i < capacity; i++) {
     if (entries[i].isOccupied) {
       printValue(entries[i].key, true);
       printf(":");
@@ -390,12 +403,11 @@ static void printTable(const ObjectTableEntry *entries, const uint32_t capacity,
   printf("}");
 }
 
-static void printError(ObjectError *error) {}
-
 static void printStructInstance(const ObjectStructInstance *instance) {
   printf("{");
-  uint32_t printed = 0;
+  int printed = 0;
   const ObjectStruct *type = instance->structType;
+  if (instance->fields == NULL) {printf("}"); return;}
   for (int i = 0; i < type->fields.capacity; i++) {
     if (type->fields.entries[i].key != NULL) {
       const uint16_t index = (uint16_t)AS_INT(type->fields.entries[i].value);
@@ -527,6 +539,16 @@ void printObject(const Value value, const bool inCollection) {
   }
   case OBJECT_STRUCT_INSTANCE: {
     printStructInstance(AS_CRUX_STRUCT_INSTANCE(value));
+    break;
+  }
+  case OBJECT_VEC2: {
+    const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
+    printf("Vec2(%g, %g)", vec2->x, vec2->y);
+    break;
+  }
+  case OBJECT_VEC3: {
+    const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
+    printf("Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
     break;
   }
   }
@@ -665,7 +687,7 @@ ObjectString *toString(VM *vm, const Value value) {
   case OBJECT_ARRAY: {
     const ObjectArray *array = AS_CRUX_ARRAY(value);
     size_t bufSize = 2; // [] minimum
-    for (int i = 0; i < array->size; i++) {
+    for (uint32_t i = 0; i < array->size; i++) {
       const ObjectString *element = toString(vm, array->values[i]);
       bufSize += element->length + 2; // element + ", "
     }
@@ -674,7 +696,7 @@ ObjectString *toString(VM *vm, const Value value) {
     char *ptr = buffer;
     *ptr++ = '[';
 
-    for (int i = 0; i < array->size; i++) {
+    for (uint32_t i = 0; i < array->size; i++) {
       if (i > 0) {
         *ptr++ = ',';
         *ptr++ = ' ';
@@ -692,7 +714,7 @@ ObjectString *toString(VM *vm, const Value value) {
   case OBJECT_TABLE: {
     const ObjectTable *table = AS_CRUX_TABLE(value);
     size_t bufSize = 2; // {} minimum
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
       if (table->entries[i].isOccupied) {
         const ObjectString *k = toString(vm, table->entries[i].key);
         const ObjectString *v = toString(vm, table->entries[i].value);
@@ -705,7 +727,7 @@ ObjectString *toString(VM *vm, const Value value) {
     *ptr++ = '{';
 
     bool first = true;
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
       if (table->entries[i].isOccupied) {
         if (!first) {
           *ptr++ = ',';
@@ -754,13 +776,34 @@ ObjectString *toString(VM *vm, const Value value) {
   }
 
   case OBJECT_STRUCT: {
-    const ObjectStruct *structObject = AS_CRUX_STRUCT(value);
-    printf("<struct type %s>", structObject->name->chars);
+    return copyString(vm, "<struct>", 8);
   }
 
   case OBJECT_STRUCT_INSTANCE: {
-    const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
-    printStructInstance(instance);
+    return copyString(vm, "<struct instance>", 17);
+  }
+
+  case OBJECT_VEC2: {
+    const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
+    const int needed = snprintf(NULL, 0, "Vec2(%g, %g)", vec2->x, vec2->y);
+    char *buffer = ALLOCATE(vm, char, needed + 1);
+    if (buffer == NULL) {
+      return copyString(vm, "<crux object>", 13);
+    }
+    snprintf(buffer, needed, "Vec2(%g, %g)", vec2->x, vec2->y);
+    return takeString(vm, buffer, strlen(buffer));
+  }
+
+  case OBJECT_VEC3: {
+    const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
+    const int needed =
+        snprintf(NULL, 0, "Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
+    char *buffer = ALLOCATE(vm, char, needed + 1);
+    if (buffer == NULL) {
+      return copyString(vm, "<crux object>", 13);
+    }
+    snprintf(buffer, needed, "Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
+    return takeString(vm, buffer, strlen(buffer));
   }
 
   default:
@@ -775,6 +818,7 @@ ObjectFunction *newFunction(VM *vm) {
   function->name = NULL;
   function->upvalueCount = 0;
   initChunk(&function->chunk);
+  function->moduleRecord = vm->currentModuleRecord;
   return function;
 }
 
@@ -820,17 +864,22 @@ newNativeInfallibleMethod(VM *vm, const CruxInfallibleCallable function,
   return native;
 }
 
-ObjectTable *newTable(VM *vm, const int elementCount) {
+ObjectTable *newTable(VM *vm, const int elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
-  table->capacity =
-      elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
+  table->capacity = 0;
   table->size = 0;
-  table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
-  for (int i = 0; i < table->capacity; i++) {
+  table->entries = NULL;
+  const uint32_t newCapacity =
+      elementCount < 16 ? 16 : calculateCollectionCapacity(elementCount);
+  table->entries = ALLOCATE(vm, ObjectTableEntry, newCapacity);
+  for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;
   }
+  GC_PROTECT_END(moduleRecord);
   return table;
 }
 
@@ -877,7 +926,7 @@ ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode) {
 static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
                                    const uint16_t capacity, const Value key) {
   const uint32_t hash = hashValue(key);
-  uint32_t index = hash & capacity - 1;
+  uint32_t index = hash & (capacity - 1);
   ObjectTableEntry *tombstone = NULL;
 
   while (1) {
@@ -892,7 +941,7 @@ static ObjectTableEntry *findEntry(ObjectTableEntry *entries,
     } else if (valuesEqual(entry->key, key)) {
       return entry;
     }
-    index = index * 5 + 1 & capacity - 1; // new probe
+    index = (index * 5 + 1) & (capacity - 1); // new probe
   }
 }
 
@@ -924,7 +973,7 @@ static bool adjustCapacity(VM *vm, ObjectTable *table, const int capacity) {
 
   table->size = 0;
 
-  for (int i = 0; i < table->capacity; i++) {
+  for (uint32_t i = 0; i < table->capacity; i++) {
     const ObjectTableEntry *entry = &table->entries[i];
     if (!entry->isOccupied) {
       continue;
@@ -948,8 +997,12 @@ bool objectTableSet(VM *vm, ObjectTable *table, const Value key,
                     const Value value) {
   if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
     const int capacity = GROW_CAPACITY(table->capacity);
-    if (!adjustCapacity(vm, table, capacity))
+    PUSH(vm->currentModuleRecord, OBJECT_VAL(table));
+    if (!adjustCapacity(vm, table, capacity)) {
+      POP(vm->currentModuleRecord);
       return false;
+    }
+    POP(vm->currentModuleRecord);
   }
 
   ObjectTableEntry *entry = findEntry(table->entries, table->capacity, key);
@@ -1017,14 +1070,17 @@ bool objectTableGet(ObjectTableEntry *entries, const uint32_t size,
   return true;
 }
 
-ObjectArray *newArray(VM *vm, const uint32_t elementCount) {
+ObjectArray *newArray(VM *vm, const uint32_t elementCount, ObjectModuleRecord* moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(array));
   array->capacity = calculateCollectionCapacity(elementCount);
   array->size = 0;
   array->values = ALLOCATE(vm, Value, array->capacity);
-  for (int i = 0; i < array->capacity; i++) {
+  for (uint32_t i = 0; i < array->capacity; i++) {
     array->values[i] = NIL_VAL;
   }
+  GC_PROTECT_END(moduleRecord);
   return array;
 }
 
@@ -1122,6 +1178,48 @@ ObjectRandom *newRandom(VM *vm) {
   return random;
 }
 
+bool initModuleRecord(ObjectModuleRecord* moduleRecord, ObjectString *path,
+                                          const bool isRepl,
+                                          const bool isMain) {
+  moduleRecord->object.isMarked = false;
+  moduleRecord->object.type = OBJECT_MODULE_RECORD;
+  moduleRecord->object.next = NULL;
+
+  moduleRecord->path = path;
+  initTable(&moduleRecord->globals);
+  initTable(&moduleRecord->publics);
+  moduleRecord->state = STATE_LOADING;
+  moduleRecord->moduleClosure = NULL;
+  moduleRecord->enclosingModule = NULL;
+
+  moduleRecord->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
+  if (moduleRecord->stack == NULL) {
+    return false;
+  }
+  moduleRecord->stackTop = moduleRecord->stack;
+  moduleRecord->stackLimit = moduleRecord->stack + STACK_MAX;
+  moduleRecord->openUpvalues = NULL;
+
+  moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
+  if (moduleRecord->frames == NULL) {
+    return false;
+  }
+  moduleRecord->frameCount = 0;
+  moduleRecord->frameCapacity = FRAMES_MAX;
+
+  moduleRecord->isMain = isMain;
+  moduleRecord->isRepl = isRepl;
+  return true;
+}
+
+void freeModuleRecord(VM* vm, ObjectModuleRecord* moduleRecord) {
+  freeTable(vm, &moduleRecord->globals);
+  freeTable(vm, &moduleRecord->publics);
+  free(moduleRecord->stack);
+  free(moduleRecord->frames);
+  free(moduleRecord);
+}
+
 ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,
                                           const bool isRepl,
                                           const bool isMain) {
@@ -1163,27 +1261,37 @@ void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record) {
   freeTable(vm, &record->publics);
 }
 
-ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount) {
+ObjectStaticArray *newStaticArray(VM *vm, const uint16_t elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStaticArray *array =
       ALLOCATE_OBJECT(vm, ObjectStaticArray, OBJECT_STATIC_ARRAY);
+  array->values = NULL;
+  array->size = 0;
+  GC_PROTECT(moduleRecord, OBJECT_VAL(array));
   array->size = elementCount;
   array->values = ALLOCATE(vm, Value, elementCount);
+  GC_PROTECT_END(moduleRecord);
   return array;
 }
 
-ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount) {
+ObjectStaticTable *newStaticTable(VM *vm, const uint16_t elementCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStaticTable *table =
       ALLOCATE_OBJECT(vm, ObjectStaticTable, OBJECT_STATIC_TABLE);
-  table->capacity = calculateCollectionCapacity(
-      (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
-
+  table->capacity = 0;
   table->size = 0;
-  table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
-  for (int i = 0; i < table->capacity; i++) {
+  table->entries = NULL;
+  const uint32_t newCapacity = calculateCollectionCapacity(
+      (uint32_t)((1 + TABLE_MAX_LOAD) * elementCount));
+  GC_PROTECT(moduleRecord, OBJECT_VAL(table));
+
+  table->entries = ALLOCATE(vm, ObjectTableEntry, newCapacity);
+  for (uint32_t i = 0; i < table->capacity; i++) {
     table->entries[i].value = NIL_VAL;
     table->entries[i].key = NIL_VAL;
     table->entries[i].isOccupied = false;
   }
+  GC_PROTECT_END(moduleRecord);
   return table;
 }
 
@@ -1215,14 +1323,36 @@ ObjectStruct *newStructType(VM *vm, ObjectString *name) {
 }
 
 ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-                                        const uint16_t fieldCount) {
+                                        const uint16_t fieldCount, ObjectModuleRecord *moduleRecord) {
+  GC_PROTECT_START(moduleRecord);
   ObjectStructInstance *structInstance =
       ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
+  GC_PROTECT(moduleRecord, OBJECT_VAL(structInstance));
   structInstance->structType = structType;
+  structInstance->fields = NULL;
+  structInstance->fieldCount = 0;
   structInstance->fields = ALLOCATE(vm, Value, fieldCount);
   for (int i = 0; i < fieldCount; i++) {
     structInstance->fields[i] = NIL_VAL;
   }
   structInstance->fieldCount = fieldCount;
+  GC_PROTECT_END(moduleRecord);
   return structInstance;
+}
+
+ObjectVec2 *newVec2(VM *vm, const double x, const double y) {
+  ObjectVec2 *vec2 = ALLOCATE_OBJECT(vm, ObjectVec2, OBJECT_VEC2);
+  vec2->object.isMarked =true;
+  vec2->x = x;
+  vec2->y = y;
+  return vec2;
+}
+
+ObjectVec3 *newVec3(VM *vm, const double x, const double y, const double z) {
+  ObjectVec3 *vec3 = ALLOCATE_OBJECT(vm, ObjectVec3, OBJECT_VEC3);
+  vec3->object.isMarked = true;
+  vec3->x = x;
+  vec3->y = y;
+  vec3->z = z;
+  return vec3;
 }

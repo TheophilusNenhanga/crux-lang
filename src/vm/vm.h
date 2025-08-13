@@ -26,7 +26,7 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
-  char *name;
+  ObjectString* name;
   Table *names;
 } NativeModule;
 
@@ -39,8 +39,8 @@ typedef struct {
 
 typedef struct {
   NativeModule *modules;
-  int count;
-  int capacity;
+  uint8_t capacity;
+  uint8_t count;
 } NativeModules;
 
 typedef struct {
@@ -55,10 +55,15 @@ typedef struct {
 } ImportStack;
 
 typedef struct  {
-	ObjectStructInstance** structs;
-	uint32_t count;
+  ObjectStructInstance** structs;
+  uint32_t count;
   uint32_t capacity;
 }StructInstanceStack;
+
+typedef enum {
+  PAUSED,
+  RUNNING,
+}GC_STATUS;
 
 struct VM {
   Object *objects;
@@ -68,12 +73,6 @@ struct VM {
   ObjectModuleRecord *currentModuleRecord;
   ImportStack importStack;
 
-  size_t bytesAllocated;
-  size_t nextGC;
-  Object **grayStack;
-  int grayCapacity;
-  int grayCount;
-
   Table randomType;
   Table stringType;
   Table arrayType;
@@ -81,12 +80,22 @@ struct VM {
   Table errorType;
   Table fileType;
   Table resultType;
+  Table vec2Type;
+  Table vec3Type;
 
   StructInstanceStack structInstanceStack;
 
   NativeModules nativeModules;
   MatchHandler matchHandler;
   Args args;
+
+  size_t bytesAllocated;
+  size_t nextGC;
+  Object **grayStack;
+  int grayCapacity;
+  int grayCount;
+  GC_STATUS gcStatus;
+
   int importCount;
 };
 
@@ -100,7 +109,6 @@ runtimePanic((moduleRecord), true, STACK_OVERFLOW, "Stack overflow error"); \
 
 #define POP(moduleRecord) \
 ({ \
-Value popped_value; \
 if (__builtin_expect((moduleRecord)->stackTop <= (moduleRecord)->stack, 0)) { \
 runtimePanic((moduleRecord), true, RUNTIME, "Stack underflow error"); \
 } \

@@ -1,9 +1,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "common.h"
 #include "object.h"
-#include "vm/vm.h"
 
 #define TABLE_MAX_LOAD 0.6
 

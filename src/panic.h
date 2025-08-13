@@ -4,11 +4,6 @@
 #include "scanner.h"
 #include "compiler.h"
 
-#define RED "\x1b[31m"
-#define MAGENTA "\x1b[35m"
-#define CYAN "\x1b[36m"
-#define RESET "\x1b[0m"
-
 typedef struct {
   const char *name;
   const char *hint;

@@ -7,7 +7,8 @@
 #include "../vm/vm_helpers.h"
 #include "array.h"
 
-ObjectResult *arrayPushMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayPushMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value toAdd = args[1];
 
@@ -20,7 +21,8 @@ ObjectResult *arrayPushMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayPopMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayPopMethod(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (array->size == 0) {
@@ -38,7 +40,8 @@ ObjectResult *arrayPopMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, popped);
 }
 
-ObjectResult *arrayInsertMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayInsertMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[2])) {
@@ -75,7 +78,8 @@ ObjectResult *arrayInsertMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount __attribute__((unused)),
+                                  const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[1])) {
@@ -103,7 +107,8 @@ ObjectResult *arrayRemoveAtMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, removedElement);
 }
 
-ObjectResult *arrayConcatMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayConcatMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_CRUX_ARRAY(args[1])) {
@@ -124,12 +129,12 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, const Value *args) {
                  BOUNDS, false));
   }
 
-  ObjectArray *resultArray = newArray(vm, combinedSize);
+  ObjectArray *resultArray = newArray(vm, combinedSize, vm->currentModuleRecord);
 
   for (uint32_t i = 0; i < combinedSize; i++) {
     resultArray->values[i] = i < array->size
-                                ? array->values[i]
-                                : targetArray->values[i - array->size];
+                                 ? array->values[i]
+                                 : targetArray->values[i - array->size];
   }
 
   resultArray->size = combinedSize;
@@ -137,7 +142,8 @@ ObjectResult *arrayConcatMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arraySliceMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arraySliceMethod(VM *vm, int argCount __attribute__((unused)),
+                               const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (!IS_INT(args[1])) {
@@ -172,12 +178,12 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, const Value *args) {
 
   if (endIndex < startIndex) {
     return newErrorResult(
-        vm, newError(vm, copyString(vm, "indexes out of bounds.", 22),
-                     BOUNDS, false));
+        vm, newError(vm, copyString(vm, "indexes out of bounds.", 22), BOUNDS,
+                     false));
   }
 
   const size_t sliceSize = endIndex - startIndex;
-  ObjectArray *slicedArray = newArray(vm, sliceSize);
+  ObjectArray *slicedArray = newArray(vm, sliceSize, vm->currentModuleRecord);
 
   for (size_t i = 0; i < sliceSize; i++) {
     slicedArray->values[i] = array->values[startIndex + i];
@@ -187,7 +193,8 @@ ObjectResult *arraySliceMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(slicedArray));
 }
 
-ObjectResult *arrayReverseMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayReverseMethod(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   Value *values = ALLOCATE(vm, Value, array->size);
@@ -214,7 +221,8 @@ ObjectResult *arrayReverseMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, NIL_VAL);
 }
 
-ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, const Value *args) {
+ObjectResult *arrayIndexOfMethod(VM *vm, int argCount __attribute__((unused)),
+                                 const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value target = args[1];
 
@@ -229,7 +237,9 @@ ObjectResult *arrayIndexOfMethod(VM *vm, int argCount, const Value *args) {
                VALUE, false));
 }
 
-Value arrayContainsMethod(VM *vm, int argCount, const Value *args) {
+Value arrayContainsMethod(VM *vm __attribute__((unused)),
+                          int argCount __attribute__((unused)),
+                          const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   const Value target = args[1];
 
@@ -241,7 +251,9 @@ Value arrayContainsMethod(VM *vm, int argCount, const Value *args) {
   return BOOL_VAL(false);
 }
 
-Value arrayClearMethod(VM *vm, int argCount, const Value *args) {
+Value arrayClearMethod(VM *vm __attribute__((unused)),
+                       int argCount __attribute__((unused)),
+                       const Value *args) {
   ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   for (uint32_t i = 0; i < array->size; i++) {
@@ -252,7 +264,9 @@ Value arrayClearMethod(VM *vm, int argCount, const Value *args) {
   return NIL_VAL;
 }
 
-Value arrayEqualsMethod(VM *vm, int argCount, const Value *args) {
+Value arrayEqualsMethod(VM *vm __attribute__((unused)),
+                        int argCount __attribute__((unused)),
+                        const Value *args) {
   if (!IS_CRUX_ARRAY(args[1])) {
     return BOOL_VAL(false);
   }
@@ -273,9 +287,10 @@ Value arrayEqualsMethod(VM *vm, int argCount, const Value *args) {
   return BOOL_VAL(true);
 }
 
-ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - array
-  // arg1 - function
+// arg0 - array
+// arg1 - function
+ObjectResult *arrayMapMethod(VM *vm, int argCount __attribute__((unused)),
+                             const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
 
@@ -298,7 +313,7 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
                  ARGUMENT_MISMATCH, true));
   }
 
-  ObjectArray *resultArray = newArray(vm, array->size);
+  ObjectArray *resultArray = newArray(vm, array->size, vm->currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   for (uint32_t i = 0; i < array->size; i++) {
     const Value arrayValue = array->values[i];
@@ -323,9 +338,10 @@ ObjectResult *arrayMapMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - array
-  // arg1 - function
+// arg0 - array
+// arg1 - function
+ObjectResult *arrayFilterMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
@@ -348,7 +364,7 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
                  ARGUMENT_MISMATCH, true));
   }
 
-  ObjectArray *resultArray = newArray(vm, array->size);
+  ObjectArray *resultArray = newArray(vm, array->size, vm->currentModuleRecord);
   PUSH(currentModuleRecord, OBJECT_VAL(resultArray));
   uint32_t addCount = 0;
   for (uint32_t i = 0; i < array->size; i++) {
@@ -376,10 +392,11 @@ ObjectResult *arrayFilterMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(resultArray));
 }
 
-ObjectResult *arrayReduceMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - array
-  // arg1 - function
-  // arg2 - initial value
+// arg0 - array
+// arg1 - function
+// arg2 - initial value
+ObjectResult *arrayReduceMethod(VM *vm, int argCount __attribute__((unused)),
+                                const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
 
@@ -529,8 +546,9 @@ static void quickSort(Value *arr, const int low, const int high) {
   }
 }
 
-ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - array
+// arg0 - array
+ObjectResult *arraySortMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
   const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
   if (array->size == 0) {
@@ -547,7 +565,7 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
                 TYPE, false));
   }
 
-  ObjectArray *sortedArray = newArray(vm, array->size);
+  ObjectArray *sortedArray = newArray(vm, array->size, vm->currentModuleRecord);
   ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
   PUSH(currentModuleRecord, OBJECT_VAL(sortedArray));
 
@@ -562,9 +580,10 @@ ObjectResult *arraySortMethod(VM *vm, int argCount, const Value *args) {
   return newOkResult(vm, OBJECT_VAL(sortedArray));
 }
 
-ObjectResult *arrayJoinMethod(VM *vm, int argCount, const Value *args) {
-  // arg0 - array
-  // arg1 - separator string
+// arg0 - array
+// arg1 - separator string
+ObjectResult *arrayJoinMethod(VM *vm, int argCount __attribute__((unused)),
+                              const Value *args) {
 
   if (!IS_CRUX_STRING(args[1])) {
     return newErrorResult(

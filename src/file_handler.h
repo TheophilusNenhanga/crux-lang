@@ -1,12 +1,23 @@
 #ifndef FILE_HANDLER_H
 #define FILE_HANDLER_H
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <limits.h>
+#endif
+
+#ifdef _WIN32
+#define MAX_PATH_LENGTH MAX_PATH
+#else
+#define MAX_PATH_LENGTH PATH_MAX
+#endif
+
+
 typedef struct {
   char *content;
   char *error;
 } FileResult;
-
-#define MAX_PATH_LENGTH 4096
 
 /**
  * @brief Reads the entire contents of a file into memory

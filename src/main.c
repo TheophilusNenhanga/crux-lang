@@ -3,6 +3,7 @@
 
 #include "file_handler.h"
 #include "vm/vm.h"
+#include "common.h"
 
 /**
  * Starts an interactive Read-Eval-Print Loop (REPL) for the language
@@ -10,12 +11,14 @@
 static void repl(VM *vm) {
   while (true) {
     char line[1024];
-    printf("> ");
-
-    if (!fgets(line, sizeof(line), stdin)) {
-      printf("\n");
-      break;
-    }
+          printf(CYAN "> " RESET);
+          printf(GREEN);
+          fflush(stdout);
+          if (!fgets(line, sizeof(line), stdin)) {
+                  printf(RESET "\n");
+                  break;
+          }
+          printf(RESET);
     interpret(vm, line);
   }
 }
