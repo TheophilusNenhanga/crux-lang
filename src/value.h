@@ -77,7 +77,7 @@ typedef struct {
  * @param b Second value to compare
  * @return true if the values are equal, false otherwise
  */
-bool valuesEqual(Value a, Value b);
+bool values_equal(Value a, Value b);
 
 /**
  * @brief Initializes a new value array
@@ -87,7 +87,7 @@ bool valuesEqual(Value a, Value b);
  *
  * @param array Pointer to the ValueArray to initialize
  */
-void initValueArray(ValueArray *array);
+void init_value_array(ValueArray *array);
 
 /**
  * @brief Adds a value to a value array, growing the array if needed
@@ -99,7 +99,7 @@ void initValueArray(ValueArray *array);
  * @param array Pointer to the ValueArray to modify
  * @param value The Value to append to the array
  */
-void writeValueArray(VM *vm, ValueArray *array, Value value);
+void write_value_array(VM *vm, ValueArray *array, Value value);
 
 /**
  * @brief Frees memory allocated for a value array
@@ -110,7 +110,7 @@ void writeValueArray(VM *vm, ValueArray *array, Value value);
  * @param vm Pointer to the virtual machine (used for memory management)
  * @param array Pointer to the ValueArray to free
  */
-void freeValueArray(VM *vm, ValueArray *array);
+void free_value_array(VM *vm, ValueArray *array);
 
 /**
  * @brief Prints a human-readable representation of a value
@@ -124,6 +124,6 @@ void freeValueArray(VM *vm, ValueArray *array);
  * @param value The Value to print
  * @param inCollection is the value in a collection?
  */
-void printValue(Value value, bool inCollection);
+void print_value(Value value, bool inCollection);
 
 #endif // VALUE_H

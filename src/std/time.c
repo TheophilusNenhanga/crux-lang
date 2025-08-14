@@ -9,16 +9,16 @@
 #include "../memory.h"
 #include "time.h"
 
-Value timeSecondsFunction_(VM *vm __attribute__((unused)),
-			   int argCount __attribute__((unused)),
-			   const Value *args __attribute__((unused)))
+Value time_seconds_function_(VM *vm __attribute__((unused)),
+			     int arg_count __attribute__((unused)),
+			     const Value *args __attribute__((unused)))
 {
 	return FLOAT_VAL((double)time(NULL));
 }
 
-Value timeMillisecondsFunction_(VM *vm __attribute__((unused)),
-				int argCount __attribute__((unused)),
-				const Value *args __attribute__((unused)))
+Value time_milliseconds_function_(VM *vm __attribute__((unused)),
+				  int arg_count __attribute__((unused)),
+				  const Value *args __attribute__((unused)))
 {
 #ifdef _WIN32
 	SYSTEMTIME st;
@@ -38,13 +38,14 @@ Value timeMillisecondsFunction_(VM *vm __attribute__((unused)),
 	return FLOAT_VAL((double)ms);
 }
 
-ObjectResult *sleepSecondsFunction(VM *vm, int argCount __attribute__((unused)),
-				   const Value *args)
+ObjectResult *sleep_seconds_function(VM *vm,
+				     int arg_count __attribute__((unused)),
+				     const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Parameter <duration> must be "
 						"of type 'int' | 'float'.",
 						54),
@@ -53,11 +54,11 @@ ObjectResult *sleepSecondsFunction(VM *vm, int argCount __attribute__((unused)),
 
 	double seconds = AS_FLOAT(args[0]);
 	if (seconds < 0) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
+			new_error(
 				vm,
-				copyString(vm,
+				copy_string(vm,
 					   "Sleep duration cannot be negative.",
 					   34),
 				VALUE, false));
@@ -70,30 +71,30 @@ ObjectResult *sleepSecondsFunction(VM *vm, int argCount __attribute__((unused)),
 
 #endif
 
-	return newOkResult(vm, NIL_VAL);
+	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *sleepMillisecondsFunction(VM *vm,
-					int argCount __attribute__((unused)),
-					const Value *args)
+ObjectResult *sleep_milliseconds_function(VM *vm,
+					  int arg_count __attribute__((unused)),
+					  const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Parameter <duration> must be "
 						"of type 'int' | 'float'.",
 						54),
 				     TYPE, false));
 	}
 
-	double milliseconds = AS_FLOAT(args[0]);
+	const double milliseconds = AS_FLOAT(args[0]);
 	if (milliseconds < 0) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
+			new_error(
 				vm,
-				copyString(vm,
+				copy_string(vm,
 					   "Sleep duration cannot be negative.",
 					   34),
 				VALUE, false));
@@ -105,84 +106,84 @@ ObjectResult *sleepMillisecondsFunction(VM *vm,
 	usleep((useconds_t)(milliseconds * 1000));
 #endif
 
-	return newOkResult(vm, NIL_VAL);
+	return new_ok_result(vm, NIL_VAL);
 }
 
-static time_t getCurrentTime()
+static time_t get_current_time(void)
 {
 	return time(NULL);
 }
 
-Value yearFunction_(VM *vm __attribute__((unused)),
-		    int argCount __attribute__((unused)),
-		    const Value *args __attribute__((unused)))
+Value year_function_(VM *vm __attribute__((unused)),
+		     int arg_count __attribute__((unused)),
+		     const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_year + 1900);
 }
 
-Value monthFunction_(VM *vm __attribute__((unused)),
-		     int argCount __attribute__((unused)),
-		     const Value *args __attribute__((unused)))
+Value month_function_(VM *vm __attribute__((unused)),
+		      int arg_count __attribute__((unused)),
+		      const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_mon + 1);
 }
 
-Value dayFunction_(VM *vm __attribute__((unused)),
-		   int argCount __attribute__((unused)),
-		   const Value *args __attribute__((unused)))
+Value day_function_(VM *vm __attribute__((unused)),
+		    int arg_count __attribute__((unused)),
+		    const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_mday);
 }
 
-Value hourFunction_(VM *vm __attribute__((unused)),
-		    int argCount __attribute__((unused)),
-		    const Value *args __attribute__((unused)))
+Value hour_function_(VM *vm __attribute__((unused)),
+		     int arg_count __attribute__((unused)),
+		     const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_hour);
 }
 
-Value minuteFunction_(VM *vm __attribute__((unused)),
-		      int argCount __attribute__((unused)),
-		      const Value *args __attribute__((unused)))
+Value minute_function_(VM *vm __attribute__((unused)),
+		       int arg_count __attribute__((unused)),
+		       const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_min);
 }
 
-Value secondFunction_(VM *vm __attribute__((unused)),
-		      int argCount __attribute__((unused)),
-		      const Value *args __attribute__((unused)))
+Value second_function_(VM *vm __attribute__((unused)),
+		       int arg_count __attribute__((unused)),
+		       const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_sec);
 }
 
-Value weekdayFunction_(VM *vm __attribute__((unused)),
-		       int argCount __attribute__((unused)),
-		       const Value *args __attribute__((unused)))
+Value weekday_function_(VM *vm __attribute__((unused)),
+			int arg_count __attribute__((unused)),
+			const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	// 1 (Monday) - 7 (Sunday)
 	const int weekday = timeInfo->tm_wday == 0 ? 7 : timeInfo->tm_wday;
 	return INT_VAL(weekday);
 }
 
-Value dayOfYearFunction_(VM *vm __attribute__((unused)),
-			 int argCount __attribute__((unused)),
-			 const Value *args __attribute__((unused)))
+Value day_of_year_function_(VM *vm __attribute__((unused)),
+			    int arg_count __attribute__((unused)),
+			    const Value *args __attribute__((unused)))
 {
-	const time_t t = getCurrentTime();
+	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_yday + 1);
 }

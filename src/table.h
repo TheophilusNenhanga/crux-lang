@@ -22,7 +22,7 @@ typedef struct {
  *
  * @param table Pointer to the Table structure to initialize.
  */
-void initTable(Table *table);
+void init_table(Table *table);
 
 /**
  * Frees all memory allocated for a hash table.
@@ -30,7 +30,7 @@ void initTable(Table *table);
  * @param vm Pointer to the virtual machine.
  * @param table Pointer to the Table structure to free.
  */
-void freeTable(VM *vm, Table *table);
+void free_table(VM *vm, Table *table);
 
 /**
  * Inserts or updates a key-value pair in the table.
@@ -42,7 +42,7 @@ void freeTable(VM *vm, Table *table);
  * @return true if a new key was added or an existing key was changed from nil,
  *         false otherwise.
  */
-bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
+bool table_set(VM *vm, Table *table, ObjectString *key, Value value);
 
 /**
  * Retrieves a value associated with a key from the table.
@@ -52,7 +52,7 @@ bool tableSet(VM *vm, Table *table, ObjectString *key, Value value);
  * @param value Pointer to store the retrieved value.
  * @return true if the key was found, false otherwise.
  */
-bool tableGet(const Table *table, const ObjectString *key, Value *value);
+bool table_get(const Table *table, const ObjectString *key, Value *value);
 
 /**
  * Removes a key-value pair from the table.
@@ -61,7 +61,7 @@ bool tableGet(const Table *table, const ObjectString *key, Value *value);
  * @param key String key to remove.
  * @return true if the key was found and removed, false otherwise.
  */
-bool tableDelete(const Table *table, const ObjectString *key);
+bool table_delete(const Table *table, const ObjectString *key);
 
 /**
  * Copies all entries from one table to another.
@@ -70,7 +70,7 @@ bool tableDelete(const Table *table, const ObjectString *key);
  * @param from Source table to copy from.
  * @param to Destination table to copy to.
  */
-void tableAddAll(VM *vm, const Table *from, Table *to);
+void table_add_all(VM *vm, const Table *from, Table *to);
 
 /**
  * Finds a string in the table by its content and hash.
@@ -82,7 +82,7 @@ void tableAddAll(VM *vm, const Table *from, Table *to);
  * @param hash Hash value of the string.
  * @return Pointer to the found string object, or NULL if not found.
  */
-ObjectString *tableFindString(const Table *table, const char *chars,
+ObjectString *table_find_string(const Table *table, const char *chars,
 			      uint64_t length, uint32_t hash);
 
 /**
@@ -90,7 +90,7 @@ ObjectString *tableFindString(const Table *table, const char *chars,
  *
  * @param table Pointer to the table to clean up.
  */
-void tableRemoveWhite(const Table *table);
+void table_remove_white(const Table *table);
 
 /**
  * Marks all objects in the table as reachable during garbage collection.
@@ -98,6 +98,6 @@ void tableRemoveWhite(const Table *table);
  * @param vm Pointer to the virtual machine.
  * @param table Pointer to the table to mark.
  */
-void markTable(VM *vm, const Table *table);
+void mark_table(VM *vm, const Table *table);
 
 #endif

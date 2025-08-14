@@ -4,12 +4,12 @@
 #include "../object.h"
 #include "../vm/vm.h"
 
-ObjectResult *randomSeedMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *randomIntMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *randomDoubleMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *randomBoolMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *randomChoiceMethod(VM *vm, int argCount, const Value *args);
+ObjectResult *random_seed_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *random_double_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *random_bool_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *random_choice_method(VM *vm, int arg_count, const Value *args);
 
-Value randomNextMethod(VM *vm, int argCount, const Value *args);
-Value randomInitFunction(VM *vm, int argCount, const Value *args);
+Value random_next_method(VM *vm, int arg_count, const Value *args);
+Value random_init_function(VM *vm, int arg_count, const Value *args);
 #endif // RANDOM_H

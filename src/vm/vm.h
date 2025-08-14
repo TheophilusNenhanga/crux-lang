@@ -31,10 +31,10 @@ typedef struct {
 } NativeModule;
 
 typedef struct {
-	Value matchTarget;
-	Value matchBind;
-	bool isMatchTarget;
-	bool isMatchBind;
+	Value match_target;
+	Value match_bind;
+	bool is_match_target;
+	bool is_match_bind;
 } MatchHandler;
 
 typedef struct {
@@ -69,65 +69,66 @@ struct VM {
 	Object *objects;
 	Table strings;
 
-	Table moduleCache;
+	Table module_cache;
 	ObjectModuleRecord *currentModuleRecord;
-	ImportStack importStack;
+	ImportStack import_stack;
 
-	Table randomType;
-	Table stringType;
-	Table arrayType;
-	Table tableType;
-	Table errorType;
-	Table fileType;
-	Table resultType;
-	Table vec2Type;
-	Table vec3Type;
+	Table random_type;
+	Table string_type;
+	Table array_type;
+	Table table_type;
+	Table error_type;
+	Table file_type;
+	Table result_type;
+	Table vec2_type;
+	Table vec3_type;
 
-	StructInstanceStack structInstanceStack;
+	StructInstanceStack struct_instance_stack;
 
-	NativeModules nativeModules;
-	MatchHandler matchHandler;
+	NativeModules native_modules;
+	MatchHandler match_handler;
 	Args args;
 
-	size_t bytesAllocated;
-	size_t nextGC;
-	Object **grayStack;
-	int grayCapacity;
-	int grayCount;
-	GC_STATUS gcStatus;
+	size_t bytes_allocated;
+	size_t next_gc;
+	Object **gray_stack;
+	int gray_capacity;
+	int gray_count;
+	GC_STATUS gc_status;
 
-	int importCount;
+	int import_count;
 };
 
-#define PUSH(moduleRecord, value)                                              \
+#define push(module_record, value)                                             \
 	do {                                                                   \
-		if (__builtin_expect((moduleRecord)->stackTop >=               \
-					     (moduleRecord)->stackLimit,       \
+		if (__builtin_expect((module_record)->stack_top >=             \
+					     (module_record)->stack_limit,     \
 				     0)) {                                     \
-			runtimePanic((moduleRecord), true, STACK_OVERFLOW,     \
-				     "Stack overflow error");                  \
+			runtime_panic((module_record), true, STACK_OVERFLOW,   \
+				      "Stack overflow error");                 \
 		}                                                              \
-		*(moduleRecord)->stackTop++ = (value);                         \
+		*(module_record)->stack_top++ = (value);                       \
 	} while (0)
 
-#define POP(moduleRecord)                                                      \
+#define pop(module_record)                                                     \
 	({                                                                     \
-		if (__builtin_expect((moduleRecord)->stackTop <=               \
-					     (moduleRecord)->stack,            \
+		if (__builtin_expect((module_record)->stack_top <=             \
+					     (module_record)->stack,           \
 				     0)) {                                     \
-			runtimePanic((moduleRecord), true, RUNTIME,            \
-				     "Stack underflow error");                 \
+			runtime_panic((module_record), true, RUNTIME,          \
+				      "Stack underflow error");                \
 		}                                                              \
-		*--(moduleRecord)->stackTop;                                   \
+		*--(module_record)->stack_top;                                 \
 	})
 
-#define PEEK(moduleRecord, distance) ((moduleRecord)->stackTop[-1 - (distance)])
+#define PEEK(module_record, distance)                                          \
+	((module_record)->stack_top[-1 - (distance)])
 
-VM *newVM(int argc, const char **argv);
+VM *new_vm(int argc, const char **argv);
 
-void initVM(VM *vm, int argc, const char **argv);
+void init_vm(VM *vm, int argc, const char **argv);
 
-void freeVM(VM *vm);
+void free_vm(VM *vm);
 
 InterpretResult interpret(VM *vm, char *source);
 

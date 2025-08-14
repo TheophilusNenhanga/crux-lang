@@ -34,7 +34,7 @@ static char peek(void)
  * Checks if the scanner has reached the end of the source.
  * @return true if at the end of source, false otherwise
  */
-static bool isAtEnd(void)
+static bool is_at_end(void)
 {
 	return *scanner.current == '\0';
 }
@@ -43,9 +43,9 @@ static bool isAtEnd(void)
  * Returns the character after the current one without consuming any.
  * @return The next character, or '\0' if at the end of source
  */
-static char peekNext(void)
+static char peek_next(void)
 {
-	if (isAtEnd())
+	if (is_at_end())
 		return '\0';
 	return scanner.current[1];
 }
@@ -55,7 +55,7 @@ static char peekNext(void)
  * @param c The character to check
  * @return true if the character can start an identifier, false otherwise
  */
-static bool isIdentifierStarter(const char c)
+static bool is_identifier_starter(const char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
@@ -65,7 +65,7 @@ static bool isIdentifierStarter(const char c)
  * @param c The character to check
  * @return true if the character is alphabetic or underscore, false otherwise
  */
-static bool isAlpha(const char c)
+static bool is_alpha(const char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
@@ -73,7 +73,7 @@ static bool isAlpha(const char c)
 /**
  * Skips whitespace and comments in the source code.
  */
-static void skipWhitespace(void)
+static void skip_whitespace(void)
 {
 	for (;;) {
 		const char c = peek();
@@ -89,9 +89,9 @@ static void skipWhitespace(void)
 			break;
 		}
 		case '/': {
-			if (peekNext() == '/') {
+			if (peek_next() == '/') {
 				// Comments are only on one line
-				while (peek() != '\n' && !isAtEnd())
+				while (peek() != '\n' && !is_at_end())
 					advance();
 			} else {
 				return;
@@ -104,7 +104,7 @@ static void skipWhitespace(void)
 	}
 }
 
-static CruxTokenType checkKeyword(const int start, const int length,
+static CruxTokenType check_keyword(const int start, const int length,
 				  const char *rest, const CruxTokenType type)
 {
 	if (scanner.current - scanner.start == start + length &&
@@ -118,17 +118,17 @@ static CruxTokenType checkKeyword(const int start, const int length,
  * Determines the token type of identifier.
  * @return The token type (keyword or identifier)
  */
-static CruxTokenType identifierType(void)
+static CruxTokenType identifier_type(void)
 {
 	switch (scanner.start[0]) {
 	case 'a': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 's': {
-				return checkKeyword(2, 0, "", TOKEN_AS);
+				return check_keyword(2, 0, "", TOKEN_AS);
 			}
 			case 'n': {
-				return checkKeyword(2, 1, "d", TOKEN_AND);
+				return check_keyword(2, 1, "d", TOKEN_AND);
 			}
 			default:;
 			}
@@ -136,12 +136,12 @@ static CruxTokenType identifierType(void)
 		break;
 	}
 	case 'b':
-		return checkKeyword(1, 4, "reak", TOKEN_BREAK);
+		return check_keyword(1, 4, "reak", TOKEN_BREAK);
 	case 'c': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 'o':
-				return checkKeyword(2, 6, "ntinue",
+				return check_keyword(2, 6, "ntinue",
 						    TOKEN_CONTINUE);
 			default:;
 			}
@@ -149,43 +149,43 @@ static CruxTokenType identifierType(void)
 		break;
 	}
 	case 'd': {
-		return checkKeyword(1, 6, "efault", TOKEN_DEFAULT);
+		return check_keyword(1, 6, "efault", TOKEN_DEFAULT);
 	}
 	case 'e':
-		return checkKeyword(1, 3, "lse", TOKEN_ELSE);
+		return check_keyword(1, 3, "lse", TOKEN_ELSE);
 	case 'g': {
-		return checkKeyword(1, 3, "ive", TOKEN_GIVE);
+		return check_keyword(1, 3, "ive", TOKEN_GIVE);
 	}
 	case 'i':
-		return checkKeyword(1, 1, "f", TOKEN_IF);
+		return check_keyword(1, 1, "f", TOKEN_IF);
 	case 'l':
-		return checkKeyword(1, 2, "et", TOKEN_LET);
+		return check_keyword(1, 2, "et", TOKEN_LET);
 	case 'n':
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 'o': {
-				return checkKeyword(2, 1, "t", TOKEN_NOT);
+				return check_keyword(2, 1, "t", TOKEN_NOT);
 			}
 			case 'i': {
-				return checkKeyword(2, 1, "l", TOKEN_NIL);
+				return check_keyword(2, 1, "l", TOKEN_NIL);
 			}
 			case 'e': {
-				return checkKeyword(2, 1, "w", TOKEN_NEW);
+				return check_keyword(2, 1, "w", TOKEN_NEW);
 			}
 			default:;
 			}
 			break;
 		}
 	case 'o':
-		return checkKeyword(1, 1, "r", TOKEN_OR);
+		return check_keyword(1, 1, "r", TOKEN_OR);
 	case 'r':
-		return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
+		return check_keyword(1, 5, "eturn", TOKEN_RETURN);
 	case 's': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 't': {
 				if (scanner.current - scanner.start > 2) {
-					return checkKeyword(2, 4, "ruct",
+					return check_keyword(2, 4, "ruct",
 							    TOKEN_STRUCT);
 				}
 			}
@@ -195,53 +195,53 @@ static CruxTokenType identifierType(void)
 		break;
 	}
 	case 'w':
-		return checkKeyword(1, 4, "hile", TOKEN_WHILE);
+		return check_keyword(1, 4, "hile", TOKEN_WHILE);
 	case 'f': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 'a':
-				return checkKeyword(2, 3, "lse", TOKEN_FALSE);
+				return check_keyword(2, 3, "lse", TOKEN_FALSE);
 			case 'o':
-				return checkKeyword(2, 1, "r", TOKEN_FOR);
+				return check_keyword(2, 1, "r", TOKEN_FOR);
 			case 'n':
 				return TOKEN_FN;
 			case 'r':
-				return checkKeyword(2, 2, "om", TOKEN_FROM);
+				return check_keyword(2, 2, "om", TOKEN_FROM);
 			default:;
 			}
 		}
 		break;
 	}
 	case 'm': {
-		return checkKeyword(1, 4, "atch", TOKEN_MATCH);
+		return check_keyword(1, 4, "atch", TOKEN_MATCH);
 	}
 	case 't': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
 			case 'r':
-				return checkKeyword(2, 2, "ue", TOKEN_TRUE);
+				return check_keyword(2, 2, "ue", TOKEN_TRUE);
 			case 'y':
-				return checkKeyword(2, 4, "peof", TOKEN_TYPEOF);
+				return check_keyword(2, 4, "peof", TOKEN_TYPEOF);
 			default:;
 			}
 		}
 		break;
 	}
 	case 'u':
-		return checkKeyword(1, 2, "se", TOKEN_USE);
+		return check_keyword(1, 2, "se", TOKEN_USE);
 	case 'p':
-		return checkKeyword(1, 2, "ub", TOKEN_PUB);
+		return check_keyword(1, 2, "ub", TOKEN_PUB);
 	case 'E':
-		return checkKeyword(1, 2, "rr", TOKEN_ERR);
+		return check_keyword(1, 2, "rr", TOKEN_ERR);
 	case 'O':
-		return checkKeyword(1, 1, "k", TOKEN_OK);
+		return check_keyword(1, 1, "k", TOKEN_OK);
 	default:;
 	}
 
 	return TOKEN_IDENTIFIER;
 }
 
-void initScanner(const char *source)
+void init_scanner(const char *source)
 {
 	scanner.start = source;
 	scanner.current = source;
@@ -253,7 +253,7 @@ void initScanner(const char *source)
  * @param type The token type
  * @return The created token
  */
-static Token makeToken(const CruxTokenType type)
+static Token make_token(const CruxTokenType type)
 {
 	Token token;
 	token.type = type;
@@ -268,7 +268,7 @@ static Token makeToken(const CruxTokenType type)
  * @param message The error message
  * @return The error token
  */
-static Token errorToken(const char *message)
+static Token error_token(const char *message)
 {
 	Token token;
 	token.type = TOKEN_ERROR;
@@ -286,7 +286,7 @@ static Token errorToken(const char *message)
  */
 static bool match(const char expected)
 {
-	if (isAtEnd())
+	if (is_at_end())
 		return false;
 	if (*scanner.current != expected)
 		return false;
@@ -298,14 +298,14 @@ static bool match(const char expected)
  * Scans a single-quoted string literal.
  * @return The string token or an error token
  */
-static Token singleString(void)
+static Token single_string(void)
 {
-	while (!isAtEnd()) {
+	while (!is_at_end()) {
 		if (peek() == '\'')
 			break;
 		if (peek() == '\\') {
 			advance();
-			if (!isAtEnd()) {
+			if (!is_at_end()) {
 				advance();
 			}
 			continue;
@@ -316,25 +316,25 @@ static Token singleString(void)
 		advance();
 	}
 
-	if (isAtEnd())
-		return errorToken("Unterminated String");
+	if (is_at_end())
+		return error_token("Unterminated String");
 	// The closing quote
 	advance();
-	return makeToken(TOKEN_STRING);
+	return make_token(TOKEN_STRING);
 }
 
 /**
  * Scans a double-quoted string literal.
  * @return The string token or an error token
  */
-static Token doubleString(void)
+static Token double_string(void)
 {
-	while (!isAtEnd()) {
+	while (!is_at_end()) {
 		if (peek() == '"')
 			break;
 		if (peek() == '\\') {
 			advance();
-			if (!isAtEnd()) {
+			if (!is_at_end()) {
 				advance();
 			}
 			continue;
@@ -345,11 +345,11 @@ static Token doubleString(void)
 		advance();
 	}
 
-	if (isAtEnd())
-		return errorToken("Unterminated String");
+	if (is_at_end())
+		return error_token("Unterminated String");
 	// The closing quote
 	advance();
-	return makeToken(TOKEN_STRING);
+	return make_token(TOKEN_STRING);
 }
 
 /**
@@ -357,7 +357,7 @@ static Token doubleString(void)
  * @param c The character to check
  * @return true if the character is a digit, false otherwise
  */
-static bool isDigit(const char c)
+static bool is_digit(const char c)
 {
 	return c >= '0' && c <= '9';
 }
@@ -368,19 +368,19 @@ static bool isDigit(const char c)
  */
 static Token number(void)
 {
-	while (isDigit(peek()))
+	while (is_digit(peek()))
 		advance();
 	bool fpFound = false;
-	if (peek() == '.' && isDigit(peekNext())) {
+	if (peek() == '.' && is_digit(peek_next())) {
 		fpFound = true;
 		advance();
-		while (isDigit(peek()))
+		while (is_digit(peek()))
 			advance();
 	}
 	if (fpFound) {
-		return makeToken(TOKEN_FLOAT);
+		return make_token(TOKEN_FLOAT);
 	}
-	return makeToken(TOKEN_INT);
+	return make_token(TOKEN_INT);
 }
 
 /**
@@ -389,112 +389,112 @@ static Token number(void)
  */
 static Token identifier(void)
 {
-	while (isAlpha(peek()) || isDigit(peek()))
+	while (is_alpha(peek()) || is_digit(peek()))
 		advance();
-	return makeToken(identifierType());
+	return make_token(identifier_type());
 }
 
-Token scanToken(void)
+Token scan_token(void)
 {
-	skipWhitespace();
+	skip_whitespace();
 	scanner.start = scanner.current;
-	if (isAtEnd())
-		return makeToken(TOKEN_EOF);
+	if (is_at_end())
+		return make_token(TOKEN_EOF);
 
 	const char c = advance();
 
-	if (isDigit(c))
+	if (is_digit(c))
 		return number();
-	if (isIdentifierStarter(c))
+	if (is_identifier_starter(c))
 		return identifier();
 
 	switch (c) {
 	case ':':
-		return makeToken(TOKEN_COLON);
+		return make_token(TOKEN_COLON);
 	case '(':
-		return makeToken(TOKEN_LEFT_PAREN);
+		return make_token(TOKEN_LEFT_PAREN);
 	case ')':
-		return makeToken(TOKEN_RIGHT_PAREN);
+		return make_token(TOKEN_RIGHT_PAREN);
 	case '{':
-		return makeToken(TOKEN_LEFT_BRACE);
+		return make_token(TOKEN_LEFT_BRACE);
 	case '}':
-		return makeToken(TOKEN_RIGHT_BRACE);
+		return make_token(TOKEN_RIGHT_BRACE);
 	case '[':
-		return makeToken(TOKEN_LEFT_SQUARE);
+		return make_token(TOKEN_LEFT_SQUARE);
 	case ']':
-		return makeToken(TOKEN_RIGHT_SQUARE);
+		return make_token(TOKEN_RIGHT_SQUARE);
 	case ';':
-		return makeToken(TOKEN_SEMICOLON);
+		return make_token(TOKEN_SEMICOLON);
 	case ',':
-		return makeToken(TOKEN_COMMA);
+		return make_token(TOKEN_COMMA);
 	case '.':
-		return makeToken(TOKEN_DOT);
+		return make_token(TOKEN_DOT);
 	case '-':
-		return makeToken(match('=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS);
+		return make_token(match('=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS);
 	case '+':
-		return makeToken(match('=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
+		return make_token(match('=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
 	case '/':
-		return makeToken(match('=') ? TOKEN_SLASH_EQUAL : TOKEN_SLASH);
+		return make_token(match('=') ? TOKEN_SLASH_EQUAL : TOKEN_SLASH);
 	case '\\':
 		if (match('=')) {
-			return makeToken(TOKEN_BACK_SLASH_EQUAL);
+			return make_token(TOKEN_BACK_SLASH_EQUAL);
 		}
-		return makeToken(TOKEN_BACKSLASH);
+		return make_token(TOKEN_BACKSLASH);
 	case '*': {
 		if (match('*')) {
-			return makeToken(TOKEN_STAR_STAR);
+			return make_token(TOKEN_STAR_STAR);
 		}
 		if (match('=')) {
-			return makeToken(TOKEN_STAR_EQUAL);
+			return make_token(TOKEN_STAR_EQUAL);
 		}
-		return makeToken(TOKEN_STAR);
+		return make_token(TOKEN_STAR);
 	}
 	case '%':
 		if (match('=')) {
-			return makeToken(TOKEN_PERCENT_EQUAL);
+			return make_token(TOKEN_PERCENT_EQUAL);
 		}
-		return makeToken(TOKEN_PERCENT);
+		return make_token(TOKEN_PERCENT);
 	case '!': {
 		if (match('=')) {
-			return makeToken(TOKEN_BANG_EQUAL);
+			return make_token(TOKEN_BANG_EQUAL);
 		}
 	}
 	case '=': {
 		if (match('=')) {
-			return makeToken(TOKEN_EQUAL_EQUAL);
+			return make_token(TOKEN_EQUAL_EQUAL);
 		}
 		if (match('>')) {
-			return makeToken(TOKEN_EQUAL_ARROW);
+			return make_token(TOKEN_EQUAL_ARROW);
 		}
-		return makeToken(TOKEN_EQUAL);
+		return make_token(TOKEN_EQUAL);
 	}
 	case '<':
 		if (match('<')) {
-			return makeToken(TOKEN_LEFT_SHIFT);
+			return make_token(TOKEN_LEFT_SHIFT);
 		}
-		return makeToken(match('=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
+		return make_token(match('=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
 	case '>':
 		if (match('>')) {
-			return makeToken(TOKEN_RIGHT_SHIFT);
+			return make_token(TOKEN_RIGHT_SHIFT);
 		}
-		return makeToken(match('=') ? TOKEN_GREATER_EQUAL
+		return make_token(match('=') ? TOKEN_GREATER_EQUAL
 					    : TOKEN_GREATER);
 	case '"':
-		return doubleString();
+		return double_string();
 	case '\'':
-		return singleString();
+		return single_string();
 	case '$': {
 		if (match('{')) {
-			return makeToken(TOKEN_DOLLAR_LEFT_CURLY);
+			return make_token(TOKEN_DOLLAR_LEFT_CURLY);
 		}
 		if (match('[')) {
-			return makeToken(TOKEN_DOLLAR_LEFT_SQUARE);
+			return make_token(TOKEN_DOLLAR_LEFT_SQUARE);
 		}
 	}
 	case '?': {
-		return makeToken(TOKEN_QUESTION_MARK);
+		return make_token(TOKEN_QUESTION_MARK);
 	}
 	default:;
 	}
-	return errorToken("Unexpected character.");
+	return error_token("Unexpected character.");
 }

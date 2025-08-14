@@ -16,14 +16,14 @@ typedef struct {
 	int arity;
 } InfallibleCallable;
 
-bool initializeStdLib(VM *vm);
+bool initialize_std_lib(VM *vm);
 
-bool registerNativeMethod(VM *vm, Table *methodTable, const char *methodName,
-			  CruxCallable methodFunction, int arity);
+bool register_native_method(VM *vm, Table *method_table, const char *method_name,
+			  CruxCallable method_function, int arity);
 
-bool registerNativeInfallibleMethod(VM *vm, Table *methodTable,
-				    const char *methodName,
-				    CruxInfallibleCallable methodFunction,
+bool register_native_infallible_method(VM *vm, Table *method_table,
+				    const char *method_name,
+				    CruxInfallibleCallable method_function,
 				    int arity);
 
 #endif // STD_H

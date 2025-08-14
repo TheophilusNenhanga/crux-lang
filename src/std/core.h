@@ -4,18 +4,18 @@
 #include "../object.h"
 #include "../value.h"
 
-ObjectResult *lengthFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *intFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *floatFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *stringFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *arrayFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *tableFunction(VM *vm, int argCount, const Value *args);
+ObjectResult *length_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *int_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *float_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *string_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *array_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *table_function(VM *vm, int arg_count, const Value *args);
 
-Value lengthFunction_(VM *vm, int argCount, const Value *args);
-Value intFunction_(VM *vm, int argCount, const Value *args);
-Value floatFunction_(VM *vm, int argCount, const Value *args);
-Value stringFunction_(VM *vm, int argCount, const Value *args);
-Value arrayFunction_(VM *vm, int argCount, const Value *args);
-Value tableFunction_(VM *vm, int argCount, const Value *args);
+Value length_function_(VM *vm, int arg_count, const Value *args);
+Value int_function_(VM *vm, int arg_count, const Value *args);
+Value float_function_(VM *vm, int arg_count, const Value *args);
+Value string_function_(VM *vm, int arg_count, const Value *args);
+Value array_function_(VM *vm, int arg_count, const Value *args);
+Value table_function_(VM *vm, int arg_count, const Value *args);
 
 #endif

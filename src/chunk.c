@@ -4,16 +4,16 @@
 #include "panic.h"
 #include "vm/vm_helpers.h"
 
-void initChunk(Chunk *chunk)
+void init_chunk(Chunk *chunk)
 {
 	chunk->count = 0;
 	chunk->capacity = 0;
 	chunk->code = NULL;
 	chunk->lines = NULL;
-	initValueArray(&chunk->constants);
+	init_value_array(&chunk->constants);
 }
 
-void writeChunk(VM *vm, Chunk *chunk, const uint8_t byte, const int line)
+void write_chunk(VM *vm, Chunk *chunk, const uint8_t byte, const int line)
 {
 	if (chunk->capacity < chunk->count + 1) {
 		const int oldCapacity = chunk->capacity;
@@ -29,18 +29,18 @@ void writeChunk(VM *vm, Chunk *chunk, const uint8_t byte, const int line)
 	chunk->count++;
 }
 
-void freeChunk(VM *vm, Chunk *chunk)
+void free_chunk(VM *vm, Chunk *chunk)
 {
 	FREE_ARRAY(vm, uint8_t, chunk->code, chunk->capacity);
 	FREE_ARRAY(vm, int, chunk->lines, chunk->capacity);
-	freeValueArray(vm, &chunk->constants);
-	initChunk(chunk);
+	free_value_array(vm, &chunk->constants);
+	init_chunk(chunk);
 }
 
-int addConstant(VM *vm, Chunk *chunk, const Value value)
+int add_constant(VM *vm, Chunk *chunk, const Value value)
 {
-	PUSH(vm->currentModuleRecord, value);
-	writeValueArray(vm, &chunk->constants, value);
-	POP(vm->currentModuleRecord);
+	push(vm->currentModuleRecord, value);
+	write_value_array(vm, &chunk->constants, value);
+	pop(vm->currentModuleRecord);
 	return chunk->constants.count - 1;
 }

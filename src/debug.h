@@ -12,7 +12,7 @@
  * @param chunk Pointer to the Chunk to disassemble
  * @param name Name of the chunk for identification in output
  */
-void disassembleChunk(const Chunk *chunk, const char *name);
+void disassemble_chunk(const Chunk *chunk, const char *name);
 
 /**
  * @brief Disassembles and prints a single bytecode instruction
@@ -29,6 +29,6 @@ void disassembleChunk(const Chunk *chunk, const char *name);
  * @param offset The byte offset of the instruction to disassemble
  * @return The byte offset of the next instruction
  */
-int disassembleInstruction(const Chunk *chunk, int offset);
+int disassemble_instruction(const Chunk *chunk, int offset);
 
 #endif // DEBUG_H

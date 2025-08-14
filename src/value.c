@@ -5,14 +5,14 @@
 #include "memory.h"
 #include "object.h"
 
-void initValueArray(ValueArray *array)
+void init_value_array(ValueArray *array)
 {
 	array->values = NULL;
 	array->capacity = 0;
 	array->count = 0;
 }
 
-void writeValueArray(VM *vm, ValueArray *array, const Value value)
+void write_value_array(VM *vm, ValueArray *array, const Value value)
 {
 	if (array->capacity < array->count + 1) {
 		const int oldCapacity = array->capacity;
@@ -25,13 +25,13 @@ void writeValueArray(VM *vm, ValueArray *array, const Value value)
 	array->count++;
 }
 
-void freeValueArray(VM *vm, ValueArray *array)
+void free_value_array(VM *vm, ValueArray *array)
 {
 	FREE_ARRAY(vm, Value, array->values, array->capacity);
-	initValueArray(array);
+	init_value_array(array);
 }
 
-void printValue(const Value value, const bool inCollection)
+void print_value(const Value value, const bool inCollection)
 {
 	if (IS_BOOL(value)) {
 		printf(AS_BOOL(value) ? "true" : "false");
@@ -42,11 +42,11 @@ void printValue(const Value value, const bool inCollection)
 	} else if (IS_INT(value)) {
 		printf("%d", AS_INT(value));
 	} else if (IS_CRUX_OBJECT(value)) {
-		printObject(value, inCollection);
+		print_object(value, inCollection);
 	}
 }
 
-bool valuesEqual(const Value a, const Value b)
+bool values_equal(const Value a, const Value b)
 {
 	if (IS_INT(a) && IS_INT(b)) {
 		return AS_INT(a) == AS_INT(b);

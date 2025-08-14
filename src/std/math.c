@@ -2,9 +2,9 @@
 #include <math.h>
 #include <string.h>
 
-static bool numberArgs(const Value *args, const int argCount)
+static bool numberArgs(const Value *args, const int arg_count)
 {
-	for (int i = 0; i < argCount; i++) {
+	for (int i = 0; i < arg_count; i++) {
 		if (!IS_INT(args[i]) && !IS_FLOAT(args[i])) {
 			return false;
 		}
@@ -14,44 +14,54 @@ static bool numberArgs(const Value *args, const int argCount)
 
 #define NUMBER_ERROR_MESSAGE "Arguments must be of type 'int' | 'float'."
 
-#define CHECK_ARGS(args, argCount)                                             \
-	if (!numberArgs(args, argCount)) {                                     \
-		return newErrorResult(                                         \
-			vm, newError(vm,                                       \
-				     copyString(vm, NUMBER_ERROR_MESSAGE,      \
-						strlen(NUMBER_ERROR_MESSAGE)), \
-				     TYPE, false));                            \
-	}
-
-ObjectResult *powFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *check_args(VM *vm, const Value *args, const int arg_count)
 {
-	CHECK_ARGS(args, argCount);
+	if (!numberArgs(args, arg_count)) {
+		return new_error_result(
+			vm, new_error(vm,
+				      copy_string(vm, NUMBER_ERROR_MESSAGE,
+						  strlen(NUMBER_ERROR_MESSAGE)),
+				      TYPE, false));
+	}
+	return NULL;
+}
+
+ObjectResult *pow_function(VM *vm, const int arg_count, const Value *args)
+{
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 
 	const double base = AS_FLOAT(args[0]);
 	const double exponent = AS_FLOAT(args[1]);
 
-	return newOkResult(vm, FLOAT_VAL(pow(base, exponent)));
+	return new_ok_result(vm, FLOAT_VAL(pow(base, exponent)));
 }
 
-ObjectResult *sqrtFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *sqrt_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
-						"Cannot calculate square root "
-						"of a negative number.",
-						50),
-				     VALUE, false));
+		return new_error_result(
+			vm,
+			new_error(vm,
+				  copy_string(vm,
+					      "Cannot calculate square root "
+					      "of a negative number.",
+					      50),
+				  VALUE, false));
 	}
 
-	return newOkResult(vm, FLOAT_VAL(sqrt(number)));
+	return new_ok_result(vm, FLOAT_VAL(sqrt(number)));
 }
 
-static int32_t absoluteValue(const int32_t x)
+static int32_t absolute_value(const int32_t x)
 {
 	if (x < 0) {
 		return -x;
@@ -59,166 +69,214 @@ static int32_t absoluteValue(const int32_t x)
 	return x;
 }
 
-ObjectResult *absFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *abs_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 	if (IS_INT(args[0])) {
-		return newOkResult(vm, INT_VAL(absoluteValue(AS_INT(args[0]))));
+		return new_ok_result(vm,
+				     INT_VAL(absolute_value(AS_INT(args[0]))));
 	}
-	return newOkResult(vm, FLOAT_VAL(fabs(AS_FLOAT(args[0]))));
+	return new_ok_result(vm, FLOAT_VAL(fabs(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *sinFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *sin_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(sin(FLOAT_VAL(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(sin(FLOAT_VAL(args[0]))));
 }
 
-ObjectResult *cosFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *cos_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(cos(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(cos(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *tanFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *tan_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(tan(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(tan(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *asinFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *asin_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
-				vm,
-				copyString(vm,
-					   "Argument must be between -1 and 1.",
-					   34),
-				VALUE, false));
+			new_error(vm,
+				  copy_string(
+					  vm,
+					  "Argument must be between -1 and 1.",
+					  34),
+				  VALUE, false));
 	}
 
-	return newOkResult(vm, FLOAT_VAL(asin(num)));
+	return new_ok_result(vm, FLOAT_VAL(asin(num)));
 }
 
-ObjectResult *acosFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *acos_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
-				vm,
-				copyString(vm,
-					   "Argument must be between -1 and 1.",
-					   34),
-				VALUE, false));
+			new_error(vm,
+				  copy_string(
+					  vm,
+					  "Argument must be between -1 and 1.",
+					  34),
+				  VALUE, false));
 	}
-	return newOkResult(vm, FLOAT_VAL(acos(num)));
+	return new_ok_result(vm, FLOAT_VAL(acos(num)));
 }
 
-ObjectResult *atanFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *atan_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(atan(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(atan(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *expFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *exp_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(exp(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(exp(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *lnFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *ln_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm,
+			new_error(
+				vm,
+				copy_string(vm,
 					    "Cannot calculate natural "
 					    "logarithm of non positive number.",
 					    58),
-				 VALUE, false));
+				VALUE, false));
 	}
-	return newOkResult(vm, FLOAT_VAL(log(AS_FLOAT(args[0]))));
+	return new_ok_result(vm, FLOAT_VAL(log(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *log10Function(VM *vm, const int argCount, const Value *args)
+ObjectResult *log10_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm,
+			new_error(
+				vm,
+				copy_string(vm,
 					    "Cannot calculate base 10 "
 					    "logarithm of non positive number.",
 					    58),
-				 VALUE, false));
+				VALUE, false));
 	}
 
-	return newOkResult(vm, FLOAT_VAL(log10(AS_FLOAT(args[0]))));
+	return new_ok_result(vm, FLOAT_VAL(log10(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *ceilFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *ceil_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *floorFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *floor_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(floor(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(floor(AS_FLOAT(args[0]))));
 }
 
-ObjectResult *roundFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *round_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
-	return newOkResult(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
+	return new_ok_result(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
 }
 
-Value piFunction(VM *vm __attribute__((unused)),
-		 int argCount __attribute__((unused)),
-		 const Value *args __attribute__((unused)))
+Value pi_function(VM *vm __attribute__((unused)),
+		  int arg_count __attribute__((unused)),
+		  const Value *args __attribute__((unused)))
 {
 	return FLOAT_VAL(3.14159265358979323846);
 }
 
-Value eFunction(VM *vm __attribute__((unused)),
-		int argCount __attribute__((unused)),
-		const Value *args __attribute__((unused)))
+Value e_function(VM *vm __attribute__((unused)),
+		 int arg_count __attribute__((unused)),
+		 const Value *args __attribute__((unused)))
 {
 	return FLOAT_VAL(2.71828182845904523536);
 }
 
-ObjectResult *minFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *min_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
 					   : (double)AS_INT(args[0]);
 	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])
 					   : (double)AS_INT(args[1]);
-	return a < b ? newOkResult(vm, args[0]) : newOkResult(vm, args[1]);
+	return a < b ? new_ok_result(vm, args[0]) : new_ok_result(vm, args[1]);
 }
 
-ObjectResult *maxFunction(VM *vm, const int argCount, const Value *args)
+ObjectResult *max_function(VM *vm, const int arg_count, const Value *args)
 {
-	CHECK_ARGS(args, argCount);
+	ObjectResult *res;
+	if ((res = check_args(vm, args, arg_count)) != NULL) {
+		return res;
+	}
 	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
 					   : (double)AS_INT(args[0]);
 	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])
 					   : (double)AS_INT(args[1]);
-	return a > b ? newOkResult(vm, args[0]) : newOkResult(vm, args[1]);
+	return a > b ? new_ok_result(vm, args[0]) : new_ok_result(vm, args[1]);
 }

@@ -3,13 +3,13 @@
 
 #include "../object.h"
 
-ObjectResult *tableValuesMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *tableKeysMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *tablePairsMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *tableRemoveMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *tableGetMethod(VM *vm, int argCount, const Value *args);
+ObjectResult *table_values_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *table_remove_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *table_get_method(VM *vm, int arg_count, const Value *args);
 
-Value tableHasKeyMethod(VM *vm, int argCount, const Value *args);
-Value tableGetOrElseMethod(VM *vm, int argCount, const Value *args);
+Value table_has_key_method(VM *vm, int arg_count, const Value *args);
+Value table_get_or_else_method(VM *vm, int arg_count, const Value *args);
 
 #endif // TABLES_H

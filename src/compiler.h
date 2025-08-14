@@ -6,7 +6,7 @@
 
 ObjectFunction *compile(VM *vm, char *source);
 
-void markCompilerRoots(VM *vm);
+void mark_compiler_roots(VM *vm);
 
 /**
  * @brief Parser state used during compilation.
@@ -18,9 +18,9 @@ typedef struct {
 	char *source;
 	Token current;
 	Token previous;
-	Token prevPrevious;
-	bool hadError;
-	bool panicMode;
+	Token prev_previous;
+	bool had_error;
+	bool panic_mode;
 } Parser;
 
 // Precedence in order from lowest to highest
@@ -48,7 +48,7 @@ typedef enum {
 	COMPOUND_OP_PERCENT
 } CompoundOp;
 
-typedef void (*ParseFn)(bool canAssign);
+typedef void (*ParseFn)(bool can_assign);
 
 typedef struct {
 	ParseFn prefix;
@@ -60,12 +60,12 @@ typedef struct {
 typedef struct {
 	Token name;
 	int depth;
-	bool isCaptured;
+	bool is_captured;
 } Local;
 
 typedef struct {
 	uint8_t index;
-	bool isLocal;
+	bool is_local;
 } Upvalue;
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_ANONYMOUS } FunctionType;
@@ -81,9 +81,9 @@ struct BreakJump {
 
 typedef struct {
 	LoopType type;
-	int continueTarget;
-	BreakJump *breakJumps;
-	int scopeDepth;
+	int continue_target;
+	BreakJump *break_jumps;
+	int scope_depth;
 } LoopContext;
 
 typedef struct Compiler Compiler;
@@ -93,11 +93,11 @@ struct Compiler {
 	Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;
-	int localCount;
-	int scopeDepth; // 0 is global scope
-	int matchDepth;
-	int loopDepth;
-	LoopContext loopStack[UINT8_COUNT];
+	int local_count;
+	int scope_depth; // 0 is global scope
+	int match_depth;
+	int loop_depth;
+	LoopContext loop_stack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
 };

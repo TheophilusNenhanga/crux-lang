@@ -4,52 +4,52 @@
 #include "../chunk.h"
 #include "vm.h"
 
-void resetStack(ObjectModuleRecord *moduleRecord);
+void reset_stack(ObjectModuleRecord *moduleRecord);
 
-void closeUpvalues(ObjectModuleRecord *moduleRecord, const Value *last);
+void close_upvalues(ObjectModuleRecord *moduleRecord, const Value *last);
 
-void initImportStack(VM *vm);
+void init_import_stack(VM *vm);
 
-void freeImportStack(VM *vm);
+void free_import_stack(VM *vm);
 
 // Returns false on allocation error
-bool pushImportStack(VM *vm, ObjectString *path);
+bool push_import_stack(VM *vm, ObjectString *path);
 
-void popImportStack(VM *vm);
+void pop_import_stack(VM *vm);
 
-bool isInImportStack(const VM *vm, const ObjectString *path);
+bool is_in_import_stack(const VM *vm, const ObjectString *path);
 
-ObjectResult *executeUserFunction(VM *vm, ObjectClosure *closure, int argCount,
+ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure, int arg_count,
 				  InterpretResult *result);
 
-bool isFalsy(Value value);
+bool is_falsy(Value value);
 
-void popPush(ObjectModuleRecord *moduleRecord, Value value);
+void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 
-void popTwo(ObjectModuleRecord *moduleRecord);
+void pop_two(ObjectModuleRecord *moduleRecord);
 
-bool binaryOperation(VM *vm, OpCode operation);
+bool binary_operation(VM *vm, OpCode operation);
 
 bool concatenate(VM *vm);
 
 /**
  * Checks if a previous instruction matches the expected opcode.
  * @param frame The current call frame
- * @param instructionsAgo How many instructions to look back
+ * @param instructions_ago How many instructions to look back
  * @param instruction The opcode to check for
  * @return true if the previous instruction matches, false otherwise
  */
-bool checkPreviousInstruction(const CallFrame *frame, int instructionsAgo,
+bool check_previous_instruction(const CallFrame *frame, int instructions_ago,
 			      OpCode instruction);
 
 /**
  * Calls a value as a function with the given arguments.
  * @param vm The virtual machine
  * @param callee The value to call
- * @param argCount Number of arguments on the stack
+ * @param arg_count Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-bool callValue(VM *vm, Value callee, int argCount);
+bool call_value(VM *vm, Value callee, int arg_count);
 
 /**
  * Captures a local variable in an upvalue for closures.
@@ -57,44 +57,44 @@ bool callValue(VM *vm, Value callee, int argCount);
  * @param local Pointer to the local variable to capture
  * @return The created or reused upvalue
  */
-ObjectUpvalue *captureUpvalue(VM *vm, Value *local);
+ObjectUpvalue *capture_upvalue(VM *vm, Value *local);
 
-bool handleInvoke(VM *vm, int argCount, Value receiver, Value original,
+bool handle_invoke(VM *vm, int arg_count, Value receiver, Value original,
 		  Value value);
 
 /**
  * Invokes a method on an object with the given arguments.
  * @param vm The virtual machine
  * @param name The name of the method to invoke
- * @param argCount Number of arguments on the stack
+ * @param arg_count Number of arguments on the stack
  * @return true if the method invocation succeeds, false otherwise
  */
-bool invoke(VM *vm, const ObjectString *name, int argCount);
+bool invoke(VM *vm, const ObjectString *name, int arg_count);
 
 /**
  * Defines a method on a class.
  * @param vm The virtual machine
  * @param name The name of the method
  */
-void defineMethod(VM *vm, ObjectString *name);
+void define_method(VM *vm, ObjectString *name);
 
-InterpretResult globalCompoundOperation(VM *vm, ObjectString *name,
+InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 					OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.
- * @param moduleRecord The currently executing module
+ * @param module_record The currently executing module
  * @param closure The function closure to call
- * @param argCount Number of arguments on the stack
+ * @param arg_count Number of arguments on the stack
  * @return true if the call succeeds, false otherwise
  */
-bool call(ObjectModuleRecord *moduleRecord, ObjectClosure *closure,
-	  int argCount);
+bool call(ObjectModuleRecord *module_record, ObjectClosure *closure,
+	  int arg_count);
 
-Value typeofValue(VM *vm, Value value);
+Value typeof_value(VM *vm, Value value);
 
-ObjectStructInstance *popStructStack(VM *vm);
-bool pushStructStack(VM *vm, ObjectStructInstance *structInstance);
-ObjectStructInstance *peekStructStack(const VM *vm);
+ObjectStructInstance *pop_struct_stack(VM *vm);
+bool pushStructStack(VM *vm, ObjectStructInstance *struct_instance);
+ObjectStructInstance *peek_struct_stack(const VM *vm);
 
 #endif // VM_HELPERS_H
