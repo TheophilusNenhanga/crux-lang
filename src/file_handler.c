@@ -165,19 +165,19 @@ static char *combinePaths(const char *base, const char *relative)
 	return result;
 }
 
-char *resolvePath(const char *basePath, const char *importPath)
+char *resolve_path(const char *base_path, const char *import_path)
 {
-	if (importPath == NULL)
+	if (import_path == NULL)
 		return NULL;
 
-	if (basePath == NULL || importPath[0] == '/'
+	if (base_path == NULL || import_path[0] == '/'
 #ifdef _WIN32
-	    || (strlen(importPath) > 2 && importPath[1] == ':')
+	    || (strlen(import_path) > 2 && import_path[1] == ':')
 #endif
 	) {
 #ifdef _WIN32
 		char *resolvedPath = malloc(MAX_PATH_LENGTH);
-		if (_fullpath(resolvedPath, importPath, MAX_PATH_LENGTH) ==
+		if (_fullpath(resolvedPath, import_path, MAX_PATH_LENGTH) ==
 		    NULL) {
 			free(resolvedPath);
 			return NULL;
@@ -185,18 +185,18 @@ char *resolvePath(const char *basePath, const char *importPath)
 		return resolvedPath;
 #else
 		char resolvedPath[MAX_PATH_LENGTH];
-		if (realpath(importPath, resolvedPath) == NULL) {
-			return strdup(importPath);
+		if (realpath(import_path, resolvedPath) == NULL) {
+			return strdup(import_path);
 		}
 		return strdup(resolvedPath);
 #endif
 	}
 
-	char *baseDir = getDirectoryFromPath(basePath);
+	char *baseDir = getDirectoryFromPath(base_path);
 	if (baseDir == NULL)
 		return NULL;
 
-	char *combinedPath = combinePaths(baseDir, importPath);
+	char *combinedPath = combinePaths(baseDir, import_path);
 	free(baseDir);
 	if (combinedPath == NULL)
 		return NULL;
@@ -221,7 +221,7 @@ char *resolvePath(const char *basePath, const char *importPath)
 #endif
 }
 
-FileResult readFile(const char *path)
+FileResult read_file(const char *path)
 {
 	FileResult result = {NULL, NULL};
 	FILE *file = fopen(path, "rb");
@@ -261,7 +261,7 @@ FileResult readFile(const char *path)
 	return result;
 }
 
-void freeFileResult(const FileResult result)
+void free_file_result(const FileResult result)
 {
 	free(result.content);
 	free(result.error);

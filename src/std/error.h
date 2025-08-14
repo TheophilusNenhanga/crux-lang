@@ -4,14 +4,14 @@
 #include "../object.h"
 #include "../value.h"
 
-ObjectResult *errorFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *panicFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *assertFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *errorTypeMethod(VM *vm, int argCount, const Value *args);
-ObjectResult *errFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *okFunction(VM *vm, int argCount, const Value *args);
+ObjectResult *error_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *panic_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *assert_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args);
+ObjectResult *err_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *ok_function(VM *vm, int arg_count, const Value *args);
 
-Value unwrapFunction(VM *vm, int argCount, const Value *args);
-Value errorMessageMethod(VM *vm, int argCount, const Value *args);
+Value unwrap_function(VM *vm, int arg_count, const Value *args);
+Value error_message_method(VM *vm, int arg_count, const Value *args);
 
 #endif // ERROR_H

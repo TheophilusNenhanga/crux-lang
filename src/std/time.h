@@ -5,22 +5,22 @@
 #include "../value.h"
 
 // Current time functions
-Value timeSecondsFunction_(VM *vm, int argCount, const Value *args);
-Value timeMillisecondsFunction_(VM *vm, int argCount, const Value *args);
+Value time_seconds_function_(VM *vm, int arg_count, const Value *args);
+Value time_milliseconds_function_(VM *vm, int arg_count, const Value *args);
 
 // Sleep functions
-ObjectResult *sleepSecondsFunction(VM *vm, int argCount, const Value *args);
-ObjectResult *sleepMillisecondsFunction(VM *vm, int argCount,
-					const Value *args);
+ObjectResult *sleep_seconds_function(VM *vm, int arg_count, const Value *args);
+ObjectResult *sleep_milliseconds_function(VM *vm, int arg_count,
+					  const Value *args);
 
 // Date/Time functions
-Value yearFunction_(VM *vm, int argCount, const Value *args);
-Value monthFunction_(VM *vm, int argCount, const Value *args);
-Value dayFunction_(VM *vm, int argCount, const Value *args);
-Value hourFunction_(VM *vm, int argCount, const Value *args);
-Value minuteFunction_(VM *vm, int argCount, const Value *args);
-Value secondFunction_(VM *vm, int argCount, const Value *args);
-Value weekdayFunction_(VM *vm, int argCount, const Value *args);
-Value dayOfYearFunction_(VM *vm, int argCount, const Value *args);
+Value year_function_(VM *vm, int arg_count, const Value *args);
+Value month_function_(VM *vm, int arg_count, const Value *args);
+Value day_function_(VM *vm, int arg_count, const Value *args);
+Value hour_function_(VM *vm, int arg_count, const Value *args);
+Value minute_function_(VM *vm, int arg_count, const Value *args);
+Value second_function_(VM *vm, int arg_count, const Value *args);
+Value weekday_function_(VM *vm, int arg_count, const Value *args);
+Value day_of_year_function_(VM *vm, int arg_count, const Value *args);
 
 #endif // TIME_H

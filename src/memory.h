@@ -52,7 +52,7 @@ void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
  * @param object The object to mark. If `NULL`, the function returns
  * immediately.
  */
-void markObject(VM *vm, Object *object);
+void mark_object(VM *vm, Object *object);
 
 /**
  * @brief Marks a Value as reachable during garbage collection.
@@ -64,7 +64,7 @@ void markObject(VM *vm, Object *object);
  * @param vm The virtual machine.
  * @param value The Value to mark.
  */
-void markValue(VM *vm, Value value);
+void mark_value(VM *vm, Value value);
 
 /**
  * @brief Performs a full garbage collection cycle.
@@ -78,7 +78,7 @@ void markValue(VM *vm, Value value);
  *
  * @param vm The virtual machine.
  */
-void collectGarbage(VM *vm);
+void collect_garbage(VM *vm);
 
 /**
  * @brief Frees all remaining objects in the VM's object list.
@@ -89,6 +89,6 @@ void collectGarbage(VM *vm);
  *
  * @param vm The virtual machine.
  */
-void freeObjects(VM *vm);
+void free_objects(VM *vm);
 
 #endif // MEMORY_H

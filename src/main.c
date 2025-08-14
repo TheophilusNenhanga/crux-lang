@@ -33,7 +33,7 @@ static void repl(VM *vm)
  */
 static void runFile(VM *vm, const char *path)
 {
-	const FileResult fileResult = readFile(path);
+	const FileResult fileResult = read_file(path);
 	if (fileResult.error) {
 		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
 		exit(2);
@@ -57,7 +57,7 @@ static void runFile(VM *vm, const char *path)
  */
 int main(const int argc, const char *argv[])
 {
-	VM *vm = newVM(argc, argv);
+	VM *vm = new_vm(argc, argv);
 
 	if (argc == 1) {
 		repl(vm);
@@ -72,6 +72,6 @@ int main(const int argc, const char *argv[])
 		exit(64);
 	}
 
-	freeVM(vm);
+	free_vm(vm);
 	return 0;
 }

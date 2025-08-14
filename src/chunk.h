@@ -115,7 +115,7 @@ typedef struct {
  *
  * @param chunk Pointer to the Chunk to initialize
  */
-void initChunk(Chunk *chunk);
+void init_chunk(Chunk *chunk);
 
 /**
  * @brief Adds a byte to a chunk, growing the chunk if needed
@@ -129,7 +129,7 @@ void initChunk(Chunk *chunk);
  * @param byte The byte to append to the chunk
  * @param line The source code line number corresponding to this byte
  */
-void writeChunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
+void write_chunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
 
 /**
  * @brief Frees memory allocated for a chunk
@@ -141,7 +141,7 @@ void writeChunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
  * @param vm Pointer to the virtual machine (used for memory management)
  * @param chunk Pointer to the Chunk to free
  */
-void freeChunk(VM *vm, Chunk *chunk);
+void free_chunk(VM *vm, Chunk *chunk);
 
 /**
  * @brief Adds a constant value to a chunk's constant pool
@@ -156,6 +156,6 @@ void freeChunk(VM *vm, Chunk *chunk);
  * @param value The Value to add to the constant pool
  * @return The index of the added constant in the constants array
  */
-int addConstant(VM *vm, Chunk *chunk, Value value);
+int add_constant(VM *vm, Chunk *chunk, Value value);
 
 #endif // CHUNK_H

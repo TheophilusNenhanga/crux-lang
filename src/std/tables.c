@@ -1,16 +1,16 @@
 #include "tables.h"
 
-ObjectResult *tableValuesMethod(VM *vm, int argCount __attribute__((unused)),
-				const Value *args)
+ObjectResult *table_values_method(VM *vm, int arg_count __attribute__((unused)),
+				  const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
-	ObjectArray *values = newArray(vm, table->size,
+	ObjectArray *values = new_array(vm, table->size,
 				       vm->currentModuleRecord);
 
 	if (values == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate enough "
 						"memory for <values> array.",
 						52),
@@ -21,7 +21,7 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount __attribute__((unused)),
 
 	for (uint32_t i = 0; i < table->capacity; i++) {
 		const ObjectTableEntry entry = table->entries[i];
-		if (entry.isOccupied) {
+		if (entry.is_occupied) {
 			values->values[lastInsert] = entry.value;
 			lastInsert++;
 		}
@@ -29,20 +29,20 @@ ObjectResult *tableValuesMethod(VM *vm, int argCount __attribute__((unused)),
 
 	values->size = lastInsert;
 
-	return newOkResult(vm, OBJECT_VAL(values));
+	return new_ok_result(vm, OBJECT_VAL(values));
 }
 
-ObjectResult *tableKeysMethod(VM *vm, int argCount __attribute__((unused)),
-			      const Value *args)
+ObjectResult *table_keys_method(VM *vm, int arg_count __attribute__((unused)),
+				const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *keys = newArray(vm, table->size, vm->currentModuleRecord);
+	ObjectArray *keys = new_array(vm, table->size, vm->currentModuleRecord);
 
 	if (keys == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate enough "
 						"memory for <keys> array.",
 						50),
@@ -53,7 +53,7 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount __attribute__((unused)),
 
 	for (uint32_t i = 0; i < table->capacity; i++) {
 		const ObjectTableEntry entry = table->entries[i];
-		if (entry.isOccupied) {
+		if (entry.is_occupied) {
 			keys->values[lastInsert] = entry.key;
 			lastInsert++;
 		}
@@ -61,20 +61,20 @@ ObjectResult *tableKeysMethod(VM *vm, int argCount __attribute__((unused)),
 
 	keys->size = lastInsert;
 
-	return newOkResult(vm, OBJECT_VAL(keys));
+	return new_ok_result(vm, OBJECT_VAL(keys));
 }
 
-ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
-			       const Value *args)
+ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
+				 const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *pairs = newArray(vm, table->size, vm->currentModuleRecord);
+	ObjectArray *pairs = new_array(vm, table->size, vm->currentModuleRecord);
 
 	if (pairs == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate enough "
 						"memory for <pairs> array.",
 						51),
@@ -85,16 +85,16 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
 
 	for (uint32_t i = 0; i < table->capacity; i++) {
 		const ObjectTableEntry entry = table->entries[i];
-		if (entry.isOccupied) {
-			ObjectArray *pair = newArray(vm, 2,
+		if (entry.is_occupied) {
+			ObjectArray *pair = new_array(vm, 2,
 						     vm->currentModuleRecord);
 
 			if (pair == NULL) {
-				return newErrorResult(
+				return new_error_result(
 					vm,
-					newError(
+					new_error(
 						vm,
-						copyString(vm,
+						copy_string(vm,
 							   "Failed to allocate "
 							   "enough memory for "
 							   "pair array.",
@@ -113,78 +113,79 @@ ObjectResult *tablePairsMethod(VM *vm, int argCount __attribute__((unused)),
 
 	pairs->size = lastInsert;
 
-	return newOkResult(vm, OBJECT_VAL(pairs));
+	return new_ok_result(vm, OBJECT_VAL(pairs));
 }
 
 // arg0 - table
 // arg1 - key
-ObjectResult *tableRemoveMethod(VM *vm, int argCount __attribute__((unused)),
-				const Value *args)
+ObjectResult *table_remove_method(VM *vm, int arg_count __attribute__((unused)),
+				  const Value *args)
 {
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
-		const bool result = objectTableRemove(table, key);
+		const bool result = object_table_remove(table, key);
 		if (!result) {
-			return newErrorResult(
+			return new_error_result(
 				vm,
-				newError(vm,
-					 copyString(vm,
+				new_error(vm,
+					 copy_string(vm,
 						    "Failed to remove key: "
 						    "value pair from table.",
 						    44),
 					 VALUE, false));
 		}
-		return newOkResult(vm, NIL_VAL);
+		return new_ok_result(vm, NIL_VAL);
 	}
-	return newErrorResult(
+	return new_error_result(
 		vm,
-		newError(vm,
-			 copyString(vm, "Unhashable type given as table key.",
+		new_error(vm,
+			 copy_string(vm, "Unhashable type given as table key.",
 				    35),
 			 TYPE, false));
 }
 
 // arg0 - table
 // arg1 - key
-ObjectResult *tableGetMethod(VM *vm, int argCount __attribute__((unused)),
-			     const Value *args)
+ObjectResult *table_get_method(VM *vm, int arg_count __attribute__((unused)),
+			       const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
 		Value value;
-		const bool result = objectTableGet(table->entries, table->size,
+		const bool result = object_table_get(table->entries, table->size,
 						   table->capacity, key,
 						   &value);
 		if (!result) {
-			return newErrorResult(
-				vm, newError(vm,
-					     copyString(vm,
+			return new_error_result(
+				vm, new_error(vm,
+					     copy_string(vm,
 							"Failed to get value "
 							"from table.",
 							31),
 					     VALUE, false));
 		}
-		return newOkResult(vm, value);
+		return new_ok_result(vm, value);
 	}
-	return newErrorResult(
+	return new_error_result(
 		vm,
-		newError(vm,
-			 copyString(vm, "Unhashable type given as table key.",
+		new_error(vm,
+			 copy_string(vm, "Unhashable type given as table key.",
 				    35),
 			 TYPE, false));
 }
 
 // args[0] - table
 // args[1] - key
-Value tableHasKeyMethod(VM *vm __attribute__((unused)),
-			int argCount __attribute__((unused)), const Value *args)
+Value table_has_key_method(VM *vm __attribute__((unused)),
+			   int arg_count __attribute__((unused)),
+			   const Value *args)
 {
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
-		const bool result = objectTableContainsKey(table, key);
+		const bool result = object_table_contains_key(table, key);
 		return BOOL_VAL(result);
 	}
 	return BOOL_VAL(false);
@@ -193,16 +194,16 @@ Value tableHasKeyMethod(VM *vm __attribute__((unused)),
 // args[0] - table
 // args[1] - key
 // args[2] - default value
-Value tableGetOrElseMethod(VM *vm __attribute__((unused)),
-			   int argCount __attribute__((unused)),
-			   const Value *args)
+Value table_get_or_else_method(VM *vm __attribute__((unused)),
+			       int arg_count __attribute__((unused)),
+			       const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	const Value defaultValue = args[2];
 	if (IS_CRUX_HASHABLE(key)) {
 		Value value;
-		const bool result = objectTableGet(table->entries, table->size,
+		const bool result = object_table_get(table->entries, table->size,
 						   table->capacity, key,
 						   &value);
 		if (!result) {

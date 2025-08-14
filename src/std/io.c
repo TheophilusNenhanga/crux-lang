@@ -10,7 +10,7 @@
 
 #define MAX_LINE_LENGTH 4096
 
-static FILE *getChannel(const char *channel)
+static FILE *get_channel(const char *channel)
 {
 	if (strcmp(channel, "stdin") == 0)
 		return stdin;
@@ -21,30 +21,30 @@ static FILE *getChannel(const char *channel)
 	return NULL;
 }
 
-Value printFunction(VM *vm __attribute__((unused)),
-		    int argCount __attribute__((unused)), const Value *args)
+Value print_function(VM *vm __attribute__((unused)),
+		     int arg_count __attribute__((unused)), const Value *args)
 {
-	printValue(args[0], false);
+	print_value(args[0], false);
 	return NIL_VAL;
 }
 
-Value printlnFunction(VM *vm __attribute__((unused)),
-		      const int argCount __attribute__((unused)),
-		      const Value *args)
+Value println_function(VM *vm __attribute__((unused)),
+		       const int arg_count __attribute__((unused)),
+		       const Value *args)
 {
-	printValue(args[0], false);
+	print_value(args[0], false);
 	printf("\n");
 	return NIL_VAL;
 }
 
-ObjectResult *printToFunction(VM *vm, int argCount __attribute__((unused)),
-			      const Value *args)
+ObjectResult *print_to_function(VM *vm, int arg_count __attribute__((unused)),
+				const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(
+			new_error(vm,
+				 copy_string(
 					 vm,
 					 "Channel and content must be strings.",
 					 36),
@@ -54,35 +54,35 @@ ObjectResult *printToFunction(VM *vm, int argCount __attribute__((unused)),
 	const char *channel = AS_C_STRING(args[0]);
 	const char *content = AS_C_STRING(args[1]);
 
-	FILE *stream = getChannel(channel);
+	FILE *stream = get_channel(channel);
 	if (stream == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Invalid channel specified.",
+			new_error(vm,
+				 copy_string(vm, "Invalid channel specified.",
 					    26),
 				 VALUE, false));
 	}
 
 	if (fprintf(stream, "%s", content) < 0) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Error writing to stream.", 26),
+			new_error(vm,
+				 copy_string(vm, "Error writing to stream.", 26),
 				 IO, false));
 	}
 
-	return newOkResult(vm, BOOL_VAL(true));
+	return new_ok_result(vm, BOOL_VAL(true));
 }
 
-ObjectResult *scanFunction(VM *vm, int argCount __attribute__((unused)),
-			   const Value *args __attribute__((unused)))
+ObjectResult *scan_function(VM *vm, int arg_count __attribute__((unused)),
+			    const Value *args __attribute__((unused)))
 {
 	const int ch = getchar();
 	if (ch == EOF) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm, "Error reading from stdin.",
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm, "Error reading from stdin.",
 						25),
 				     IO, false));
 	}
@@ -92,17 +92,17 @@ ObjectResult *scanFunction(VM *vm, int argCount __attribute__((unused)),
 		;
 
 	const char str[2] = {ch, '\0'};
-	return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
+	return new_ok_result(vm, OBJECT_VAL(copy_string(vm, str, 1)));
 }
 
-ObjectResult *scanlnFunction(VM *vm, int argCount __attribute__((unused)),
-			     const Value *args __attribute__((unused)))
+ObjectResult *scanln_function(VM *vm, int arg_count __attribute__((unused)),
+			      const Value *args __attribute__((unused)))
 {
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm, "Error reading from stdin.",
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm, "Error reading from stdin.",
 						26),
 				     IO, false));
 	}
@@ -113,37 +113,37 @@ ObjectResult *scanlnFunction(VM *vm, int argCount __attribute__((unused)),
 		len--;
 	}
 
-	return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
+	return new_ok_result(vm, OBJECT_VAL(copy_string(vm, buffer, len)));
 }
 
-ObjectResult *scanFromFunction(VM *vm, int argCount __attribute__((unused)),
-			       const Value *args)
+ObjectResult *scan_from_function(VM *vm, int arg_count __attribute__((unused)),
+				 const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm, "Channel must be a string.",
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm, "Channel must be a string.",
 						25),
 				     TYPE, false));
 	}
 
 	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = getChannel(channel);
+	FILE *stream = get_channel(channel);
 	if (stream == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Invalid channel specified.",
+			new_error(vm,
+				 copy_string(vm, "Invalid channel specified.",
 					    26),
 				 VALUE, false));
 	}
 
 	const int ch = fgetc(stream);
 	if (ch == EOF) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Error reading from stream.",
+			new_error(vm,
+				 copy_string(vm, "Error reading from stream.",
 					    26),
 				 IO, false));
 	}
@@ -153,37 +153,37 @@ ObjectResult *scanFromFunction(VM *vm, int argCount __attribute__((unused)),
 		;
 
 	const char str[2] = {ch, '\0'};
-	return newOkResult(vm, OBJECT_VAL(copyString(vm, str, 1)));
+	return new_ok_result(vm, OBJECT_VAL(copy_string(vm, str, 1)));
 }
 
-ObjectResult *scanlnFromFunction(VM *vm, int argCount __attribute__((unused)),
-				 const Value *args)
+ObjectResult *scanln_from_function(VM *vm, int arg_count __attribute__((unused)),
+				   const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm, "Channel must be a string.",
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm, "Channel must be a string.",
 						25),
 				     TYPE, false));
 	}
 
 	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = getChannel(channel);
+	FILE *stream = get_channel(channel);
 	if (stream == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Invalid channel specified.",
+			new_error(vm,
+				 copy_string(vm, "Invalid channel specified.",
 					    26),
 				 VALUE, false));
 	}
 
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stream) == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Error reading from stream.",
+			new_error(vm,
+				 copy_string(vm, "Error reading from stream.",
 					    26),
 				 IO, false));
 	}
@@ -202,16 +202,16 @@ ObjectResult *scanlnFromFunction(VM *vm, int argCount __attribute__((unused)),
 		len--;
 	}
 
-	return newOkResult(vm, OBJECT_VAL(copyString(vm, buffer, len)));
+	return new_ok_result(vm, OBJECT_VAL(copy_string(vm, buffer, len)));
 }
 
-ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
-			    const Value *args)
+ObjectResult *nscan_function(VM *vm, int arg_count __attribute__((unused)),
+			     const Value *args)
 {
 	if (!IS_INT(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Number of characters must be "
 						"a number.",
 						38),
@@ -220,9 +220,9 @@ ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
 
 	const size_t n = (size_t)AS_INT(args[0]);
 	if (n <= 0) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Number of characters must be "
 						"positive.",
 						38),
@@ -231,9 +231,9 @@ ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
 
 	char *buffer = ALLOCATE(vm, char, n + 1);
 	if (buffer == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate memory for "
 						"input buffer.",
 						43),
@@ -245,10 +245,10 @@ ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
 		const int ch = getchar();
 		if (ch == EOF) {
 			FREE_ARRAY(vm, char, buffer, n + 1);
-			return newErrorResult(
+			return new_error_result(
 				vm,
-				newError(vm,
-					 copyString(vm,
+				new_error(vm,
+					 copy_string(vm,
 						    "Error reading from stdin.",
 						    25),
 					 IO, false));
@@ -266,27 +266,27 @@ ObjectResult *nscanFunction(VM *vm, int argCount __attribute__((unused)),
 			;
 	}
 
-	const Value string = OBJECT_VAL(copyString(vm, buffer, read));
+	const Value string = OBJECT_VAL(copy_string(vm, buffer, read));
 	FREE_ARRAY(vm, char, buffer, n + 1);
-	return newOkResult(vm, string);
+	return new_ok_result(vm, string);
 }
 
-ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
-				const Value *args)
+ObjectResult *nscan_from_function(VM *vm, int arg_count __attribute__((unused)),
+				  const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm, "Channel must be a string.",
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm, "Channel must be a string.",
 						25),
 				     TYPE, false));
 	}
 
 	if (!IS_INT(args[1])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(
+			new_error(vm,
+				 copy_string(
 					 vm,
 					 "<char_count> must be of type 'int'.",
 					 38),
@@ -294,21 +294,21 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
 	}
 
 	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = getChannel(channel);
+	FILE *stream = get_channel(channel);
 	if (stream == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Invalid channel specified.",
+			new_error(vm,
+				 copy_string(vm, "Invalid channel specified.",
 					    26),
 				 VALUE, false));
 	}
 
 	const size_t n = (size_t)AS_INT(args[1]);
 	if (n <= 0) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Number of characters must be "
 						"positive.",
 						38),
@@ -317,9 +317,9 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
 
 	char *buffer = ALLOCATE(vm, char, n + 1);
 	if (buffer == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate memory for "
 						"input buffer.",
 						43),
@@ -331,11 +331,11 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
 		const int ch = fgetc(stream);
 		if (ch == EOF) {
 			FREE_ARRAY(vm, char, buffer, n + 1);
-			return newErrorResult(
+			return new_error_result(
 				vm,
-				newError(
+				new_error(
 					vm,
-					copyString(vm,
+					copy_string(vm,
 						   "Error reading from stream.",
 						   26),
 					IO, false));
@@ -353,20 +353,20 @@ ObjectResult *nscanFromFunction(VM *vm, int argCount __attribute__((unused)),
 			;
 	}
 
-	const Value string = OBJECT_VAL(copyString(vm, buffer, read));
+	const Value string = OBJECT_VAL(copy_string(vm, buffer, read));
 	FREE_ARRAY(vm, char, buffer, n + 1);
-	return newOkResult(vm, string);
+	return new_ok_result(vm, string);
 }
 
-ObjectResult *openFileFunction(VM *vm, int argCount __attribute__((unused)),
-			       const Value *args)
+ObjectResult *open_file_function(VM *vm, int arg_count __attribute__((unused)),
+				 const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
+			new_error(
 				vm,
-				copyString(
+				copy_string(
 					vm,
 					"<file_path> must be of type 'string'.",
 					37),
@@ -374,11 +374,11 @@ ObjectResult *openFileFunction(VM *vm, int argCount __attribute__((unused)),
 	}
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(
+			new_error(
 				vm,
-				copyString(
+				copy_string(
 					vm,
 					"<file_mode> must be of type 'string'.",
 					37),
@@ -388,33 +388,33 @@ ObjectResult *openFileFunction(VM *vm, int argCount __attribute__((unused)),
 	const ObjectString *path = AS_CRUX_STRING(args[0]);
 	ObjectString *mode = AS_CRUX_STRING(args[1]);
 
-	char *resolvedPath = resolvePath(vm->currentModuleRecord->path->chars,
+	char *resolvedPath = resolve_path(vm->currentModuleRecord->path->chars,
 					 path->chars);
 	if (resolvedPath == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm,
+			new_error(vm,
+				 copy_string(vm,
 					    "Could not resolve path to file.",
 					    31),
 				 IO, false));
 	}
 
-	ObjectString *newPath = takeString(vm, resolvedPath,
+	ObjectString *newPath = take_string(vm, resolvedPath,
 					   strlen(resolvedPath));
 
-	ObjectFile *file = newObjectFile(vm, newPath, mode);
+	ObjectFile *file = new_object_file(vm, newPath, mode);
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "Failed to open file.", 20),
+			new_error(vm, copy_string(vm, "Failed to open file.", 20),
 				 IO, false));
 	}
 
-	return newOkResult(vm, OBJECT_VAL(file));
+	return new_ok_result(vm, OBJECT_VAL(file));
 }
 
-static bool isReadable(const ObjectString *mode)
+static bool is_readable(const ObjectString *mode)
 {
 	return strcmp(mode->chars, "r") == 0 ||
 	       strcmp(mode->chars, "rb") == 0 ||
@@ -426,7 +426,7 @@ static bool isReadable(const ObjectString *mode)
 	       strcmp(mode->chars, "wb+") == 0;
 }
 
-static bool isWritable(const ObjectString *mode)
+static bool is_writable(const ObjectString *mode)
 {
 	return strcmp(mode->chars, "w") == 0 ||
 	       strcmp(mode->chars, "wb") == 0 ||
@@ -440,7 +440,7 @@ static bool isWritable(const ObjectString *mode)
 	       strcmp(mode->chars, "rb+") == 0;
 }
 
-static bool isAppendable(const ObjectString *mode)
+static bool is_appendable(const ObjectString *mode)
 {
 	return strcmp(mode->chars, "a") == 0 ||
 	       strcmp(mode->chars, "ab") == 0 ||
@@ -453,37 +453,37 @@ static bool isAppendable(const ObjectString *mode)
 	       strcmp(mode->chars, "rb") == 0;
 }
 
-ObjectResult *readlnFileMethod(VM *vm, int argCount __attribute__((unused)),
-			       const Value *args)
+ObjectResult *readln_file_method(VM *vm, int arg_count __attribute__((unused)),
+				 const Value *args)
 {
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "Could not read file.", 20),
+			new_error(vm, copy_string(vm, "Could not read file.", 20),
 				 IO, false));
 	}
 
-	if (!file->isOpen) {
-		return newErrorResult(
+	if (!file->is_open) {
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "File is not open.", 17),
+			new_error(vm, copy_string(vm, "File is not open.", 17),
 				 IO, false));
 	}
 
-	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
-		return newErrorResult(
+	if (!is_readable(file->mode) && !is_appendable(file->mode)) {
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "File is not readable.", 21),
+			new_error(vm,
+				 copy_string(vm, "File is not readable.", 21),
 				 IO, false));
 	}
 
 	char *buffer = ALLOCATE(vm, char, MAX_LINE_LENGTH);
 	if (buffer == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate memory for "
 						"file content.",
 						43),
@@ -500,32 +500,32 @@ ObjectResult *readlnFileMethod(VM *vm, int argCount __attribute__((unused)),
 	}
 	buffer[readCount] = '\0';
 	file->position += readCount;
-	return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, readCount)));
+	return new_ok_result(vm, OBJECT_VAL(take_string(vm, buffer, readCount)));
 }
 
-ObjectResult *readAllFileMethod(VM *vm, int argCount __attribute__((unused)),
-				const Value *args)
+ObjectResult *read_all_file_method(VM *vm, int arg_count __attribute__((unused)),
+				   const Value *args)
 {
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "Could not read file.", 20),
+			new_error(vm, copy_string(vm, "Could not read file.", 20),
 				 IO, false));
 	}
 
-	if (!file->isOpen) {
-		return newErrorResult(
+	if (!file->is_open) {
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "File is not open.", 17),
+			new_error(vm, copy_string(vm, "File is not open.", 17),
 				 IO, false));
 	}
 
-	if (!isReadable(file->mode) && !isAppendable(file->mode)) {
-		return newErrorResult(
+	if (!is_readable(file->mode) && !is_appendable(file->mode)) {
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "File is not readable.", 21),
+			new_error(vm,
+				 copy_string(vm, "File is not readable.", 21),
 				 IO, false));
 	}
 
@@ -535,9 +535,9 @@ ObjectResult *readAllFileMethod(VM *vm, int argCount __attribute__((unused)),
 
 	char *buffer = ALLOCATE(vm, char, fileSize + 1);
 	if (buffer == NULL) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Failed to allocate memory for "
 						"file content.",
 						43),
@@ -548,70 +548,70 @@ ObjectResult *readAllFileMethod(VM *vm, int argCount __attribute__((unused)),
 						 file->file);
 	buffer[fileSize] = '\0';
 
-	return newOkResult(vm, OBJECT_VAL(takeString(vm, buffer, fileSize)));
+	return new_ok_result(vm, OBJECT_VAL(take_string(vm, buffer, fileSize)));
 }
 
-ObjectResult *closeFileMethod(VM *vm, int argCount __attribute__((unused)),
-			      const Value *args)
+ObjectResult *close_file_method(VM *vm, int arg_count __attribute__((unused)),
+				const Value *args)
 {
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Could not close file.", 21),
+			new_error(vm,
+				 copy_string(vm, "Could not close file.", 21),
 				 IO, false));
 	}
 
-	if (!file->isOpen) {
-		return newErrorResult(
+	if (!file->is_open) {
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "File is not open.", 17),
+			new_error(vm, copy_string(vm, "File is not open.", 17),
 				 IO, false));
 	}
 
 	fclose(file->file);
-	file->isOpen = false;
+	file->is_open = false;
 	file->position = 0;
-	return newOkResult(vm, NIL_VAL);
+	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *writeFileMethod(VM *vm, int argCount __attribute__((unused)),
-			      const Value *args)
+ObjectResult *write_file_method(VM *vm, int arg_count __attribute__((unused)),
+				const Value *args)
 {
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Could not write to file.", 21),
+			new_error(vm,
+				 copy_string(vm, "Could not write to file.", 21),
 				 IO, false));
 	}
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(
+			new_error(vm,
+				 copy_string(
 					 vm,
 					 "<content> must be of type 'string'.",
 					 37),
 				 IO, false));
 	}
 
-	if (!file->isOpen) {
-		return newErrorResult(
+	if (!file->is_open) {
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "File is not open.", 17),
+			new_error(vm, copy_string(vm, "File is not open.", 17),
 				 IO, false));
 	}
 
-	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
-		return newErrorResult(
+	if (!is_writable(file->mode) && !is_appendable(file->mode)) {
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "File is not writable.", 21),
+			new_error(vm,
+				 copy_string(vm, "File is not writable.", 21),
 				 IO, false));
 	}
 
@@ -619,42 +619,42 @@ ObjectResult *writeFileMethod(VM *vm, int argCount __attribute__((unused)),
 
 	fwrite(content->chars, sizeof(char), content->length, file->file);
 	file->position += content->length;
-	return newOkResult(vm, NIL_VAL);
+	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *writelnFileMethod(VM *vm, int argCount __attribute__((unused)),
-				const Value *args)
+ObjectResult *writeln_file_method(VM *vm, int arg_count __attribute__((unused)),
+				  const Value *args)
 {
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (file->file == NULL) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "Could not write to file.", 21),
+			new_error(vm,
+				 copy_string(vm, "Could not write to file.", 21),
 				 IO, false));
 	}
 
-	if (!file->isOpen) {
-		return newErrorResult(
+	if (!file->is_open) {
+		return new_error_result(
 			vm,
-			newError(vm, copyString(vm, "File is not open.", 17),
+			new_error(vm, copy_string(vm, "File is not open.", 17),
 				 IO, false));
 	}
 
-	if (!isWritable(file->mode) && !isAppendable(file->mode)) {
-		return newErrorResult(
+	if (!is_writable(file->mode) && !is_appendable(file->mode)) {
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm, "File is not writable.", 21),
+			new_error(vm,
+				 copy_string(vm, "File is not writable.", 21),
 				 IO, false));
 	}
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(
+			new_error(vm,
+				 copy_string(
 					 vm,
 					 "<content> must be of type 'string'.",
 					 37),
@@ -665,5 +665,5 @@ ObjectResult *writelnFileMethod(VM *vm, int argCount __attribute__((unused)),
 	fwrite(content->chars, sizeof(char), content->length, file->file);
 	fwrite("\n", sizeof(char), 1, file->file);
 	file->position += content->length + 1;
-	return newOkResult(vm, NIL_VAL);
+	return new_ok_result(vm, NIL_VAL);
 }

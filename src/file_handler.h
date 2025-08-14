@@ -29,7 +29,7 @@ typedef struct {
  * @return FileResult struct containing either the file content or an error
  * message
  */
-FileResult readFile(const char *path);
+FileResult read_file(const char *path);
 
 /**
  * @brief Resolves a potentially relative import path to an absolute path
@@ -39,12 +39,12 @@ FileResult readFile(const char *path);
  * Otherwise, combines it with the directory of the base path before resolving.
  * Handles platform-specific path resolution.
  *
- * @param basePath The base file path (typically the current file's path)
- * @param importPath The import path to resolve (may be relative or absolute)
+ * @param base_path The base file path (typically the current file's path)
+ * @param import_path The import path to resolve (may be relative or absolute)
  * @return Dynamically allocated string containing the resolved absolute path
  * (caller must free)
  */
-char *resolvePath(const char *basePath, const char *importPath);
+char *resolve_path(const char *base_path, const char *import_path);
 
 /**
  * @brief Frees memory allocated by a FileResult struct
@@ -54,6 +54,6 @@ char *resolvePath(const char *basePath, const char *importPath);
  *
  * @param result The FileResult struct to free
  */
-void freeFileResult(FileResult result);
+void free_file_result(FileResult result);
 
 #endif // FILE_HANDLER_H

@@ -3,6 +3,6 @@
 
 #include "vm.h"
 
-InterpretResult run(VM *vm, bool isAnonymousFrame);
+InterpretResult run(VM *vm, bool is_anonymous_frame);
 
 #endif // VM_RUN_H

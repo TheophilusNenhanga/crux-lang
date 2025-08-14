@@ -10,27 +10,27 @@
 #include "vm/vm.h"
 
 #define GC_PROTECT_START(currentModuleRecord)                                  \
-	Value *gcStackStart = (currentModuleRecord)->stackTop
+	Value *gc_stack_start = (currentModuleRecord)->stack_top
 #define GC_PROTECT(currentModuleRecord, value)                                 \
-	PUSH((currentModuleRecord), (value))
+	push((currentModuleRecord), (value))
 #define GC_PROTECT_END(currentModuleRecord)                                    \
-	(currentModuleRecord)->stackTop = gcStackStart
+	(currentModuleRecord)->stack_top = gc_stack_start
 
-#define STATIC_STRING_LEN(staticString) sizeof((staticString)) - 1
+#define STATIC_STRING_LEN(static_string) sizeof((static_string)) - 1
 
-// Only works with string literals -- gcSafeStaticMessage
-#define MAKE_GC_SAFE_ERROR(vm, gcSafeStaticMessage, gcSafeErrorType)           \
+// Only works with string literals -- gc_safe_static_message
+#define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gcSafeErrorType)           \
 	({                                                                     \
 		GC_PROTECT_START((vm)->currentModuleRecord);                   \
 		ObjectString *message =                                        \
-			copyString((vm), (gcSafeStaticMessage),                \
-				   STATIC_STRING_LEN((gcSafeStaticMessage)));  \
+			copy_string((vm), (gc_safe_static_message),                \
+				   STATIC_STRING_LEN((gc_safe_static_message)));  \
 		GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));    \
-		ObjectError *gcSafeError = newError((vm), message,             \
+		ObjectError *gcSafeError = new_error((vm), message,             \
 						    (gcSafeErrorType), false); \
 		GC_PROTECT((vm)->currentModuleRecord,                          \
 			   OBJECT_VAL(gcSafeError));                           \
-		ObjectResult *gcSafeErrorResult = newErrorResult((vm),         \
+		ObjectResult *gcSafeErrorResult = new_error_result((vm),         \
 								 gcSafeError); \
 		GC_PROTECT_END((vm)->currentModuleRecord);                     \
 		gcSafeErrorResult;                                             \
@@ -59,31 +59,31 @@
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
-#define IS_CRUX_STRING(value) isObjectType(value, OBJECT_STRING)
-#define IS_CRUX_FUNCTION(value) isObjectType(value, OBJECT_FUNCTION)
+#define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
+#define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
 #define IS_CRUX_NATIVE_FUNCTION(value)                                         \
-	isObjectType(value, OBJECT_NATIVE_FUNCTION)
-#define IS_CRUX_NATIVE_METHOD(value) isObjectType(value, OBJECT_NATIVE_METHOD)
-#define IS_CRUX_CLOSURE(value) isObjectType(value, OBJECT_CLOSURE)
-#define IS_CRUX_BOUND_METHOD(value) isObjectType(value, OBJECT_BOUND_METHOD)
-#define IS_CRUX_ARRAY(value) isObjectType(value, OBJECT_ARRAY)
-#define IS_CRUX_TABLE(value) isObjectType(value, OBJECT_TABLE)
-#define IS_CRUX_ERROR(value) isObjectType(value, OBJECT_ERROR)
-#define IS_CRUX_RESULT(value) isObjectType(value, OBJECT_RESULT)
+	is_object_type(value, OBJECT_NATIVE_FUNCTION)
+#define IS_CRUX_NATIVE_METHOD(value) is_object_type(value, OBJECT_NATIVE_METHOD)
+#define IS_CRUX_CLOSURE(value) is_object_type(value, OBJECT_CLOSURE)
+#define IS_CRUX_BOUND_METHOD(value) is_object_type(value, OBJECT_BOUND_METHOD)
+#define IS_CRUX_ARRAY(value) is_object_type(value, OBJECT_ARRAY)
+#define IS_CRUX_TABLE(value) is_object_type(value, OBJECT_TABLE)
+#define IS_CRUX_ERROR(value) is_object_type(value, OBJECT_ERROR)
+#define IS_CRUX_RESULT(value) is_object_type(value, OBJECT_RESULT)
 #define IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-	isObjectType(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
+	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
 #define IS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-	isObjectType(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
-#define IS_CRUX_RANDOM(value) isObjectType(value, OBJECT_RANDOM)
-#define IS_CRUX_FILE(value) isObjectType(value, OBJECT_FILE)
-#define IS_CRUX_MODULE_RECORD(value) isObjectType(value, OBJECT_MODULE_RECORD)
-#define IS_CRUX_STATIC_ARRAY(value) isObjectType(value, OBJECT_STATIC_ARRAY)
-#define IS_CRUX_STATIC_TABLE(value) isObjectType(value, OBJECT_STATIC_TABLE)
-#define IS_CRUX_STRUCT(value) isObjectType(value, OBJECT_STRUCT)
+	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
+#define IS_CRUX_RANDOM(value) is_object_type(value, OBJECT_RANDOM)
+#define IS_CRUX_FILE(value) is_object_type(value, OBJECT_FILE)
+#define IS_CRUX_MODULE_RECORD(value) is_object_type(value, OBJECT_MODULE_RECORD)
+#define IS_CRUX_STATIC_ARRAY(value) is_object_type(value, OBJECT_STATIC_ARRAY)
+#define IS_CRUX_STATIC_TABLE(value) is_object_type(value, OBJECT_STATIC_TABLE)
+#define IS_CRUX_STRUCT(value) is_object_type(value, OBJECT_STRUCT)
 #define IS_CRUX_STRUCT_INSTANCE(value)                                         \
-	isObjectType(value, OBJECT_STRUCT_INSTANCE)
-#define IS_CRUX_VEC2(value) isObjectType(value, OBJECT_VEC2)
-#define IS_CRUX_VEC3(value) isObjectType(value, OBJECT_VEC3)
+	is_object_type(value, OBJECT_STRUCT_INSTANCE)
+#define IS_CRUX_VEC2(value) is_object_type(value, OBJECT_VEC2)
+#define IS_CRUX_VEC3(value) is_object_type(value, OBJECT_VEC3)
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -146,7 +146,7 @@ typedef enum {
 struct Object {
 	Object *next;
 	ObjectType type;
-	bool isMarked;
+	bool is_marked;
 };
 
 struct ObjectString {
@@ -159,10 +159,10 @@ struct ObjectString {
 typedef struct {
 	Object object;
 	int arity;
-	int upvalueCount;
+	int upvalue_count;
 	Chunk chunk;
 	ObjectString *name;
-	ObjectModuleRecord *moduleRecord;
+	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {
@@ -176,7 +176,7 @@ typedef struct ObjectClosure {
 	Object object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
-	int upvalueCount;
+	int upvalue_count;
 } ObjectClosure;
 
 typedef struct {
@@ -231,20 +231,20 @@ typedef struct {
 	Object object;
 	ObjectString *message;
 	ErrorType type;
-	bool isPanic;
+	bool is_panic;
 } ObjectError;
 
 struct ObjectResult {
 	Object object;
-	bool isOk;
+	bool is_ok;
 	union {
 		Value value;
 		ObjectError *error;
 	} as;
 };
 
-typedef ObjectResult *(*CruxCallable)(VM *vm, int argCount, const Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int argCount,
+typedef ObjectResult *(*CruxCallable)(VM *vm, int arg_count, const Value *args);
+typedef Value (*CruxInfallibleCallable)(VM *vm, int arg_count,
 					const Value *args);
 
 typedef struct {
@@ -278,7 +278,7 @@ typedef struct {
 typedef struct {
 	Value key;
 	Value value;
-	bool isOccupied;
+	bool is_occupied;
 } ObjectTableEntry;
 
 typedef struct {
@@ -301,7 +301,7 @@ typedef struct {
 	ObjectString *mode;
 	FILE *file;
 	uint64_t position;
-	bool isOpen;
+	bool is_open;
 } ObjectFile;
 
 typedef struct {
@@ -312,9 +312,9 @@ typedef struct {
 
 struct ObjectStructInstance {
 	Object object;
-	ObjectStruct *structType;
+	ObjectStruct *struct_type;
 	Value *fields;
-	uint16_t fieldCount;
+	uint16_t field_count;
 };
 
 typedef struct {
@@ -341,21 +341,21 @@ struct ObjectModuleRecord {
 	ObjectString *path;
 	Table globals;
 	Table publics;
-	ObjectClosure *moduleClosure;
-	ObjectModuleRecord *enclosingModule;
-	ObjectUpvalue *openUpvalues;
+	ObjectClosure *module_closure;
+	ObjectModuleRecord *enclosing_module;
+	ObjectUpvalue *open_upvalues;
 	Value *stack;
-	Value *stackTop;
-	Value *stackLimit;
+	Value *stack_top;
+	Value *stack_limit;
 	CallFrame *frames;
-	uint8_t frameCount;
-	uint8_t frameCapacity;
-	bool isRepl;
-	bool isMain;
+	uint8_t frame_count;
+	uint8_t frame_capacity;
+	bool is_repl;
+	bool is_main;
 	ModuleState state;
 };
 
-static bool isObjectType(const Value value, const ObjectType type)
+static bool is_object_type(const Value value, const ObjectType type)
 {
 	return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
 }
@@ -369,13 +369,13 @@ static bool isObjectType(const Value value, const ObjectType type)
  * @param vm The virtual machine.
  * @param message The error message as an ObjectString.
  * @param type The ErrorType enum value representing the type of error.
- * @param isPanic A boolean indicating whether this error represents a panic
+ * @param is_panic A boolean indicating whether this error represents a panic
  * (fatal error).
  *
  * @return A pointer to the newly created ObjectError.
  */
-ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
-		      bool isPanic);
+ObjectError *new_error(VM *vm, ObjectString *message, ErrorType type,
+		      bool is_panic);
 
 /**
  * @brief Creates a new upvalue object.
@@ -389,7 +389,7 @@ ObjectError *newError(VM *vm, ObjectString *message, ErrorType type,
  *
  * @return A pointer to the newly created ObjectUpvalue.
  */
-ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
+ObjectUpvalue *new_upvalue(VM *vm, Value *slot);
 
 /**
  * @brief Creates a new closure object.
@@ -403,7 +403,7 @@ ObjectUpvalue *newUpvalue(VM *vm, Value *slot);
  *
  * @return A pointer to the newly created ObjectClosure.
  */
-ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
+ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
 
 /**
  * @brief Creates a new native function object.
@@ -420,7 +420,7 @@ ObjectClosure *newClosure(VM *vm, ObjectFunction *function);
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
-ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
+ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
 					int arity, ObjectString *name);
 
 /**
@@ -437,7 +437,7 @@ ObjectNativeFunction *newNativeFunction(VM *vm, CruxCallable function,
  *
  * @return A pointer to the newly created ObjectNativeMethod.
  */
-ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
+ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
 				    ObjectString *name);
 
 /**
@@ -457,7 +457,7 @@ ObjectNativeMethod *newNativeMethod(VM *vm, CruxCallable function, int arity,
  * @return A pointer to the newly created ObjectNativeInfallibleFunction.
  */
 ObjectNativeInfallibleFunction *
-newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
+new_native_infallible_function(VM *vm, CruxInfallibleCallable function, int arity,
 			    ObjectString *name);
 
 /**
@@ -468,7 +468,7 @@ newNativeInfallibleFunction(VM *vm, CruxInfallibleCallable function, int arity,
  * ObjectNativeInfallibleMethod.
  */
 ObjectNativeInfallibleMethod *
-newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
+new_native_infallible_method(VM *vm, CruxInfallibleCallable function, int arity,
 			  ObjectString *name);
 
 /**
@@ -482,7 +482,7 @@ newNativeInfallibleMethod(VM *vm, CruxInfallibleCallable function, int arity,
  *
  * @return A pointer to the newly created ObjectFunction.
  */
-ObjectFunction *newFunction(VM *vm);
+ObjectFunction *new_function(VM *vm);
 
 /**
  * @brief Creates a new object table.
@@ -491,15 +491,15 @@ ObjectFunction *newFunction(VM *vm);
  * allocates and initializes a new ObjectTable with a given initial capacity.
  *
  * @param vm The virtual machine.
- * @param elementCount Hint for initial table size. The capacity will be the
+ * @param element_count Hint for initial table size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount` (or 16 if
  * `elementCount` is less than 16).
- * @param moduleRecord
+ * @param module_record
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *newTable(VM *vm, int elementCount,
-		      ObjectModuleRecord *moduleRecord);
+ObjectTable *new_table(VM *vm, int element_count,
+		      ObjectModuleRecord *module_record);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -512,7 +512,7 @@ ObjectTable *newTable(VM *vm, int elementCount,
  *
  * @return A pointer to the result with the value.
  */
-ObjectResult *newOkResult(VM *vm, Value value);
+ObjectResult *new_ok_result(VM *vm, Value value);
 
 /**
  * @brief Creates a new error result with a boxed error.
@@ -525,7 +525,7 @@ ObjectResult *newOkResult(VM *vm, Value value);
  *
  * @return A pointer to the result with the error.
  */
-ObjectResult *newErrorResult(VM *vm, ObjectError *error);
+ObjectResult *new_error_result(VM *vm, ObjectError *error);
 
 /**
  * @brief Creates a new array object.
@@ -535,14 +535,14 @@ ObjectResult *newErrorResult(VM *vm, ObjectError *error);
  * elements and sets initial capacity and size.
  *
  * @param vm The virtual machine.
- * @param elementCount Hint for initial array size. The capacity will be the
+ * @param element_count Hint for initial array size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount`.
- * @param moduleRecord
+ * @param module_record
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *newArray(VM *vm, uint32_t elementCount,
-		      ObjectModuleRecord *moduleRecord);
+ObjectArray *new_array(VM *vm, uint32_t element_count,
+		      ObjectModuleRecord *module_record);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -563,7 +563,7 @@ ObjectArray *newArray(VM *vm, uint32_t elementCount,
  *
  * @return A pointer to the interned ObjectString.
  */
-ObjectString *takeString(VM *vm, char *chars, uint32_t length);
+ObjectString *take_string(VM *vm, char *chars, uint32_t length);
 
 /**
  * @brief Creates a new string object by copying a C-style string.
@@ -578,7 +578,7 @@ ObjectString *takeString(VM *vm, char *chars, uint32_t length);
  *
  * @return A pointer to the interned ObjectString.
  */
-ObjectString *copyString(VM *vm, const char *chars, uint32_t length);
+ObjectString *copy_string(VM *vm, const char *chars, uint32_t length);
 
 /**
  * @brief Converts a Value to its string representation.
@@ -594,18 +594,18 @@ ObjectString *copyString(VM *vm, const char *chars, uint32_t length);
  *
  * @return An ObjectString representing the Value.
  */
-ObjectString *toString(VM *vm, Value value);
+ObjectString *to_string(VM *vm, Value value);
 
 /**
  * @brief Prints a Value to the console for debugging purposes.
  *
  * This function provides a human-readable representation of a Value.
  * @param value The Value to print.
- * @param inCollection is this object in a collection?
+ * @param in_collection is this object in a collection?
  */
-void printObject(Value value, bool inCollection);
+void print_object(Value value, bool in_collection);
 
-void printType(Value value);
+void print_type(Value value);
 
 /**
  * @brief Frees the memory associated with an object table.
@@ -617,9 +617,9 @@ void printType(Value value);
  * @param vm The virtual machine.
  * @param table The ObjectTable to free.
  */
-void freeObjectTable(VM *vm, ObjectTable *table);
+void free_object_table(VM *vm, ObjectTable *table);
 
-void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record);
+void free_object_module_record(VM *vm, ObjectModuleRecord *record);
 
 /**
  * @brief Sets a key-value pair in an object table.
@@ -636,7 +636,7 @@ void freeObjectModuleRecord(VM *vm, ObjectModuleRecord *record);
  * @return true if the set operation was successful, false otherwise (e.g.,
  * memory allocation failure during resizing).
  */
-bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
+bool object_table_set(VM *vm, ObjectTable *table, Value key, Value value);
 
 /**
  * @brief Retrieves a value from an object table by key.
@@ -653,10 +653,10 @@ bool objectTableSet(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool objectTableGet(ObjectTableEntry *entries, uint32_t size, uint32_t capacity,
+bool object_table_get(ObjectTableEntry *entries, uint32_t size, uint32_t capacity,
 		    Value key, Value *value);
 
-void markObjectTable(VM *vm, const ObjectTableEntry *entries,
+void mark_object_table(VM *vm, const ObjectTableEntry *entries,
 		     uint32_t capacity);
 
 /**
@@ -668,12 +668,12 @@ void markObjectTable(VM *vm, const ObjectTableEntry *entries,
  *
  * @param vm The virtual machine.
  * @param array The ObjectArray to check and resize.
- * @param capacityNeeded The minimum capacity required.
+ * @param capacity_needed The minimum capacity required.
  *
  * @return true if capacity is ensured (either already sufficient or resizing
  * successful), false if resizing failed (e.g., memory allocation failure).
  */
-bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
+bool ensure_capacity(VM *vm, ObjectArray *array, uint32_t capacity_needed);
 
 /**
  * @brief Sets a value at a specific index in an array.
@@ -689,7 +689,7 @@ bool ensureCapacity(VM *vm, ObjectArray *array, uint32_t capacityNeeded);
  * @return true if the value was set successfully (index within bounds), false
  * otherwise (index out of bounds).
  */
-bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
+bool array_set(VM *vm, const ObjectArray *array, uint32_t index, Value value);
 
 /**
  * @brief Adds a value to the end of an array.
@@ -706,7 +706,7 @@ bool arraySet(VM *vm, const ObjectArray *array, uint32_t index, Value value);
  * @return true if the value was added successfully, false otherwise (e.g.,
  * memory allocation failure during resizing).
  */
-bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint32_t index);
+bool array_add(VM *vm, ObjectArray *array, Value value, uint32_t index);
 
 /**
  * @brief Adds a value to the end of an array.
@@ -714,7 +714,7 @@ bool arrayAdd(VM *vm, ObjectArray *array, Value value, uint32_t index);
  * This function appends a Value to the end of an ObjectArray, increasing its
  * size. It ensures sufficient capacity before adding the element.
  */
-bool arrayAddBack(VM *vm, ObjectArray *array, Value value);
+bool array_add_back(VM *vm, ObjectArray *array, Value value);
 
 /**
  * @brief Creates a new random object.
@@ -726,12 +726,12 @@ bool arrayAddBack(VM *vm, ObjectArray *array, Value value);
  *
  * @return A pointer to the newly created ObjectRandom.
  */
-ObjectRandom *newRandom(VM *vm);
+ObjectRandom *new_random(VM *vm);
 
-ObjectFile *newObjectFile(VM *vm, ObjectString *path, ObjectString *mode);
+ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
 
-ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,
-					  bool isRepl, bool isMain);
+ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
+					  bool is_repl, bool is_main);
 
 /**
  * @brief Removes a value from an object table.
@@ -745,7 +745,7 @@ ObjectModuleRecord *newObjectModuleRecord(VM *vm, ObjectString *path,
  * @return true if the value was removed successfully, false otherwise (e.g.,
  * table is NULL or key is not found).
  */
-bool objectTableRemove(ObjectTable *table, Value key);
+bool object_table_remove(ObjectTable *table, Value key);
 
 /**
  * @brief Checks if a key exists in an object table.
@@ -758,32 +758,32 @@ bool objectTableRemove(ObjectTable *table, Value key);
  * @return true if the key exists, false otherwise (e.g., table is NULL or key
  * is not found).
  */
-bool objectTableContainsKey(ObjectTable *table, Value key);
+bool object_table_contains_key(ObjectTable *table, Value key);
 
-ObjectStaticArray *newStaticArray(VM *vm, uint16_t elementCount,
-				  ObjectModuleRecord *moduleRecord);
+ObjectStaticArray *new_static_array(VM *vm, uint16_t element_count,
+				  ObjectModuleRecord *module_record);
 
-ObjectStaticTable *newStaticTable(VM *vm, uint16_t elementCount,
-				  ObjectModuleRecord *moduleRecord);
+ObjectStaticTable *new_static_table(VM *vm, uint16_t element_count,
+				  ObjectModuleRecord *module_record);
 
-bool objectStaticTableSet(VM *vm, ObjectStaticTable *table, Value key,
+bool object_static_table_set(VM *vm, ObjectStaticTable *table, Value key,
 			  Value value);
 
-ObjectStruct *newStructType(VM *vm, ObjectString *name);
+ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 
-ObjectStructInstance *newStructInstance(VM *vm, ObjectStruct *structType,
-					uint16_t fieldCount,
-					ObjectModuleRecord *moduleRecord);
+ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
+					uint16_t field_count,
+					ObjectModuleRecord *module_record);
 
-ObjectVec2 *newVec2(VM *vm, double x, double y);
+ObjectVec2 *new_vec2(VM *vm, double x, double y);
 
-ObjectVec3 *newVec3(VM *vm, double x, double y, double z);
+ObjectVec3 *new_vec3(VM *vm, double x, double y, double z);
 
-void freeObjectStaticTable(VM *vm, ObjectStaticTable *table);
+void free_object_static_table(VM *vm, ObjectStaticTable *table);
 
-bool initModuleRecord(ObjectModuleRecord *moduleRecord, ObjectString *path,
-		      bool isRepl, bool isMain);
+bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
+		      bool is_repl, bool is_main);
 
-void freeModuleRecord(VM *vm, ObjectModuleRecord *moduleRecord);
+void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 
 #endif

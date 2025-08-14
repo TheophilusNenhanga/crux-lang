@@ -5,7 +5,7 @@
 #include "../memory.h"
 #include "../object.h"
 
-static Value getLength(const Value value)
+static Value get_length(const Value value)
 {
 	if (IS_CRUX_ARRAY(value)) {
 		return INT_VAL(AS_CRUX_ARRAY(value)->size);
@@ -16,35 +16,41 @@ static Value getLength(const Value value)
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
 	}
+	if (IS_CRUX_STATIC_ARRAY(value)) {
+		return INT_VAL(AS_CRUX_STATIC_ARRAY(value)->size);
+	}
+	if (IS_CRUX_STATIC_TABLE(value)) {
+		return INT_VAL(AS_CRUX_STATIC_TABLE(value)->size);
+	}
 	return NIL_VAL;
 }
 
-ObjectResult *lengthFunction(VM *vm, int argCount __attribute__((unused)),
-			     const Value *args)
+ObjectResult *length_function(VM *vm, int arg_count __attribute__((unused)),
+			      const Value *args)
 {
 	const Value value = args[0];
-	const Value length = getLength(value);
+	const Value length = get_length(value);
 	if (IS_NIL(length)) {
-		return newErrorResult(
-			vm, newError(vm,
-				     copyString(vm,
+		return new_error_result(
+			vm, new_error(vm,
+				     copy_string(vm,
 						"Expected either a collection "
 						"type ('string', "
 						"'array', 'table').",
 						64),
 				     TYPE, false));
 	}
-	return newOkResult(vm, length);
+	return new_ok_result(vm, length);
 }
 
-Value lengthFunction_(VM *vm __attribute__((unused)),
-		      int argCount __attribute__((unused)), const Value *args)
+Value length_function_(VM *vm __attribute__((unused)),
+		       int arg_count __attribute__((unused)), const Value *args)
 {
 	const Value value = args[0];
-	return getLength(value);
+	return get_length(value);
 }
 
-static Value castArray(VM *vm, const Value *args, bool *success)
+static Value cast_array(VM *vm, const Value *args, bool *success)
 {
 	const Value value = args[0];
 
@@ -54,11 +60,11 @@ static Value castArray(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectArray *array = newArray(vm, string->length,
+		ObjectArray *array = new_array(vm, string->length,
 					      vm->currentModuleRecord);
 		for (uint32_t i = 0; i < string->length; i++) {
-			if (!arrayAddBack(vm, array,
-					  OBJECT_VAL(copyString(
+			if (!array_add_back(vm, array,
+					  OBJECT_VAL(copy_string(
 						  vm, &string->chars[i], 1)))) {
 				*success = false;
 				return NIL_VAL;
@@ -69,17 +75,17 @@ static Value castArray(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_TABLE(value)) {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		ObjectArray *array = newArray(vm, table->size * 2,
+		ObjectArray *array = new_array(vm, table->size * 2,
 					      vm->currentModuleRecord);
 		uint32_t index = 0;
 		for (uint32_t i = 0; i < table->capacity; i++) {
 			if (index == table->size) {
 				break;
 			}
-			if (table->entries[i].isOccupied) {
-				if (!arrayAddBack(vm, array,
+			if (table->entries[i].is_occupied) {
+				if (!array_add_back(vm, array,
 						  table->entries[i].key) ||
-				    !arrayAddBack(vm, array,
+				    !array_add_back(vm, array,
 						  table->entries[i].value)) {
 					*success = false;
 					return NIL_VAL;
@@ -89,12 +95,12 @@ static Value castArray(VM *vm, const Value *args, bool *success)
 		}
 		return OBJECT_VAL(array);
 	}
-	ObjectArray *array = newArray(vm, 1, vm->currentModuleRecord);
-	arrayAdd(vm, array, value, 0);
+	ObjectArray *array = new_array(vm, 1, vm->currentModuleRecord);
+	array_add(vm, array, value, 0);
 	return OBJECT_VAL(array);
 }
 
-static Value castTable(VM *vm, const Value *args)
+static Value cast_table(VM *vm, const Value *args)
 {
 	ObjectModuleRecord *moduleRecord = vm->currentModuleRecord;
 	const Value value = args[0];
@@ -105,36 +111,36 @@ static Value castTable(VM *vm, const Value *args)
 
 	if (IS_CRUX_ARRAY(value)) {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
-		ObjectTable *table = newTable(vm, (int)array->size,
+		ObjectTable *table = new_table(vm, (int)array->size,
 					      moduleRecord);
 		for (uint32_t i = 0; i < array->size; i++) {
 			const Value k = INT_VAL(i);
 			const Value v = array->values[i];
-			objectTableSet(vm, table, k, v);
+			object_table_set(vm, table, k, v);
 		}
 		return OBJECT_VAL(table);
 	}
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectTable *table = newTable(vm, (int)string->length,
+		ObjectTable *table = new_table(vm, (int)string->length,
 					      moduleRecord);
 		for (uint32_t i = 0; i < string->length; i++) {
-			objectTableSet(vm, table, INT_VAL(i),
-				       OBJECT_VAL(copyString(vm,
+			object_table_set(vm, table, INT_VAL(i),
+				       OBJECT_VAL(copy_string(vm,
 							     &string->chars[i],
 							     1)));
 		}
 		return OBJECT_VAL(table);
 	}
 
-	ObjectTable *table = newTable(vm, 1, moduleRecord);
-	objectTableSet(vm, table, INT_VAL(0), value);
+	ObjectTable *table = new_table(vm, 1, moduleRecord);
+	object_table_set(vm, table, INT_VAL(0), value);
 	return OBJECT_VAL(table);
 }
 
-static Value castInt(VM *vm __attribute__((unused)), const Value arg,
-		     bool *success)
+static Value cast_int(VM *vm __attribute__((unused)), const Value arg,
+		      bool *success)
 {
 	if (IS_INT(arg)) {
 		return arg;
@@ -168,8 +174,8 @@ static Value castInt(VM *vm __attribute__((unused)), const Value arg,
 	return NIL_VAL;
 }
 
-static Value castFloat(VM *vm __attribute__((unused)), const Value *args,
-		       bool *success)
+static Value cast_float(VM *vm __attribute__((unused)), const Value *args,
+			bool *success)
 {
 	const Value value = args[0];
 
@@ -199,105 +205,105 @@ static Value castFloat(VM *vm __attribute__((unused)), const Value *args,
 	return NIL_VAL;
 }
 
-ObjectResult *intFunction(VM *vm, int argCount __attribute__((unused)),
-			  const Value *args)
+ObjectResult *int_function(VM *vm, int arg_count __attribute__((unused)),
+			   const Value *args)
 {
 	bool success = true;
 	const Value argument = args[0];
-	const Value value = castInt(vm, argument, &success);
+	const Value value = cast_int(vm, argument, &success);
 	if (!success) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm,
+			new_error(vm,
+				 copy_string(vm,
 					    "Cannot convert value to number.",
 					    30),
 				 TYPE, false));
 	}
-	return newOkResult(vm, value);
+	return new_ok_result(vm, value);
 }
 
-ObjectResult *floatFunction(VM *vm, int argCount __attribute__((unused)),
-			    const Value *args)
-{
-	bool success = true;
-	const Value value = castFloat(vm, args, &success);
-	if (!success) {
-		return newErrorResult(
-			vm,
-			newError(vm,
-				 copyString(vm,
-					    "Cannot convert value to number.",
-					    30),
-				 TYPE, false));
-	}
-	return newOkResult(vm, value);
-}
-
-ObjectResult *stringFunction(VM *vm, int argCount __attribute__((unused)),
+ObjectResult *float_function(VM *vm, int arg_count __attribute__((unused)),
 			     const Value *args)
 {
-	const Value value = args[0];
-	return newOkResult(vm, OBJECT_VAL(toString(vm, value)));
+	bool success = true;
+	const Value value = cast_float(vm, args, &success);
+	if (!success) {
+		return new_error_result(
+			vm,
+			new_error(vm,
+				 copy_string(vm,
+					    "Cannot convert value to number.",
+					    30),
+				 TYPE, false));
+	}
+	return new_ok_result(vm, value);
 }
 
-ObjectResult *arrayFunction(VM *vm, int argCount __attribute__((unused)),
-			    const Value *args)
+ObjectResult *string_function(VM *vm, int arg_count __attribute__((unused)),
+			      const Value *args)
+{
+	const Value value = args[0];
+	return new_ok_result(vm, OBJECT_VAL(to_string(vm, value)));
+}
+
+ObjectResult *array_function(VM *vm, int arg_count __attribute__((unused)),
+			     const Value *args)
 {
 	bool success = true;
-	const Value array = castArray(vm, args, &success);
+	const Value array = cast_array(vm, args, &success);
 	if (!success) {
-		return newErrorResult(
+		return new_error_result(
 			vm,
-			newError(vm,
-				 copyString(vm,
+			new_error(vm,
+				 copy_string(vm,
 					    "Failed to convert value to array.",
 					    33),
 				 RUNTIME, false));
 	}
-	return newOkResult(vm, OBJECT_VAL(array));
+	return new_ok_result(vm, OBJECT_VAL(array));
 }
 
-ObjectResult *tableFunction(VM *vm, int argCount __attribute__((unused)),
-			    const Value *args)
+ObjectResult *table_function(VM *vm, int arg_count __attribute__((unused)),
+			     const Value *args)
 {
-	return newOkResult(vm, castTable(vm, args));
+	return new_ok_result(vm, cast_table(vm, args));
 }
 
-Value intFunction_(VM *vm, int argCount __attribute__((unused)),
-		   const Value *args)
+Value int_function_(VM *vm, int arg_count __attribute__((unused)),
+		    const Value *args)
 {
 	bool success = true;
 	const Value argument = args[0];
-	return castInt(vm, argument, &success);
+	return cast_int(vm, argument, &success);
 }
 
-Value floatFunction_(VM *vm, int argCount __attribute__((unused)),
-		     const Value *args)
-{
-	bool success = true;
-	return castFloat(vm, args, &success);
-}
-
-Value stringFunction_(VM *vm, int argCount __attribute__((unused)),
+Value float_function_(VM *vm, int arg_count __attribute__((unused)),
 		      const Value *args)
 {
-	return OBJECT_VAL(toString(vm, args[0]));
+	bool success = true;
+	return cast_float(vm, args, &success);
 }
 
-Value arrayFunction_(VM *vm, int argCount __attribute__((unused)),
-		     const Value *args)
+Value string_function_(VM *vm, int arg_count __attribute__((unused)),
+		       const Value *args)
+{
+	return OBJECT_VAL(to_string(vm, args[0]));
+}
+
+Value array_function_(VM *vm, int arg_count __attribute__((unused)),
+		      const Value *args)
 {
 	bool success = true;
-	const Value array = castArray(vm, args, &success);
+	const Value array = cast_array(vm, args, &success);
 	if (!success) {
 		return NIL_VAL;
 	}
 	return OBJECT_VAL(array);
 }
 
-Value tableFunction_(VM *vm, int argCount __attribute__((unused)),
-		     const Value *args)
+Value table_function_(VM *vm, int arg_count __attribute__((unused)),
+		      const Value *args)
 {
-	return castTable(vm, args);
+	return cast_table(vm, args);
 }

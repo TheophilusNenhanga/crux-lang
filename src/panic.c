@@ -141,7 +141,7 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 	}
 }
 
-void printErrorLine(const int line, const char *source, int startCol,
+void print_error_line(const int line, const char *source, int startCol,
 		    const int length)
 {
 	const char *lineStart = source;
@@ -190,15 +190,15 @@ void printErrorLine(const int line, const char *source, int startCol,
 	fprintf(stderr, "%s\n", RESET);
 }
 
-void errorAt(Parser *parser, const Token *token, const char *message,
-	     const ErrorType errorType)
+void error_at(Parser *parser, const Token *token, const char *message,
+	     const ErrorType error_type)
 {
-	if (parser->panicMode) {
+	if (parser->panic_mode) {
 		return;
 	}
-	parser->panicMode = true;
+	parser->panic_mode = true;
 	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
-	const ErrorDetails details = getErrorDetails(errorType);
+	const ErrorDetails details = getErrorDetails(error_type);
 	fprintf(stderr, "%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA,
 		message, token->line, RESET);
 
@@ -218,22 +218,22 @@ void errorAt(Parser *parser, const Token *token, const char *message,
 			startCol = (int)(token->start - lineStart);
 		}
 
-		printErrorLine(token->line, parser->source, startCol,
+		print_error_line(token->line, parser->source, startCol,
 			       token->length);
 	}
 
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
-	parser->hadError = true;
+	parser->had_error = true;
 }
 
-void compilerPanic(Parser *parser, const char *message,
-		   const ErrorType errorType)
+void compiler_panic(Parser *parser, const char *message,
+		   const ErrorType error_type)
 {
-	errorAt(parser, &parser->previous, message, errorType);
+	error_at(parser, &parser->previous, message, error_type);
 }
 
-void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
+void runtime_panic(ObjectModuleRecord *module_record, const bool should_exit,
 		  const ErrorType type, const char *format, ...)
 {
 	const ErrorDetails details = getErrorDetails(type);
@@ -250,22 +250,22 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 	fprintf(stderr, "\n%sStack trace (most recent call last):%s", CYAN,
 		RESET);
 
-	const ObjectModuleRecord *traceModule = moduleRecord;
+	const ObjectModuleRecord *traceModule = module_record;
 	int globalFrameNumber = 0;
 
 	while (traceModule != NULL) {
-		if (!traceModule->isMain) {
+		if (!traceModule->is_main) {
 			fprintf(stderr,
 				"\n  %s--- imported from module \"%s\" ---%s",
 				MAGENTA,
-				traceModule->enclosingModule->path
-					? traceModule->enclosingModule->path
+				traceModule->enclosing_module->path
+					? traceModule->enclosing_module->path
 						  ->chars
 					: "<unknown>",
 				RESET);
 		}
 
-		for (int i = (int)traceModule->frameCount - 1; i >= 0; i--) {
+		for (int i = (int)traceModule->frame_count - 1; i >= 0; i--) {
 			const CallFrame *frame = &traceModule->frames[i];
 			const ObjectFunction *function =
 				frame->closure->function;
@@ -301,9 +301,9 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 			fprintf(stderr, "line %d in ", line);
 
 			const ObjectString *funcModulePath = NULL;
-			if (function->moduleRecord != NULL &&
-			    function->moduleRecord->path != NULL) {
-				funcModulePath = function->moduleRecord->path;
+			if (function->module_record != NULL &&
+			    function->module_record->path != NULL) {
+				funcModulePath = function->module_record->path;
 			} else if (traceModule->path != NULL) {
 				funcModulePath = traceModule->path;
 			}
@@ -311,7 +311,7 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 			if (function->name == NULL ||
 			    function->name->length == 0) {
 				if (funcModulePath != NULL) {
-					if (traceModule->isRepl) {
+					if (traceModule->is_repl) {
 						fprintf(stderr,
 							"%sscript from "
 							"\"repl\" %s",
@@ -339,18 +339,18 @@ void runtimePanic(ObjectModuleRecord *moduleRecord, bool shouldExit,
 				}
 			}
 		}
-		traceModule = traceModule->enclosingModule;
+		traceModule = traceModule->enclosing_module;
 	}
 
 	fprintf(stderr, "\n\n%sSuggestion: %s%s\n", CYAN, MAGENTA,
 		details.hint);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
-	if (moduleRecord != NULL) {
-		resetStack(moduleRecord);
+	if (module_record != NULL) {
+		reset_stack(module_record);
 	}
 
-	if (shouldExit) {
+	if (should_exit) {
 		exit(RUNTIME_EXIT_CODE);
 	}
 }
@@ -370,14 +370,14 @@ char *repeat(const char c, const int count)
  * Creates a formatted error message for type mismatches with actual type
  * information.
  */
-char *typeErrorMessage(VM *vm, const Value value, const char *expectedType)
+char *type_error_message(VM *vm, const Value value, const char *expected_type)
 {
 	static char buffer[1024];
 
-	const Value typeValue = typeofValue(vm, value);
+	const Value typeValue = typeof_value(vm, value);
 	char *actualType = AS_C_STRING(typeValue);
 
 	snprintf(buffer, sizeof(buffer), "Expected type '%s', but got '%s'.",
-		 expectedType, actualType);
+		 expected_type, actualType);
 	return buffer;
 }

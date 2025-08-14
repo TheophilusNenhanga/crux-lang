@@ -92,12 +92,12 @@ typedef struct {
  * Initializes the scanner with the given source code.
  * @param source Pointer to the source code string
  */
-void initScanner(const char *source);
+void init_scanner(const char *source);
 
 /**
  * Scans the next token from the source code.
  * @return The scanned token
  */
-Token scanToken(void);
+Token scan_token(void);
 
 #endif // SCANNER_H
