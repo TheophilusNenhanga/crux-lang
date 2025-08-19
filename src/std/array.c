@@ -14,11 +14,7 @@ ObjectResult *array_push_method(VM *vm, int arg_count __attribute__((unused)),
 	const Value toAdd = args[1];
 
 	if (!array_add(vm, array, toAdd, array->size)) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "Failed to add to array.", 23),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to add to array.", RUNTIME);
 	}
 
 	return new_ok_result(vm, NIL_VAL);
@@ -30,13 +26,7 @@ ObjectResult *array_pop_method(VM *vm, int arg_count __attribute__((unused)),
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Cannot remove a value from an "
-						"empty array.",
-						42),
-				     BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot remove a value from an empty array.", BOUNDS);
 	}
 
 	const Value popped = array->values[array->size - 1];
@@ -52,24 +42,14 @@ ObjectResult *array_insert_method(VM *vm, int arg_count __attribute__((unused)),
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[2])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "<index> must be of type 'number'.",
-					    33),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<index> must be of type 'number'.", TYPE);
 	}
 
 	const Value toInsert = args[1];
 	const uint32_t insertAt = AS_INT(args[2]);
 
 	if (insertAt > array->size) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm, "<index> is out of bounds.",
-						25),
-				     BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
 	if (ensure_capacity(vm, array, array->size + 1)) {
@@ -80,13 +60,7 @@ ObjectResult *array_insert_method(VM *vm, int arg_count __attribute__((unused)),
 		array->values[insertAt] = toInsert;
 		array->size++;
 	} else {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Failed to allocate enough "
-						"memory for new array.",
-						47),
-				     MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate enough memory for new array.", MEMORY);
 	}
 	return new_ok_result(vm, NIL_VAL);
 }
@@ -98,23 +72,13 @@ ObjectResult *array_remove_at_method(VM *vm,
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "<index> must be of type 'number'.",
-					    33),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<index> must be of type 'number'.", TYPE);
 	}
 
 	const uint32_t removeAt = AS_INT(args[1]);
 
 	if (removeAt >= array->size) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm, "<index> is out of bounds.",
-						25),
-				     BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
 	const Value removedElement = array->values[removeAt];
@@ -133,30 +97,18 @@ ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_CRUX_ARRAY(args[1])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "<target> must be of type 'array'.",
-					    33),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<target> must be of type 'array'.", TYPE);
 	}
 
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
 	const uint32_t combinedSize = targetArray->size + array->size;
 	if (combinedSize > MAX_ARRAY_SIZE) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Size of resultant array out "
-						"of bounds.",
-						38),
-				     BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Size of resultant array out of bounds.", BOUNDS);
 	}
 
-	ObjectArray *resultArray = new_array(vm, combinedSize,
-					    vm->currentModuleRecord);
+	ObjectArray *resultArray = new_array(vm, combinedSize, vm->current_module_record);
+	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < combinedSize; i++) {
 		resultArray->values[i] =
@@ -166,7 +118,9 @@ ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
 
 	resultArray->size = combinedSize;
 
-	return new_ok_result(vm, OBJECT_VAL(resultArray));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
+	pop(vm->current_module_record);
+	return res;
 }
 
 ObjectResult *array_slice_method(VM *vm, int arg_count __attribute__((unused)),
@@ -175,66 +129,40 @@ ObjectResult *array_slice_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"<start_index> must be of type "
-						"'number'.",
-						39),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<start_index> must be of type 'number'.", TYPE);
 	}
 
 	if (!IS_INT(args[2])) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(
-					vm,
-					"<end_index> must be of type 'number'.",
-					37),
-				TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<end_index> must be of type 'number'.", TYPE);
 	}
 
-	const uint32_t startIndex = IS_INT(args[1]);
-	const uint32_t endIndex = IS_INT(args[2]);
+	const uint32_t startIndex = AS_INT(args[1]);
+	const uint32_t endIndex = AS_INT(args[2]);
 
 	if (startIndex > array->size) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "<start_index> out of bounds.",
-					    28),
-				 BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.", BOUNDS);
 	}
 
 	if (endIndex > array->size) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "<end_index> out of bounds.",
-					    26),
-				 BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "<end_index> out of bounds.", BOUNDS);
 	}
 
 	if (endIndex < startIndex) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "indexes out of bounds.", 22),
-				 BOUNDS, false));
+		return MAKE_GC_SAFE_ERROR(vm, "indexes out of bounds.", BOUNDS);
 	}
 
 	const size_t sliceSize = endIndex - startIndex;
-	ObjectArray *slicedArray = new_array(vm, sliceSize,
-					    vm->currentModuleRecord);
+	ObjectArray *slicedArray = new_array(vm, sliceSize, vm->current_module_record);
+	push(vm->current_module_record, OBJECT_VAL(slicedArray));
 
 	for (size_t i = 0; i < sliceSize; i++) {
 		slicedArray->values[i] = array->values[startIndex + i];
 		slicedArray->size += 1;
 	}
 
-	return new_ok_result(vm, OBJECT_VAL(slicedArray));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(slicedArray));
+	pop(vm->current_module_record);
+	return res;
 }
 
 ObjectResult *array_reverse_method(VM *vm, int arg_count __attribute__((unused)),
@@ -245,13 +173,7 @@ ObjectResult *array_reverse_method(VM *vm, int arg_count __attribute__((unused))
 	Value *values = ALLOCATE(vm, Value, array->size);
 
 	if (values == NULL) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Failed to allocate memory "
-						"when reversing array.",
-						47),
-				     MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory when reversing array.", MEMORY);
 	}
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -279,13 +201,7 @@ ObjectResult *array_index_of_method(VM *vm,
 			return new_ok_result(vm, INT_VAL(i));
 		}
 	}
-	return new_error_result(
-		vm,
-		new_error(vm,
-			 copy_string(vm,
-				    "Value could not be found in the array.",
-				    38),
-			 VALUE, false));
+	return MAKE_GC_SAFE_ERROR(vm, "Value could not be found in the array.", VALUE);
 }
 
 Value array_contains_method(VM *vm __attribute__((unused)),
@@ -346,44 +262,31 @@ ObjectResult *array_map_method(VM *vm, int arg_count __attribute__((unused)),
 			       const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
 	if (!IS_CRUX_CLOSURE(args[1])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Expected value of type 'callable' "
-					    "for <func> argument",
-					    53),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Expected value of type 'callable' for <func> argument", TYPE);
 	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
 	if (closure->function->arity != 1) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(
-					 vm,
-					 "<func> must take exactly 1 argument.",
-					 36),
-				 ARGUMENT_MISMATCH, true));
+		return MAKE_GC_SAFE_ERROR(vm, "<func> must take exactly 1 argument.", ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					    vm->currentModuleRecord);
+	ObjectArray *resultArray = new_array(vm, array->size, vm->current_module_record);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
+
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
-		ObjectResult *result = execute_user_function(vm, closure, 1,
-							   &res);
+		ObjectResult *result = execute_user_function(vm, closure, 1, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {
+				pop(currentModuleRecord); // arrayValue
+				pop(currentModuleRecord); // resultArray
 				return result;
 			}
 		}
@@ -391,13 +294,14 @@ ObjectResult *array_map_method(VM *vm, int arg_count __attribute__((unused)),
 		if (result->is_ok) {
 			array_add_back(vm, resultArray, result->as.value);
 		} else {
-			array_add_back(vm, resultArray,
-				     OBJECT_VAL(result->as.error));
+			array_add_back(vm, resultArray, OBJECT_VAL(result->as.error));
 		}
-		pop(currentModuleRecord);
+		pop(currentModuleRecord); // arrayValue
 	}
-	pop(currentModuleRecord);
-	return new_ok_result(vm, OBJECT_VAL(resultArray));
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
+	pop(currentModuleRecord); // resultArray
+	return res;
 }
 
 // arg0 - array
@@ -405,46 +309,33 @@ ObjectResult *array_map_method(VM *vm, int arg_count __attribute__((unused)),
 ObjectResult *array_filter_method(VM *vm, int arg_count __attribute__((unused)),
 				  const Value *args)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_CRUX_CLOSURE(args[1])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Expected value of type 'callable' "
-					    "for <func> argument",
-					    53),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Expected value of type 'callable' for <func> argument", TYPE);
 	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
 	if (closure->function->arity != 1) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(
-					 vm,
-					 "<func> must take exactly 1 argument.",
-					 36),
-				 ARGUMENT_MISMATCH, true));
+		return MAKE_GC_SAFE_ERROR(vm, "<func> must take exactly 1 argument.", ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					    vm->currentModuleRecord);
+	ObjectArray *resultArray = new_array(vm, array->size, vm->current_module_record);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
+
 	uint32_t addCount = 0;
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
-		ObjectResult *result = execute_user_function(vm, closure, 1,
-							   &res);
+		ObjectResult *result = execute_user_function(vm, closure, 1, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {
+				pop(currentModuleRecord); // arrayValue
+				pop(currentModuleRecord); // resultArray
 				return result;
 			}
 		}
@@ -455,11 +346,13 @@ ObjectResult *array_filter_method(VM *vm, int arg_count __attribute__((unused)),
 				addCount++;
 			}
 		}
-		pop(currentModuleRecord);
+		pop(currentModuleRecord); // arrayValue
 	}
-	pop(currentModuleRecord);
+
 	resultArray->size = addCount;
-	return new_ok_result(vm, OBJECT_VAL(resultArray));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
+	pop(currentModuleRecord); // resultArray
+	return res;
 }
 
 // arg0 - array
@@ -469,30 +362,15 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count __attribute__((unused)),
 				  const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
 	if (!IS_CRUX_CLOSURE(args[1])) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Expected value of type 'callable' "
-					    "for <func> argument",
-					    53),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Expected value of type 'callable' for <func> argument", TYPE);
 	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 	if (closure->function->arity != 2) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(
-					vm,
-					"<func> must take exactly 2 arguments.",
-					37),
-				ARGUMENT_MISMATCH, true));
+		return MAKE_GC_SAFE_ERROR(vm, "<func> must take exactly 2 arguments.", ARGUMENT_MISMATCH);
 	}
 
 	Value accumulator = args[2];
@@ -505,13 +383,12 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count __attribute__((unused)),
 
 		InterpretResult res;
 
-		ObjectResult *result = execute_user_function(vm, closure, 2,
-							   &res);
+		ObjectResult *result = execute_user_function(vm, closure, 2, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {
-				pop(currentModuleRecord); // arrayValue
 				pop(currentModuleRecord); // accumulator
+				pop(currentModuleRecord); // arrayValue
 				return result;
 			}
 		}
@@ -519,13 +396,13 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count __attribute__((unused)),
 		if (result->is_ok) {
 			accumulator = result->as.value;
 		} else {
-			pop(currentModuleRecord); // arrayValue
 			pop(currentModuleRecord); // accumulator
+			pop(currentModuleRecord); // arrayValue
 			return result;
 		}
 
-		pop(currentModuleRecord); // arrayValue
 		pop(currentModuleRecord); // accumulator
+		pop(currentModuleRecord); // arrayValue
 	}
 
 	return new_ok_result(vm, accumulator);
@@ -639,18 +516,11 @@ ObjectResult *array_sort_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 
 	if (!are_all_elements_sortable(array)) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Array contains unsortable or "
-						"mixed incompatible types",
-						53),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Array contains unsortable or mixed incompatible types", TYPE);
 	}
 
-	ObjectArray *sortedArray = new_array(vm, array->size,
-					    vm->currentModuleRecord);
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectArray *sortedArray = new_array(vm, array->size, vm->current_module_record);
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	push(currentModuleRecord, OBJECT_VAL(sortedArray));
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -660,8 +530,9 @@ ObjectResult *array_sort_method(VM *vm, int arg_count __attribute__((unused)),
 
 	quick_sort(sortedArray->values, 0, (int)sortedArray->size - 1);
 
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(sortedArray));
 	pop(currentModuleRecord);
-	return new_ok_result(vm, OBJECT_VAL(sortedArray));
+	return res;
 }
 
 // arg0 - array
@@ -670,13 +541,7 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 				const Value *args)
 {
 	if (!IS_CRUX_STRING(args[1])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Expected arg <separator> to "
-						"be of type 'string'.",
-						48),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Expected arg <separator> to be of type 'string'.", TYPE);
 	}
 
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -684,7 +549,10 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 
 	if (array->size == 0) {
 		ObjectString *emptyResult = copy_string(vm, "", 0);
-		return new_ok_result(vm, OBJECT_VAL(emptyResult));
+		push(vm->current_module_record, OBJECT_VAL(emptyResult));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(emptyResult));
+		pop(vm->current_module_record);
+		return res;
 	}
 
 	// estimate: 3 chars per element + separators
@@ -694,17 +562,14 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 				     : 0);
 	char *buffer = malloc(bufferSize);
 	if (!buffer) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "Memory allocation failed", 24),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", RUNTIME);
 	}
 
 	size_t actualLength = 0;
 
 	for (uint32_t i = 0; i < array->size; i++) {
-		const ObjectString *element = to_string(vm, array->values[i]);
+		ObjectString *element = to_string(vm, array->values[i]);
+		push(vm->current_module_record, OBJECT_VAL(element));
 
 		size_t neededSpace = element->length;
 		if (i > 0) {
@@ -719,15 +584,8 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 			char *newBuffer = realloc(buffer, newSize);
 			if (!newBuffer) {
 				free(buffer);
-				return new_error_result(
-					vm,
-					new_error(vm,
-						 copy_string(
-							 vm,
-							 "Memory reallocation "
-							 "failed",
-							 26),
-						 MEMORY, false));
+				pop(vm->current_module_record); // element
+				return MAKE_GC_SAFE_ERROR(vm, "Memory reallocation failed", MEMORY);
 			}
 			buffer = newBuffer;
 			bufferSize = newSize;
@@ -741,25 +599,23 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 
 		memcpy(buffer + actualLength, element->chars, element->length);
 		actualLength += element->length;
+
+		pop(vm->current_module_record); // element
 	}
 
 	if (actualLength >= bufferSize) {
 		char *newBuffer = realloc(buffer, actualLength + 1);
 		if (!newBuffer) {
 			free(buffer);
-			return new_error_result(
-				vm,
-				new_error(
-					vm,
-					copy_string(vm,
-						   "Memory reallocation failed",
-						   26),
-					MEMORY, false));
+			return MAKE_GC_SAFE_ERROR(vm, "Memory reallocation failed", MEMORY);
 		}
 		buffer = newBuffer;
 	}
 	buffer[actualLength] = '\0';
 
 	ObjectString *result = take_string(vm, buffer, (uint32_t)actualLength);
-	return new_ok_result(vm, OBJECT_VAL(result));
+	push(vm->current_module_record, OBJECT_VAL(result));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
+	pop(vm->current_module_record);
+	return res;
 }

@@ -94,7 +94,7 @@ static char *dirName(const char *path)
  * @return Dynamically allocated string containing the directory (caller must
  * free)
  */
-static char *getDirectoryFromPath(const char *path)
+static char *get_directory_from_path(const char *path)
 {
 	if (path == NULL) {
 		return NULL;
@@ -141,19 +141,19 @@ static char *combinePaths(const char *base, const char *relative)
 		return strdup(relative);
 	}
 
-	const size_t baseLen = strlen(base);
-	const size_t relativeLen = strlen(relative);
-	const size_t totalLen = baseLen + 1 + relativeLen +
+	const size_t base_len = strlen(base);
+	const size_t relative_len = strlen(relative);
+	const size_t total_len = base_len + 1 + relative_len +
 				1; // +1 : '/' +1 '\0'
 
-	char *result = malloc(totalLen);
+	char *result = malloc(total_len);
 	if (result == NULL)
 		return NULL;
 
 	strcpy(result, base);
 
-	if (baseLen > 0 && base[baseLen - 1] != '/' &&
-	    base[baseLen - 1] != '\\') {
+	if (base_len > 0 && base[base_len - 1] != '/' &&
+	    base[base_len - 1] != '\\') {
 #ifdef _WIN32
 		strcat(result, "\\");
 #else
@@ -176,13 +176,13 @@ char *resolve_path(const char *base_path, const char *import_path)
 #endif
 	) {
 #ifdef _WIN32
-		char *resolvedPath = malloc(MAX_PATH_LENGTH);
-		if (_fullpath(resolvedPath, import_path, MAX_PATH_LENGTH) ==
+		char *resolved_path = malloc(MAX_PATH_LENGTH);
+		if (_fullpath(resolved_path, import_path, MAX_PATH_LENGTH) ==
 		    NULL) {
-			free(resolvedPath);
+			free(resolved_path);
 			return NULL;
 		}
-		return resolvedPath;
+		return resolved_path;
 #else
 		char resolvedPath[MAX_PATH_LENGTH];
 		if (realpath(import_path, resolvedPath) == NULL) {
@@ -192,7 +192,7 @@ char *resolve_path(const char *base_path, const char *import_path)
 #endif
 	}
 
-	char *baseDir = getDirectoryFromPath(base_path);
+	char *baseDir = get_directory_from_path(base_path);
 	if (baseDir == NULL)
 		return NULL;
 

@@ -30,7 +30,7 @@
  *
  * @return A pointer to the newly allocated and initialized Object.
  */
-static Object *allocateObject(VM *vm, size_t size, ObjectType type)
+static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 {
 	Object *object = reallocate(vm, NULL, 0, size);
 
@@ -240,9 +240,9 @@ static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length,
 	string->chars = chars;
 	string->hash = hash;
 	// intern the string
-	push(vm->currentModuleRecord, OBJECT_VAL(string));
+	push(vm->current_module_record, OBJECT_VAL(string));
 	table_set(vm, &vm->strings, string, NIL_VAL);
-	pop(vm->currentModuleRecord);
+	pop(vm->current_module_record);
 	return string;
 }
 
@@ -873,7 +873,7 @@ ObjectFunction *new_function(VM *vm)
 	function->name = NULL;
 	function->upvalue_count = 0;
 	init_chunk(&function->chunk);
-	function->module_record = vm->currentModuleRecord;
+	function->module_record = vm->current_module_record;
 	return function;
 }
 
@@ -1069,12 +1069,12 @@ bool object_table_set(VM *vm, ObjectTable *table, const Value key,
 {
 	if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
 		const int capacity = GROW_CAPACITY(table->capacity);
-		push(vm->currentModuleRecord, OBJECT_VAL(table));
+		push(vm->current_module_record, OBJECT_VAL(table));
 		if (!adjust_capacity(vm, table, capacity)) {
-			pop(vm->currentModuleRecord);
+			pop(vm->current_module_record);
 			return false;
 		}
-		pop(vm->currentModuleRecord);
+		pop(vm->current_module_record);
 	}
 
 	ObjectTableEntry *entry = find_entry(table->entries, table->capacity,
@@ -1445,7 +1445,6 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 ObjectVec2 *new_vec2(VM *vm, const double x, const double y)
 {
 	ObjectVec2 *vec2 = ALLOCATE_OBJECT(vm, ObjectVec2, OBJECT_VEC2);
-	vec2->object.is_marked = true;
 	vec2->x = x;
 	vec2->y = y;
 	return vec2;
@@ -1454,7 +1453,6 @@ ObjectVec2 *new_vec2(VM *vm, const double x, const double y)
 ObjectVec3 *new_vec3(VM *vm, const double x, const double y, const double z)
 {
 	ObjectVec3 *vec3 = ALLOCATE_OBJECT(vm, ObjectVec3, OBJECT_VEC3);
-	vec3->object.is_marked = true;
 	vec3->x = x;
 	vec3->y = y;
 	vec3->z = z;

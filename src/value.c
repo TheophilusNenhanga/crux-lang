@@ -12,6 +12,7 @@ void init_value_array(ValueArray *array)
 	array->count = 0;
 }
 
+// Value must be GC protected
 void write_value_array(VM *vm, ValueArray *array, const Value value)
 {
 	if (array->capacity < array->count + 1) {

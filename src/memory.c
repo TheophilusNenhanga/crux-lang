@@ -405,7 +405,9 @@ static void free_object(VM *vm, Object *object)
 
 	case OBJECT_FILE: {
 		const ObjectFile *file = (ObjectFile *)object;
-		fclose(file->file);
+		if (file->file != NULL ) {
+			fclose(file->file);
+		}
 		FREE(vm, ObjectFile, object);
 		break;
 	}
@@ -492,8 +494,8 @@ void mark_struct_instance_stack(VM *vm, const StructInstanceStack *stack)
  */
 void mark_roots(VM *vm)
 {
-	if (vm->currentModuleRecord) {
-		mark_module_roots(vm, vm->currentModuleRecord);
+	if (vm->current_module_record) {
+		mark_module_roots(vm, vm->current_module_record);
 	}
 
 	for (uint32_t i = 0; i < vm->import_stack.count; i++) {

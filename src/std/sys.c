@@ -16,35 +16,32 @@
 ObjectResult *args_function(VM *vm, int arg_count __attribute__((unused)),
 			    const Value *args __attribute__((unused)))
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
-	ObjectArray *resultArray = new_array(vm, 2, currentModuleRecord);
+	ObjectModuleRecord *module_record = vm->current_module_record;
+	ObjectArray *resultArray = new_array(vm, 2, module_record);
 	ObjectArray *argvArray = new_array(vm, vm->args.argc,
-					  currentModuleRecord);
-	push(currentModuleRecord, OBJECT_VAL(resultArray));
-	push(currentModuleRecord, OBJECT_VAL(argvArray));
+					  module_record);
+	push(module_record, OBJECT_VAL(resultArray));
+	push(module_record, OBJECT_VAL(argvArray));
 
 	for (int i = 0; i < vm->args.argc; i++) {
 		char *arg = strdup(vm->args.argv[i]);
 		if (arg == NULL) {
-			pop(currentModuleRecord);
-			pop(currentModuleRecord);
-			return new_error_result(
-				vm, new_error(vm,
-					     copy_string(vm,
-							"Failed to allocate "
-							"memory for argument.",
-							39),
-					     MEMORY, false));
+			ObjectResult* error_result = MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for argument.", MEMORY);
+			pop(module_record);
+			pop(module_record);
+			return error_result;
 		}
-		ObjectString *argvString = take_string(vm, arg, strlen(arg));
-		array_add_back(vm, argvArray, OBJECT_VAL(argvString));
+		ObjectString *argv_string = take_string(vm, arg, strlen(arg));
+		push(module_record, OBJECT_VAL(argv_string));
+		array_add_back(vm, argvArray, OBJECT_VAL(argv_string));
+		pop(module_record);
 	}
 
 	array_add_back(vm, resultArray, INT_VAL(vm->args.argc));
 	array_add_back(vm, resultArray, OBJECT_VAL(argvArray));
 
-	pop(currentModuleRecord);
-	pop(currentModuleRecord);
+	pop(module_record);
+	pop(module_record);
 
 	return new_ok_result(vm, OBJECT_VAL(resultArray));
 }
@@ -54,12 +51,12 @@ Value platform_function(VM *vm, int arg_count __attribute__((unused)),
 {
 #ifdef _WIN32
 	return OBJECT_VAL(copy_string(vm, "windows", 7));
-#endif
-#ifdef __linux__
+#elif __linux__
 	return OBJECT_VAL(copy_string(vm, "linux", 5));
-#endif
-#ifdef __APPLE__
+#elif __APPLE__
 	return OBJECT_VAL(copy_string(vm, "apple", 5));
+#else
+	return OBJECT_VAL(copy_string(vm, "unknown", 7));
 #endif
 }
 
@@ -112,51 +109,30 @@ ObjectResult *get_env_function(VM *vm, int arg_count __attribute__((unused)),
 			       const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Argument <name> must be of "
-						"type 'string'.",
-						41),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Argument <name> must be of type 'string'.", TYPE);
 	}
 	const char *value = getenv(AS_C_STRING(args[0]));
 	if (value == NULL) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Environment variable not found.",
-					    31),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.", RUNTIME);
 	}
 
 	char *newValue = strdup(value);
 	if (newValue == NULL) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Failed to allocate memory for "
-						"environment variable value.",
-						57),
-				     MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for environment variable value.", MEMORY);
 	}
 
 	ObjectString *valueString = take_string(vm, newValue, strlen(value));
-	return new_ok_result(vm, OBJECT_VAL(valueString));
+	push(vm->current_module_record, OBJECT_VAL(valueString));
+	ObjectResult* res =  new_ok_result(vm, OBJECT_VAL(valueString));
+	pop(vm->current_module_record);
+	return res;
 }
 
 ObjectResult *sleep_function(VM *vm, int arg_count __attribute__((unused)),
 			     const Value *args)
 {
 	if (!IS_INT(args[0])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Argument <seconds> must be of "
-						"type 'int'.",
-						41),
-				     MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Argument <seconds> must be of type 'int'.", TYPE);
 	}
 
 #ifdef _WIN32

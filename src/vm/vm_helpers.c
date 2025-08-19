@@ -174,7 +174,7 @@ bool call(ObjectModuleRecord *module_record, ObjectClosure *closure,
  */
 bool call_value(VM *vm, const Value callee, const int arg_count)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	if (IS_CRUX_OBJECT(callee)) {
 		switch (OBJECT_TYPE(callee)) {
 		case OBJECT_CLOSURE:
@@ -289,7 +289,7 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 bool handle_invoke(VM *vm, const int arg_count, const Value receiver,
 		  const Value original, const Value value)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	// Save original stack order
 	currentModuleRecord->stack_top[-arg_count - 1] = value;
 	currentModuleRecord->stack_top[-arg_count] = receiver;
@@ -314,7 +314,7 @@ bool handle_invoke(VM *vm, const int arg_count, const Value receiver,
  */
 bool invoke(VM *vm, const ObjectString *name, int arg_count)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const Value receiver = PEEK(currentModuleRecord, arg_count);
 	const Value original = PEEK(currentModuleRecord,
 				    arg_count + 1); // Store the original caller
@@ -444,7 +444,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count)
 
 ObjectUpvalue *capture_upvalue(VM *vm, Value *local)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectUpvalue *prevUpvalue = NULL;
 	ObjectUpvalue *upvalue = currentModuleRecord->open_upvalues;
 
@@ -503,7 +503,7 @@ bool is_falsy(const Value value)
  */
 bool concatenate(VM *vm)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const Value b = PEEK(currentModuleRecord, 0);
 	const Value a = PEEK(currentModuleRecord, 1);
 
@@ -604,16 +604,16 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->currentModuleRecord = (ObjectModuleRecord *)malloc(
+	vm->current_module_record = (ObjectModuleRecord *)malloc(
 		sizeof(ObjectModuleRecord));
-	if (vm->currentModuleRecord == NULL) {
+	if (vm->current_module_record == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for "
 				"module record.\nShutting Down!\n");
 		exit(1);
 	}
-	init_module_record(vm->currentModuleRecord, NULL, isRepl, true);
+	init_module_record(vm->current_module_record, NULL, isRepl, true);
 
-	reset_stack(vm->currentModuleRecord);
+	reset_stack(vm->current_module_record);
 
 	init_table(&vm->string_type);
 	init_table(&vm->array_type);
@@ -642,7 +642,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	initMatchHandler(&vm->match_handler);
 
 	if (!initialize_std_lib(vm)) {
-		runtime_panic(vm->currentModuleRecord, true, RUNTIME,
+		runtime_panic(vm->current_module_record, true, RUNTIME,
 			     "Failed to initialize standard library.");
 	}
 	vm->import_count = 0;
@@ -670,9 +670,9 @@ void init_vm(VM *vm, const int argc, const char **argv)
 #endif
 	}
 
-	vm->currentModuleRecord->path = path;
-	table_set(vm, &vm->module_cache, vm->currentModuleRecord->path,
-		 OBJECT_VAL(vm->currentModuleRecord));
+	vm->current_module_record->path = path;
+	table_set(vm, &vm->module_cache, vm->current_module_record->path,
+		 OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
 }
 
@@ -701,7 +701,7 @@ void free_vm(VM *vm)
 	free_import_stack(vm);
 	freeStructInstanceStack(&vm->struct_instance_stack);
 
-	free_module_record(vm, vm->currentModuleRecord);
+	free_module_record(vm, vm->current_module_record);
 
 	free_objects(vm);
 	free(vm);
@@ -715,7 +715,7 @@ void free_vm(VM *vm)
  */
 bool binary_operation(VM *vm, const OpCode operation)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const Value b = PEEK(currentModuleRecord, 0);
 	const Value a = PEEK(currentModuleRecord, 1);
 
@@ -956,7 +956,7 @@ bool binary_operation(VM *vm, const OpCode operation)
 InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 					const OpCode opcode, char *operation)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	Value currentValue;
 	if (!table_get(&currentModuleRecord->globals, name, &currentValue)) {
 		runtime_panic(currentModuleRecord, false, NAME,
@@ -1147,7 +1147,7 @@ bool check_previous_instruction(const CallFrame *frame, const int instructions_a
 InterpretResult interpret(VM *vm, char *source)
 {
 	ObjectFunction *function = compile(vm, source);
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	if (function == NULL) {
 		currentModuleRecord->state = STATE_ERROR;
 		return INTERPRET_COMPILE_ERROR;
@@ -1155,7 +1155,7 @@ InterpretResult interpret(VM *vm, char *source)
 
 	push(currentModuleRecord, OBJECT_VAL(function));
 	ObjectClosure *closure = new_closure(vm, function);
-	vm->currentModuleRecord->module_closure = closure;
+	vm->current_module_record->module_closure = closure;
 	pop(currentModuleRecord);
 	push(currentModuleRecord, OBJECT_VAL(closure));
 	call(currentModuleRecord, closure, 0);
@@ -1177,7 +1177,7 @@ InterpretResult interpret(VM *vm, char *source)
 ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure,
 				  const int arg_count, InterpretResult *result)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const uint32_t currentFrameCount = currentModuleRecord->frame_count;
 	ObjectResult *errorResult = new_error_result(
 		vm, new_error(vm, copy_string(vm, "", 0), RUNTIME, true));
@@ -1191,7 +1191,7 @@ ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure,
 
 	*result = run(vm, true);
 
-	vm->currentModuleRecord->frame_count = currentFrameCount;
+	vm->current_module_record->frame_count = currentFrameCount;
 	if (*result == INTERPRET_OK) {
 		const Value executionResult = PEEK(currentModuleRecord, 0);
 		return new_ok_result(vm, executionResult);

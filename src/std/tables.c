@@ -1,11 +1,12 @@
 #include "tables.h"
+#include "../panic.h"
 
 ObjectResult *table_values_method(VM *vm, int arg_count __attribute__((unused)),
 				  const Value *args)
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	ObjectArray *values = new_array(vm, table->size,
-				       vm->currentModuleRecord);
+				       vm->current_module_record);
 
 	if (values == NULL) {
 		return new_error_result(
@@ -37,7 +38,7 @@ ObjectResult *table_keys_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *keys = new_array(vm, table->size, vm->currentModuleRecord);
+	ObjectArray *keys = new_array(vm, table->size, vm->current_module_record);
 
 	if (keys == NULL) {
 		return new_error_result(
@@ -67,18 +68,16 @@ ObjectResult *table_keys_method(VM *vm, int arg_count __attribute__((unused)),
 ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
 				 const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *pairs = new_array(vm, table->size, vm->currentModuleRecord);
+	ObjectArray *pairs = new_array(vm, table->size, vm->current_module_record);
+	push(module_record, OBJECT_VAL(pairs));
 
 	if (pairs == NULL) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Failed to allocate enough "
-						"memory for <pairs> array.",
-						51),
-				     MEMORY, false));
+		ObjectResult* res = MAKE_GC_SAFE_ERROR(vm, "Failed to allocate enough memory for <pairs> array.", MEMORY);
+		pop(vm->current_module_record); // pop the array
+		return res;
 	}
 
 	uint16_t lastInsert = 0;
@@ -87,19 +86,13 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
 		const ObjectTableEntry entry = table->entries[i];
 		if (entry.is_occupied) {
 			ObjectArray *pair = new_array(vm, 2,
-						     vm->currentModuleRecord);
-
+						     vm->current_module_record);
+			push(module_record, OBJECT_VAL(pair));
 			if (pair == NULL) {
-				return new_error_result(
-					vm,
-					new_error(
-						vm,
-						copy_string(vm,
-							   "Failed to allocate "
-							   "enough memory for "
-							   "pair array.",
-							   48),
-						MEMORY, false));
+				ObjectResult* res = MAKE_GC_SAFE_ERROR(vm, "Failed to allocate enough memory for pair array", MEMORY);
+				pop(module_record);
+				return res;
+
 			}
 
 			pair->values[0] = entry.key;
@@ -108,12 +101,15 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
 
 			pairs->values[lastInsert] = OBJECT_VAL(pair);
 			lastInsert++;
+			pop(module_record);
 		}
 	}
 
 	pairs->size = lastInsert;
 
-	return new_ok_result(vm, OBJECT_VAL(pairs));
+	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(pairs));
+	pop(vm->current_module_record);
+	return res;
 }
 
 // arg0 - table
@@ -126,23 +122,11 @@ ObjectResult *table_remove_method(VM *vm, int arg_count __attribute__((unused)),
 	if (IS_CRUX_HASHABLE(key)) {
 		const bool result = object_table_remove(table, key);
 		if (!result) {
-			return new_error_result(
-				vm,
-				new_error(vm,
-					 copy_string(vm,
-						    "Failed to remove key: "
-						    "value pair from table.",
-						    44),
-					 VALUE, false));
+			return MAKE_GC_SAFE_ERROR(vm, "Failed to remove key: value pair from table.", VALUE);
 		}
 		return new_ok_result(vm, NIL_VAL);
 	}
-	return new_error_result(
-		vm,
-		new_error(vm,
-			 copy_string(vm, "Unhashable type given as table key.",
-				    35),
-			 TYPE, false));
+	return MAKE_GC_SAFE_ERROR(vm, "Unhashable type given as table key.", TYPE);
 }
 
 // arg0 - table
@@ -158,22 +142,11 @@ ObjectResult *table_get_method(VM *vm, int arg_count __attribute__((unused)),
 						   table->capacity, key,
 						   &value);
 		if (!result) {
-			return new_error_result(
-				vm, new_error(vm,
-					     copy_string(vm,
-							"Failed to get value "
-							"from table.",
-							31),
-					     VALUE, false));
+			return MAKE_GC_SAFE_ERROR(vm, "Failed to get value from table.", VALUE);
 		}
 		return new_ok_result(vm, value);
 	}
-	return new_error_result(
-		vm,
-		new_error(vm,
-			 copy_string(vm, "Unhashable type given as table key.",
-				    35),
-			 TYPE, false));
+	return MAKE_GC_SAFE_ERROR(vm, "Unhashable type given as table key.", TYPE);
 }
 
 // args[0] - table

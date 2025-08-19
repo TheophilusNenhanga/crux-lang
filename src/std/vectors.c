@@ -9,6 +9,7 @@ ObjectResult *new_vec2_function(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(
@@ -22,9 +23,9 @@ ObjectResult *new_vec2_function(VM *vm,
 					 : AS_FLOAT(args[1]);
 
 	ObjectVec2 *vec2 = new_vec2(vm, x, y);
-	push(vm->currentModuleRecord, OBJECT_VAL(vec2));
+	push(module_record, OBJECT_VAL(vec2));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec2));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -32,6 +33,7 @@ ObjectResult *new_vec3_function(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1])) ||
 	    (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
@@ -48,13 +50,13 @@ ObjectResult *new_vec3_function(VM *vm,
 					 : AS_FLOAT(args[2]);
 
 	ObjectVec3 *vec3 = new_vec3(vm, x, y, z);
-	push(vm->currentModuleRecord, OBJECT_VAL(vec3));
+	push(module_record, OBJECT_VAL(vec3));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec3));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
-ObjectResult *vec_2dot_method(VM *vm,
+ObjectResult *vec2_dot_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
@@ -69,11 +71,10 @@ ObjectResult *vec_2dot_method(VM *vm,
 
 	const double result = vec1->x * vec2->x + vec1->y * vec2->y;
 
-	ObjectResult *res = new_ok_result(vm, FLOAT_VAL(result));
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec_3dot_method(VM *vm,
+ObjectResult *vec3_dot_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
@@ -88,14 +89,14 @@ ObjectResult *vec_3dot_method(VM *vm,
 	const double result = vec1->x * vec2->x + vec1->y * vec2->y +
 			      vec1->z * vec2->z;
 
-	ObjectResult *res = new_ok_result(vm, FLOAT_VAL(result));
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 ObjectResult *vec2_add_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec2 objects.",
@@ -106,9 +107,9 @@ ObjectResult *vec2_add_method(VM *vm,
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
 	ObjectVec2 *tmp = new_vec2(vm, vec1->x + vec2->x, vec1->y + vec2->y);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -116,6 +117,7 @@ ObjectResult *vec3_add_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec3 objects.",
@@ -126,10 +128,10 @@ ObjectResult *vec3_add_method(VM *vm,
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
 	ObjectVec3 *tmp = new_vec3(vm, vec1->x + vec2->x, vec1->y + vec2->y,
-				  vec1->z + vec2->z);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+				   vec1->z + vec2->z);
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -137,6 +139,7 @@ ObjectResult *vec2_subtract_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec2 objects.",
@@ -147,9 +150,9 @@ ObjectResult *vec2_subtract_method(VM *vm,
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
 	ObjectVec2 *tmp = new_vec2(vm, vec1->x - vec2->x, vec1->y - vec2->y);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -157,6 +160,7 @@ ObjectResult *vec3_subtract_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec3 objects.",
@@ -167,10 +171,10 @@ ObjectResult *vec3_subtract_method(VM *vm,
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
 	ObjectVec3 *tmp = new_vec3(vm, vec1->x - vec2->x, vec1->y - vec2->y,
-				  vec1->z - vec2->z);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+				   vec1->z - vec2->z);
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -178,6 +182,7 @@ ObjectResult *vec2_multiply_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -191,9 +196,9 @@ ObjectResult *vec2_multiply_method(VM *vm,
 					      : AS_FLOAT(args[1]);
 
 	ObjectVec2 *tmp = new_vec2(vm, vec->x * scalar, vec->y * scalar);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -201,6 +206,7 @@ ObjectResult *vec3_multiply_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -214,17 +220,18 @@ ObjectResult *vec3_multiply_method(VM *vm,
 					      : AS_FLOAT(args[1]);
 
 	ObjectVec3 *tmp = new_vec3(vm, vec->x * scalar, vec->y * scalar,
-				  vec->z * scalar);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+				   vec->z * scalar);
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
-ObjectResult *vec_2divide_method(VM *vm,
+ObjectResult *vec2_divide_method(VM *vm,
 				 const int arg_count __attribute__((unused)),
 				 const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -242,16 +249,17 @@ ObjectResult *vec_2divide_method(VM *vm,
 	}
 
 	ObjectVec2 *tmp = new_vec2(vm, vec->x / scalar, vec->y / scalar);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
-ObjectResult *vec_3divide_method(VM *vm,
+ObjectResult *vec3_divide_method(VM *vm,
 				 const int arg_count __attribute__((unused)),
 				 const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -269,10 +277,10 @@ ObjectResult *vec_3divide_method(VM *vm,
 	}
 
 	ObjectVec3 *tmp = new_vec3(vm, vec->x / scalar, vec->y / scalar,
-				  vec->z / scalar);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+				   vec->z / scalar);
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -288,12 +296,9 @@ ObjectResult *vec2_magnitude_method(VM *vm,
 	}
 
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
-
 	const double result = sqrt(vec->x * vec->x + vec->y * vec->y);
 
-	const Value fVal = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, fVal);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 ObjectResult *vec3_magnitude_method(VM *vm,
@@ -308,19 +313,17 @@ ObjectResult *vec3_magnitude_method(VM *vm,
 	}
 
 	const ObjectVec3 *vec = AS_CRUX_VEC3(args[0]);
-
 	const double result = sqrt(vec->x * vec->x + vec->y * vec->y +
 				   vec->z * vec->z);
 
-	const Value fVal = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, fVal);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 ObjectResult *vec2_normalize_method(VM *vm,
 				    const int arg_count __attribute__((unused)),
 				    const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -338,9 +341,9 @@ ObjectResult *vec2_normalize_method(VM *vm,
 	}
 
 	ObjectVec2 *tmp = new_vec2(vm, vec->x / magnitude, vec->y / magnitude);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -348,6 +351,7 @@ ObjectResult *vec3_normalize_method(VM *vm,
 				    const int arg_count __attribute__((unused)),
 				    const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -366,15 +370,15 @@ ObjectResult *vec3_normalize_method(VM *vm,
 	}
 
 	ObjectVec3 *tmp = new_vec3(vm, vec->x / magnitude, vec->y / magnitude,
-				  vec->z / magnitude);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+				   vec->z / magnitude);
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
 // arg_count: 2
-ObjectResult *vec_2distance_method(VM *vm,
+ObjectResult *vec2_distance_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
@@ -391,9 +395,7 @@ ObjectResult *vec_2distance_method(VM *vm,
 	const double dy = vec1->y - vec2->y;
 	const double result = sqrt(dx * dx + dy * dy);
 
-	const Value tmp = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, tmp);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 // arg_count: 1
@@ -403,9 +405,7 @@ ObjectResult *vec2_angle_method(VM *vm,
 {
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
 	const double result = atan2(vec->y, vec->x);
-	const Value tmp = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, tmp);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 // arg_count: 2
@@ -438,9 +438,7 @@ ObjectResult *vec2_angle_between_method(VM *vm,
 	const double clampedCos = fmax(-1.0, fmin(1.0, cosTheta));
 	const double result = acos(clampedCos);
 
-	const Value tmp = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, tmp);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 // arg_count: 2
@@ -448,6 +446,7 @@ ObjectResult *vec2_rotate_method(VM *vm,
 				 const int arg_count __attribute__((unused)),
 				 const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -467,9 +466,9 @@ ObjectResult *vec2_rotate_method(VM *vm,
 	const double newY = vec->x * sinA + vec->y * cosA;
 
 	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -478,6 +477,7 @@ ObjectResult *vec2_lerp_method(VM *vm,
 			       const int arg_count __attribute__((unused)),
 			       const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1]) ||
 	    (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
 		return MAKE_GC_SAFE_ERROR(
@@ -495,9 +495,9 @@ ObjectResult *vec2_lerp_method(VM *vm,
 	const double newY = vec1->y + t * (vec2->y - vec1->y);
 
 	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -506,6 +506,7 @@ ObjectResult *vec2_reflect_method(VM *vm,
 				  const int arg_count __attribute__((unused)),
 				  const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "reflect method can only be used on Vec2 objects.",
@@ -532,14 +533,14 @@ ObjectResult *vec2_reflect_method(VM *vm,
 	const double newY = incident->y - 2.0 * dot * ny;
 
 	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
 // arg_count: 2
-ObjectResult *vec_3distance_method(VM *vm,
+ObjectResult *vec3_distance_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
@@ -557,9 +558,7 @@ ObjectResult *vec_3distance_method(VM *vm,
 	const double dz = vec1->z - vec2->z;
 	const double result = sqrt(dx * dx + dy * dy + dz * dz);
 
-	const Value tmp = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, tmp);
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 // arg_count: 2
@@ -567,6 +566,7 @@ ObjectResult *vec3_cross_method(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
+	ObjectModuleRecord* module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "cross method can only be used on Vec3 objects.",
@@ -581,9 +581,9 @@ ObjectResult *vec3_cross_method(VM *vm,
 	const double newZ = vec1->x * vec2->y - vec1->y * vec2->x;
 
 	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -620,9 +620,7 @@ ObjectResult *vec3_angle_between_method(VM *vm,
 	const double clampedCos = fmax(-1.0, fmin(1.0, cosTheta));
 	const double result = acos(clampedCos);
 
-	const Value tmp = FLOAT_VAL(result);
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	return res;
+	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
 // arg_count: 3
@@ -638,6 +636,8 @@ ObjectResult *vec3_lerp_method(VM *vm,
 			TYPE);
 	}
 
+	ObjectModuleRecord* module_record = vm->current_module_record;
+
 	const ObjectVec3 *vec1 = AS_CRUX_VEC3(args[0]);
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 	const double t = IS_INT(args[2]) ? (double)AS_INT(args[2])
@@ -648,9 +648,9 @@ ObjectResult *vec3_lerp_method(VM *vm,
 	const double newZ = vec1->z + t * (vec2->z - vec1->z);
 
 	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -664,6 +664,8 @@ ObjectResult *vec3_reflect_method(VM *vm,
 			vm, "reflect method can only be used on Vec3 objects.",
 			TYPE);
 	}
+
+	ObjectModuleRecord* module_record = vm->current_module_record;
 
 	const ObjectVec3 *incident = AS_CRUX_VEC3(args[0]);
 	const ObjectVec3 *normal = AS_CRUX_VEC3(args[1]);
@@ -689,9 +691,9 @@ ObjectResult *vec3_reflect_method(VM *vm,
 	const double newZ = incident->z - 2.0 * dot * nz;
 
 	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
-	push(vm->currentModuleRecord, OBJECT_VAL(tmp));
+	push(module_record, OBJECT_VAL(tmp));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->currentModuleRecord);
+	pop(module_record);
 	return res;
 }
 
@@ -712,9 +714,7 @@ ObjectResult *vec2_equals_method(VM *vm,
 	const bool equal = (fabs(vec1->x - vec2->x) < EPSILON) &&
 			   (fabs(vec1->y - vec2->y) < EPSILON);
 
-	const Value tmp = BOOL_VAL(equal);
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	return res;
+	return new_ok_result(vm, BOOL_VAL(equal));
 }
 
 // arg_count: 2
@@ -734,9 +734,7 @@ ObjectResult *vec3_equals_method(VM *vm,
 			   (fabs(vec1->y - vec2->y) < EPSILON) &&
 			   (fabs(vec1->z - vec2->z) < EPSILON);
 
-	const Value tmp = BOOL_VAL(equal);
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	return res;
+	return new_ok_result(vm, BOOL_VAL(equal));
 }
 
 Value vec2_x_method(VM *vm __attribute__((unused)),

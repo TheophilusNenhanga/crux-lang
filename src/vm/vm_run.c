@@ -29,7 +29,7 @@
  */
 InterpretResult run(VM *vm, const bool is_anonymous_frame)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	CallFrame *frame =
 		&currentModuleRecord
 			 ->frames[currentModuleRecord->frame_count - 1];
@@ -1388,7 +1388,7 @@ OP_USE_NATIVE: {
 		}
 		push(currentModuleRecord, OBJECT_VAL(value));
 		bool setSuccess = table_set(vm,
-					   &vm->currentModuleRecord->globals,
+					   &vm->current_module_record->globals,
 					   aliases[i], value);
 
 		if (!setSuccess) {
@@ -1410,16 +1410,16 @@ OP_USE_MODULE: {
 		runtime_panic(currentModuleRecord, false, IMPORT,
 			     "Circular dependency detected when importing: %s",
 			     moduleName->chars);
-		vm->currentModuleRecord->state = STATE_ERROR;
+		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
 	char *resolvedPathChars = resolve_path(
-		vm->currentModuleRecord->path->chars, moduleName->chars);
+		vm->current_module_record->path->chars, moduleName->chars);
 	if (resolvedPathChars == NULL) {
 		runtime_panic(currentModuleRecord, false, IMPORT,
 			     "Failed to resolve import path");
-		vm->currentModuleRecord->state = STATE_ERROR;
+		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	ObjectString *resolvedPath =
@@ -1447,23 +1447,23 @@ OP_USE_MODULE: {
 
 	ObjectModuleRecord *module = new_object_module_record(vm, resolvedPath,
 							   false, false);
-	module->enclosing_module = vm->currentModuleRecord;
+	module->enclosing_module = vm->current_module_record;
 	reset_stack(module);
 	if (module->frames == NULL) {
 		runtime_panic(
 			currentModuleRecord, false, MEMORY,
 			"Failed to allocate memory for new module from \"%s\".",
 			resolvedPath->chars);
-		vm->currentModuleRecord->state = STATE_ERROR;
+		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push_import_stack(vm, resolvedPath);
 
-	ObjectModuleRecord *previousModuleRecord = vm->currentModuleRecord;
-	vm->currentModuleRecord = module;
+	ObjectModuleRecord *previousModuleRecord = vm->current_module_record;
+	vm->current_module_record = module;
 
-	init_table(&vm->currentModuleRecord->globals);
-	init_table(&vm->currentModuleRecord->publics);
+	init_table(&vm->current_module_record->globals);
+	init_table(&vm->current_module_record->publics);
 
 	if (!initialize_std_lib(vm)) {
 		runtime_panic(currentModuleRecord, false, RUNTIME,
@@ -1471,7 +1471,7 @@ OP_USE_MODULE: {
 			     module->path->chars);
 		module->state = STATE_ERROR;
 		pop_import_stack(vm);
-		vm->currentModuleRecord = previousModuleRecord;
+		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -1484,7 +1484,7 @@ OP_USE_MODULE: {
 		runtime_panic(currentModuleRecord, false, RUNTIME,
 			     "Failed to compile '%s'.", resolvedPath->chars);
 		pop_import_stack(vm);
-		vm->currentModuleRecord = previousModuleRecord;
+		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_COMPILE_ERROR;
 	}
@@ -1502,7 +1502,7 @@ OP_USE_MODULE: {
 		runtime_panic(currentModuleRecord, false, RUNTIME,
 			     "Failed to call module.");
 		pop_import_stack(vm);
-		vm->currentModuleRecord = previousModuleRecord;
+		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -1511,7 +1511,7 @@ OP_USE_MODULE: {
 	if (result != INTERPRET_OK) {
 		module->state = STATE_ERROR;
 		pop_import_stack(vm);
-		vm->currentModuleRecord = previousModuleRecord;
+		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
 		return result;
 	}
@@ -1519,7 +1519,7 @@ OP_USE_MODULE: {
 	module->state = STATE_LOADED;
 
 	pop_import_stack(vm);
-	vm->currentModuleRecord = previousModuleRecord;
+	vm->current_module_record = previousModuleRecord;
 	push(currentModuleRecord, OBJECT_VAL(module));
 
 	DISPATCH();
@@ -1564,7 +1564,7 @@ OP_FINISH_USE: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		if (!table_set(vm, &vm->currentModuleRecord->globals, alias,
+		if (!table_set(vm, &vm->current_module_record->globals, alias,
 			      value)) {
 			runtime_panic(currentModuleRecord, false, IMPORT,
 				     "Failed to import '%s'. This name may "
