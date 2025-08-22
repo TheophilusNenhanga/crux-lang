@@ -295,8 +295,7 @@ static void blacken_object(VM *vm, Object *object)
 	case OBJECT_VEC2:
 	case OBJECT_VEC3:
 	case OBJECT_STRING: {
-		// Strings are primitives in terms of GC reachability in this
-		// implementation
+		object->is_marked = true;
 		break;
 	}
 	}
@@ -510,18 +509,20 @@ void mark_roots(VM *vm)
 		}
 	}
 
-	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
+	mark_table(vm, &vm->module_cache);
 
 	mark_table(vm, &vm->random_type);
 	mark_table(vm, &vm->string_type);
 	mark_table(vm, &vm->array_type);
+	mark_table(vm, &vm->table_type);
 	mark_table(vm, &vm->error_type);
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
 	mark_table(vm, &vm->vec2_type);
 	mark_table(vm, &vm->vec3_type);
 
-	mark_table(vm, &vm->module_cache);
+	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
+
 
 	mark_compiler_roots(vm);
 

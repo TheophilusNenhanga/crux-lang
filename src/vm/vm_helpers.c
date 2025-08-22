@@ -290,6 +290,9 @@ bool handle_invoke(VM *vm, const int arg_count, const Value receiver,
 		  const Value original, const Value value)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
+
+	mark_value(vm, original);
+
 	// Save original stack order
 	currentModuleRecord->stack_top[-arg_count - 1] = value;
 	currentModuleRecord->stack_top[-arg_count] = receiver;
