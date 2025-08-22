@@ -9,51 +9,53 @@
 #include "value.h"
 #include "vm/vm.h"
 
-#define GC_PROTECT_START(currentModuleRecord)                                  \
-	Value *gc_stack_start = (currentModuleRecord)->stack_top
-#define GC_PROTECT(currentModuleRecord, value)                                 \
-	push((currentModuleRecord), (value))
-#define GC_PROTECT_END(currentModuleRecord)                                    \
-	(currentModuleRecord)->stack_top = gc_stack_start
+#define GC_PROTECT_START(current_module_record)                                \
+	Value *gc_stack_start = (current_module_record)->stack_top
+#define GC_PROTECT(current_module_record, value)                               \
+	push((current_module_record), (value))
+#define GC_PROTECT_END(current_module_record)                                  \
+	(current_module_record)->stack_top = gc_stack_start
 
 #define STATIC_STRING_LEN(static_string) sizeof((static_string)) - 1
 
+ObjectResult *make_gc_safe_error(void);
+
 // Only works with string literals -- gc_safe_static_message
-#define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gcSafeErrorType)           \
+#define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gc_safe_error_type)     \
 	({                                                                     \
-		GC_PROTECT_START((vm)->currentModuleRecord);                   \
-		ObjectString *message =                                        \
-			copy_string((vm), (gc_safe_static_message),                \
-				   STATIC_STRING_LEN((gc_safe_static_message)));  \
-		GC_PROTECT((vm)->currentModuleRecord, OBJECT_VAL(message));    \
-		ObjectError *gcSafeError = new_error((vm), message,             \
-						    (gcSafeErrorType), false); \
-		GC_PROTECT((vm)->currentModuleRecord,                          \
-			   OBJECT_VAL(gcSafeError));                           \
-		ObjectResult *gcSafeErrorResult = new_error_result((vm),         \
-								 gcSafeError); \
-		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		ObjectString *message = copy_string(                           \
+			(vm), (gc_safe_static_message),                        \
+			STATIC_STRING_LEN((gc_safe_static_message)));          \
+		push((vm)->current_module_record, OBJECT_VAL(message));        \
+		ObjectError *gc_safe_error = new_error((vm), message,          \
+						       (gc_safe_error_type),   \
+						       false);                 \
+		push((vm)->current_module_record, OBJECT_VAL(gc_safe_error));  \
+		ObjectResult *gcSafeErrorResult =                              \
+			new_error_result((vm), gc_safe_error);                 \
+		pop((vm)->current_module_record);                              \
+		pop((vm)->current_module_record);                              \
 		gcSafeErrorResult;                                             \
 	})
 
 #define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue)                              \
 	({                                                                     \
-		GC_PROTECT_START((vm)->currentModuleRecord);                   \
-		GC_PROTECT((vm)->currentModuleRecord, alreadySafeValue);       \
+		GC_PROTECT_START((vm)->current_module_record);                 \
+		GC_PROTECT((vm)->current_module_record, alreadySafeValue);     \
 		ObjectResult *gcSafeResult = newOkResult((vm),                 \
 							 alreadySafeValue);    \
-		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		GC_PROTECT_END((vm)->current_module_record);                   \
 		gcSafeResult;                                                  \
 	})
 
 #define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression)               \
 	({                                                                     \
-		GC_PROTECT_START((vm)->currentModuleRecord);                   \
+		GC_PROTECT_START((vm)->current_module_record);                 \
 		Value allocatedValue = (allocatingExpression);                 \
-		GC_PROTECT((vm)->currentModuleRecord, allocatedValue);         \
+		GC_PROTECT((vm)->current_module_record, allocatedValue);       \
 		ObjectResult *gcSafeResultWithAlloc =                          \
 			newOkResult((vm), allocatedValue);                     \
-		GC_PROTECT_END((vm)->currentModuleRecord);                     \
+		GC_PROTECT_END((vm)->current_module_record);                   \
 		gcSafeResultWithAlloc;                                         \
 	})
 
@@ -375,7 +377,7 @@ static bool is_object_type(const Value value, const ObjectType type)
  * @return A pointer to the newly created ObjectError.
  */
 ObjectError *new_error(VM *vm, ObjectString *message, ErrorType type,
-		      bool is_panic);
+		       bool is_panic);
 
 /**
  * @brief Creates a new upvalue object.
@@ -421,7 +423,7 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  * @return A pointer to the newly created ObjectNativeFunction.
  */
 ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
-					int arity, ObjectString *name);
+					  int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native method object.
@@ -438,7 +440,7 @@ ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
  * @return A pointer to the newly created ObjectNativeMethod.
  */
 ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
-				    ObjectString *name);
+				      ObjectString *name);
 
 /**
  * @brief Creates a new native infallible function object.
@@ -457,8 +459,8 @@ ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
  * @return A pointer to the newly created ObjectNativeInfallibleFunction.
  */
 ObjectNativeInfallibleFunction *
-new_native_infallible_function(VM *vm, CruxInfallibleCallable function, int arity,
-			    ObjectString *name);
+new_native_infallible_function(VM *vm, CruxInfallibleCallable function,
+			       int arity, ObjectString *name);
 
 /**
  * @brief Creates a new native infallible method object.
@@ -469,7 +471,7 @@ new_native_infallible_function(VM *vm, CruxInfallibleCallable function, int arit
  */
 ObjectNativeInfallibleMethod *
 new_native_infallible_method(VM *vm, CruxInfallibleCallable function, int arity,
-			  ObjectString *name);
+			     ObjectString *name);
 
 /**
  * @brief Creates a new function object.
@@ -499,7 +501,7 @@ ObjectFunction *new_function(VM *vm);
  * @return A pointer to the newly created ObjectTable.
  */
 ObjectTable *new_table(VM *vm, int element_count,
-		      ObjectModuleRecord *module_record);
+		       ObjectModuleRecord *module_record);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -542,7 +544,7 @@ ObjectResult *new_error_result(VM *vm, ObjectError *error);
  * @return A pointer to the newly created ObjectArray.
  */
 ObjectArray *new_array(VM *vm, uint32_t element_count,
-		      ObjectModuleRecord *module_record);
+		       ObjectModuleRecord *module_record);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -653,11 +655,11 @@ bool object_table_set(VM *vm, ObjectTable *table, Value key, Value value);
  * @return true if the key was found and the value was retrieved, false
  * otherwise.
  */
-bool object_table_get(ObjectTableEntry *entries, uint32_t size, uint32_t capacity,
-		    Value key, Value *value);
+bool object_table_get(ObjectTableEntry *entries, uint32_t size,
+		      uint32_t capacity, Value key, Value *value);
 
 void mark_object_table(VM *vm, const ObjectTableEntry *entries,
-		     uint32_t capacity);
+		       uint32_t capacity);
 
 /**
  * @brief Ensures that an array has enough capacity.
@@ -731,7 +733,7 @@ ObjectRandom *new_random(VM *vm);
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
 
 ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
-					  bool is_repl, bool is_main);
+					     bool is_repl, bool is_main);
 
 /**
  * @brief Removes a value from an object table.
@@ -761,19 +763,19 @@ bool object_table_remove(ObjectTable *table, Value key);
 bool object_table_contains_key(ObjectTable *table, Value key);
 
 ObjectStaticArray *new_static_array(VM *vm, uint16_t element_count,
-				  ObjectModuleRecord *module_record);
+				    ObjectModuleRecord *module_record);
 
 ObjectStaticTable *new_static_table(VM *vm, uint16_t element_count,
-				  ObjectModuleRecord *module_record);
+				    ObjectModuleRecord *module_record);
 
 bool object_static_table_set(VM *vm, ObjectStaticTable *table, Value key,
-			  Value value);
+			     Value value);
 
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
-					uint16_t field_count,
-					ObjectModuleRecord *module_record);
+					  uint16_t field_count,
+					  ObjectModuleRecord *module_record);
 
 ObjectVec2 *new_vec2(VM *vm, double x, double y);
 
@@ -782,8 +784,33 @@ ObjectVec3 *new_vec3(VM *vm, double x, double y, double z);
 void free_object_static_table(VM *vm, ObjectStaticTable *table);
 
 bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
-		      bool is_repl, bool is_main);
+			bool is_repl, bool is_main);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
+
+/**
+ * @brief Transfers ownership of a malloc-allocated object to the VM.
+ *
+ * This function takes an object that was allocated with malloc() and integrates
+ * it into the VM's object management system. The object will be tracked by the
+ * garbage collector and properly freed when no longer reachable. The object's
+ * memory allocation is counted toward the VM's allocated bytes.
+ *
+ * IMPORTANT: After calling this function, you must not manually free() the
+ * object - it is now owned by the VM and will be freed during garbage collection.
+ *
+ * @param vm The virtual machine that will take ownership of the object.
+ * @param object The malloc-allocated object to transfer. Must not be NULL.
+ * @param object_size The size in bytes of the object (used for GC accounting).
+ *
+ * @return The same object pointer, now managed by the VM.
+ */
+Object *vm_take_object_ownership(VM *vm, Object *object, size_t object_size);
+
+ObjectVec2 *new_vec2_unsafe(double x, double y);
+
+ObjectVec3 *new_vec3_unsafe(double x, double y, double z);
+
+ObjectResult* new_ok_result_unsafe(Value value);
 
 #endif

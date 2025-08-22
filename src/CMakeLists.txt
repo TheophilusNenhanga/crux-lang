@@ -31,8 +31,8 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 	set(CMAKE_C_FLAGS_RELEASE "-O3")
 endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Profile")
-	set(CMAKE_C_FLAGS_PROFILE "-pg")
+if (CMAKE_BUILD_TYPE STREQUAL "Perf")
+	set(CMAKE_C_FLAGS_PERF "-O2 -g -fno-omit-frame-pointer")
 endif()
 
 file(GLOB SOURCES

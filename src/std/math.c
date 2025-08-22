@@ -1,6 +1,6 @@
 #include "math.h"
 #include <math.h>
-#include <string.h>
+#include "../panic.h"
 
 static bool numberArgs(const Value *args, const int arg_count)
 {
@@ -17,11 +17,7 @@ static bool numberArgs(const Value *args, const int arg_count)
 ObjectResult *check_args(VM *vm, const Value *args, const int arg_count)
 {
 	if (!numberArgs(args, arg_count)) {
-		return new_error_result(
-			vm, new_error(vm,
-				      copy_string(vm, NUMBER_ERROR_MESSAGE,
-						  strlen(NUMBER_ERROR_MESSAGE)),
-				      TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, NUMBER_ERROR_MESSAGE, TYPE);
 	}
 	return NULL;
 }
@@ -48,14 +44,10 @@ ObjectResult *sqrt_function(VM *vm, const int arg_count, const Value *args)
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return new_error_result(
+		return MAKE_GC_SAFE_ERROR(
 			vm,
-			new_error(vm,
-				  copy_string(vm,
-					      "Cannot calculate square root "
-					      "of a negative number.",
-					      50),
-				  VALUE, false));
+			"Cannot calculate square root of a negative number.",
+			VALUE);
 	}
 
 	return new_ok_result(vm, FLOAT_VAL(sqrt(number)));
@@ -88,7 +80,7 @@ ObjectResult *sin_function(VM *vm, const int arg_count, const Value *args)
 	if ((res = check_args(vm, args, arg_count)) != NULL) {
 		return res;
 	}
-	return new_ok_result(vm, FLOAT_VAL(sin(FLOAT_VAL(args[0]))));
+	return new_ok_result(vm, FLOAT_VAL(sin(AS_FLOAT(args[0]))));
 }
 
 ObjectResult *cos_function(VM *vm, const int arg_count, const Value *args)
@@ -118,14 +110,9 @@ ObjectResult *asin_function(VM *vm, const int arg_count, const Value *args)
 
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				  copy_string(
-					  vm,
+		return MAKE_GC_SAFE_ERROR(vm,
 					  "Argument must be between -1 and 1.",
-					  34),
-				  VALUE, false));
+					  VALUE);
 	}
 
 	return new_ok_result(vm, FLOAT_VAL(asin(num)));
@@ -139,14 +126,9 @@ ObjectResult *acos_function(VM *vm, const int arg_count, const Value *args)
 	}
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				  copy_string(
-					  vm,
+		return MAKE_GC_SAFE_ERROR(vm,
 					  "Argument must be between -1 and 1.",
-					  34),
-				  VALUE, false));
+					  VALUE);
 	}
 	return new_ok_result(vm, FLOAT_VAL(acos(num)));
 }
@@ -178,15 +160,10 @@ ObjectResult *ln_function(VM *vm, const int arg_count, const Value *args)
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(vm,
-					    "Cannot calculate natural "
-					    "logarithm of non positive number.",
-					    58),
-				VALUE, false));
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Cannot calculate natural logarithm "
+					  "of non positive number.",
+					  VALUE);
 	}
 	return new_ok_result(vm, FLOAT_VAL(log(AS_FLOAT(args[0]))));
 }
@@ -200,15 +177,10 @@ ObjectResult *log10_function(VM *vm, const int arg_count, const Value *args)
 
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(vm,
-					    "Cannot calculate base 10 "
-					    "logarithm of non positive number.",
-					    58),
-				VALUE, false));
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Cannot calculate base 10 logarithm "
+					  "of non positive number.",
+					  VALUE);
 	}
 
 	return new_ok_result(vm, FLOAT_VAL(log10(AS_FLOAT(args[0]))));

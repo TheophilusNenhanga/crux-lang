@@ -620,7 +620,7 @@ static ObjectFunction *end_compiler(void)
 	}
 #endif
 
-	function->module_record = current->owner->currentModuleRecord;
+	function->module_record = current->owner->current_module_record;
 	current = current->enclosing;
 	return function;
 }
@@ -1462,16 +1462,16 @@ static void struct_declaration(void)
 {
 	consume(TOKEN_IDENTIFIER, "Expected class name");
 	const Token structName = parser.previous;
-	GC_PROTECT_START(current->owner->currentModuleRecord);
+	GC_PROTECT_START(current->owner->current_module_record);
 	ObjectString *structNameString = copy_string(current->owner,
 						    structName.start,
 						    structName.length);
-	GC_PROTECT(current->owner->currentModuleRecord,
+	GC_PROTECT(current->owner->current_module_record,
 		   OBJECT_VAL(structNameString));
 	const uint16_t nameConstant = identifier_constant(&structName);
 	ObjectStruct *structObject = new_struct_type(current->owner,
 						   structNameString);
-	GC_PROTECT(current->owner->currentModuleRecord,
+	GC_PROTECT(current->owner->current_module_record,
 		   OBJECT_VAL(structObject));
 
 	declare_variable();
@@ -1504,7 +1504,7 @@ static void struct_declaration(void)
 				current->owner, parser.previous.start,
 				parser.previous.length);
 
-			GC_PROTECT(current->owner->currentModuleRecord,
+			GC_PROTECT(current->owner->current_module_record,
 				   OBJECT_VAL(fieldName));
 
 			Value fieldNameCheck;
@@ -1525,7 +1525,7 @@ static void struct_declaration(void)
 	if (fieldCount != 0) {
 		consume(TOKEN_RIGHT_BRACE, "Expected '}' after struct body");
 	}
-	GC_PROTECT_END(current->owner->currentModuleRecord);
+	GC_PROTECT_END(current->owner->current_module_record);
 }
 
 static void result_unwrap(bool can_assign __attribute__((unused)))
@@ -2222,7 +2222,7 @@ ObjectFunction *compile(VM *vm, char *source)
 
 	ObjectFunction *function = end_compiler();
 	if (function != NULL) {
-		function->module_record = vm->currentModuleRecord;
+		function->module_record = vm->current_module_record;
 	}
 	return parser.had_error ? NULL : function;
 }

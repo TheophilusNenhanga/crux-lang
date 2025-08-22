@@ -1,4 +1,4 @@
-#include <string.h>
+#include "../panic.h"
 #include <time.h>
 #ifdef _WIN32
 #include <windows.h>
@@ -28,7 +28,7 @@ Value time_milliseconds_function_(VM *vm __attribute__((unused)),
 	ULARGE_INTEGER uli;
 	uli.LowPart = ft.dwLowDateTime;
 	uli.HighPart = ft.dwHighDateTime;
-	uint64_t ms = (uli.QuadPart - 116444736000000000ULL) / 10000;
+	const uint64_t ms = (uli.QuadPart - 116444736000000000ULL) / 10000;
 #else
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
@@ -43,34 +43,19 @@ ObjectResult *sleep_seconds_function(VM *vm,
 				     const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Parameter <duration> must be "
-						"of type 'int' | 'float'.",
-						54),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Parameter <duration> must be of type 'int' | 'float'.", TYPE);
 	}
 
-	double seconds = AS_FLOAT(args[0]);
+	const double seconds = AS_FLOAT(args[0]);
 	if (seconds < 0) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(vm,
-					   "Sleep duration cannot be negative.",
-					   34),
-				VALUE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Sleep duration cannot be negative.", VALUE);
 	}
 
 #ifdef _WIN32
 	Sleep((DWORD)(seconds * 1000));
 #else
 	sleep((unsigned int)seconds);
-
 #endif
-
 	return new_ok_result(vm, NIL_VAL);
 }
 
@@ -79,25 +64,12 @@ ObjectResult *sleep_milliseconds_function(VM *vm,
 					  const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Parameter <duration> must be "
-						"of type 'int' | 'float'.",
-						54),
-				     TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Parameter <duration> must be of type 'int' | 'float'.", TYPE);
 	}
 
 	const double milliseconds = AS_FLOAT(args[0]);
 	if (milliseconds < 0) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(vm,
-					   "Sleep duration cannot be negative.",
-					   34),
-				VALUE, false));
+		return MAKE_GC_SAFE_ERROR(vm , "Sleep duration cannot be negative.", VALUE);
 	}
 
 #ifdef _WIN32

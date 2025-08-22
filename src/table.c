@@ -50,6 +50,7 @@ static Entry *find_entry(Entry *entries, const int capacity,
 	}
 }
 
+// Can cause GC. Table must be GC protected
 static void adjust_capacity(VM *vm, Table *table, const int capacity)
 {
 	Entry *entries = ALLOCATE(vm, Entry, capacity);
@@ -73,6 +74,7 @@ static void adjust_capacity(VM *vm, Table *table, const int capacity)
 	table->capacity = capacity;
 }
 
+// Can cause GC. Key, Value and Table must be GC protected
 bool table_set(VM *vm, Table *table, ObjectString *key, const Value value)
 {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {

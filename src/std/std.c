@@ -187,14 +187,14 @@ static const Callable vectorFunctions[] = {{"Vec2", new_vec2_function, 2},
 					   {"Vec3", new_vec3_function, 3}};
 
 static const Callable vec2Methods[] = {
-	{"dot", vec_2dot_method, 2},
+	{"dot", vec2_dot_method, 2},
 	{"add", vec2_add_method, 2},
 	{"subtract", vec2_subtract_method, 2},
 	{"multiply", vec2_multiply_method, 2},
-	{"divide", vec_2divide_method, 2},
+	{"divide", vec2_divide_method, 2},
 	{"magnitude", vec2_magnitude_method, 1},
 	{"normalize", vec2_normalize_method, 1},
-	{"distance", vec_2distance_method, 2},
+	{"distance", vec2_distance_method, 2},
 	{"angle", vec2_angle_method, 1},
 	{"rotate", vec2_rotate_method, 2},
 	{"lerp", vec2_lerp_method, 3},
@@ -208,14 +208,14 @@ static const InfallibleCallable vec2InfallibleMethods[] = {
 };
 
 static const Callable vec3Methods[] = {
-	{"dot", vec_3dot_method, 2},
+	{"dot", vec3_dot_method, 2},
 	{"add", vec3_add_method, 2},
 	{"subtract", vec3_subtract_method, 2},
 	{"multiply", vec3_multiply_method, 2},
-	{"divide", vec_3divide_method, 2},
+	{"divide", vec3_divide_method, 2},
 	{"magnitude", vec3_magnitude_method, 1},
 	{"normalize", vec3_normalize_method, 1},
-	{"distance", vec_3distance_method, 2},
+	{"distance", vec3_distance_method, 2},
 	{"angle_between", vec3_angle_between_method, 2},
 	{"cross", vec3_cross_method, 2},
 	{"lerp", vec3_lerp_method, 3},
@@ -279,7 +279,7 @@ static bool registerNativeFunction(VM *vm, Table *functionTable,
 				   const char *functionName,
 				   const CruxCallable function, const int arity)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
 					(int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
@@ -301,7 +301,7 @@ static bool registerNativeInfallibleFunction(
 	VM *vm, Table *functionTable, const char *functionName,
 	const CruxInfallibleCallable function, const int arity)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->currentModuleRecord;
+	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
 					(int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
@@ -417,14 +417,14 @@ static bool initTypeMethodTable(VM *vm, Table *methodTable,
 
 bool initialize_std_lib(VM *vm)
 {
-	if (!registerNativeFunctions(vm, &vm->currentModuleRecord->globals,
+	if (!registerNativeFunctions(vm, &vm->current_module_record->globals,
 				     coreFunctions,
 				     ARRAY_COUNT(coreFunctions))) {
 		return false;
 	}
 
 	if (!registerNativeInfallibleFunctions(
-		    vm, &vm->currentModuleRecord->globals,
+		    vm, &vm->current_module_record->globals,
 		    coreInfallibleFunctions,
 		    ARRAY_COUNT(coreInfallibleFunctions))) {
 		return false;

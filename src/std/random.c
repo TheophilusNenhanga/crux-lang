@@ -1,4 +1,5 @@
 #include "random.h"
+#include "../panic.h"
 
 #define A 25214903917
 #define C 11
@@ -12,11 +13,7 @@ ObjectResult *random_seed_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	const Value seed = args[1];
 	if (!IS_INT(seed)) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "Seed must be a number.", 22),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.", RUNTIME);
 	}
 
 	const uint64_t seedInt = (uint64_t)AS_INT(seed);
@@ -53,7 +50,11 @@ Value random_next_method(VM *vm __attribute__((unused)),
 Value random_init_function(VM *vm, int arg_count __attribute__((unused)),
 			   const Value *args __attribute__((unused)))
 {
-	return OBJECT_VAL(new_random(vm));
+	ObjectRandom* random_obj = new_random(vm);
+	push(vm->current_module_record, OBJECT_VAL(random_obj));
+	Value result = OBJECT_VAL(random_obj);
+	pop(vm->current_module_record);
+	return result;
 }
 
 // Returns a random integer in the range [min, max] inclusive
@@ -64,28 +65,14 @@ ObjectResult *random_int_method(VM *vm, int arg_count __attribute__((unused)),
 	const Value max = args[2];
 
 	if (!IS_INT(min) || !IS_INT(max)) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Arguments must be of type 'int'.",
-					    32),
-				 TYPE, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Arguments must be of type 'int'.", TYPE);
 	}
 
 	const int32_t minInt = AS_INT(min);
 	const int32_t maxInt = AS_INT(max);
 
 	if (minInt > maxInt) {
-		return new_error_result(
-			vm,
-			new_error(
-				vm,
-				copy_string(
-					vm,
-					"Min must be less than or equal to max",
-					37),
-				RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Min must be less than or equal to max", RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -103,24 +90,12 @@ ObjectResult *random_double_method(VM *vm, int arg_count __attribute__((unused))
 	const Value min = args[1];
 	const Value max = args[2];
 
-	if (!IS_FLOAT(min) && !IS_INT(max)) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Parameter <min> must be a number.",
-					    33),
-				 RUNTIME, false));
+	if (!IS_FLOAT(min) && !IS_INT(min)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Parameter <min> must be a number.", RUNTIME);
 	}
 
 	if (!IS_FLOAT(max) && !IS_INT(max)) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm,
-					    "Parameter <max> must be a number.",
-					    33),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Parameter <max> must be a number.", RUNTIME);
 	}
 
 	const double minDouble = IS_FLOAT(min) ? AS_FLOAT(min)
@@ -129,14 +104,7 @@ ObjectResult *random_double_method(VM *vm, int arg_count __attribute__((unused))
 					       : (double)AS_INT(max);
 
 	if (minDouble > maxDouble) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Parameter <min> must be less "
-						"than or equal to "
-						"parameter <max>.",
-						62),
-				     RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Parameter <min> must be less than or equal to parameter <max>.", RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -152,26 +120,13 @@ ObjectResult *random_bool_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	const Value p = args[1];
 	if (!IS_FLOAT(p) && !IS_INT(p)) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm,
-						"Argument must be of type "
-						"'int' | 'float'.",
-						41),
-				     RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Argument must be of type 'int' | 'float'.", RUNTIME);
 	}
 
 	const double prob = IS_FLOAT(p) ? AS_FLOAT(p) : (double)AS_INT(p);
 
 	if (prob < 0 || prob > 1) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(
-					 vm,
-					 "Probability must be between 0 and 1",
-					 37),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Probability must be between 0 and 1", RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -186,20 +141,12 @@ ObjectResult *random_choice_method(VM *vm, int arg_count __attribute__((unused))
 {
 	const Value array = args[1];
 	if (!IS_CRUX_ARRAY(array)) {
-		return new_error_result(
-			vm, new_error(vm,
-				     copy_string(vm, "Argument must be an array",
-						25),
-				     RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array", RUNTIME);
 	}
 
 	const ObjectArray *arr = AS_CRUX_ARRAY(array);
 	if (arr->size == 0) {
-		return new_error_result(
-			vm,
-			new_error(vm,
-				 copy_string(vm, "Array cannot be empty", 20),
-				 RUNTIME, false));
+		return MAKE_GC_SAFE_ERROR(vm, "Array cannot be empty", RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);

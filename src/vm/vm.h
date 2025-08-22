@@ -70,7 +70,7 @@ struct VM {
 	Table strings;
 
 	Table module_cache;
-	ObjectModuleRecord *currentModuleRecord;
+	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
 
 	Table random_type;

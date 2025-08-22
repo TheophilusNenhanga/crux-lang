@@ -39,8 +39,8 @@ void free_chunk(VM *vm, Chunk *chunk)
 
 int add_constant(VM *vm, Chunk *chunk, const Value value)
 {
-	push(vm->currentModuleRecord, value);
+	push(vm->current_module_record, value);
 	write_value_array(vm, &chunk->constants, value);
-	pop(vm->currentModuleRecord);
+	pop(vm->current_module_record);
 	return chunk->constants.count - 1;
 }

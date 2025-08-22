@@ -1,4 +1,4 @@
-# Stella Language Grammar
+# Crux Language Grammar
 
 ## Formal Grammar
 
