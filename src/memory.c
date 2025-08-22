@@ -45,9 +45,9 @@ void mark_object(VM *vm, Object *object)
 {
 	if (object == NULL)
 		return;
-	if (object->is_marked)
+	if (OBJECT_GET_MARKED(object))
 		return;
-	object->is_marked = true;
+	OBJECT_SET_MARKED(object, true);
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
@@ -127,7 +127,7 @@ static void mark_object_struct(VM *vm, ObjectStruct *structure)
 {
 	mark_object(vm, (Object *)structure->name);
 	mark_table(vm, &structure->fields);
-	structure->object.is_marked = true;
+	OBJECT_SET_MARKED(&structure->object, true);
 }
 
 static void mark_struct_instance(VM *vm, ObjectStructInstance *instance)
@@ -136,7 +136,7 @@ static void mark_struct_instance(VM *vm, ObjectStructInstance *instance)
 		mark_value(vm, instance->fields[i]);
 	}
 	mark_object_struct(vm, instance->struct_type);
-	instance->object.is_marked = true;
+	OBJECT_SET_MARKED(&instance->object, true);
 }
 
 /**
@@ -157,7 +157,7 @@ static void blacken_object(VM *vm, Object *object)
 	printf("\n");
 #endif
 
-	switch (object->type) {
+	switch (OBJECT_TYPE(OBJECT_VAL(object))) {
 	case OBJECT_CLOSURE: {
 		const ObjectClosure *closure = (ObjectClosure *)object;
 		mark_object(vm, (Object *)closure->function);
@@ -295,7 +295,6 @@ static void blacken_object(VM *vm, Object *object)
 	case OBJECT_VEC2:
 	case OBJECT_VEC3:
 	case OBJECT_STRING: {
-		object->is_marked = true;
 		break;
 	}
 	}
@@ -315,9 +314,9 @@ static void blacken_object(VM *vm, Object *object)
 static void free_object(VM *vm, Object *object)
 {
 #ifdef DEBUG_LOG_GC
-	printf("%p free type %d\n", (void *)object, object->type);
+	printf("%p free type %d\n", (void *)object, OBJECT_TYPE(OBJECT_VAL(object)));
 #endif
-	switch (object->type) {
+	switch (OBJECT_TYPE(OBJECT_VAL(object))) {
 	case OBJECT_STRING: {
 		const ObjectString *string = (ObjectString *)object;
 		FREE_ARRAY(vm, char, string->chars, string->length + 1);
@@ -562,15 +561,15 @@ static void sweep(VM *vm)
 	Object *previous = NULL;
 	Object *object = vm->objects;
 	while (object != NULL) {
-		if (object->is_marked) {
-			object->is_marked = false;
+		if (OBJECT_GET_MARKED(object)) {
+			OBJECT_SET_MARKED(object, false);
 			previous = object;
-			object = object->next;
+			object = OBJECT_GET_NEXT(object);
 		} else {
 			Object *unreached = object;
-			object = object->next;
+			object = OBJECT_GET_NEXT(object);
 			if (previous != NULL) {
-				previous->next = object;
+				OBJECT_SET_NEXT(previous, object);
 			} else {
 				vm->objects = object;
 			}
@@ -606,7 +605,7 @@ void free_objects(VM *vm)
 {
 	Object *object = vm->objects;
 	while (object != NULL) {
-		Object *next = object->next;
+		Object *next = OBJECT_GET_NEXT(object);
 		free_object(vm, object);
 		object = next;
 	}

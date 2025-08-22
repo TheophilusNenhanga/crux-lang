@@ -7,61 +7,68 @@
 
 #define EPSILON 1e-10
 
+#define TO_DOUBLE(value) IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value))
+
+#define IS_ZERO_SCALAR(scalar) ((scalar) < EPSILON && (scalar) > -EPSILON)
+
+static double vec2_magnitude(const ObjectVec2 *vec) {
+	return vec->x * vec->x + vec->y * vec->y;
+}
+
+static double vec3_magnitude(const ObjectVec3 *vec) {
+	return vec->x * vec->x + vec->y * vec->y + vec->z * vec->z;
+}
+
+static ObjectResult *create_vec2_result(VM *vm, ObjectModuleRecord *module_record,
+					const double x,const  double y) {
+	ObjectVec2 *vec = new_vec2(vm, x, y);
+	push(module_record, OBJECT_VAL(vec));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec));
+	pop(module_record);
+	return res;
+}
+
+static ObjectResult *create_vec3_result(VM *vm, ObjectModuleRecord *module_record,
+					const double x, const double y,
+					const double z) {
+	ObjectVec3 *vec = new_vec3(vm, x, y, z);
+	push(module_record, OBJECT_VAL(vec));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec));
+	pop(module_record);
+	return res;
+}
+
 ObjectResult *new_vec2_function(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
+	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Parameters must be of type 'int' | 'float'.",
+			vm, "Parameters must be of type 'int' or 'float'.",
 			TYPE);
 	}
 
-	const double x = IS_INT(args[0]) ? (double)AS_INT(args[0])
-					 : AS_FLOAT(args[0]);
-	const double y = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					 : AS_FLOAT(args[1]);
+	const double x = TO_DOUBLE(args[0]);
+	const double y = TO_DOUBLE(args[1]);
 
-	ObjectVec2 *vec2 = new_vec2_unsafe(x, y);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(vec2));
-
-	vec2 = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)vec2,
-						      sizeof(ObjectVec2));
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-	return res;
+	return create_vec2_result(vm, vm->current_module_record, x, y);
 }
 
 ObjectResult *new_vec3_function(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if ((!IS_INT(args[0]) && !IS_FLOAT(args[0])) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1])) ||
-	    (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
+	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1]) || !IS_NUMERIC(args[2])) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Parameters must be of type 'int' | 'float'.",
+			vm, "Parameters must be of type 'int' or 'float'.",
 			TYPE);
 	}
 
-	const double x = IS_INT(args[0]) ? (double)AS_INT(args[0])
-					 : AS_FLOAT(args[0]);
-	const double y = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					 : AS_FLOAT(args[1]);
-	const double z = IS_INT(args[2]) ? (double)AS_INT(args[2])
-					 : AS_FLOAT(args[2]);
+	const double x = TO_DOUBLE(args[0]);
+	const double y = TO_DOUBLE(args[1]);
+	const double z = TO_DOUBLE(args[2]);
 
-	ObjectVec3 *vec3 = new_vec3_unsafe(x, y, z);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(vec3));
-
-	vec3 = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)vec3,
-						      sizeof(ObjectVec3));
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-	return res;
+	return create_vec3_result(vm, vm->current_module_record, x, y, z);
 }
 
 ObjectResult *vec2_dot_method(VM *vm,
@@ -104,7 +111,6 @@ ObjectResult *vec2_add_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec2 objects.",
@@ -114,22 +120,14 @@ ObjectResult *vec2_add_method(VM *vm,
 	const ObjectVec2 *vec1 = AS_CRUX_VEC2(args[0]);
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
-	ObjectVec2 *tmp = new_vec2_unsafe(vec1->x + vec2->x, vec1->y + vec2->y);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec2_result(vm, vm->current_module_record,
+				 vec1->x + vec2->x, vec1->y + vec2->y);
 }
 
 ObjectResult *vec3_add_method(VM *vm,
 			      const int arg_count __attribute__((unused)),
 			      const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec3 objects.",
@@ -139,24 +137,14 @@ ObjectResult *vec3_add_method(VM *vm,
 	const ObjectVec3 *vec1 = AS_CRUX_VEC3(args[0]);
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
-	ObjectVec3 *tmp = new_vec3_unsafe(vec1->x + vec2->x, vec1->y + vec2->y,
-					  vec1->z + vec2->z);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec3_result(vm, vm->current_module_record,
+				 vec1->x + vec2->x, vec1->y + vec2->y, vec1->z + vec2->z);
 }
 
 ObjectResult *vec2_subtract_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec2 objects.",
@@ -166,23 +154,14 @@ ObjectResult *vec2_subtract_method(VM *vm,
 	const ObjectVec2 *vec1 = AS_CRUX_VEC2(args[0]);
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
-	ObjectVec2 *tmp = new_vec2_unsafe(vec1->x - vec2->x, vec1->y - vec2->y);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec2_result(vm, vm->current_module_record,
+				 vec1->x - vec2->x, vec1->y - vec2->y);
 }
 
 ObjectResult *vec3_subtract_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec3 objects.",
@@ -192,26 +171,15 @@ ObjectResult *vec3_subtract_method(VM *vm,
 	const ObjectVec3 *vec1 = AS_CRUX_VEC3(args[0]);
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
-	ObjectVec3 *tmp = new_vec3_unsafe(vec1->x - vec2->x, vec1->y - vec2->y,
-					  vec1->z - vec2->z);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec3_result(vm, vm->current_module_record,
+				 vec1->x - vec2->x, vec1->y - vec2->y, vec1->z - vec2->z);
 }
 
 ObjectResult *vec2_multiply_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if (!IS_CRUX_VEC2(args[0]) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
+	if (!IS_CRUX_VEC2(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "multiply method can only be used on "
 					  "Vec2 objects and numbers.",
@@ -219,28 +187,17 @@ ObjectResult *vec2_multiply_method(VM *vm,
 	}
 
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
-	const double scalar = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					      : AS_FLOAT(args[1]);
+	const double scalar = TO_DOUBLE(args[1]);
 
-	ObjectVec2 *tmp = new_vec2_unsafe(vec->x * scalar, vec->y * scalar);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec2_result(vm, vm->current_module_record,
+				 vec->x * scalar, vec->y * scalar);
 }
 
 ObjectResult *vec3_multiply_method(VM *vm,
 				   const int arg_count __attribute__((unused)),
 				   const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if (!IS_CRUX_VEC3(args[0]) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
+	if (!IS_CRUX_VEC3(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "multiply method can only be used on "
 					  "Vec3 objects and numbers.",
@@ -248,29 +205,17 @@ ObjectResult *vec3_multiply_method(VM *vm,
 	}
 
 	const ObjectVec3 *vec = AS_CRUX_VEC3(args[0]);
-	const double scalar = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					      : AS_FLOAT(args[1]);
+	const double scalar = TO_DOUBLE(args[1]);
 
-	ObjectVec3 *tmp = new_vec3_unsafe(vec->x * scalar, vec->y * scalar,
-					  vec->z * scalar);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec3_result(vm, vm->current_module_record,
+				 vec->x * scalar, vec->y * scalar, vec->z * scalar);
 }
 
 ObjectResult *vec2_divide_method(VM *vm,
 				 const int arg_count __attribute__((unused)),
 				 const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if (!IS_CRUX_VEC2(args[0]) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
+	if (!IS_CRUX_VEC2(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "divide method can only be used on "
 					  "Vec2 objects and numbers.",
@@ -278,32 +223,21 @@ ObjectResult *vec2_divide_method(VM *vm,
 	}
 
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
-	const double scalar = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					      : AS_FLOAT(args[1]);
+	const double scalar = TO_DOUBLE(args[1]);
 
-	if (fabs(scalar) < EPSILON) {
+	if (IS_ZERO_SCALAR(scalar)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot divide by zero.", MATH);
 	}
 
-	ObjectVec2 *tmp = new_vec2_unsafe(vec->x / scalar, vec->y / scalar);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec2_result(vm, vm->current_module_record,
+				 vec->x / scalar, vec->y / scalar);
 }
 
 ObjectResult *vec3_divide_method(VM *vm,
 				 const int arg_count __attribute__((unused)),
 				 const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
-	if (!IS_CRUX_VEC3(args[0]) ||
-	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
+	if (!IS_CRUX_VEC3(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "divide method can only be used on "
 					  "Vec3 objects and numbers.",
@@ -311,24 +245,14 @@ ObjectResult *vec3_divide_method(VM *vm,
 	}
 
 	const ObjectVec3 *vec = AS_CRUX_VEC3(args[0]);
-	const double scalar = IS_INT(args[1]) ? (double)AS_INT(args[1])
-					      : AS_FLOAT(args[1]);
+	const double scalar = TO_DOUBLE(args[1]);
 
-	if (fabs(scalar) < EPSILON) {
+	if (IS_ZERO_SCALAR(scalar)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot divide by zero.", MATH);
 	}
 
-	ObjectVec3 *tmp = new_vec3_unsafe(vec->x / scalar, vec->y / scalar,
-					  vec->z / scalar);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec3_result(vm, vm->current_module_record,
+				 vec->x / scalar, vec->y / scalar, vec->z / scalar);
 }
 
 ObjectResult *vec2_magnitude_method(VM *vm,
@@ -343,7 +267,8 @@ ObjectResult *vec2_magnitude_method(VM *vm,
 	}
 
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
-	const double result = sqrt(vec->x * vec->x + vec->y * vec->y);
+	const double squared_mag = vec2_magnitude(vec);
+	const double result = sqrt(squared_mag);
 
 	return new_ok_result(vm, FLOAT_VAL(result));
 }
@@ -360,8 +285,8 @@ ObjectResult *vec3_magnitude_method(VM *vm,
 	}
 
 	const ObjectVec3 *vec = AS_CRUX_VEC3(args[0]);
-	const double result = sqrt(vec->x * vec->x + vec->y * vec->y +
-				   vec->z * vec->z);
+	const double squared_mag = vec3_magnitude(vec);
+	const double result = sqrt(squared_mag);
 
 	return new_ok_result(vm, FLOAT_VAL(result));
 }
@@ -370,7 +295,6 @@ ObjectResult *vec2_normalize_method(VM *vm,
 				    const int arg_count __attribute__((unused)),
 				    const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -379,32 +303,22 @@ ObjectResult *vec2_normalize_method(VM *vm,
 	}
 
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
+	const double squared_mag = vec2_magnitude(vec);
+	const double magnitude = sqrt(squared_mag);
 
-	const double magnitude = sqrt(vec->x * vec->x + vec->y * vec->y);
-
-	if (fabs(magnitude) < EPSILON) {
+	if (IS_ZERO_SCALAR(magnitude)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot normalize a zero vector.",
 					  MATH);
 	}
 
-	ObjectVec2 *tmp = new_vec2_unsafe(vec->x / magnitude,
-					  vec->y / magnitude);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec2_result(vm, vm->current_module_record,
+				 vec->x / magnitude, vec->y / magnitude);
 }
 
 ObjectResult *vec3_normalize_method(VM *vm,
 				    const int arg_count __attribute__((unused)),
 				    const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -413,27 +327,16 @@ ObjectResult *vec3_normalize_method(VM *vm,
 	}
 
 	const ObjectVec3 *vec = AS_CRUX_VEC3(args[0]);
+	const double squared_mag = vec3_magnitude(vec);
+	const double magnitude = sqrt(squared_mag);
 
-	const double magnitude = sqrt(vec->x * vec->x + vec->y * vec->y +
-				      vec->z * vec->z);
-
-	if (fabs(magnitude) < EPSILON) {
+	if (IS_ZERO_SCALAR(magnitude)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot normalize a zero vector.",
 					  MATH);
 	}
 
-	ObjectVec3 *tmp = new_vec3_unsafe(vec->x / magnitude,
-					  vec->y / magnitude,
-					  vec->z / magnitude);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
-	return res;
+	return create_vec3_result(vm, vm->current_module_record,
+				 vec->x / magnitude, vec->y / magnitude, vec->z / magnitude);
 }
 
 // arg_count: 2
@@ -462,6 +365,12 @@ ObjectResult *vec2_angle_method(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
+	if (!IS_CRUX_VEC2(args[0])) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "angle method can only be used on Vec2 objects.",
+			TYPE);
+	}
+
 	const ObjectVec2 *vec = AS_CRUX_VEC2(args[0]);
 	const double result = atan2(vec->y, vec->x);
 	return new_ok_result(vm, FLOAT_VAL(result));
@@ -524,15 +433,10 @@ ObjectResult *vec2_rotate_method(VM *vm,
 	const double newX = vec->x * cosA - vec->y * sinA;
 	const double newY = vec->x * sinA + vec->y * cosA;
 
-	ObjectVec2 *tmp = new_vec2_unsafe(newX, newY);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 
@@ -558,15 +462,10 @@ ObjectResult *vec2_lerp_method(VM *vm,
 	const double newX = vec1->x + t * (vec2->x - vec1->x);
 	const double newY = vec1->y + t * (vec2->y - vec1->y);
 
-	ObjectVec2 *tmp = new_vec2_unsafe(newX, newY);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 
@@ -601,15 +500,10 @@ ObjectResult *vec2_reflect_method(VM *vm,
 	const double newX = incident->x - 2.0 * dot * nx;
 	const double newY = incident->y - 2.0 * dot * ny;
 
-	ObjectVec2 *tmp = new_vec2_unsafe(newX, newY);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec2 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec2));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec2 *tmp = new_vec2(vm, newX, newY);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 
@@ -654,15 +548,10 @@ ObjectResult *vec3_cross_method(VM *vm,
 	const double newY = vec1->z * vec2->x - vec1->x * vec2->z;
 	const double newZ = vec1->x * vec2->y - vec1->y * vec2->x;
 
-	ObjectVec3 *tmp = new_vec3_unsafe(newX, newY, newZ);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 
@@ -726,15 +615,10 @@ ObjectResult *vec3_lerp_method(VM *vm,
 	const double newY = vec1->y + t * (vec2->y - vec1->y);
 	const double newZ = vec1->z + t * (vec2->z - vec1->z);
 
-	ObjectVec3 *tmp = new_vec3_unsafe(newX, newY, newZ);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 
@@ -774,15 +658,10 @@ ObjectResult *vec3_reflect_method(VM *vm,
 	const double newY = incident->y - 2.0 * dot * ny;
 	const double newZ = incident->z - 2.0 * dot * nz;
 
-	ObjectVec3 *tmp = new_vec3_unsafe(newX, newY, newZ);
-	ObjectResult *res = new_ok_result_unsafe(OBJECT_VAL(tmp));
-
-	tmp = (ObjectVec3 *)vm_take_object_ownership(vm, (Object *)tmp,
-						     sizeof(ObjectVec3));
-
-	res = (ObjectResult *)vm_take_object_ownership(vm, (Object *)res,
-						       sizeof(ObjectResult));
-
+	ObjectVec3 *tmp = new_vec3(vm, newX, newY, newZ);
+	push(module_record, OBJECT_VAL(tmp));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(module_record);
 	return res;
 }
 

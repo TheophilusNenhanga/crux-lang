@@ -167,7 +167,7 @@ void table_remove_white(const Table *table)
 {
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		if (entry->key != NULL && !entry->key->Object.is_marked) {
+		if (entry->key != NULL && !OBJECT_GET_MARKED(&entry->key->Object)) {
 			table_delete(table, entry->key);
 		}
 	}

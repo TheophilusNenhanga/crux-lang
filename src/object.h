@@ -61,6 +61,22 @@ ObjectResult *make_gc_safe_error(void);
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 
+// Helper macros for working with packed Object
+#define OBJECT_SET_NEXT(obj, next_ptr) \
+	((obj)->next = (uint64_t)(next_ptr) >> 3)
+
+#define OBJECT_GET_NEXT(obj) \
+	((Object *)(((obj)->next << 3) | (uint64_t)(obj) & 0x7))
+
+#define OBJECT_SET_TYPE(obj, obj_type) \
+	((obj)->type = (obj_type))
+
+#define OBJECT_SET_MARKED(obj, marked) \
+	((obj)->is_marked = (marked))
+
+#define OBJECT_GET_MARKED(obj) \
+	((obj)->is_marked)
+
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
 #define IS_CRUX_NATIVE_FUNCTION(value)                                         \
@@ -146,10 +162,10 @@ typedef enum {
 } ObjectType;
 
 struct Object {
-	Object *next;
-	ObjectType type;
-	bool is_marked;
-};
+	uint64_t next : 57;      // next object
+	uint64_t type : 6;       // object type (supports up to 64 types)
+	uint64_t is_marked : 1;  // GC mark flag
+} __attribute__((packed));
 
 struct ObjectString {
 	Object Object;
@@ -787,30 +803,5 @@ bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
 			bool is_repl, bool is_main);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
-
-/**
- * @brief Transfers ownership of a malloc-allocated object to the VM.
- *
- * This function takes an object that was allocated with malloc() and integrates
- * it into the VM's object management system. The object will be tracked by the
- * garbage collector and properly freed when no longer reachable. The object's
- * memory allocation is counted toward the VM's allocated bytes.
- *
- * IMPORTANT: After calling this function, you must not manually free() the
- * object - it is now owned by the VM and will be freed during garbage collection.
- *
- * @param vm The virtual machine that will take ownership of the object.
- * @param object The malloc-allocated object to transfer. Must not be NULL.
- * @param object_size The size in bytes of the object (used for GC accounting).
- *
- * @return The same object pointer, now managed by the VM.
- */
-Object *vm_take_object_ownership(VM *vm, Object *object, size_t object_size);
-
-ObjectVec2 *new_vec2_unsafe(double x, double y);
-
-ObjectVec3 *new_vec3_unsafe(double x, double y, double z);
-
-ObjectResult* new_ok_result_unsafe(Value value);
 
 #endif

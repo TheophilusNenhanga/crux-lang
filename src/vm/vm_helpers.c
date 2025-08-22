@@ -330,7 +330,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count)
 
 	const Object *object = AS_CRUX_OBJECT(receiver);
 	arg_count++; // for the value that the method will act on
-	switch (object->type) {
+	switch (OBJECT_TYPE(receiver)) {
 	case OBJECT_STRING: {
 		Value value;
 		if (table_get(&vm->string_type, name, &value)) {
