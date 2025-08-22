@@ -11,9 +11,9 @@ ObjectResult *array_push_method(VM *vm, int arg_count __attribute__((unused)),
 				const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-	const Value toAdd = args[1];
+	const Value to_add = args[1];
 
-	if (!array_add(vm, array, toAdd, array->size)) {
+	if (!array_add(vm, array, to_add, array->size)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to add to array.", RUNTIME);
 	}
 
@@ -46,18 +46,18 @@ ObjectResult *array_insert_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 
 	const Value toInsert = args[1];
-	const uint32_t insertAt = AS_INT(args[2]);
+	const uint32_t insert_at = AS_INT(args[2]);
 
-	if (insertAt > array->size) {
+	if (insert_at > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
 	if (ensure_capacity(vm, array, array->size + 1)) {
-		for (uint32_t i = array->size; i > insertAt; i--) {
+		for (uint32_t i = array->size; i > insert_at; i--) {
 			array->values[i] = array->values[i - 1];
 		}
 
-		array->values[insertAt] = toInsert;
+		array->values[insert_at] = toInsert;
 		array->size++;
 	} else {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate enough memory for new array.", MEMORY);
@@ -81,14 +81,14 @@ ObjectResult *array_remove_at_method(VM *vm,
 		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
-	const Value removedElement = array->values[removeAt];
+	const Value removed_element = array->values[removeAt];
 
 	for (uint32_t i = removeAt; i < array->size - 1; i++) {
 		array->values[i] = array->values[i + 1];
 	}
 
 	array->size--;
-	return new_ok_result(vm, removedElement);
+	return new_ok_result(vm, removed_element);
 }
 
 ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
@@ -102,21 +102,21 @@ ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
 
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
-	const uint32_t combinedSize = targetArray->size + array->size;
-	if (combinedSize > MAX_ARRAY_SIZE) {
+	const uint32_t combined_size = targetArray->size + array->size;
+	if (combined_size > MAX_ARRAY_SIZE) {
 		return MAKE_GC_SAFE_ERROR(vm, "Size of resultant array out of bounds.", BOUNDS);
 	}
 
-	ObjectArray *resultArray = new_array(vm, combinedSize, vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, combined_size, vm->current_module_record);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
-	for (uint32_t i = 0; i < combinedSize; i++) {
+	for (uint32_t i = 0; i < combined_size; i++) {
 		resultArray->values[i] =
 			i < array->size ? array->values[i]
 					: targetArray->values[i - array->size];
 	}
 
-	resultArray->size = combinedSize;
+	resultArray->size = combined_size;
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(vm->current_module_record);
@@ -136,27 +136,27 @@ ObjectResult *array_slice_method(VM *vm, int arg_count __attribute__((unused)),
 		return MAKE_GC_SAFE_ERROR(vm, "<end_index> must be of type 'number'.", TYPE);
 	}
 
-	const uint32_t startIndex = AS_INT(args[1]);
-	const uint32_t endIndex = AS_INT(args[2]);
+	const uint32_t start_index = AS_INT(args[1]);
+	const uint32_t end_index = AS_INT(args[2]);
 
-	if (startIndex > array->size) {
+	if (start_index > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.", BOUNDS);
 	}
 
-	if (endIndex > array->size) {
+	if (end_index > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<end_index> out of bounds.", BOUNDS);
 	}
 
-	if (endIndex < startIndex) {
+	if (end_index < start_index) {
 		return MAKE_GC_SAFE_ERROR(vm, "indexes out of bounds.", BOUNDS);
 	}
 
-	const size_t sliceSize = endIndex - startIndex;
+	const size_t sliceSize = end_index - start_index;
 	ObjectArray *slicedArray = new_array(vm, sliceSize, vm->current_module_record);
 	push(vm->current_module_record, OBJECT_VAL(slicedArray));
 
 	for (size_t i = 0; i < sliceSize; i++) {
-		slicedArray->values[i] = array->values[startIndex + i];
+		slicedArray->values[i] = array->values[start_index + i];
 		slicedArray->size += 1;
 	}
 
@@ -565,7 +565,7 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", RUNTIME);
 	}
 
-	size_t actualLength = 0;
+	size_t actual_length = 0;
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		ObjectString *element = to_string(vm, array->values[i]);
@@ -576,7 +576,7 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 			neededSpace += separator->length;
 		}
 
-		if (actualLength + neededSpace > bufferSize) {
+		if (actual_length + neededSpace > bufferSize) {
 			// Grow the buffer by 50%
 			const size_t newSize = (size_t)(((double)bufferSize *
 							 1.5) +
@@ -592,28 +592,28 @@ ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
 		}
 
 		if (i > 0) {
-			memcpy(buffer + actualLength, separator->chars,
+			memcpy(buffer + actual_length, separator->chars,
 			       separator->length);
-			actualLength += separator->length;
+			actual_length += separator->length;
 		}
 
-		memcpy(buffer + actualLength, element->chars, element->length);
-		actualLength += element->length;
+		memcpy(buffer + actual_length, element->chars, element->length);
+		actual_length += element->length;
 
 		pop(vm->current_module_record); // element
 	}
 
-	if (actualLength >= bufferSize) {
-		char *newBuffer = realloc(buffer, actualLength + 1);
+	if (actual_length >= bufferSize) {
+		char *newBuffer = realloc(buffer, actual_length + 1);
 		if (!newBuffer) {
 			free(buffer);
 			return MAKE_GC_SAFE_ERROR(vm, "Memory reallocation failed", MEMORY);
 		}
 		buffer = newBuffer;
 	}
-	buffer[actualLength] = '\0';
+	buffer[actual_length] = '\0';
 
-	ObjectString *result = take_string(vm, buffer, (uint32_t)actualLength);
+	ObjectString *result = take_string(vm, buffer, (uint32_t)actual_length);
 	push(vm->current_module_record, OBJECT_VAL(result));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);

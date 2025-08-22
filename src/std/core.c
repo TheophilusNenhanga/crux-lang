@@ -2,7 +2,6 @@
 
 #include <stdlib.h>
 
-#include "../memory.h"
 #include "../object.h"
 #include "../panic.h"
 
@@ -70,7 +69,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 			pop(vm->current_module_record); // char_str
 		}
 
-		Value result = OBJECT_VAL(array);
+		const Value result = OBJECT_VAL(array);
 		pop(vm->current_module_record); // array
 		return result;
 	}
@@ -97,7 +96,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 			}
 		}
 
-		Value result = OBJECT_VAL(array);
+		const Value result = OBJECT_VAL(array);
 		pop(vm->current_module_record); // array
 		return result;
 	}
@@ -105,7 +104,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 	ObjectArray *array = new_array(vm, 1, vm->current_module_record);
 	push(vm->current_module_record, OBJECT_VAL(array));
 	array_add(vm, array, value, 0);
-	Value result = OBJECT_VAL(array);
+	const Value result = OBJECT_VAL(array);
 	pop(vm->current_module_record); // array
 	return result;
 }
@@ -130,7 +129,7 @@ static Value cast_table(VM *vm, const Value *args)
 			object_table_set(vm, table, k, v);
 		}
 
-		Value result = OBJECT_VAL(table);
+		const Value result = OBJECT_VAL(table);
 		pop(vm->current_module_record); // table
 		return result;
 	}
@@ -147,7 +146,7 @@ static Value cast_table(VM *vm, const Value *args)
 			pop(vm->current_module_record); // char_str
 		}
 
-		Value result = OBJECT_VAL(table);
+		const Value result = OBJECT_VAL(table);
 		pop(vm->current_module_record); // table
 		return result;
 	}
@@ -155,7 +154,7 @@ static Value cast_table(VM *vm, const Value *args)
 	ObjectTable *table = new_table(vm, 1, moduleRecord);
 	push(vm->current_module_record, OBJECT_VAL(table));
 	object_table_set(vm, table, INT_VAL(0), value);
-	Value result = OBJECT_VAL(table);
+	const Value result = OBJECT_VAL(table);
 	pop(vm->current_module_record); // table
 	return result;
 }
