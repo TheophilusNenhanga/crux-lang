@@ -149,6 +149,58 @@ static void mark_struct_instance(VM *vm, ObjectStructInstance *instance)
  * @param vm The virtual machine.
  * @param object The object to blacken.
  */
+// Function pointer types for dispatch tables
+typedef void (*BlackenFunction)(VM *vm, Object *object);
+typedef void (*FreeFunction)(VM *vm, Object *object);
+
+// Forward declarations for blacken functions
+static void blacken_closure(VM *vm, Object *object);
+static void blacken_function(VM *vm, Object *object);
+static void blacken_upvalue(VM *vm, Object *object);
+static void blacken_static_array(VM *vm, Object *object);
+static void blacken_array(VM *vm, Object *object);
+static void blacken_static_table(VM *vm, Object *object);
+static void blacken_table(VM *vm, Object *object);
+static void blacken_error(VM *vm, Object *object);
+static void blacken_native_function(VM *vm, Object *object);
+static void blacken_native_method(VM *vm, Object *object);
+static void blacken_native_infallible_function(VM *vm, Object *object);
+static void blacken_native_infallible_method(VM *vm, Object *object);
+static void blacken_result(VM *vm, Object *object);
+static void blacken_random(VM *vm, Object *object);
+static void blacken_file(VM *vm, Object *object);
+static void blacken_module_record(VM *vm, Object *object);
+static void blacken_struct(VM *vm, Object *object);
+static void blacken_struct_instance(VM *vm, Object *object);
+static void blacken_vec2(VM *vm, Object *object);
+static void blacken_vec3(VM *vm, Object *object);
+static void blacken_string(VM *vm, Object *object);
+
+// Blacken dispatch table - indexed by ObjectType
+static const BlackenFunction blacken_dispatch[] = {
+	[OBJECT_STRING] = blacken_string,
+	[OBJECT_FUNCTION] = blacken_function,
+	[OBJECT_NATIVE_FUNCTION] = blacken_native_function,
+	[OBJECT_NATIVE_METHOD] = blacken_native_method,
+	[OBJECT_CLOSURE] = blacken_closure,
+	[OBJECT_UPVALUE] = blacken_upvalue,
+	[OBJECT_ARRAY] = blacken_array,
+	[OBJECT_TABLE] = blacken_table,
+	[OBJECT_ERROR] = blacken_error,
+	[OBJECT_RESULT] = blacken_result,
+	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = blacken_native_infallible_function,
+	[OBJECT_NATIVE_INFALLIBLE_METHOD] = blacken_native_infallible_method,
+	[OBJECT_RANDOM] = blacken_random,
+	[OBJECT_FILE] = blacken_file,
+	[OBJECT_MODULE_RECORD] = blacken_module_record,
+	[OBJECT_STATIC_ARRAY] = blacken_static_array,
+	[OBJECT_STATIC_TABLE] = blacken_static_table,
+	[OBJECT_STRUCT] = blacken_struct,
+	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
+	[OBJECT_VEC2] = blacken_vec2,
+	[OBJECT_VEC3] = blacken_vec3,
+};
+
 static void blacken_object(VM *vm, Object *object)
 {
 #ifdef DEBUG_LOG_GC
@@ -157,147 +209,138 @@ static void blacken_object(VM *vm, Object *object)
 	printf("\n");
 #endif
 
-	switch (OBJECT_TYPE(OBJECT_VAL(object))) {
-	case OBJECT_CLOSURE: {
-		const ObjectClosure *closure = (ObjectClosure *)object;
-		mark_object(vm, (Object *)closure->function);
-		for (int i = 0; i < closure->upvalue_count; i++) {
-			mark_object(vm, (Object *)closure->upvalues[i]);
-		}
-		break;
+	const ObjectType type = OBJECT_TYPE(OBJECT_VAL(object));
+	if (type < (ObjectType)(sizeof(blacken_dispatch) / sizeof(blacken_dispatch[0]))) {
+		blacken_dispatch[type](vm, object);
 	}
+}
 
-	case OBJECT_FUNCTION: {
-		const ObjectFunction *function = (ObjectFunction *)object;
-		mark_object(vm, (Object *)function->name);
-		mark_object(vm, (Object *)function->module_record);
-		mark_array(vm, &function->chunk.constants);
-		break;
+static void blacken_closure(VM *vm, Object *object) {
+	const ObjectClosure *closure = (ObjectClosure *)object;
+	mark_object(vm, (Object *)closure->function);
+	for (int i = 0; i < closure->upvalue_count; i++) {
+		mark_object(vm, (Object *)closure->upvalues[i]);
 	}
+}
 
-	case OBJECT_UPVALUE: {
-		mark_value(vm, ((ObjectUpvalue *)object)->closed);
-		break;
-	}
+static void blacken_function(VM *vm, Object *object) {
+	const ObjectFunction *function = (ObjectFunction *)object;
+	mark_object(vm, (Object *)function->name);
+	mark_object(vm, (Object *)function->module_record);
+	mark_array(vm, &function->chunk.constants);
+}
 
-	case OBJECT_STATIC_ARRAY: {
-		const ObjectStaticArray *staticArray = (ObjectStaticArray *)
-			object;
-		mark_object_array(vm, staticArray->values, staticArray->size);
-		break;
-	}
-	case OBJECT_ARRAY: {
-		const ObjectArray *array = (ObjectArray *)object;
-		mark_object_array(vm, array->values, array->size);
-		break;
-	}
+static void blacken_upvalue(VM *vm, Object *object) {
+	mark_value(vm, ((ObjectUpvalue *)object)->closed);
+}
 
-	case OBJECT_STATIC_TABLE: {
-		const ObjectStaticTable *table = (ObjectStaticTable *)object;
-		mark_object_table(vm, table->entries, table->size);
-		break;
-	}
-	case OBJECT_TABLE: {
-		const ObjectTable *table = (ObjectTable *)object;
-		mark_object_table(vm, table->entries, table->capacity);
-		break;
-	}
+static void blacken_static_array(VM *vm, Object *object) {
+	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+	mark_object_array(vm, staticArray->values, staticArray->size);
+}
 
-	case OBJECT_ERROR: {
-		const ObjectError *error = (ObjectError *)object;
-		mark_object(vm, (Object *)error->message);
-		break;
-	}
+static void blacken_array(VM *vm, Object *object) {
+	const ObjectArray *array = (ObjectArray *)object;
+	mark_object_array(vm, array->values, array->size);
+}
 
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = (ObjectNativeFunction *)
-			object;
-		mark_object(vm, (Object *)native->name);
-		break;
-	}
+static void blacken_static_table(VM *vm, Object *object) {
+	const ObjectStaticTable *table = (ObjectStaticTable *)object;
+	mark_object_table(vm, table->entries, table->size);
+}
 
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = (ObjectNativeMethod *)object;
-		mark_object(vm, (Object *)native->name);
-		break;
-	}
+static void blacken_table(VM *vm, Object *object) {
+	const ObjectTable *table = (ObjectTable *)object;
+	mark_object_table(vm, table->entries, table->capacity);
+}
 
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			(ObjectNativeInfallibleFunction *)object;
-		mark_object(vm, (Object *)native->name);
-		break;
-	}
+static void blacken_error(VM *vm, Object *object) {
+	const ObjectError *error = (ObjectError *)object;
+	mark_object(vm, (Object *)error->message);
+}
 
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		const ObjectNativeInfallibleMethod *native =
-			(ObjectNativeInfallibleMethod *)object;
-		mark_object(vm, (Object *)native->name);
-		break;
-	}
+static void blacken_native_function(VM *vm, Object *object) {
+	const ObjectNativeFunction *native = (ObjectNativeFunction *)object;
+	mark_object(vm, (Object *)native->name);
+}
 
-	case OBJECT_RESULT: {
-		const ObjectResult *result = (ObjectResult *)object;
-		if (result->is_ok) {
-			mark_value(vm, result->as.value);
-		} else {
-			mark_object(vm, (Object *)result->as.error);
-		}
-		break;
-	}
+static void blacken_native_method(VM *vm, Object *object) {
+	const ObjectNativeMethod *native = (ObjectNativeMethod *)object;
+	mark_object(vm, (Object *)native->name);
+}
 
-	case OBJECT_RANDOM: {
-		break;
-	}
+static void blacken_native_infallible_function(VM *vm, Object *object) {
+	const ObjectNativeInfallibleFunction *native = (ObjectNativeInfallibleFunction *)object;
+	mark_object(vm, (Object *)native->name);
+}
 
-	case OBJECT_FILE: {
-		const ObjectFile *file = (ObjectFile *)object;
-		mark_object(vm, (Object *)file->path);
-		mark_object(vm, (Object *)file->mode);
-		break;
-	}
+static void blacken_native_infallible_method(VM *vm, Object *object) {
+	const ObjectNativeInfallibleMethod *native = (ObjectNativeInfallibleMethod *)object;
+	mark_object(vm, (Object *)native->name);
+}
 
-	case OBJECT_MODULE_RECORD: {
-		const ObjectModuleRecord *module = (ObjectModuleRecord *)object;
-		mark_object(vm, (Object *)module->path);
-		mark_table(vm, &module->globals);
-		mark_table(vm, &module->publics);
-		mark_object(vm, (Object *)module->module_closure);
-		mark_object(vm,
-			   (Object *)module->enclosing_module); // Can be NULL
+static void blacken_result(VM *vm, Object *object) {
+	const ObjectResult *result = (ObjectResult *)object;
+	if (result->is_ok) {
+		mark_value(vm, result->as.value);
+	} else {
+		mark_object(vm, (Object *)result->as.error);
+	}
+}
 
-		for (const Value *slot = module->stack; slot < module->stack_top;
-		     slot++) {
-			mark_value(vm, *slot);
-		}
-		for (int i = 0; i < module->frame_count; i++) {
-			mark_object(vm, (Object *)module->frames[i].closure);
-		}
-		for (ObjectUpvalue *upvalue = module->open_upvalues;
-		     upvalue != NULL; upvalue = upvalue->next) {
-			mark_object(vm, (Object *)upvalue);
-		}
-		break;
-	}
+static void blacken_random(VM *vm, Object *object) {
+	(void)vm;
+	(void)object;
+}
 
-	case OBJECT_STRUCT: {
-		ObjectStruct *structure = (ObjectStruct *)object;
-		mark_object_struct(vm, structure);
-		break;
-	}
+static void blacken_file(VM *vm, Object *object) {
+	const ObjectFile *file = (ObjectFile *)object;
+	mark_object(vm, (Object *)file->path);
+	mark_object(vm, (Object *)file->mode);
+}
 
-	case OBJECT_STRUCT_INSTANCE: {
-		ObjectStructInstance *instance = (ObjectStructInstance *)object;
-		mark_struct_instance(vm, instance);
-		break;
-	}
+static void blacken_module_record(VM *vm, Object *object) {
+	const ObjectModuleRecord *module = (ObjectModuleRecord *)object;
+	mark_object(vm, (Object *)module->path);
+	mark_table(vm, &module->globals);
+	mark_table(vm, &module->publics);
+	mark_object(vm, (Object *)module->module_closure);
+	mark_object(vm, (Object *)module->enclosing_module); // Can be NULL
 
-	case OBJECT_VEC2:
-	case OBJECT_VEC3:
-	case OBJECT_STRING: {
-		break;
+	for (const Value *slot = module->stack; slot < module->stack_top; slot++) {
+		mark_value(vm, *slot);
 	}
+	for (int i = 0; i < module->frame_count; i++) {
+		mark_object(vm, (Object *)module->frames[i].closure);
 	}
+	for (ObjectUpvalue *upvalue = module->open_upvalues; upvalue != NULL; upvalue = upvalue->next) {
+		mark_object(vm, (Object *)upvalue);
+	}
+}
+
+static void blacken_struct(VM *vm, Object *object) {
+	ObjectStruct *structure = (ObjectStruct *)object;
+	mark_object_struct(vm, structure);
+}
+
+static void blacken_struct_instance(VM *vm, Object *object) {
+	ObjectStructInstance *instance = (ObjectStructInstance *)object;
+	mark_struct_instance(vm, instance);
+}
+
+static void blacken_vec2(VM *vm, Object *object) {
+	(void)vm;
+	(void)object;
+}
+
+static void blacken_vec3(VM *vm, Object *object) {
+	(void)vm;
+	(void)object;
+}
+
+static void blacken_string(VM *vm, Object *object) {
+	(void)vm;
+	(void)object;
 }
 
 /**
@@ -311,136 +354,180 @@ static void blacken_object(VM *vm, Object *object)
  * @param vm The virtual machine.
  * @param object The object to free.
  */
+
+static void free_object_string(VM *vm, Object *object);
+static void free_object_function(VM *vm, Object *object);
+static void free_object_native_function(VM *vm, Object *object);
+static void free_object_native_method(VM *vm, Object *object);
+static void free_object_native_infallible_function(VM *vm, Object *object);
+static void free_object_native_infallible_method(VM *vm, Object *object);
+static void free_object_closure(VM *vm, Object *object);
+static void free_object_upvalue(VM *vm, Object *object);
+static void free_object_static_array(VM *vm, Object *object);
+static void free_object_static_table_wrapper(VM *vm, Object *object);
+static void free_object_array(VM *vm, Object *object);
+static void free_object_table_wrapper(VM *vm, Object *object);
+static void free_object_error(VM *vm, Object *object);
+static void free_object_result(VM *vm, Object *object);
+static void free_object_random(VM *vm, Object *object);
+static void free_object_file(VM *vm, Object *object);
+static void free_object_module_record_wrapper(VM *vm, Object *object);
+static void free_object_struct(VM *vm, Object *object);
+static void free_object_struct_instance(VM *vm, Object *object);
+static void free_object_vec2(VM *vm, Object *object);
+static void free_object_vec3(VM *vm, Object *object);
+
+// Free dispatch table - indexed by ObjectType
+static const FreeFunction free_dispatch[] = {
+	[OBJECT_STRING] = free_object_string,
+	[OBJECT_FUNCTION] = free_object_function,
+	[OBJECT_NATIVE_FUNCTION] = free_object_native_function,
+	[OBJECT_NATIVE_METHOD] = free_object_native_method,
+	[OBJECT_CLOSURE] = free_object_closure,
+	[OBJECT_UPVALUE] = free_object_upvalue,
+	[OBJECT_ARRAY] = free_object_array,
+	[OBJECT_TABLE] = free_object_table_wrapper,
+	[OBJECT_ERROR] = free_object_error,
+	[OBJECT_RESULT] = free_object_result,
+	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = free_object_native_infallible_function,
+	[OBJECT_NATIVE_INFALLIBLE_METHOD] = free_object_native_infallible_method,
+	[OBJECT_RANDOM] = free_object_random,
+	[OBJECT_FILE] = free_object_file,
+	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
+	[OBJECT_STATIC_ARRAY] = free_object_static_array,
+	[OBJECT_STATIC_TABLE] = free_object_static_table_wrapper,
+	[OBJECT_STRUCT] = free_object_struct,
+	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
+	[OBJECT_VEC2] = free_object_vec2,
+	[OBJECT_VEC3] = free_object_vec3,
+};
+
 static void free_object(VM *vm, Object *object)
 {
 #ifdef DEBUG_LOG_GC
 	printf("%p free type %d\n", (void *)object, OBJECT_TYPE(OBJECT_VAL(object)));
 #endif
-	switch (OBJECT_TYPE(OBJECT_VAL(object))) {
-	case OBJECT_STRING: {
-		const ObjectString *string = (ObjectString *)object;
-		FREE_ARRAY(vm, char, string->chars, string->length + 1);
-		FREE(vm, ObjectString, object);
-		break;
-	}
-	case OBJECT_FUNCTION: {
-		ObjectFunction *function = (ObjectFunction *)object;
-		free_chunk(vm, &function->chunk);
-		FREE(vm, ObjectFunction, object);
-		break;
-	}
-	case OBJECT_NATIVE_FUNCTION: {
-		FREE(vm, ObjectNativeFunction, object);
-		break;
-	}
-	case OBJECT_NATIVE_METHOD: {
-		FREE(vm, ObjectNativeMethod, object);
-		break;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		FREE(vm, ObjectNativeInfallibleFunction, object);
-		break;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		FREE(vm, ObjectNativeInfallibleMethod, object);
-		break;
-	}
-	case OBJECT_CLOSURE: {
-		const ObjectClosure *closure = (ObjectClosure *)object;
-		FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues,
-			   closure->upvalue_count);
-		FREE(vm, ObjectClosure, object);
-		break;
-	}
-	case OBJECT_UPVALUE: {
-		FREE(vm, ObjectUpvalue, object);
-		break;
-	}
 
-	case OBJECT_STATIC_ARRAY: {
-		const ObjectStaticArray *staticArray = (ObjectStaticArray *)
-			object;
-		FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
-		FREE(vm, ObjectStaticArray, object);
-		break;
+	// Use dispatch table for O(1) lookup instead of switch
+	const ObjectType type = OBJECT_TYPE(OBJECT_VAL(object));
+	if (type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
+		free_dispatch[type](vm, object);
 	}
+}
 
-	case OBJECT_STATIC_TABLE: {
-		ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
-		free_object_static_table(vm, staticTable);
-		FREE(vm, ObjectStaticTable, object);
-		break;
-	}
+// Individual free functions for dispatch table
+static void free_object_string(VM *vm, Object *object) {
+	const ObjectString *string = (ObjectString *)object;
+	FREE_ARRAY(vm, char, string->chars, string->length + 1);
+	FREE(vm, ObjectString, object);
+}
 
-	case OBJECT_ARRAY: {
-		const ObjectArray *array = (ObjectArray *)object;
-		FREE_ARRAY(vm, Value, array->values, array->capacity);
-		FREE(vm, ObjectArray, object);
-		break;
-	}
+static void free_object_function(VM *vm, Object *object) {
+	ObjectFunction *function = (ObjectFunction *)object;
+	free_chunk(vm, &function->chunk);
+	FREE(vm, ObjectFunction, object);
+}
 
-	case OBJECT_TABLE: {
-		ObjectTable *table = (ObjectTable *)object;
-		free_object_table(vm, table);
-		FREE(vm, ObjectTable, object);
-		break;
-	}
+static void free_object_native_function(VM *vm, Object *object) {
+	FREE(vm, ObjectNativeFunction, object);
+}
 
-	case OBJECT_ERROR: {
-		FREE(vm, ObjectError, object);
-		break;
-	}
+static void free_object_native_method(VM *vm, Object *object) {
+	FREE(vm, ObjectNativeMethod, object);
+}
 
-	case OBJECT_RESULT: {
-		FREE(vm, ObjectResult, object);
-		break;
-	}
+static void free_object_native_infallible_function(VM *vm, Object *object) {
+	FREE(vm, ObjectNativeInfallibleFunction, object);
+}
 
-	case OBJECT_RANDOM: {
-		FREE(vm, ObjectRandom, object);
-		break;
-	}
+static void free_object_native_infallible_method(VM *vm, Object *object) {
+	FREE(vm, ObjectNativeInfallibleMethod, object);
+}
 
-	case OBJECT_FILE: {
-		const ObjectFile *file = (ObjectFile *)object;
-		if (file->file != NULL ) {
-			fclose(file->file);
-		}
-		FREE(vm, ObjectFile, object);
-		break;
-	}
+static void free_object_closure(VM *vm, Object *object) {
+	const ObjectClosure *closure = (ObjectClosure *)object;
+	FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues, closure->upvalue_count);
+	FREE(vm, ObjectClosure, object);
+}
 
-	case OBJECT_MODULE_RECORD: {
-		ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
-		free_object_module_record(vm, moduleRecord);
-		break;
-	}
+static void free_object_upvalue(VM *vm, Object *object) {
+	FREE(vm, ObjectUpvalue, object);
+}
 
-	case OBJECT_STRUCT: {
-		ObjectStruct *structure = (ObjectStruct *)object;
-		free_table(vm, &structure->fields);
-		FREE(vm, ObjectStruct, object);
-		break;
-	}
+static void free_object_static_array(VM *vm, Object *object) {
+	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
+	FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
+	FREE(vm, ObjectStaticArray, object);
+}
 
-	case OBJECT_STRUCT_INSTANCE: {
-		const ObjectStructInstance *instance = (ObjectStructInstance *)
-			object;
-		FREE_ARRAY(vm, Value, instance->fields, instance->field_count);
-		FREE(vm, ObjectStructInstance, object);
-		break;
-	}
+static void free_object_static_table_wrapper(VM *vm, Object *object) {
+	ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
+	// First free the internal data
+	free_object_static_table(vm, staticTable);
+	// Then free the object itself
+	FREE(vm, ObjectStaticTable, object);
+}
 
-	case OBJECT_VEC2: {
-		FREE(vm, ObjectVec2, object);
-		break;
-	}
+static void free_object_array(VM *vm, Object *object) {
+	const ObjectArray *array = (ObjectArray *)object;
+	FREE_ARRAY(vm, Value, array->values, array->capacity);
+	FREE(vm, ObjectArray, object);
+}
 
-	case OBJECT_VEC3: {
-		FREE(vm, ObjectVec3, object);
-		break;
+static void free_object_table_wrapper(VM *vm, Object *object) {
+	ObjectTable *table = (ObjectTable *)object;
+	// First free the internal data
+	free_object_table(vm, table);
+	// Then free the object itself
+	FREE(vm, ObjectTable, object);
+}
+
+static void free_object_error(VM *vm, Object *object) {
+	FREE(vm, ObjectError, object);
+}
+
+static void free_object_result(VM *vm, Object *object) {
+	FREE(vm, ObjectResult, object);
+}
+
+static void free_object_random(VM *vm, Object *object) {
+	FREE(vm, ObjectRandom, object);
+}
+
+static void free_object_file(VM *vm, Object *object) {
+	const ObjectFile *file = (ObjectFile *)object;
+	if (file->file != NULL) {
+		fclose(file->file);
 	}
-	}
+	FREE(vm, ObjectFile, object);
+}
+
+static void free_object_module_record_wrapper(VM *vm, Object *object) {
+	ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
+	// First free the internal data
+	free_object_module_record(vm, moduleRecord);
+	// Then free the object itself
+	FREE(vm, ObjectModuleRecord, object);
+}
+
+static void free_object_struct(VM *vm, Object *object) {
+	ObjectStruct *structure = (ObjectStruct *)object;
+	free_table(vm, &structure->fields);
+	FREE(vm, ObjectStruct, object);
+}
+
+static void free_object_struct_instance(VM *vm, Object *object) {
+	const ObjectStructInstance *instance = (ObjectStructInstance *)object;
+	FREE_ARRAY(vm, Value, instance->fields, instance->field_count);
+	FREE(vm, ObjectStructInstance, object);
+}
+
+static void free_object_vec2(VM *vm, Object *object) {
+	FREE(vm, ObjectVec2, object);
+}
+
+static void free_object_vec3(VM *vm, Object *object) {
+	FREE(vm, ObjectVec3, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
