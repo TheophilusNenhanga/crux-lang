@@ -19,14 +19,20 @@ void pop_import_stack(VM *vm);
 
 bool is_in_import_stack(const VM *vm, const ObjectString *path);
 
-ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure, int arg_count,
-				  InterpretResult *result);
+ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure,
+				    int arg_count, InterpretResult *result);
 
 bool is_falsy(Value value);
 
 void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 
-void pop_two(ObjectModuleRecord *moduleRecord);
+#define pop_two(module_record)                                                 \
+	pop((module_record));                                                  \
+	pop((module_record))
+
+#define pop_push(module_record, value)                                         \
+	pop((module_record));                                                  \
+	push((module_record), (value))
 
 bool binary_operation(VM *vm, OpCode operation);
 
@@ -40,7 +46,7 @@ bool concatenate(VM *vm);
  * @return true if the previous instruction matches, false otherwise
  */
 bool check_previous_instruction(const CallFrame *frame, int instructions_ago,
-			      OpCode instruction);
+				OpCode instruction);
 
 /**
  * Calls a value as a function with the given arguments.
@@ -60,7 +66,7 @@ bool call_value(VM *vm, Value callee, int arg_count);
 ObjectUpvalue *capture_upvalue(VM *vm, Value *local);
 
 bool handle_invoke(VM *vm, int arg_count, Value receiver, Value original,
-		  Value value);
+		   Value value);
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -79,7 +85,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count);
 void define_method(VM *vm, ObjectString *name);
 
 InterpretResult global_compound_operation(VM *vm, ObjectString *name,
-					OpCode opcode, char *operation);
+					  OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.

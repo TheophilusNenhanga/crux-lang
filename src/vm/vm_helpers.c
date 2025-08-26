@@ -42,7 +42,8 @@ ObjectStructInstance *pop_struct_stack(VM *vm)
 		return NULL;
 	}
 	vm->struct_instance_stack.count--;
-	return vm->struct_instance_stack.structs[vm->struct_instance_stack.count];
+	return vm->struct_instance_stack
+		.structs[vm->struct_instance_stack.count];
 }
 
 ObjectStructInstance *peek_struct_stack(const VM *vm)
@@ -130,31 +131,19 @@ void reset_stack(ObjectModuleRecord *moduleRecord)
 	moduleRecord->open_upvalues = NULL;
 }
 
-void pop_two(ObjectModuleRecord *moduleRecord)
-{
-	pop(moduleRecord);
-	pop(moduleRecord);
-}
-
-void pop_push(ObjectModuleRecord *moduleRecord, const Value value)
-{
-	pop(moduleRecord);
-	push(moduleRecord, value);
-}
-
 bool call(ObjectModuleRecord *module_record, ObjectClosure *closure,
 	  const int arg_count)
 {
 	if (arg_count != closure->function->arity) {
 		runtime_panic(module_record, false, ARGUMENT_MISMATCH,
-			     "Expected %d arguments, got %d",
-			     closure->function->arity, arg_count);
+			      "Expected %d arguments, got %d",
+			      closure->function->arity, arg_count);
 		return false;
 	}
 
 	if (module_record->frame_count >= FRAMES_MAX) {
 		runtime_panic(module_record, false, STACK_OVERFLOW,
-			     "Stack overflow");
+			      "Stack overflow");
 		return false;
 	}
 
@@ -175,119 +164,108 @@ bool call(ObjectModuleRecord *module_record, ObjectClosure *closure,
 bool call_value(VM *vm, const Value callee, const int arg_count)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
-	if (IS_CRUX_OBJECT(callee)) {
-		switch (OBJECT_TYPE(callee)) {
-		case OBJECT_CLOSURE:
-			return call(current_module_record,
-				    AS_CRUX_CLOSURE(callee), arg_count);
-		case OBJECT_NATIVE_METHOD: {
-			const ObjectNativeMethod *native =
-				AS_CRUX_NATIVE_METHOD(callee);
-			if (arg_count != native->arity) {
-				runtime_panic(current_module_record, false,
-					     ARGUMENT_MISMATCH,
-					     "Expected %d argument(s), got %d",
-					     native->arity, arg_count);
-				return false;
-			}
 
-			ObjectResult *result = native->function(
-				vm, arg_count,
-				current_module_record->stack_top - arg_count);
+#define panic_exit(current_module_record)                                      \
+	do {                                                                   \
+		runtime_panic((current_module_record), false, TYPE,            \
+			      "Only functions can be called.");                \
+		return false;                                                  \
+	} while (0)
 
-			current_module_record->stack_top -= arg_count + 1;
+#define check_native_arity(arg_count, native)                                  \
+	do {                                                                   \
+		if ((arg_count) != (native)->arity) {                          \
+			runtime_panic(current_module_record, false,            \
+				      ARGUMENT_MISMATCH,                       \
+				      "Expected %d argument(s), got %d",       \
+				      (native)->arity, (arg_count));           \
+			return false;                                          \
+		}                                                              \
+	} while (0)
 
-			if (!result->is_ok) {
-				if (result->as.error->is_panic) {
-					runtime_panic(current_module_record, false,
-						     result->as.error->type,
-						     result->as.error->message
-							     ->chars);
-					return false;
-				}
-			}
-
-			push(current_module_record, OBJECT_VAL(result));
-
-			return true;
-		}
-		case OBJECT_NATIVE_FUNCTION: {
-			const ObjectNativeFunction *native =
-				AS_CRUX_NATIVE_FUNCTION(callee);
-			if (arg_count != native->arity) {
-				runtime_panic(current_module_record, false,
-					     ARGUMENT_MISMATCH,
-					     "Expected %d argument(s), got %d",
-					     native->arity, arg_count);
-				return false;
-			}
-
-			ObjectResult *result = native->function(
-				vm, arg_count,
-				current_module_record->stack_top - arg_count);
-			current_module_record->stack_top -= arg_count + 1;
-
-			if (!result->is_ok) {
-				if (result->as.error->is_panic) {
-					runtime_panic(current_module_record, false,
-						     result->as.error->type,
-						     result->as.error->message
-							     ->chars);
-					return false;
-				}
-			}
-
-			push(current_module_record, OBJECT_VAL(result));
-			return true;
-		}
-		case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-			const ObjectNativeInfallibleFunction *native =
-				AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(callee);
-			if (arg_count != native->arity) {
-				runtime_panic(current_module_record, false,
-					     ARGUMENT_MISMATCH,
-					     "Expected %d argument(s), got %d",
-					     native->arity, arg_count);
-				return false;
-			}
-
-			const Value result = native->function(
-				vm, arg_count,
-				current_module_record->stack_top - arg_count);
-			current_module_record->stack_top -= arg_count + 1;
-
-			push(current_module_record, result);
-			return true;
-		}
-		case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-			const ObjectNativeInfallibleMethod *native =
-				AS_CRUX_NATIVE_INFALLIBLE_METHOD(callee);
-			if (arg_count != native->arity) {
-				runtime_panic(current_module_record, false,
-					     ARGUMENT_MISMATCH,
-					     "Expected %d argument(s), got %d",
-					     native->arity, arg_count);
-				return false;
-			}
-
-			const Value result = native->function(
-				vm, arg_count,
-				current_module_record->stack_top - arg_count);
-			current_module_record->stack_top -= arg_count + 1;
-			push(current_module_record, result);
-			return true;
-		}
-		default:
-			break;
-		}
+	if (!IS_CRUX_OBJECT(callee)) {
+		panic_exit(current_module_record);
 	}
-	runtime_panic(current_module_record, false, TYPE,
-		     "Only functions can be called.");
-	return false;
+
+	switch (OBJECT_TYPE(callee)) {
+	case OBJECT_CLOSURE:
+		return call(current_module_record, AS_CRUX_CLOSURE(callee),
+			    arg_count);
+	case OBJECT_NATIVE_METHOD: {
+		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(
+			callee);
+		check_native_arity(arg_count, native);
+
+		ObjectResult *result = native->function(
+			vm, arg_count,
+			current_module_record->stack_top - arg_count);
+
+		current_module_record->stack_top -= arg_count + 1;
+
+		if (!result->is_ok && result->as.error->is_panic) {
+			runtime_panic(current_module_record, false,
+				      result->as.error->type,
+				      result->as.error->message->chars);
+			return false;
+		}
+		push(current_module_record, OBJECT_VAL(result));
+		return true;
+	}
+	case OBJECT_NATIVE_FUNCTION: {
+		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
+			callee);
+		check_native_arity(arg_count, native);
+
+		ObjectResult *result = native->function(
+			vm, arg_count,
+			current_module_record->stack_top - arg_count);
+		current_module_record->stack_top -= arg_count + 1;
+
+		if (!result->is_ok && result->as.error->is_panic) {
+			runtime_panic(current_module_record, false,
+				      result->as.error->type,
+				      result->as.error->message->chars);
+			return false;
+		}
+
+		push(current_module_record, OBJECT_VAL(result));
+		return true;
+	}
+	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
+		const ObjectNativeInfallibleFunction *native =
+			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(callee);
+		check_native_arity(arg_count, native);
+
+		const Value result = native->function(
+			vm, arg_count,
+			current_module_record->stack_top - arg_count);
+		current_module_record->stack_top -= arg_count + 1;
+
+		push(current_module_record, result);
+		return true;
+	}
+	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
+		const ObjectNativeInfallibleMethod *native =
+			AS_CRUX_NATIVE_INFALLIBLE_METHOD(callee);
+		check_native_arity(arg_count, native);
+
+		const Value result = native->function(
+			vm, arg_count,
+			current_module_record->stack_top - arg_count);
+		current_module_record->stack_top -= arg_count + 1;
+		push(current_module_record, result);
+		return true;
+	}
+	default: {
+		panic_exit(current_module_record);
+	}
+	}
+#undef check_native_arity
+#undef panic_exit
 }
 
 bool handle_invoke(VM *vm, const int arg_count, const Value receiver,
-		  const Value original, const Value value)
+		   const Value original, const Value value)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 
@@ -308,6 +286,170 @@ bool handle_invoke(VM *vm, const int arg_count, const Value receiver,
 	return true;
 }
 
+#define undefined_method_return(current_module_record, name)                   \
+	do {                                                                   \
+		runtime_panic((current_module_record), false, NAME,            \
+			      "Undefined method '%s'.", (name)->chars);        \
+		return false;                                                  \
+	} while (0)
+
+typedef bool (*TypeInvokeHandler)(VM *vm, const ObjectString *name,
+				  int arg_count, Value original,
+				  Value receiver);
+
+static bool handle_string_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->string_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_undefined_invoke(VM *vm,
+				    const ObjectString *name
+				    __attribute__((unused)),
+				    int arg_count __attribute__((unused)),
+				    Value original __attribute__((unused)),
+				    Value receiver __attribute__((unused)))
+{
+	runtime_panic(vm->current_module_record, false, TYPE,
+		      "Only instances have methods");
+	return false;
+}
+
+static bool handle_array_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->array_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_file_invoke(VM *vm, const ObjectString *name,
+			       const int arg_count, const Value original,
+			       const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->file_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_error_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->error_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_table_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->table_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_random_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->random_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_vec2_invoke(VM *vm, const ObjectString *name,
+			       const int arg_count, const Value original,
+			       const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->vec2_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_vec3_invoke(VM *vm, const ObjectString *name,
+			       const int arg_count, const Value original,
+			       const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->vec3_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_result_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->result_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
+					  int arg_count,
+					  Value original
+					  __attribute__((unused)),
+					  const Value receiver)
+{
+	arg_count--;
+	const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
+		receiver);
+	Value indexValue;
+	if (table_get(&instance->struct_type->fields, name, &indexValue)) {
+		return call_value(
+			vm, instance->fields[(uint16_t)AS_INT(indexValue)],
+			arg_count);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static const TypeInvokeHandler invoke_dispatch_table[] = {
+	[OBJECT_STRING] = handle_string_invoke,
+	[OBJECT_FUNCTION] = handle_undefined_invoke,
+	[OBJECT_NATIVE_FUNCTION] = handle_undefined_invoke,
+	[OBJECT_NATIVE_METHOD] = handle_undefined_invoke,
+	[OBJECT_CLOSURE] = handle_undefined_invoke,
+	[OBJECT_UPVALUE] = handle_undefined_invoke,
+	[OBJECT_ARRAY] = handle_array_invoke,
+	[OBJECT_TABLE] = handle_table_invoke,
+	[OBJECT_ERROR] = handle_error_invoke,
+	[OBJECT_RESULT] = handle_result_invoke,
+	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = handle_undefined_invoke,
+	[OBJECT_NATIVE_INFALLIBLE_METHOD] = handle_undefined_invoke,
+	[OBJECT_RANDOM] = handle_random_invoke,
+	[OBJECT_FILE] = handle_file_invoke,
+	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
+	[OBJECT_STATIC_ARRAY] = handle_undefined_invoke,
+	[OBJECT_STATIC_TABLE] = handle_undefined_invoke,
+	[OBJECT_STRUCT] = handle_undefined_invoke,
+	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
+	[OBJECT_VEC2] = handle_vec2_invoke,
+	[OBJECT_VEC3] = handle_vec3_invoke,
+};
+
 /**
  * Invokes a method on an object with the given arguments.
  * @param vm The virtual machine
@@ -324,125 +466,13 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count)
 
 	if (!IS_CRUX_OBJECT(receiver)) {
 		runtime_panic(current_module_record, false, TYPE,
-			     "Only instances have methods");
+			      "Only instances have methods");
 		return false;
 	}
 
-	const Object *object = AS_CRUX_OBJECT(receiver);
 	arg_count++; // for the value that the method will act on
-	switch (OBJECT_TYPE(receiver)) {
-	case OBJECT_STRING: {
-		Value value;
-		if (table_get(&vm->string_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_ARRAY: {
-		Value value;
-		if (table_get(&vm->array_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_FILE: {
-		Value value;
-		if (table_get(&vm->file_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_ERROR: {
-		Value value;
-		if (table_get(&vm->error_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_TABLE: {
-		Value value;
-		if (table_get(&vm->table_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_RANDOM: {
-		Value value;
-		if (table_get(&vm->random_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_VEC2: {
-		Value value;
-		if (table_get(&vm->vec2_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_VEC3: {
-		Value value;
-		if (table_get(&vm->vec3_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_RESULT: {
-		Value value;
-		if (table_get(&vm->result_type, name, &value)) {
-			return handle_invoke(vm, arg_count, receiver, original,
-					    value);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	case OBJECT_STRUCT_INSTANCE: {
-		arg_count--;
-		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
-			receiver);
-		Value indexValue;
-		if (table_get(&instance->struct_type->fields, name,
-			     &indexValue)) {
-			return call_value(
-				vm,
-				instance->fields[(uint16_t)AS_INT(indexValue)],
-				arg_count);
-		}
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined method '%s'.", name->chars);
-		return false;
-	}
-	default: {
-		runtime_panic(current_module_record, false, TYPE,
-			     "Only instances have methods");
-		return false;
-	}
-	}
+	return invoke_dispatch_table[OBJECT_TYPE(receiver)](vm, name, arg_count,
+							    original, receiver);
 }
 
 ObjectUpvalue *capture_upvalue(VM *vm, Value *local)
@@ -542,7 +572,7 @@ bool concatenate(VM *vm)
 
 	if (chars == NULL) {
 		runtime_panic(current_module_record, false, MEMORY,
-			     "Could not allocate memory for concatenation.");
+			      "Could not allocate memory for concatenation.");
 		return false;
 	}
 
@@ -646,7 +676,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 
 	if (!initialize_std_lib(vm)) {
 		runtime_panic(vm->current_module_record, true, RUNTIME,
-			     "Failed to initialize standard library.");
+			      "Failed to initialize standard library.");
 	}
 	vm->import_count = 0;
 
@@ -675,7 +705,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 
 	vm->current_module_record->path = path;
 	table_set(vm, &vm->module_cache, vm->current_module_record->path,
-		 OBJECT_VAL(vm->current_module_record));
+		  OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
 }
 
@@ -710,6 +740,598 @@ void free_vm(VM *vm)
 	free(vm);
 }
 
+typedef bool (*IntBinaryOp)(ObjectModuleRecord *current_module_record,
+			    int32_t intA, int32_t intB);
+typedef bool (*FloatBinaryOp)(ObjectModuleRecord *current_module_record,
+			      double doubleA, double doubleB);
+
+static bool int_add(ObjectModuleRecord *current_module_record,
+		    const int32_t intA, const int32_t intB)
+{
+	const int64_t result = (int64_t)intA + (int64_t)intB;
+	pop_two(current_module_record);
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		push(current_module_record, INT_VAL((int32_t)result));
+	} else {
+		push(current_module_record,
+		     FLOAT_VAL((double)result)); // Promote on overflow
+	}
+	return true;
+}
+
+static bool int_subtract(ObjectModuleRecord *current_module_record,
+			 const int32_t intA, const int32_t intB)
+{
+	const int64_t result = (int64_t)intA - (int64_t)intB;
+	pop_two(current_module_record);
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		push(current_module_record, INT_VAL((int32_t)result));
+	} else {
+		push(current_module_record,
+		     FLOAT_VAL((double)result)); // Promote on overflow
+	}
+	return true;
+}
+
+static bool int_multiply(ObjectModuleRecord *current_module_record,
+			 const int32_t intA, const int32_t intB)
+{
+	const int64_t result = (int64_t)intA * (int64_t)intB;
+	pop_two(current_module_record);
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		push(current_module_record, INT_VAL((int32_t)result));
+	} else {
+		push(current_module_record,
+		     FLOAT_VAL((double)result)); // Promote on overflow
+	}
+	return true;
+}
+
+static bool int_divide(ObjectModuleRecord *current_module_record,
+		       const int32_t intA, const int32_t intB)
+{
+	if (intB == 0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Division by zero.");
+		return false;
+	}
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL((double)intA / (double)intB));
+	return true;
+}
+
+static bool int_int_divide(ObjectModuleRecord *current_module_record,
+			   const int32_t intA, const int32_t intB)
+{
+	if (intB == 0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Integer division by zero.");
+		return false;
+	}
+	// Edge case: INT32_MIN / -1 overflows int32_t
+	if (intA == INT32_MIN && intB == -1) {
+		pop_two(current_module_record);
+		push(current_module_record,
+		     FLOAT_VAL(-(double)INT32_MIN)); // Promote
+	} else {
+		pop_two(current_module_record);
+		push(current_module_record, INT_VAL(intA / intB));
+	}
+	return true;
+}
+
+static bool int_modulus(ObjectModuleRecord *current_module_record,
+			const int32_t intA, const int32_t intB)
+{
+	if (intB == 0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Modulo by zero.");
+		return false;
+	}
+
+	if (intA == INT32_MIN && intB == -1) {
+		pop_two(current_module_record);
+		push(current_module_record, INT_VAL(0));
+	} else {
+		pop_two(current_module_record);
+		push(current_module_record, INT_VAL(intA % intB));
+	}
+	return true;
+}
+
+static bool int_left_shift(ObjectModuleRecord *current_module_record,
+			   const int32_t intA, const int32_t intB)
+{
+	if (intB < 0 || intB >= 32) {
+		runtime_panic(current_module_record, false, RUNTIME,
+			      "Invalid shift amount (%d) for <<.", intB);
+		return false;
+	}
+	pop_two(current_module_record);
+	push(current_module_record, INT_VAL(intA << intB));
+	return true;
+}
+
+static bool int_right_shift(ObjectModuleRecord *current_module_record,
+			    const int32_t intA, const int32_t intB)
+{
+	if (intB < 0 || intB >= 32) {
+		runtime_panic(current_module_record, false, RUNTIME,
+			      "Invalid shift amount (%d) for >>.", intB);
+		return false;
+	}
+	pop_two(current_module_record);
+	push(current_module_record, INT_VAL(intA >> intB));
+	return true;
+}
+
+static bool int_power(ObjectModuleRecord *current_module_record,
+		      const int32_t intA, const int32_t intB)
+{
+	// Promote int^int to float
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(pow(intA, intB)));
+	return true;
+}
+
+static bool int_less(ObjectModuleRecord *current_module_record,
+		     const int32_t intA, const int32_t intB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(intA < intB));
+	return true;
+}
+
+static bool int_less_equal(ObjectModuleRecord *current_module_record,
+			   const int32_t intA, const int32_t intB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(intA <= intB));
+	return true;
+}
+
+static bool int_greater(ObjectModuleRecord *current_module_record,
+			const int32_t intA, const int32_t intB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(intA > intB));
+	return true;
+}
+
+static bool int_greater_equal(ObjectModuleRecord *current_module_record,
+			      const int32_t intA, const int32_t intB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(intA >= intB));
+	return true;
+}
+
+static bool float_add(ObjectModuleRecord *current_module_record,
+		      const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(doubleA + doubleB));
+	return true;
+}
+
+static bool float_subtract(ObjectModuleRecord *current_module_record,
+			   const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(doubleA - doubleB));
+	return true;
+}
+
+static bool float_multiply(ObjectModuleRecord *current_module_record,
+			   const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(doubleA * doubleB));
+	return true;
+}
+
+static bool float_divide(ObjectModuleRecord *current_module_record,
+			 const double doubleA, const double doubleB)
+{
+	if (doubleB == 0.0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Division by zero.");
+		return false;
+	}
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(doubleA / doubleB));
+	return true;
+}
+
+static bool float_power(ObjectModuleRecord *current_module_record,
+			const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, FLOAT_VAL(pow(doubleA, doubleB)));
+	return true;
+}
+
+static bool float_less(ObjectModuleRecord *current_module_record,
+		       const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(doubleA < doubleB));
+	return true;
+}
+
+static bool float_less_equal(ObjectModuleRecord *current_module_record,
+			     const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(doubleA <= doubleB));
+	return true;
+}
+
+static bool float_greater(ObjectModuleRecord *current_module_record,
+			  const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(doubleA > doubleB));
+	return true;
+}
+
+static bool float_greater_equal(ObjectModuleRecord *current_module_record,
+				const double doubleA, const double doubleB)
+{
+	pop_two(current_module_record);
+	push(current_module_record, BOOL_VAL(doubleA >= doubleB));
+	return true;
+}
+
+static bool float_invalid_int_op(ObjectModuleRecord *current_module_record,
+				 double doubleA __attribute__((unused)),
+				 double doubleB __attribute__((unused)))
+{
+	runtime_panic(current_module_record, false, TYPE,
+		      "Operands for integer operation must both be integers.");
+	return false;
+}
+
+static const IntBinaryOp int_binary_ops[] = {
+	[OP_ADD] = int_add,
+	[OP_SUBTRACT] = int_subtract,
+	[OP_MULTIPLY] = int_multiply,
+	[OP_DIVIDE] = int_divide,
+	[OP_INT_DIVIDE] = int_int_divide,
+	[OP_MODULUS] = int_modulus,
+	[OP_LEFT_SHIFT] = int_left_shift,
+	[OP_RIGHT_SHIFT] = int_right_shift,
+	[OP_POWER] = int_power,
+	[OP_LESS] = int_less,
+	[OP_LESS_EQUAL] = int_less_equal,
+	[OP_GREATER] = int_greater,
+	[OP_GREATER_EQUAL] = int_greater_equal,
+};
+
+static const FloatBinaryOp float_binary_ops[] = {
+	[OP_ADD] = float_add,
+	[OP_SUBTRACT] = float_subtract,
+	[OP_MULTIPLY] = float_multiply,
+	[OP_DIVIDE] = float_divide,
+	[OP_POWER] = float_power,
+	[OP_LESS] = float_less,
+	[OP_LESS_EQUAL] = float_less_equal,
+	[OP_GREATER] = float_greater,
+	[OP_GREATER_EQUAL] = float_greater_equal,
+	[OP_INT_DIVIDE] = float_invalid_int_op,
+	[OP_MODULUS] = float_invalid_int_op,
+	[OP_LEFT_SHIFT] = float_invalid_int_op,
+	[OP_RIGHT_SHIFT] = float_invalid_int_op,
+};
+
+// Function pointer types for compound operations
+typedef InterpretResult (*IntCompoundOp)(
+	ObjectModuleRecord *current_module_record, const ObjectString *name,
+	char *operation, int32_t icurrent, int32_t ioperand,
+	Value *resultValue);
+typedef InterpretResult (*FloatCompoundOp)(
+	ObjectModuleRecord *current_module_record, const ObjectString *name,
+	char *operation, double dcurrent, double doperand, Value *resultValue);
+
+// Integer compound operation handlers
+static InterpretResult
+int_compound_plus(ObjectModuleRecord *current_module_record
+		  __attribute__((unused)),
+		  const ObjectString *name __attribute__((unused)),
+		  char *operation __attribute__((unused)), int32_t icurrent,
+		  int32_t ioperand, Value *resultValue)
+{
+	const int64_t result = (int64_t)icurrent + (int64_t)ioperand;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		*resultValue = INT_VAL((int32_t)result);
+	} else {
+		*resultValue = FLOAT_VAL((double)result);
+	}
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+int_compound_minus(ObjectModuleRecord *current_module_record
+		   __attribute__((unused)),
+		   const ObjectString *name __attribute__((unused)),
+		   char *operation __attribute__((unused)), int32_t icurrent,
+		   int32_t ioperand, Value *resultValue)
+{
+	const int64_t result = (int64_t)icurrent - (int64_t)ioperand;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		*resultValue = INT_VAL((int32_t)result);
+	} else {
+		*resultValue = FLOAT_VAL((double)result);
+	}
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+int_compound_star(ObjectModuleRecord *current_module_record
+		  __attribute__((unused)),
+		  const ObjectString *name __attribute__((unused)),
+		  char *operation __attribute__((unused)), int32_t icurrent,
+		  int32_t ioperand, Value *resultValue)
+{
+	const int64_t result = (int64_t)icurrent * (int64_t)ioperand;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		*resultValue = INT_VAL((int32_t)result);
+	} else {
+		*resultValue = FLOAT_VAL((double)result);
+	}
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+int_compound_slash(ObjectModuleRecord *current_module_record,
+		   const ObjectString *name, char *operation, int32_t icurrent,
+		   int32_t ioperand, Value *resultValue)
+{
+	if (ioperand == 0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Division by zero in '%s %s'.", name->chars,
+			      operation);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	*resultValue = FLOAT_VAL((double)icurrent / (double)ioperand);
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+int_compound_int_divide(ObjectModuleRecord *current_module_record,
+			const ObjectString *name, char *operation,
+			int32_t icurrent, int32_t ioperand, Value *resultValue)
+{
+	if (ioperand == 0) {
+		runtime_panic(current_module_record, false, RUNTIME,
+			      "Division by zero in '%s %s'.", name->chars,
+			      operation);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	if (icurrent == INT32_MIN && ioperand == -1) {
+		*resultValue = FLOAT_VAL(-(double)INT32_MIN); // Overflow
+	} else {
+		*resultValue = INT_VAL(icurrent / ioperand);
+	}
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+int_compound_modulus(ObjectModuleRecord *current_module_record,
+		     const ObjectString *name, char *operation,
+		     int32_t icurrent, int32_t ioperand, Value *resultValue)
+{
+	if (ioperand == 0) {
+		runtime_panic(current_module_record, false, RUNTIME,
+			      "Division by zero in '%s %s'.", name->chars,
+			      operation);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	if (icurrent == INT32_MIN && ioperand == -1) {
+		*resultValue = INT_VAL(0);
+	} else {
+		*resultValue = INT_VAL(icurrent % ioperand);
+	}
+	return INTERPRET_OK;
+}
+
+// Float compound operation handlers
+static InterpretResult
+float_compound_plus(ObjectModuleRecord *current_module_record
+		    __attribute__((unused)),
+		    const ObjectString *name __attribute__((unused)),
+		    char *operation __attribute__((unused)), double dcurrent,
+		    double doperand, Value *resultValue)
+{
+	*resultValue = FLOAT_VAL(dcurrent + doperand);
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+float_compound_minus(ObjectModuleRecord *current_module_record
+		     __attribute__((unused)),
+		     const ObjectString *name __attribute__((unused)),
+		     char *operation __attribute__((unused)), double dcurrent,
+		     double doperand, Value *resultValue)
+{
+	*resultValue = FLOAT_VAL(dcurrent - doperand);
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+float_compound_star(ObjectModuleRecord *current_module_record
+		    __attribute__((unused)),
+		    const ObjectString *name __attribute__((unused)),
+		    char *operation __attribute__((unused)), double dcurrent,
+		    double doperand, Value *resultValue)
+{
+	*resultValue = FLOAT_VAL(dcurrent * doperand);
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+float_compound_slash(ObjectModuleRecord *current_module_record,
+		     const ObjectString *name, char *operation, double dcurrent,
+		     double doperand, Value *resultValue)
+{
+	if (doperand == 0.0) {
+		runtime_panic(current_module_record, false, MATH,
+			      "Division by zero in '%s %s'.", name->chars,
+			      operation);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	*resultValue = FLOAT_VAL(dcurrent / doperand);
+	return INTERPRET_OK;
+}
+
+static InterpretResult
+float_compound_invalid_int_op(ObjectModuleRecord *current_module_record,
+			      const ObjectString *name __attribute__((unused)),
+			      char *operation,
+			      double dcurrent __attribute__((unused)),
+			      double doperand __attribute__((unused)),
+			      Value *resultValue __attribute__((unused)))
+{
+	runtime_panic(current_module_record, false, TYPE,
+		      "Operands for integer compound assignment '%s' must both "
+		      "be integers.",
+		      operation);
+	return INTERPRET_RUNTIME_ERROR;
+}
+
+// Dispatch tables for compound operations
+static const IntCompoundOp int_compound_ops[] = {
+	[OP_SET_GLOBAL_PLUS] = int_compound_plus,
+	[OP_SET_GLOBAL_MINUS] = int_compound_minus,
+	[OP_SET_GLOBAL_STAR] = int_compound_star,
+	[OP_SET_GLOBAL_SLASH] = int_compound_slash,
+	[OP_SET_GLOBAL_INT_DIVIDE] = int_compound_int_divide,
+	[OP_SET_GLOBAL_MODULUS] = int_compound_modulus,
+};
+
+static const FloatCompoundOp float_compound_ops[] = {
+	[OP_SET_GLOBAL_PLUS] = float_compound_plus,
+	[OP_SET_GLOBAL_MINUS] = float_compound_minus,
+	[OP_SET_GLOBAL_STAR] = float_compound_star,
+	[OP_SET_GLOBAL_SLASH] = float_compound_slash,
+	[OP_SET_GLOBAL_INT_DIVIDE] = float_compound_invalid_int_op,
+	[OP_SET_GLOBAL_MODULUS] = float_compound_invalid_int_op,
+};
+
+// Function pointer type for typeof operations
+typedef Value (*TypeofHandler)(VM *vm, const Value value);
+
+// Object type handlers for typeof
+static Value typeof_string(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "string", 6));
+}
+
+static Value typeof_function(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "function", 8));
+}
+
+static Value typeof_upvalue(VM *vm, const Value value)
+{
+	const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+	return typeof_value(vm, upvalue->closed);
+}
+
+static Value typeof_array(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "array", 5));
+}
+
+static Value typeof_table(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "table", 5));
+}
+
+static Value typeof_error(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "error", 5));
+}
+
+static Value typeof_result(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "result", 6));
+}
+
+static Value typeof_random(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "random", 6));
+}
+
+static Value typeof_file(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "file", 4));
+}
+
+static Value typeof_module_record(VM *vm,
+				  const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "module", 6));
+}
+
+static Value typeof_static_array(VM *vm,
+				 const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "static array", 12));
+}
+
+static Value typeof_static_table(VM *vm,
+				 const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "static table", 12));
+}
+
+static Value typeof_struct(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "struct", 6));
+}
+
+static Value typeof_struct_instance(VM *vm,
+				    const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
+}
+
+static Value typeof_vec2(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "vec2", 4));
+}
+
+static Value typeof_vec3(VM *vm, const Value value __attribute__((unused)))
+{
+	return OBJECT_VAL(copy_string(vm, "vec3", 4));
+}
+
+// Dispatch table for object types
+static const TypeofHandler typeof_handlers[] = {
+	[OBJECT_STRING] = typeof_string,
+	[OBJECT_FUNCTION] = typeof_function,
+	[OBJECT_NATIVE_FUNCTION] = typeof_function,
+	[OBJECT_NATIVE_METHOD] = typeof_function,
+	[OBJECT_CLOSURE] = typeof_function,
+	[OBJECT_UPVALUE] = typeof_upvalue,
+	[OBJECT_ARRAY] = typeof_array,
+	[OBJECT_TABLE] = typeof_table,
+	[OBJECT_ERROR] = typeof_error,
+	[OBJECT_RESULT] = typeof_result,
+	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = typeof_function,
+	[OBJECT_NATIVE_INFALLIBLE_METHOD] = typeof_function,
+	[OBJECT_RANDOM] = typeof_random,
+	[OBJECT_FILE] = typeof_file,
+	[OBJECT_MODULE_RECORD] = typeof_module_record,
+	[OBJECT_STATIC_ARRAY] = typeof_static_array,
+	[OBJECT_STATIC_TABLE] = typeof_static_table,
+	[OBJECT_STRUCT] = typeof_struct,
+	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
+	[OBJECT_VEC2] = typeof_vec2,
+	[OBJECT_VEC3] = typeof_vec3,
+};
+
 /**
  * Performs a binary operation on the top two values of the stack.
  * @param vm The virtual machine
@@ -730,12 +1352,12 @@ bool binary_operation(VM *vm, const OpCode operation)
 	if (!((aIsInt || aIsFloat) && (bIsInt || bIsFloat))) {
 		if (!(aIsInt || aIsFloat)) {
 			runtime_panic(current_module_record, false, TYPE,
-				     type_error_message(vm, a,
-						      "'int' or 'float'"));
+				      type_error_message(vm, a,
+							 "'int' or 'float'"));
 		} else {
 			runtime_panic(current_module_record, false, TYPE,
-				     type_error_message(vm, b,
-						      "'int' or 'float'"));
+				      type_error_message(vm, b,
+							 "'int' or 'float'"));
 		}
 		return false;
 	}
@@ -744,227 +1366,46 @@ bool binary_operation(VM *vm, const OpCode operation)
 		const int32_t intA = AS_INT(a);
 		const int32_t intB = AS_INT(b);
 
-		switch (operation) {
-		case OP_ADD: {
-			const int64_t result = (int64_t)intA + (int64_t)intB;
-			pop_two(current_module_record);
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				push(current_module_record,
-				     INT_VAL((int32_t)result));
-			} else {
-				push(current_module_record,
-				     FLOAT_VAL((double)result)); // Promote on
-								 // overflow
-			}
-			break;
-		}
-		case OP_SUBTRACT: {
-			const int64_t result = (int64_t)intA - (int64_t)intB;
-			pop_two(current_module_record);
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				push(current_module_record,
-				     INT_VAL((int32_t)result));
-			} else {
-				push(current_module_record,
-				     FLOAT_VAL((double)result)); // Promote on
-								 // overflow
-			}
-			break;
-		}
-		case OP_MULTIPLY: {
-			const int64_t result = (int64_t)intA * (int64_t)intB;
-			pop_two(current_module_record);
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				push(current_module_record,
-				     INT_VAL((int32_t)result));
-			} else {
-				push(current_module_record,
-				     FLOAT_VAL((double)result)); // Promote on
-								 // overflow
-			}
-			break;
-		}
-		case OP_DIVIDE: {
-			if (intB == 0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Division by zero.");
-				return false;
-			}
-			pop_two(current_module_record);
-			push(current_module_record,
-			     FLOAT_VAL((double)intA / (double)intB));
-			break;
-		}
-		case OP_INT_DIVIDE: {
-			if (intB == 0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Integer division by zero.");
-				return false;
-			}
-			// Edge case: INT32_MIN / -1 overflows int32_t
-			if (intA == INT32_MIN && intB == -1) {
-				pop_two(current_module_record);
-				push(current_module_record,
-				     FLOAT_VAL(-(double)INT32_MIN)); // Promote
-			} else {
-				pop_two(current_module_record);
-				push(current_module_record, INT_VAL(intA / intB));
-			}
-			break;
-		}
-		case OP_MODULUS: {
-			if (intB == 0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Modulo by zero.");
-				return false;
-			}
-
-			if (intA == INT32_MIN && intB == -1) {
-				pop_two(current_module_record);
-				push(current_module_record, INT_VAL(0));
-			} else {
-				pop_two(current_module_record);
-				push(current_module_record, INT_VAL(intA % intB));
-			}
-			break;
-		}
-		case OP_LEFT_SHIFT: {
-			if (intB < 0 || intB >= 32) {
-				runtime_panic(
-					current_module_record, false, RUNTIME,
-					"Invalid shift amount (%d) for <<.",
-					intB);
-				return false;
-			}
-			pop_two(current_module_record);
-			push(current_module_record, INT_VAL(intA << intB));
-			break;
-		}
-		case OP_RIGHT_SHIFT: {
-			if (intB < 0 || intB >= 32) {
-				runtime_panic(
-					current_module_record, false, RUNTIME,
-					"Invalid shift amount (%d) for >>.",
-					intB);
-				return false;
-			}
-			pop_two(current_module_record);
-			push(current_module_record, INT_VAL(intA >> intB));
-			break;
-		}
-		case OP_POWER: {
-			// Promote int^int to float
-			pop_two(current_module_record);
-			push(current_module_record, FLOAT_VAL(pow(intA, intB)));
-			break;
-		}
-		case OP_LESS:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(intA < intB));
-			break;
-		case OP_LESS_EQUAL:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(intA <= intB));
-			break;
-		case OP_GREATER:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(intA > intB));
-			break;
-		case OP_GREATER_EQUAL:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(intA >= intB));
-			break;
-
-		default:
+		if (operation >= (OpCode)(sizeof(int_binary_ops) /
+					  sizeof(int_binary_ops[0])) ||
+		    int_binary_ops[operation] == NULL) {
 			runtime_panic(
 				current_module_record, false, RUNTIME,
 				"Unknown binary operation %d for int, int.",
 				operation);
 			return false;
 		}
-	} else {
-		const double doubleA = aIsFloat ? AS_FLOAT(a)
-						: (double)AS_INT(a);
-		const double doubleB = bIsFloat ? AS_FLOAT(b)
-						: (double)AS_INT(b);
 
-		switch (operation) {
-		case OP_ADD:
-			pop_two(current_module_record);
-			push(current_module_record, FLOAT_VAL(doubleA + doubleB));
-			break;
-		case OP_SUBTRACT:
-			pop_two(current_module_record);
-			push(current_module_record, FLOAT_VAL(doubleA - doubleB));
-			break;
-		case OP_MULTIPLY:
-			pop_two(current_module_record);
-			push(current_module_record, FLOAT_VAL(doubleA * doubleB));
-			break;
-		case OP_DIVIDE: {
-			if (doubleB == 0.0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Division by zero.");
-				return false;
-			}
-			pop_two(current_module_record);
-			push(current_module_record, FLOAT_VAL(doubleA / doubleB));
-			break;
-		}
-		case OP_POWER: {
-			pop_two(current_module_record);
-			push(current_module_record,
-			     FLOAT_VAL(pow(doubleA, doubleB)));
-			break;
-		}
-
-		case OP_LESS:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(doubleA < doubleB));
-			break;
-		case OP_LESS_EQUAL:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(doubleA <= doubleB));
-			break;
-		case OP_GREATER:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(doubleA > doubleB));
-			break;
-		case OP_GREATER_EQUAL:
-			pop_two(current_module_record);
-			push(current_module_record, BOOL_VAL(doubleA >= doubleB));
-			break;
-
-		case OP_INT_DIVIDE:
-		case OP_MODULUS:
-		case OP_LEFT_SHIFT:
-		case OP_RIGHT_SHIFT: {
-			runtime_panic(current_module_record, false, TYPE,
-				     "Operands for integer operation must both "
-				     "be integers.");
-			return false;
-		}
-
-		default:
-			runtime_panic(
-				current_module_record, false, RUNTIME,
-				"Unknown binary operation %d for float/mixed.",
-				operation);
-			return false;
-		}
+		return int_binary_ops[operation](current_module_record, intA,
+						 intB);
 	}
+	const double doubleA = aIsFloat ? AS_FLOAT(a) : (double)AS_INT(a);
+	const double doubleB = bIsFloat ? AS_FLOAT(b) : (double)AS_INT(b);
+
+	if (operation >= (OpCode)(sizeof(float_binary_ops) /
+				  sizeof(float_binary_ops[0])) ||
+	    float_binary_ops[operation] == NULL) {
+		runtime_panic(current_module_record, false, RUNTIME,
+			      "Unknown binary operation %d for float/mixed.",
+			      operation);
+		return false;
+	}
+
+	return float_binary_ops[operation](current_module_record, doubleA,
+					   doubleB);
 	return true;
 }
 
 InterpretResult global_compound_operation(VM *vm, ObjectString *name,
-					const OpCode opcode, char *operation)
+					  const OpCode opcode, char *operation)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	Value currentValue;
 	if (!table_get(&current_module_record->globals, name, &currentValue)) {
-		runtime_panic(current_module_record, false, NAME,
-			     "Undefined variable '%s' for compound assignment.",
-			     name->chars);
+		runtime_panic(
+			current_module_record, false, NAME,
+			"Undefined variable '%s' for compound assignment.",
+			name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -979,14 +1420,14 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 	      (operandIsInt || operandIsFloat))) {
 		if (!(currentIsInt || currentIsFloat)) {
 			runtime_panic(current_module_record, false, TYPE,
-				     "Variable '%s' is not a number for '%s' "
-				     "operator.",
-				     name->chars, operation);
+				      "Variable '%s' is not a number for '%s' "
+				      "operator.",
+				      name->chars, operation);
 		} else {
 			runtime_panic(current_module_record, false, TYPE,
-				     "Right-hand operand for '%s' must be an "
-				     "'int' or 'float'.",
-				     operation);
+				      "Right-hand operand for '%s' must be an "
+				      "'int' or 'float'.",
+				      operation);
 		}
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -997,89 +1438,21 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 		const int32_t icurrent = AS_INT(currentValue);
 		const int32_t ioperand = AS_INT(operandValue);
 
-		switch (opcode) {
-		case OP_SET_GLOBAL_PLUS: {
-			// +=
-			const int64_t result = (int64_t)icurrent +
-					       (int64_t)ioperand;
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				resultValue = INT_VAL((int32_t)result);
-			} else {
-				resultValue = FLOAT_VAL((double)result);
-			}
-			break;
-		}
-		case OP_SET_GLOBAL_MINUS: {
-			const int64_t result = (int64_t)icurrent -
-					       (int64_t)ioperand;
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				resultValue = INT_VAL((int32_t)result);
-			} else {
-				resultValue = FLOAT_VAL((double)result);
-			}
-			break;
-		}
-		case OP_SET_GLOBAL_STAR: {
-			const int64_t result = (int64_t)icurrent *
-					       (int64_t)ioperand;
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				resultValue = INT_VAL((int32_t)result);
-			} else {
-				resultValue = FLOAT_VAL((double)result);
-			}
-			break;
-		}
-		case OP_SET_GLOBAL_SLASH: {
-			if (ioperand == 0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Division by zero in '%s %s'.",
-					     name->chars, operation);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			resultValue = FLOAT_VAL((double)icurrent /
-						(double)ioperand);
-			break;
-		}
-
-		case OP_SET_GLOBAL_INT_DIVIDE: {
-			if (ioperand == 0) {
-				runtime_panic(current_module_record, false,
-					     RUNTIME,
-					     "Division by zero in '%s %s'.",
-					     name->chars, operation);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			if (icurrent == INT32_MIN && ioperand == -1) {
-				resultValue = FLOAT_VAL(
-					-(double)INT32_MIN); // Overflow
-			} else {
-				resultValue = INT_VAL(icurrent / ioperand);
-			}
-			break;
-		}
-
-		case OP_SET_GLOBAL_MODULUS: {
-			if (ioperand == 0) {
-				runtime_panic(current_module_record, false,
-					     RUNTIME,
-					     "Division by zero in '%s %s'.",
-					     name->chars, operation);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			if (icurrent == INT32_MIN && ioperand == -1) {
-				resultValue = INT_VAL(0);
-			} else {
-				resultValue = INT_VAL(icurrent % ioperand);
-			}
-			break;
-		}
-
-		default:
+		if (opcode >= (OpCode)(sizeof(int_compound_ops) /
+				       sizeof(int_compound_ops[0])) ||
+		    int_compound_ops[opcode] == NULL) {
 			runtime_panic(current_module_record, false, RUNTIME,
-				     "Unsupported compound assignment opcode "
-				     "%d for int/int.",
-				     opcode);
+				      "Unsupported compound assignment opcode "
+				      "%d for int/int.",
+				      opcode);
 			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		InterpretResult result = int_compound_ops[opcode](
+			current_module_record, name, operation, icurrent,
+			ioperand, &resultValue);
+		if (result != INTERPRET_OK) {
+			return result;
 		}
 	} else {
 		const double dcurrent = currentIsFloat
@@ -1089,53 +1462,30 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 						? AS_FLOAT(operandValue)
 						: (double)AS_INT(operandValue);
 
-		switch (opcode) {
-		case OP_SET_GLOBAL_PLUS: {
-			resultValue = FLOAT_VAL(dcurrent + doperand);
-			break;
-		}
-		case OP_SET_GLOBAL_MINUS: {
-			resultValue = FLOAT_VAL(dcurrent - doperand);
-			break;
-		}
-		case OP_SET_GLOBAL_STAR: {
-			resultValue = FLOAT_VAL(dcurrent * doperand);
-			break;
-		}
-		case OP_SET_GLOBAL_SLASH: {
-			if (doperand == 0.0) {
-				runtime_panic(current_module_record, false, MATH,
-					     "Division by zero in '%s %s'.",
-					     name->chars, operation);
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			resultValue = FLOAT_VAL(dcurrent / doperand);
-			break;
+		if (opcode >= (OpCode)(sizeof(float_compound_ops) /
+				       sizeof(float_compound_ops[0])) ||
+		    float_compound_ops[opcode] == NULL) {
+			runtime_panic(current_module_record, false, RUNTIME,
+				      "Unsupported compound assignment opcode "
+				      "%d for float/mixed.",
+				      opcode);
+			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		case OP_SET_GLOBAL_INT_DIVIDE:
-		case OP_SET_GLOBAL_MODULUS: {
-			runtime_panic(current_module_record, false, TYPE,
-				     "Operands for integer compound assignment "
-				     "'%s' must both be "
-				     "integers.",
-				     operation);
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		default:
-			runtime_panic(current_module_record, false, RUNTIME,
-				     "Unsupported compound assignment opcode "
-				     "%d for float/mixed.",
-				     opcode);
-			return INTERPRET_RUNTIME_ERROR;
+		const InterpretResult result = float_compound_ops[opcode](
+			current_module_record, name, operation, dcurrent,
+			doperand, &resultValue);
+		if (result != INTERPRET_OK) {
+			return result;
 		}
 	}
 	table_set(vm, &current_module_record->globals, name, resultValue);
 	return INTERPRET_OK;
 }
 
-bool check_previous_instruction(const CallFrame *frame, const int instructions_ago,
-			      const OpCode instruction)
+bool check_previous_instruction(const CallFrame *frame,
+				const int instructions_ago,
+				const OpCode instruction)
 {
 	const uint8_t *current = frame->ip;
 	const uint8_t *codeStart = frame->closure->function->chunk.code;
@@ -1178,7 +1528,8 @@ InterpretResult interpret(VM *vm, char *source)
  * @return
  */
 ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure,
-				  const int arg_count, InterpretResult *result)
+				    const int arg_count,
+				    InterpretResult *result)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	const uint32_t currentFrameCount = current_module_record->frame_count;
@@ -1187,7 +1538,7 @@ ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure,
 
 	if (!call(current_module_record, closure, arg_count)) {
 		runtime_panic(current_module_record, false, RUNTIME,
-			     "Failed to execute function");
+			      "Failed to execute function");
 		*result = INTERPRET_RUNTIME_ERROR;
 		return errorResult;
 	}
@@ -1207,57 +1558,13 @@ Value typeof_value(VM *vm, const Value value)
 	if (IS_CRUX_OBJECT(value)) {
 		const ObjectType type = AS_CRUX_OBJECT(value)->type;
 
-		switch (type) {
-		case OBJECT_STRING:
-			return OBJECT_VAL(copy_string(vm, "string", 6));
-
-		case OBJECT_FUNCTION:
-		case OBJECT_NATIVE_FUNCTION:
-		case OBJECT_NATIVE_METHOD:
-		case OBJECT_CLOSURE:
-		case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
-		case OBJECT_NATIVE_INFALLIBLE_METHOD:
-			return OBJECT_VAL(copy_string(vm, "function", 8));
-
-		case OBJECT_UPVALUE: {
-			const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
-			return typeof_value(vm, upvalue->closed);
+		if (type >= sizeof(typeof_handlers) /
+				    sizeof(typeof_handlers[0]) ||
+		    typeof_handlers[type] == NULL) {
+			return OBJECT_VAL(copy_string(vm, "unknown", 7));
 		}
 
-		case OBJECT_ARRAY:
-			return OBJECT_VAL(copy_string(vm, "array", 5));
-
-		case OBJECT_TABLE:
-			return OBJECT_VAL(copy_string(vm, "table", 5));
-
-		case OBJECT_ERROR:
-			return OBJECT_VAL(copy_string(vm, "error", 5));
-
-		case OBJECT_RESULT:
-			return OBJECT_VAL(copy_string(vm, "result", 6));
-
-		case OBJECT_RANDOM:
-			return OBJECT_VAL(copy_string(vm, "random", 6));
-
-		case OBJECT_FILE:
-			return OBJECT_VAL(copy_string(vm, "file", 4));
-
-		case OBJECT_MODULE_RECORD:
-			return OBJECT_VAL(copy_string(vm, "module", 6));
-		case OBJECT_STATIC_ARRAY:
-			return OBJECT_VAL(copy_string(vm, "static array", 12));
-		case OBJECT_STATIC_TABLE:
-			return OBJECT_VAL(copy_string(vm, "static table", 12));
-		case OBJECT_STRUCT:
-			return OBJECT_VAL(copy_string(vm, "struct", 6));
-		case OBJECT_STRUCT_INSTANCE:
-			return OBJECT_VAL(
-				copy_string(vm, "struct instance", 15));
-		case OBJECT_VEC2:
-			return OBJECT_VAL(copy_string(vm, "vec2", 4));
-		case OBJECT_VEC3:
-			return OBJECT_VAL(copy_string(vm, "vec3", 4));
-		}
+		return typeof_handlers[type](vm, value);
 	}
 
 	if (IS_INT(value)) {

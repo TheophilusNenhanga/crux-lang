@@ -149,11 +149,9 @@ static void mark_struct_instance(VM *vm, ObjectStructInstance *instance)
  * @param vm The virtual machine.
  * @param object The object to blacken.
  */
-// Function pointer types for dispatch tables
 typedef void (*BlackenFunction)(VM *vm, Object *object);
 typedef void (*FreeFunction)(VM *vm, Object *object);
 
-// Forward declarations for blacken functions
 static void blacken_closure(VM *vm, Object *object);
 static void blacken_function(VM *vm, Object *object);
 static void blacken_upvalue(VM *vm, Object *object);
@@ -176,7 +174,6 @@ static void blacken_vec2(VM *vm, Object *object);
 static void blacken_vec3(VM *vm, Object *object);
 static void blacken_string(VM *vm, Object *object);
 
-// Blacken dispatch table - indexed by ObjectType
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
 	[OBJECT_FUNCTION] = blacken_function,
@@ -377,7 +374,6 @@ static void free_object_struct_instance(VM *vm, Object *object);
 static void free_object_vec2(VM *vm, Object *object);
 static void free_object_vec3(VM *vm, Object *object);
 
-// Free dispatch table - indexed by ObjectType
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
 	[OBJECT_FUNCTION] = free_object_function,
@@ -462,9 +458,7 @@ static void free_object_static_array(VM *vm, Object *object) {
 
 static void free_object_static_table_wrapper(VM *vm, Object *object) {
 	ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
-	// First free the internal data
 	free_object_static_table(vm, staticTable);
-	// Then free the object itself
 	FREE(vm, ObjectStaticTable, object);
 }
 
@@ -476,9 +470,7 @@ static void free_object_array(VM *vm, Object *object) {
 
 static void free_object_table_wrapper(VM *vm, Object *object) {
 	ObjectTable *table = (ObjectTable *)object;
-	// First free the internal data
 	free_object_table(vm, table);
-	// Then free the object itself
 	FREE(vm, ObjectTable, object);
 }
 
