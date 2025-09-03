@@ -60,22 +60,21 @@ ObjectResult *make_gc_safe_error(void);
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
+#ifdef PACKED_OBJECTS
+#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (uint64_t)(next_ptr) >> 3)
 
-// Helper macros for working with packed Object
-#define OBJECT_SET_NEXT(obj, next_ptr) \
-	((obj)->next = (uint64_t)(next_ptr) >> 3)
-
-#define OBJECT_GET_NEXT(obj) \
+#define OBJECT_GET_NEXT(obj)                                                   \
 	((Object *)(((obj)->next << 3) | (uint64_t)(obj) & 0x7))
+#else
+#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (next_ptr))
+#define OBJECT_GET_NEXT(obj) ((Object *)(((obj)->next)))
+#endif
 
-#define OBJECT_SET_TYPE(obj, obj_type) \
-	((obj)->type = (obj_type))
+#define OBJECT_SET_TYPE(obj, obj_type) ((obj)->type = (obj_type))
 
-#define OBJECT_SET_MARKED(obj, marked) \
-	((obj)->is_marked = (marked))
+#define OBJECT_SET_MARKED(obj, marked) ((obj)->is_marked = (marked))
 
-#define OBJECT_GET_MARKED(obj) \
-	((obj)->is_marked)
+#define OBJECT_GET_MARKED(obj) ((obj)->is_marked)
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
@@ -161,12 +160,19 @@ typedef enum {
 	OBJECT_VEC3,
 } ObjectType;
 
+#ifdef PACKED_OBJECTS
 struct Object {
-	uint64_t next : 57;      // next object
-	uint64_t type : 6;       // object type (supports up to 64 types)
-	uint64_t is_marked : 1;  // GC mark flag
+	uint64_t next : 57; // next object
+	uint64_t type : 6; // object type (supports up to 64 types)
+	uint64_t is_marked : 1; // GC mark flag
 } __attribute__((packed));
-
+#else
+struct Object {
+	Object *next;
+	ObjectType type;
+	bool is_marked;
+};
+#endif
 struct ObjectString {
 	Object Object;
 	char *chars;
