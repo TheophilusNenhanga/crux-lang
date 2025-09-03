@@ -16,6 +16,8 @@
 // #define DEBUG_LOG_GC
 // #define DEBUG_STRESS_GC
 
+// #define PACKED_OBJECTS
+
 #define UINT8_COUNT (UINT8_MAX + 1)
 #define MAX_ARRAY_SIZE (UINT16_MAX - 1)
 #define FRAMES_MAX 128

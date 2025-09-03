@@ -490,6 +490,7 @@ Token scan_token(void)
 		if (match('[')) {
 			return make_token(TOKEN_DOLLAR_LEFT_SQUARE);
 		}
+		break;
 	}
 	case '?': {
 		return make_token(TOKEN_QUESTION_MARK);

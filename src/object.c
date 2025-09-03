@@ -40,9 +40,9 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 	printf("\n");
 #endif
 
-	object->type = type;
-	object->next = vm->objects;
-	object->is_marked = false;
+	OBJECT_SET_TYPE(object, type);
+	OBJECT_SET_NEXT(object, vm->objects);
+	OBJECT_SET_MARKED(object, false);
 	vm->objects = object;
 
 #ifdef DEBUG_LOG_GC
@@ -51,30 +51,6 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 
 	return object;
 }
-
-static Object *allocateObjectUnsafe(const size_t size, const ObjectType type)
-{
-	Object *object = malloc(size);
-	if (object == NULL) {
-		fprintf(stderr,
-			"Fatal error: Failed to allocate %zu bytes.\nExiting!",
-			size);
-		exit(1);
-	}
-
-	object->type = type;
-	object->next = NULL; // Not linked to VM yet
-	object->is_marked = false;
-
-#ifdef DEBUG_LOG_GC
-	printf("%p allocate unsafe %zu for %d\n", (void *)object, size, type);
-#endif
-
-	return object;
-}
-
-#define ALLOCATE_OBJECT_UNSAFE(type, objectType)                               \
-	(type *)allocateObjectUnsafe(sizeof(type), objectType)
 
 /**
  * @brief Macro to allocate a specific type of object.
@@ -1294,9 +1270,9 @@ ObjectRandom *new_random(VM *vm)
 bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
 			const bool is_repl, const bool is_main)
 {
-	module_record->object.is_marked = false;
-	module_record->object.type = OBJECT_MODULE_RECORD;
-	module_record->object.next = NULL;
+	OBJECT_SET_TYPE(&module_record->object, OBJECT_MODULE_RECORD);
+	OBJECT_SET_NEXT(&module_record->object, NULL);
+	OBJECT_SET_MARKED(&module_record->object, false);
 
 	module_record->path = path;
 	init_table(&module_record->globals);
@@ -1483,50 +1459,4 @@ ObjectVec3 *new_vec3(VM *vm, const double x, const double y, const double z)
 	vec3->y = y;
 	vec3->z = z;
 	return vec3;
-}
-
-Object *vm_take_object_ownership(VM *vm, Object *object,
-				 const size_t object_size)
-{
-	if (object == NULL) {
-		return NULL;
-	}
-
-	// Link the object into the VM's object list
-	object->next = vm->objects;
-	object->is_marked = false;
-	vm->objects = object;
-
-	vm->bytes_allocated += object_size;
-#ifdef DEBUG_LOG_GC
-	printf("%p take ownership %zu for %d\n", (void *)object, object_size,
-	       object->type);
-#endif
-	return object;
-}
-
-ObjectVec2 *new_vec2_unsafe(const double x, const double y)
-{
-	ObjectVec2 *vec2 = ALLOCATE_OBJECT_UNSAFE(ObjectVec2, OBJECT_VEC2);
-	vec2->x = x;
-	vec2->y = y;
-	return vec2;
-}
-
-ObjectVec3 *new_vec3_unsafe(const double x, const double y, const double z)
-{
-	ObjectVec3 *vec3 = ALLOCATE_OBJECT_UNSAFE(ObjectVec3, OBJECT_VEC3);
-	vec3->x = x;
-	vec3->y = y;
-	vec3->z = z;
-	return vec3;
-}
-
-ObjectResult *new_ok_result_unsafe(const Value value)
-{
-	ObjectResult *result = ALLOCATE_OBJECT_UNSAFE(ObjectResult,
-						      OBJECT_RESULT);
-	result->is_ok = true;
-	result->as.value = value;
-	return result;
 }

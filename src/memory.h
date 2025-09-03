@@ -3,7 +3,7 @@
 
 #include "object.h"
 
-#define TABLE_MAX_LOAD 0.6
+#define TABLE_MAX_LOAD 0.65
 
 #define ALLOCATE(vm, type, count)                                              \
 	(type *)reallocate(vm, NULL, 0, sizeof(type) * count)

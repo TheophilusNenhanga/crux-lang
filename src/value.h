@@ -24,7 +24,7 @@ typedef uint64_t Value;
 #define IS_CRUX_OBJECT(value)                                                  \
 	(((value) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
 
-// #define IS_NUMBER(value) (IS_INT(value) || IS_FLOAT(value))
+#define IS_NUMERIC(value) (IS_INT(value) || IS_FLOAT(value))
 
 #define AS_INT(value) ((int32_t)((value) & 0xFFFFFFFF))
 #define AS_FLOAT(value) valueToNum(value)
