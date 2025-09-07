@@ -36,16 +36,17 @@ if (CMAKE_BUILD_TYPE STREQUAL "Perf")
 endif()
 
 file(GLOB SOURCES
-				"*.c"
-				"vm/*.c"
-				"std/*.c"
+				"src/*.c"
+				"src/stdlib/*.c"
+				"src/vm/*.c"
 )
 
 file(GLOB HEADERS
-			"*.h"
-			"vm/*.h"
-			"std/*.h"
+			"include/*.h"
+			"include/stdlib/*.h"
 )
+
+include_directories(include)
 
 add_executable(crux ${SOURCES} ${HEADERS})
 

@@ -1,4 +1,4 @@
-#include "sys.h"
+#include "stdlib/sys.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../panic.h"
-#include "../vm/vm_helpers.h"
+#include "panic.h"
+#include "vm_helpers.h"
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -18,15 +18,16 @@ ObjectResult *args_function(VM *vm, int arg_count __attribute__((unused)),
 {
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectArray *resultArray = new_array(vm, 2, module_record);
-	ObjectArray *argvArray = new_array(vm, vm->args.argc,
-					  module_record);
+	ObjectArray *argvArray = new_array(vm, vm->args.argc, module_record);
 	push(module_record, OBJECT_VAL(resultArray));
 	push(module_record, OBJECT_VAL(argvArray));
 
 	for (int i = 0; i < vm->args.argc; i++) {
 		char *arg = strdup(vm->args.argv[i]);
 		if (arg == NULL) {
-			ObjectResult* error_result = MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for argument.", MEMORY);
+			ObjectResult *error_result = MAKE_GC_SAFE_ERROR(
+				vm, "Failed to allocate memory for argument.",
+				MEMORY);
 			pop(module_record);
 			pop(module_record);
 			return error_result;
@@ -109,21 +110,26 @@ ObjectResult *get_env_function(VM *vm, int arg_count __attribute__((unused)),
 			       const Value *args)
 {
 	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument <name> must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Argument <name> must be of type 'string'.", TYPE);
 	}
 	const char *value = getenv(AS_C_STRING(args[0]));
 	if (value == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.",
+					  RUNTIME);
 	}
 
 	char *newValue = strdup(value);
 	if (newValue == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for environment variable value.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to allocate memory for "
+					  "environment variable value.",
+					  MEMORY);
 	}
 
 	ObjectString *valueString = take_string(vm, newValue, strlen(value));
 	push(vm->current_module_record, OBJECT_VAL(valueString));
-	ObjectResult* res =  new_ok_result(vm, OBJECT_VAL(valueString));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(valueString));
 	pop(vm->current_module_record);
 	return res;
 }
@@ -132,7 +138,8 @@ ObjectResult *sleep_function(VM *vm, int arg_count __attribute__((unused)),
 			     const Value *args)
 {
 	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument <seconds> must be of type 'int'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Argument <seconds> must be of type 'int'.", TYPE);
 	}
 
 #ifdef _WIN32

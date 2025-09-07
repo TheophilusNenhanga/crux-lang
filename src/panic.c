@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "std/core.h"
-#include "vm/vm.h"
-#include "vm/vm_helpers.h"
+#include "stdlib/core.h"
+#include "vm.h"
+#include "vm_helpers.h"
 
 static ErrorDetails getErrorDetails(const ErrorType type)
 {
@@ -142,7 +142,7 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 }
 
 void print_error_line(const int line, const char *source, int startCol,
-		    const int length)
+		      const int length)
 {
 	const char *lineStart = source;
 	for (int currentLine = 1; currentLine < line && *lineStart;
@@ -191,7 +191,7 @@ void print_error_line(const int line, const char *source, int startCol,
 }
 
 void error_at(Parser *parser, const Token *token, const char *message,
-	     const ErrorType error_type)
+	      const ErrorType error_type)
 {
 	if (parser->panic_mode) {
 		return;
@@ -219,7 +219,7 @@ void error_at(Parser *parser, const Token *token, const char *message,
 		}
 
 		print_error_line(token->line, parser->source, startCol,
-			       token->length);
+				 token->length);
 	}
 
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
@@ -228,13 +228,13 @@ void error_at(Parser *parser, const Token *token, const char *message,
 }
 
 void compiler_panic(Parser *parser, const char *message,
-		   const ErrorType error_type)
+		    const ErrorType error_type)
 {
 	error_at(parser, &parser->previous, message, error_type);
 }
 
 void runtime_panic(ObjectModuleRecord *module_record, const bool should_exit,
-		  const ErrorType type, const char *format, ...)
+		   const ErrorType type, const char *format, ...)
 {
 	const ErrorDetails details = getErrorDetails(type);
 

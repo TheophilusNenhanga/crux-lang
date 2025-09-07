@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <errno.h>
 #include "chunk.h"
-#include "errno.h"
 #include "file_handler.h"
 #include "memory.h"
 #include "object.h"
@@ -84,7 +84,8 @@ static bool match(const CruxTokenType type)
 
 static void emit_byte(const uint8_t byte)
 {
-	write_chunk(current->owner, current_chunk(), byte, parser.previous.line);
+	write_chunk(current->owner, current_chunk(), byte,
+		    parser.previous.line);
 }
 
 static void emit_bytes(const uint8_t byte1, const uint8_t byte2)
@@ -134,7 +135,7 @@ static void patch_jump(const int offset)
 	const int jump = current_chunk()->count - offset - 2;
 	if (jump > UINT16_MAX) {
 		compiler_panic(&parser, "Too much code to jump over.",
-			      BRANCH_EXTENT);
+			       BRANCH_EXTENT);
 	}
 	current_chunk()->code[offset] = (jump >> 8) & 0xff;
 	current_chunk()->code[offset + 1] = jump & 0xff;
@@ -156,10 +157,11 @@ static void emit_return(void)
  */
 static uint16_t make_constant(const Value value)
 {
-	const int constant = add_constant(current->owner, current_chunk(), value);
+	const int constant = add_constant(current->owner, current_chunk(),
+					  value);
 	if (constant > UINT16_MAX) {
 		compiler_panic(&parser, "Too many constants in one chunk.",
-			      LIMIT);
+			       LIMIT);
 		return 0;
 	}
 	return (uint16_t)constant;
@@ -207,11 +209,11 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 
 	if (type == TYPE_ANONYMOUS) {
 		current->function->name = copy_string(current->owner,
-						     "anonymous", 9);
+						      "anonymous", 9);
 	} else if (type != TYPE_SCRIPT) {
 		current->function->name = copy_string(current->owner,
-						     parser.previous.start,
-						     parser.previous.length);
+						      parser.previous.start,
+						      parser.previous.length);
 	}
 
 	Local *local = &current->locals[current->local_count++];
@@ -308,9 +310,9 @@ static int resolve_local(const Compiler *compiler, const Token *name)
 		if (identifiers_equal(name, &local->name)) {
 			if (local->depth == -1) {
 				compiler_panic(&parser,
-					      "Cannot read local variable in "
-					      "its own initializer",
-					      NAME);
+					       "Cannot read local variable in "
+					       "its own initializer",
+					       NAME);
 			}
 			return i;
 		}
@@ -338,7 +340,8 @@ static void pop_loop_context(void)
 		return;
 	}
 
-	const LoopContext *context = &current->loop_stack[--current->loop_depth];
+	const LoopContext *context =
+		&current->loop_stack[--current->loop_depth];
 
 	// Patch all break jumps to jump to current position
 	BreakJump *breakJump = context->break_jumps;
@@ -354,7 +357,7 @@ static void add_break_jump(const int jumpOffset)
 {
 	if (current->loop_depth <= 0) {
 		compiler_panic(&parser, "Cannot use 'break' outside of a loop.",
-			      SYNTAX);
+			       SYNTAX);
 		return;
 	}
 
@@ -370,8 +373,8 @@ static int get_current_continue_target(void)
 {
 	if (current->loop_depth <= 0) {
 		compiler_panic(&parser,
-			      "Cannot use 'continue' outside of a loop.",
-			      SYNTAX);
+			       "Cannot use 'continue' outside of a loop.",
+			       SYNTAX);
 		return -1;
 	}
 
@@ -392,7 +395,7 @@ static int get_current_continue_target(void)
  * array.
  */
 static int add_upvalue(Compiler *compiler, const uint8_t index,
-		      const bool isLocal)
+		       const bool isLocal)
 {
 	const int upvalueCount = compiler->function->upvalue_count;
 
@@ -405,8 +408,8 @@ static int add_upvalue(Compiler *compiler, const uint8_t index,
 
 	if (upvalueCount >= UINT8_COUNT) {
 		compiler_panic(&parser,
-			      "Too many closure variables in function.",
-			      CLOSURE_EXTENT);
+			       "Too many closure variables in function.",
+			       CLOSURE_EXTENT);
 		return 0;
 	}
 
@@ -453,7 +456,7 @@ static void add_local(const Token name)
 {
 	if (current->local_count == UINT8_COUNT) {
 		compiler_panic(&parser, "Too many local variables in function.",
-			      LOCAL_EXTENT);
+			       LOCAL_EXTENT);
 		return;
 	}
 
@@ -614,9 +617,9 @@ static ObjectFunction *end_compiler(void)
 	ObjectFunction *function = current->function;
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.had_error) {
-		disassembleChunk(current_chunk(), function->name != NULL
-							 ? function->name->chars
-							 : "<script>");
+		disassembleChunk(current_chunk(),
+				 function->name != NULL ? function->name->chars
+							: "<script>");
 	}
 #endif
 
@@ -787,9 +790,9 @@ static OpCode get_compound_opcode(const OpCode setOp, const CompoundOp op)
 			return OP_SET_LOCAL_MODULUS;
 		default: {
 			compiler_panic(&parser,
-				      "Compiler Error: Failed to create "
-				      "bytecode for compound operation.",
-				      RUNTIME);
+				       "Compiler Error: Failed to create "
+				       "bytecode for compound operation.",
+				       RUNTIME);
 			break;
 		}
 		}
@@ -811,9 +814,9 @@ static OpCode get_compound_opcode(const OpCode setOp, const CompoundOp op)
 			return OP_SET_UPVALUE_MODULUS;
 		default: {
 			compiler_panic(&parser,
-				      "Compiler Error: Failed to create "
-				      "bytecode for compound operation.",
-				      RUNTIME);
+				       "Compiler Error: Failed to create "
+				       "bytecode for compound operation.",
+				       RUNTIME);
 			break;
 		}
 		}
@@ -835,9 +838,9 @@ static OpCode get_compound_opcode(const OpCode setOp, const CompoundOp op)
 			return OP_SET_GLOBAL_MODULUS;
 		default: {
 			compiler_panic(&parser,
-				      "Compiler Error: Failed to create "
-				      "bytecode for compound operation.",
-				      RUNTIME);
+				       "Compiler Error: Failed to create "
+				       "bytecode for compound operation.",
+				       RUNTIME);
 			break;
 		}
 		}
@@ -875,11 +878,11 @@ static void named_variable(Token name, const bool can_assign)
 				expression();
 				if (globalArg <= UINT8_MAX) {
 					emit_bytes(OP_SET_GLOBAL,
-						  (uint8_t)globalArg);
+						   (uint8_t)globalArg);
 				} else {
 					emit_byte(OP_SET_GLOBAL_16);
 					emit_bytes(globalArg >> 8 & 0xff,
-						  globalArg & 0xff);
+						   globalArg & 0xff);
 				}
 				return;
 			}
@@ -909,16 +912,16 @@ static void named_variable(Token name, const bool can_assign)
 					get_compound_opcode(OP_SET_GLOBAL, op);
 				if (globalArg <= UINT8_MAX) {
 					emit_bytes(compoundOp,
-						  (uint8_t)globalArg);
+						   (uint8_t)globalArg);
 				} else {
 					if (globalArg <= UINT8_MAX) {
 						emit_bytes(OP_GET_GLOBAL,
-							  (uint8_t)globalArg);
+							   (uint8_t)globalArg);
 					} else {
 						emit_byte(OP_GET_GLOBAL_16);
 						emit_bytes(((globalArg >> 8) &
-							   0xff),
-							  (globalArg & 0xff));
+							    0xff),
+							   (globalArg & 0xff));
 					}
 					switch (op) {
 					case COMPOUND_OP_PLUS:
@@ -942,11 +945,12 @@ static void named_variable(Token name, const bool can_assign)
 					}
 					if (globalArg <= UINT8_MAX) {
 						emit_bytes(OP_SET_GLOBAL,
-							  (uint8_t)globalArg);
+							   (uint8_t)globalArg);
 					} else {
 						emit_byte(OP_SET_GLOBAL_16);
-						emit_bytes(globalArg >> 8 & 0xff,
-							  globalArg & 0xff);
+						emit_bytes(globalArg >> 8 &
+								   0xff,
+							   globalArg & 0xff);
 					}
 				}
 				return;
@@ -958,7 +962,7 @@ static void named_variable(Token name, const bool can_assign)
 		} else {
 			emit_byte(OP_GET_GLOBAL_16);
 			emit_bytes(((globalArg >> 8) & 0xff),
-				  (globalArg & 0xff));
+				   (globalArg & 0xff));
 		}
 		return;
 	}
@@ -1004,8 +1008,9 @@ void struct_instance(const bool can_assign)
 		"Expected struct name to start initialization.");
 	named_variable(parser.previous, can_assign);
 	if (!match(TOKEN_LEFT_BRACE)) {
-		compiler_panic(&parser, "Expected '{' to start struct instance.",
-			      SYNTAX);
+		compiler_panic(&parser,
+			       "Expected '{' to start struct instance.",
+			       SYNTAX);
 		return;
 	}
 	uint16_t fieldCount = 0;
@@ -1032,11 +1037,11 @@ void struct_instance(const bool can_assign)
 				OBJECT_VAL(fieldName));
 			if (fieldNameConstant <= UINT8_MAX) {
 				emit_bytes(OP_STRUCT_NAMED_FIELD,
-					  (uint8_t)fieldNameConstant);
+					   (uint8_t)fieldNameConstant);
 			} else {
 				emit_byte(OP_STRUCT_NAMED_FIELD_16);
 				emit_bytes(fieldNameConstant >> 8 & 0xff,
-					  fieldNameConstant & 0xff);
+					   fieldNameConstant & 0xff);
 			}
 
 			fieldCount++;
@@ -1076,10 +1081,11 @@ static void function(const FunctionType type)
 		do {
 			current->function->arity++;
 			if (current->function->arity > 255) {
-				compiler_panic(&parser,
-					      "Functions cannot have more than "
-					      "255 arguments",
-					      ARGUMENT_EXTENT);
+				compiler_panic(
+					&parser,
+					"Functions cannot have more than "
+					"255 arguments",
+					ARGUMENT_EXTENT);
 			}
 			const uint8_t constant = parse_variable(
 				"Expected parameter name");
@@ -1118,10 +1124,11 @@ static void anonymous_function(bool can_assign __attribute__((unused)))
 		do {
 			current->function->arity++;
 			if (current->function->arity > 255) {
-				compiler_panic(&parser,
-					      "Functions cannot have more than "
-					      "255 arguments",
-					      ARGUMENT_EXTENT);
+				compiler_panic(
+					&parser,
+					"Functions cannot have more than "
+					"255 arguments",
+					ARGUMENT_EXTENT);
 			}
 			const uint8_t constant = parse_variable(
 				"Expected parameter name");
@@ -1160,7 +1167,7 @@ static void create_array(const OpCode creationOpCode, const char *typeName)
 					 "Too many elements in %s literal.",
 					 typeName);
 				compiler_panic(&parser, buffer,
-					      COLLECTION_EXTENT);
+					       COLLECTION_EXTENT);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
@@ -1196,7 +1203,7 @@ static void create_table(const OpCode creationOpCode, const char *typeName)
 					 "Too many elements in %s literal.",
 					 typeName);
 				compiler_panic(&parser, buffer,
-					      COLLECTION_EXTENT);
+					       COLLECTION_EXTENT);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
@@ -1219,8 +1226,8 @@ static void static_table_literal(bool can_assign __attribute__((unused)))
 /**
  * Parses a collection index access expression (e.g., array[index]).
  *
- * @param can_assign Whether the collection index expression can be the target of
- * an assignment.
+ * @param can_assign Whether the collection index expression can be the target
+ * of an assignment.
  */
 static void collection_index(const bool can_assign)
 {
@@ -1310,7 +1317,7 @@ static void for_statement(void)
 	emit_byte(OP_POP);
 
 	emit_loop(loopStart); // main loop that takes us back to the top of the
-			     // for loop
+			      // for loop
 	loopStart = incrementStart;
 	patch_jump(bodyJump);
 
@@ -1346,8 +1353,8 @@ static void return_statement(void)
 {
 	if (current->type == TYPE_SCRIPT) {
 		compiler_panic(&parser,
-			      "Cannot use <return> outside of a function",
-			      SYNTAX);
+			       "Cannot use <return> outside of a function",
+			       SYNTAX);
 	}
 
 	if (match(TOKEN_SEMICOLON)) {
@@ -1381,9 +1388,9 @@ static void use_statement(void)
 	do {
 		if (nameCount >= UINT8_MAX) {
 			compiler_panic(&parser,
-				      "Cannot import more than 255 names from "
-				      "another module.",
-				      IMPORT_EXTENT);
+				       "Cannot import more than 255 names from "
+				       "another module.",
+				       IMPORT_EXTENT);
 		}
 		consume(TOKEN_IDENTIFIER,
 			"Expected name to import from module");
@@ -1423,7 +1430,7 @@ static void use_statement(void)
 	if (isNative) {
 		module = make_constant(OBJECT_VAL(
 			copy_string(current->owner, parser.previous.start + 6,
-				   parser.previous.length - 7)));
+				    parser.previous.length - 7)));
 		emit_bytes(OP_USE_NATIVE, nameCount);
 		for (uint8_t i = 0; i < nameCount; i++) {
 			emit_byte(names[i]);
@@ -1439,7 +1446,7 @@ static void use_statement(void)
 	} else {
 		module = make_constant(OBJECT_VAL(
 			copy_string(current->owner, parser.previous.start + 1,
-				   parser.previous.length - 2)));
+				    parser.previous.length - 2)));
 		emit_bytes(OP_USE_MODULE, module);
 
 		emit_bytes(OP_FINISH_USE, nameCount);
@@ -1464,13 +1471,13 @@ static void struct_declaration(void)
 	const Token structName = parser.previous;
 	GC_PROTECT_START(current->owner->current_module_record);
 	ObjectString *structNameString = copy_string(current->owner,
-						    structName.start,
-						    structName.length);
+						     structName.start,
+						     structName.length);
 	GC_PROTECT(current->owner->current_module_record,
 		   OBJECT_VAL(structNameString));
 	const uint16_t nameConstant = identifier_constant(&structName);
 	ObjectStruct *structObject = new_struct_type(current->owner,
-						   structNameString);
+						     structNameString);
 	GC_PROTECT(current->owner->current_module_record,
 		   OBJECT_VAL(structObject));
 
@@ -1482,7 +1489,7 @@ static void struct_declaration(void)
 	} else {
 		emit_byte(OP_STRUCT_16);
 		emit_bytes(((structConstant >> 8) & 0xff),
-			  (structConstant & 0xff));
+			   (structConstant & 0xff));
 	}
 
 	define_variable(nameConstant);
@@ -1494,8 +1501,8 @@ static void struct_declaration(void)
 		do {
 			if (fieldCount >= UINT16_MAX) {
 				compiler_panic(&parser,
-					      "Too many fields in struct",
-					      SYNTAX);
+					       "Too many fields in struct",
+					       SYNTAX);
 				break;
 			}
 
@@ -1509,16 +1516,16 @@ static void struct_declaration(void)
 
 			Value fieldNameCheck;
 			if (table_get(&structObject->fields, fieldName,
-				     &fieldNameCheck)) {
+				      &fieldNameCheck)) {
 				compiler_panic(&parser,
-					      "Duplicate field name in struct "
-					      "declaration",
-					      SYNTAX);
+					       "Duplicate field name in struct "
+					       "declaration",
+					       SYNTAX);
 				break;
 			}
 
 			table_set(current->owner, &structObject->fields,
-				 fieldName, INT_VAL(fieldCount));
+				  fieldName, INT_VAL(fieldCount));
 			fieldCount++;
 		} while (match(TOKEN_COMMA));
 	}
@@ -1601,9 +1608,10 @@ static void synchronize(void)
 static void public_declaration(void)
 {
 	if (current->scope_depth > 0) {
-		compiler_panic(&parser,
-			      "Cannot declare public members in a local scope.",
-			      SYNTAX);
+		compiler_panic(
+			&parser,
+			"Cannot declare public members in a local scope.",
+			SYNTAX);
 	}
 	emit_byte(OP_PUB);
 	if (match(TOKEN_FN)) {
@@ -1614,8 +1622,8 @@ static void public_declaration(void)
 		struct_declaration();
 	} else {
 		compiler_panic(&parser,
-			      "Expected 'fn', 'let', or 'struct' after 'pub'.",
-			      SYNTAX);
+			       "Expected 'fn', 'let', or 'struct' after 'pub'.",
+			       SYNTAX);
 	}
 }
 
@@ -1623,8 +1631,8 @@ static void begin_match_scope(void)
 {
 	if (current->match_depth > 0) {
 		compiler_panic(&parser,
-			      "Nesting match statements is not allowed.",
-			      SYNTAX);
+			       "Nesting match statements is not allowed.",
+			       SYNTAX);
 	}
 	current->match_depth++;
 }
@@ -1681,9 +1689,9 @@ static void match_expression(bool can_assign __attribute__((unused)))
 		if (match(TOKEN_DEFAULT)) {
 			if (hasDefault) {
 				compiler_panic(&parser,
-					      "Cannot have multiple default "
-					      "patterns.",
-					      SYNTAX);
+					       "Cannot have multiple default "
+					       "patterns.",
+					       SYNTAX);
 			}
 			hasDefault = true;
 		} else if (match(TOKEN_OK)) {
@@ -1780,17 +1788,17 @@ static void match_expression(bool can_assign __attribute__((unused)))
 
 	if (jumpCount == 0) {
 		compiler_panic(&parser,
-			      "'match' expression must have at least one arm.",
-			      SYNTAX);
+			       "'match' expression must have at least one arm.",
+			       SYNTAX);
 	}
 
 	if (hasOkPattern || hasErrPattern) {
 		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
 			compiler_panic(&parser,
-				      "Result 'match' must have both 'Ok' and "
-				      "'Err' patterns, or "
-				      "include a default case.",
-				      SYNTAX);
+				       "Result 'match' must have both 'Ok' and "
+				       "'Err' patterns, or "
+				       "include a default case.",
+				       SYNTAX);
 		}
 	} else if (!hasDefault) {
 		compiler_panic(
@@ -1828,7 +1836,7 @@ static void break_statement(void)
 	consume(TOKEN_SEMICOLON, "Expected ';' after 'break'.");
 	if (current->loop_depth <= 0) {
 		compiler_panic(&parser, "Cannot use 'break' outside of a loop.",
-			      SYNTAX);
+			       SYNTAX);
 		return;
 	}
 	const LoopContext *loopContext =
@@ -1990,8 +1998,8 @@ static void string(bool can_assign __attribute__((unused)))
 
 	if (processed == NULL) {
 		compiler_panic(&parser,
-			      "Cannot allocate memory for string expression.",
-			      MEMORY);
+			       "Cannot allocate memory for string expression.",
+			       MEMORY);
 		return;
 	}
 
@@ -2008,10 +2016,11 @@ static void string(bool can_assign __attribute__((unused)))
 	for (int i = 0; i < srcLength; i++) {
 		if (src[i] == '\\') {
 			if (i + 1 >= srcLength) {
-				compiler_panic(&parser,
-					      "Unterminated escape sequence at "
-					      "end of string",
-					      SYNTAX);
+				compiler_panic(
+					&parser,
+					"Unterminated escape sequence at "
+					"end of string",
+					SYNTAX);
 				FREE_ARRAY(current->owner, char, processed,
 					   parser.previous.length);
 				return;
@@ -2019,7 +2028,7 @@ static void string(bool can_assign __attribute__((unused)))
 
 			bool error;
 			const char escaped = process_escape_sequence(src[i + 1],
-								   &error);
+								     &error);
 			if (error) {
 				char errorMessage[64];
 				snprintf(errorMessage, 64,
@@ -2042,8 +2051,8 @@ static void string(bool can_assign __attribute__((unused)))
 				parser.previous.length, processedLength + 1);
 	if (temp == NULL) {
 		compiler_panic(&parser,
-			      "Cannot allocate memory for string expression.",
-			      MEMORY);
+			       "Cannot allocate memory for string expression.",
+			       MEMORY);
 		FREE_ARRAY(current->owner, char, processed,
 			   parser.previous.length);
 		return;
@@ -2051,7 +2060,7 @@ static void string(bool can_assign __attribute__((unused)))
 	processed = temp;
 	processed[processedLength] = '\0';
 	ObjectString *string = take_string(current->owner, processed,
-					  processedLength);
+					   processedLength);
 	emit_constant(OBJECT_VAL(string));
 }
 
@@ -2097,7 +2106,8 @@ ParseRule rules[] = {
 	[TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_LEFT_BRACE] = {table_literal, NULL, NULL, PREC_NONE},
 	[TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_LEFT_SQUARE] = {array_literal, collection_index, NULL, PREC_CALL},
+	[TOKEN_LEFT_SQUARE] = {array_literal, collection_index, NULL,
+			       PREC_CALL},
 	[TOKEN_RIGHT_SQUARE] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_COMMA] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_DOT] = {NULL, dot, NULL, PREC_CALL},
@@ -2145,7 +2155,8 @@ ParseRule rules[] = {
 	[TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
 	[TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
-	[TOKEN_DOLLAR_LEFT_CURLY] = {static_table_literal, NULL, NULL, PREC_NONE},
+	[TOKEN_DOLLAR_LEFT_CURLY] = {static_table_literal, NULL, NULL,
+				     PREC_NONE},
 	[TOKEN_DOLLAR_LEFT_SQUARE] = {static_array_literal, NULL, NULL,
 				      PREC_NONE},
 	[TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},

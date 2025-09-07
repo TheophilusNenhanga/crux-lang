@@ -1,6 +1,6 @@
-#include "math.h"
+#include "stdlib/math.h"
 #include <math.h>
-#include "../panic.h"
+#include "panic.h"
 
 static bool numberArgs(const Value *args, const int arg_count)
 {

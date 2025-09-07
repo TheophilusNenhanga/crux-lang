@@ -1,8 +1,8 @@
 #ifndef PANIC_H
 #define PANIC_H
 
+#include "../include/scanner.h"
 #include "compiler.h"
-#include "scanner.h"
 
 typedef struct {
 	const char *name;

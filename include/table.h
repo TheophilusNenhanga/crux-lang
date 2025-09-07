@@ -1,8 +1,8 @@
 #ifndef TABLE_H
 #define TABLE_H
 
+#include "../include/value.h"
 #include "common.h"
-#include "value.h"
 
 typedef VM VM;
 

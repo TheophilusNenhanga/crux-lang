@@ -1,9 +1,9 @@
-#include "core.h"
+#include "stdlib/core.h"
 
 #include <stdlib.h>
 
-#include "../object.h"
-#include "../panic.h"
+#include "object.h"
+#include "panic.h"
 
 static Value get_length(const Value value)
 {
@@ -31,7 +31,10 @@ ObjectResult *length_function(VM *vm, int arg_count __attribute__((unused)),
 	const Value value = args[0];
 	const Value length = get_length(value);
 	if (IS_NIL(length)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Expected either a collection type ('string', 'array', 'table').", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Expected either a collection type "
+					  "('string', 'array', 'table').",
+					  TYPE);
 	}
 	return new_ok_result(vm, length);
 }
@@ -54,11 +57,13 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
 		ObjectArray *array = new_array(vm, string->length,
-					      vm->current_module_record);
+					       vm->current_module_record);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		for (uint32_t i = 0; i < string->length; i++) {
-			ObjectString *char_str = copy_string(vm, &string->chars[i], 1);
+			ObjectString *char_str = copy_string(vm,
+							     &string->chars[i],
+							     1);
 			push(vm->current_module_record, OBJECT_VAL(char_str));
 			if (!array_add_back(vm, array, OBJECT_VAL(char_str))) {
 				pop(vm->current_module_record); // char_str
@@ -77,7 +82,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 	if (IS_CRUX_TABLE(value)) {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
 		ObjectArray *array = new_array(vm, table->size * 2,
-					      vm->current_module_record);
+					       vm->current_module_record);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		uint32_t index = 0;
@@ -86,8 +91,10 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 				break;
 			}
 			if (table->entries[i].is_occupied) {
-				if (!array_add_back(vm, array, table->entries[i].key) ||
-				    !array_add_back(vm, array, table->entries[i].value)) {
+				if (!array_add_back(vm, array,
+						    table->entries[i].key) ||
+				    !array_add_back(vm, array,
+						    table->entries[i].value)) {
 					pop(vm->current_module_record); // array
 					*success = false;
 					return NIL_VAL;
@@ -120,7 +127,8 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_ARRAY(value)) {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
-		ObjectTable *table = new_table(vm, (int)array->size, moduleRecord);
+		ObjectTable *table = new_table(vm, (int)array->size,
+					       moduleRecord);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < array->size; i++) {
@@ -136,13 +144,17 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectTable *table = new_table(vm, (int)string->length, moduleRecord);
+		ObjectTable *table = new_table(vm, (int)string->length,
+					       moduleRecord);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < string->length; i++) {
-			ObjectString *char_str = copy_string(vm, &string->chars[i], 1);
+			ObjectString *char_str = copy_string(vm,
+							     &string->chars[i],
+							     1);
 			push(vm->current_module_record, OBJECT_VAL(char_str));
-			object_table_set(vm, table, INT_VAL(i), OBJECT_VAL(char_str));
+			object_table_set(vm, table, INT_VAL(i),
+					 OBJECT_VAL(char_str));
 			pop(vm->current_module_record); // char_str
 		}
 
@@ -232,7 +244,8 @@ ObjectResult *int_function(VM *vm, int arg_count __attribute__((unused)),
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
+					  TYPE);
 	}
 	return new_ok_result(vm, value);
 }
@@ -243,7 +256,8 @@ ObjectResult *float_function(VM *vm, int arg_count __attribute__((unused)),
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
+					  TYPE);
 	}
 	return new_ok_result(vm, value);
 }
@@ -265,7 +279,9 @@ ObjectResult *array_function(VM *vm, int arg_count __attribute__((unused)),
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to convert value to array.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to convert value to array.",
+					  RUNTIME);
 	}
 	return new_ok_result(vm, array);
 }

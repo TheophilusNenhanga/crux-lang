@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include "memory.h"
 #include "panic.h"
-#include "vm/vm_helpers.h"
 
 void init_chunk(Chunk *chunk)
 {

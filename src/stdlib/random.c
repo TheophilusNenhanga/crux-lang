@@ -1,5 +1,5 @@
-#include "random.h"
-#include "../panic.h"
+#include "stdlib/random.h"
+#include "panic.h"
 
 #define A 25214903917
 #define C 11
@@ -13,7 +13,8 @@ ObjectResult *random_seed_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	const Value seed = args[1];
 	if (!IS_INT(seed)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.",
+					  RUNTIME);
 	}
 
 	const uint64_t seedInt = (uint64_t)AS_INT(seed);
@@ -50,7 +51,7 @@ Value random_next_method(VM *vm __attribute__((unused)),
 Value random_init_function(VM *vm, int arg_count __attribute__((unused)),
 			   const Value *args __attribute__((unused)))
 {
-	ObjectRandom* random_obj = new_random(vm);
+	ObjectRandom *random_obj = new_random(vm);
 	push(vm->current_module_record, OBJECT_VAL(random_obj));
 	Value result = OBJECT_VAL(random_obj);
 	pop(vm->current_module_record);
@@ -65,14 +66,17 @@ ObjectResult *random_int_method(VM *vm, int arg_count __attribute__((unused)),
 	const Value max = args[2];
 
 	if (!IS_INT(min) || !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Arguments must be of type 'int'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Arguments must be of type 'int'.",
+					  TYPE);
 	}
 
 	const int32_t minInt = AS_INT(min);
 	const int32_t maxInt = AS_INT(max);
 
 	if (minInt > maxInt) {
-		return MAKE_GC_SAFE_ERROR(vm, "Min must be less than or equal to max", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Min must be less than or equal to max", RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -84,18 +88,23 @@ ObjectResult *random_int_method(VM *vm, int arg_count __attribute__((unused)),
 }
 
 // Returns a random double in the range [min, max]
-ObjectResult *random_double_method(VM *vm, int arg_count __attribute__((unused)),
+ObjectResult *random_double_method(VM *vm,
+				   int arg_count __attribute__((unused)),
 				   const Value *args)
 {
 	const Value min = args[1];
 	const Value max = args[2];
 
 	if (!IS_FLOAT(min) && !IS_INT(min)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Parameter <min> must be a number.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Parameter <min> must be a number.",
+					  RUNTIME);
 	}
 
 	if (!IS_FLOAT(max) && !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Parameter <max> must be a number.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Parameter <max> must be a number.",
+					  RUNTIME);
 	}
 
 	const double minDouble = IS_FLOAT(min) ? AS_FLOAT(min)
@@ -104,7 +113,10 @@ ObjectResult *random_double_method(VM *vm, int arg_count __attribute__((unused))
 					       : (double)AS_INT(max);
 
 	if (minDouble > maxDouble) {
-		return MAKE_GC_SAFE_ERROR(vm, "Parameter <min> must be less than or equal to parameter <max>.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Parameter <min> must be less than "
+					  "or equal to parameter <max>.",
+					  RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -120,13 +132,17 @@ ObjectResult *random_bool_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	const Value p = args[1];
 	if (!IS_FLOAT(p) && !IS_INT(p)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument must be of type 'int' | 'float'.", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Argument must be of type 'int' | 'float'.",
+			RUNTIME);
 	}
 
 	const double prob = IS_FLOAT(p) ? AS_FLOAT(p) : (double)AS_INT(p);
 
 	if (prob < 0 || prob > 1) {
-		return MAKE_GC_SAFE_ERROR(vm, "Probability must be between 0 and 1", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Probability must be between 0 and 1",
+					  RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -136,12 +152,14 @@ ObjectResult *random_bool_method(VM *vm, int arg_count __attribute__((unused)),
 }
 
 // Returns a random element from the array
-ObjectResult *random_choice_method(VM *vm, int arg_count __attribute__((unused)),
+ObjectResult *random_choice_method(VM *vm,
+				   int arg_count __attribute__((unused)),
 				   const Value *args)
 {
 	const Value array = args[1];
 	if (!IS_CRUX_ARRAY(array)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array", RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array",
+					  RUNTIME);
 	}
 
 	const ObjectArray *arr = AS_CRUX_ARRAY(array);

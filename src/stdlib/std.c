@@ -1,38 +1,37 @@
-#include "std.h"
+#include "stdlib/std.h"
 
 #include <string.h>
 
-#include "../memory.h"
-#include "../panic.h"
-#include "array.h"
-#include "core.h"
-#include "error.h"
-#include "fs.h"
-#include "io.h"
-#include "math.h"
-#include "random.h"
-#include "string.h"
-#include "sys.h"
-#include "tables.h"
-#include "time.h"
-#include "vectors.h"
+#include "memory.h"
+#include "panic.h"
+#include "stdlib/array.h"
+#include "stdlib/core.h"
+#include "stdlib/error.h"
+#include "stdlib/fs.h"
+#include "stdlib/io.h"
+#include "stdlib/math.h"
+#include "stdlib/random.h"
+#include "stdlib/string.h"
+#include "stdlib/sys.h"
+#include "stdlib/tables.h"
+#include "stdlib/time.h"
+#include "stdlib/vectors.h"
 
 #define ARRAY_COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-static const Callable stringMethods[] = {{"first", string_first_method, 1},
-					 {"last", string_last_method, 1},
-					 {"get", string_get_method, 2},
-					 {"upper", string_upper_method, 1},
-					 {"lower", string_lower_method, 1},
-					 {"strip", string_strip_method, 1},
-					 {"starts_with", string_starts_with_method,
-					  2},
-					 {"ends_with", string_ends_with_method, 2},
-					 {"contains", string_contains_method, 2},
-					 {"replace", string_replace_method, 3},
-					 {"split", string_split_method, 2},
-					 {"substring", string_substring_method,
-					  3}};
+static const Callable stringMethods[] = {
+	{"first", string_first_method, 1},
+	{"last", string_last_method, 1},
+	{"get", string_get_method, 2},
+	{"upper", string_upper_method, 1},
+	{"lower", string_lower_method, 1},
+	{"strip", string_strip_method, 1},
+	{"starts_with", string_starts_with_method, 2},
+	{"ends_with", string_ends_with_method, 2},
+	{"contains", string_contains_method, 2},
+	{"replace", string_replace_method, 3},
+	{"split", string_split_method, 2},
+	{"substring", string_substring_method, 3}};
 
 static const InfallibleCallable stringInfallibleMethods[] = {
 	{"_is_empty", string_is_empty_method, 1},
@@ -229,26 +228,27 @@ static const InfallibleCallable vec3InfallibleMethods[] = {
 	{"z", vec3_z_method, 1},
 };
 
-bool register_native_method(VM *vm, Table *method_table, const char *method_name,
-			  const CruxCallable method_function, const int arity)
+bool register_native_method(VM *vm, Table *method_table,
+			    const char *method_name,
+			    const CruxCallable method_function, const int arity)
 {
 	ObjectString *name = copy_string(vm, method_name,
-					(int)strlen(method_name));
+					 (int)strlen(method_name));
 	table_set(vm, method_table, name,
-		 OBJECT_VAL(new_native_method(vm, method_function, arity, name)));
+		  OBJECT_VAL(
+			  new_native_method(vm, method_function, arity, name)));
 	return true;
 }
 
-bool register_native_infallible_method(VM *vm, Table *method_table,
-				    const char *method_name,
-				    const CruxInfallibleCallable method_function,
-				    const int arity)
+bool register_native_infallible_method(
+	VM *vm, Table *method_table, const char *method_name,
+	const CruxInfallibleCallable method_function, const int arity)
 {
 	ObjectString *name = copy_string(vm, method_name,
-					(int)strlen(method_name));
+					 (int)strlen(method_name));
 	table_set(vm, method_table, name,
-		 OBJECT_VAL(new_native_infallible_method(vm, method_function, arity,
-						      name)));
+		  OBJECT_VAL(new_native_infallible_method(vm, method_function,
+							  arity, name)));
 	return true;
 }
 
@@ -258,7 +258,7 @@ static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
 	for (int i = 0; i < count; i++) {
 		const Callable method = methods[i];
 		register_native_method(vm, methodTable, method.name,
-				     method.function, method.arity);
+				       method.function, method.arity);
 	}
 	return true;
 }
@@ -270,7 +270,8 @@ static bool registerInfallibleMethods(VM *vm, Table *methodTable,
 	for (int i = 0; i < count; i++) {
 		const InfallibleCallable method = methods[i];
 		register_native_infallible_method(vm, methodTable, method.name,
-					       method.function, method.arity);
+						  method.function,
+						  method.arity);
 	}
 	return true;
 }
@@ -281,7 +282,7 @@ static bool registerNativeFunction(VM *vm, Table *functionTable,
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
-					(int)strlen(functionName));
+					 (int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
 	const Value func = OBJECT_VAL(
 		new_native_function(vm, function, arity, name));
@@ -303,7 +304,7 @@ static bool registerNativeInfallibleFunction(
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
-					(int)strlen(functionName));
+					 (int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
 	const Value func = OBJECT_VAL(
 		new_native_infallible_function(vm, function, arity, name));
@@ -389,7 +390,7 @@ static bool initModule(VM *vm, const char *moduleName,
 	}
 
 	ObjectString *nameCopy = copy_string(vm, moduleName,
-					    (int)strlen(moduleName));
+					     (int)strlen(moduleName));
 
 	vm->native_modules.modules[vm->native_modules.count] =
 		(NativeModule){.name = nameCopy, .names = moduleTable};

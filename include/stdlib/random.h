@@ -2,7 +2,7 @@
 #define RANDOM_H
 
 #include "../object.h"
-#include "../vm/vm.h"
+#include "../vm.h"
 
 ObjectResult *random_seed_method(VM *vm, int arg_count, const Value *args);
 ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args);

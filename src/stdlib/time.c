@@ -1,4 +1,3 @@
-#include "../panic.h"
 #include <time.h>
 #ifdef _WIN32
 #include <windows.h>
@@ -6,8 +5,9 @@
 #include <unistd.h>
 #endif
 
-#include "../memory.h"
-#include "time.h"
+#include "memory.h"
+#include "panic.h"
+#include "stdlib/time.h"
 
 Value time_seconds_function_(VM *vm __attribute__((unused)),
 			     int arg_count __attribute__((unused)),
@@ -43,12 +43,17 @@ ObjectResult *sleep_seconds_function(VM *vm,
 				     const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Parameter <duration> must be of type 'int' | 'float'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Parameter <duration> must be of type 'int' | 'float'.",
+			TYPE);
 	}
 
 	const double seconds = AS_FLOAT(args[0]);
 	if (seconds < 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "Sleep duration cannot be negative.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Sleep duration cannot be negative.",
+					  VALUE);
 	}
 
 #ifdef _WIN32
@@ -64,12 +69,17 @@ ObjectResult *sleep_milliseconds_function(VM *vm,
 					  const Value *args)
 {
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Parameter <duration> must be of type 'int' | 'float'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Parameter <duration> must be of type 'int' | 'float'.",
+			TYPE);
 	}
 
 	const double milliseconds = AS_FLOAT(args[0]);
 	if (milliseconds < 0) {
-		return MAKE_GC_SAFE_ERROR(vm , "Sleep duration cannot be negative.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Sleep duration cannot be negative.",
+					  VALUE);
 	}
 
 #ifdef _WIN32

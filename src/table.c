@@ -27,7 +27,7 @@ static bool compare_strings(const ObjectString *a, const ObjectString *b)
 }
 
 static Entry *find_entry(Entry *entries, const int capacity,
-			const ObjectString *key)
+			 const ObjectString *key)
 {
 	uint32_t index = key->hash & (capacity - 1);
 	Entry *tombstone = NULL;
@@ -132,7 +132,7 @@ void table_add_all(VM *vm, const Table *from, Table *to)
 }
 
 ObjectString *table_find_string(const Table *table, const char *chars,
-			      const uint64_t length, const uint32_t hash)
+				const uint64_t length, const uint32_t hash)
 {
 	if (table->count == 0)
 		return NULL;
@@ -167,7 +167,8 @@ void table_remove_white(const Table *table)
 {
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		if (entry->key != NULL && !OBJECT_GET_MARKED(&entry->key->Object)) {
+		if (entry->key != NULL &&
+		    !OBJECT_GET_MARKED(&entry->key->Object)) {
 			table_delete(table, entry->key);
 		}
 	}

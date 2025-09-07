@@ -8,7 +8,7 @@ on:
         default: main
         type: string
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
     branches:
       - "main"
     paths:
@@ -35,7 +35,7 @@ jobs:
           cd build
           sudo apt-get update
           sudo apt-get install -y gcc
-          cmake -DCMAKE_BUILD_TYPE=Release ../src
+          cmake -DCMAKE_BUILD_TYPE=Release ../
           make
           cd ..
 
