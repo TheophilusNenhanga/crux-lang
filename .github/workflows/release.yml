@@ -89,7 +89,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../src
+          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../
           cmake --build . --config Release
 
       - name: Build Windows
@@ -98,7 +98,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../src
+          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../
           cmake --build . --config Release
 
       - name: Rename binary
