@@ -144,7 +144,7 @@ static char *combinePaths(const char *base, const char *relative)
 	const size_t base_len = strlen(base);
 	const size_t relative_len = strlen(relative);
 	const size_t total_len = base_len + 1 + relative_len +
-				1; // +1 : '/' +1 '\0'
+				 1; // +1 : '/' +1 '\0'
 
 	char *result = malloc(total_len);
 	if (result == NULL)

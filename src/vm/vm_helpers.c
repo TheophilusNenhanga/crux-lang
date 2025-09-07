@@ -7,15 +7,15 @@
 #include <string.h>
 
 #include "../../include/common.h"
+#include "../../include/compiler.h"
 #include "../../include/memory.h"
 #include "../../include/object.h"
+#include "../../include/panic.h"
 #include "../../include/stdlib/std.h"
 #include "../../include/table.h"
+#include "../../include/value.h"
 #include "../../include/vm.h"
 #include "../../include/vm_run.h"
-#include "../../include/compiler.h"
-#include "../../include/panic.h"
-#include "../../include/value.h"
 
 void init_import_stack(VM *vm)
 {

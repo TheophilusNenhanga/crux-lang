@@ -44,7 +44,7 @@ static int simple_instruction(const char *name, const int offset)
  * @return The offset of the next instruction (current offset + 2)
  */
 static int byte_instruction(const char *name, const Chunk *chunk,
-			   const int offset)
+			    const int offset)
 {
 	const uint8_t slot = chunk->code[offset + 1];
 	printf("%-16s %4d\n", name, slot);
@@ -63,8 +63,8 @@ static int byte_instruction(const char *name, const Chunk *chunk,
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 3)
  */
-static int jump_instruction(const char *name, const int sign, const Chunk *chunk,
-			   const int offset)
+static int jump_instruction(const char *name, const int sign,
+			    const Chunk *chunk, const int offset)
 {
 	uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
 	jump |= chunk->code[offset + 2];
@@ -84,13 +84,13 @@ static int jump_instruction(const char *name, const int sign, const Chunk *chunk
  * @return The offset of the next instruction (current offset + 2)
  */
 static int constant_instruction(const char *name, const Chunk *chunk,
-			       const int offset)
+				const int offset)
 {
 	const uint8_t constant =
 		chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	print_value(chunk->constants.values[constant],
-		   false); // print the constant's value
+		    false); // print the constant's value
 	printf("'\n");
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
@@ -107,7 +107,7 @@ static int constant_instruction(const char *name, const Chunk *chunk,
  * @return The offset of the next instruction (current offset + 3)
  */
 static int invoke_instruction(const char *name, const Chunk *chunk,
-			     const int offset)
+			      const int offset)
 {
 	const uint8_t constant = chunk->code[offset + 1];
 	const uint8_t arg_count = chunk->code[offset + 2];
@@ -291,9 +291,10 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_USE_MODULE: {
 		const uint8_t nameCount = chunk->code[offset + 1];
 		printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
-		print_value(chunk->constants
-				   .values[chunk->code[offset + nameCount + 2]],
-			   false);
+		print_value(
+			chunk->constants
+				.values[chunk->code[offset + nameCount + 2]],
+			false);
 		printf("\n");
 		return offset + nameCount + 3;
 	}

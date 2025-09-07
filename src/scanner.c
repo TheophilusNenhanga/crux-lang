@@ -105,7 +105,7 @@ static void skip_whitespace(void)
 }
 
 static CruxTokenType check_keyword(const int start, const int length,
-				  const char *rest, const CruxTokenType type)
+				   const char *rest, const CruxTokenType type)
 {
 	if (scanner.current - scanner.start == start + length &&
 	    memcmp(scanner.start + start, rest, length) == 0) {
@@ -142,7 +142,7 @@ static CruxTokenType identifier_type(void)
 			switch (scanner.start[1]) {
 			case 'o':
 				return check_keyword(2, 6, "ntinue",
-						    TOKEN_CONTINUE);
+						     TOKEN_CONTINUE);
 			default:;
 			}
 		}
@@ -186,7 +186,7 @@ static CruxTokenType identifier_type(void)
 			case 't': {
 				if (scanner.current - scanner.start > 2) {
 					return check_keyword(2, 4, "ruct",
-							    TOKEN_STRUCT);
+							     TOKEN_STRUCT);
 				}
 			}
 			default:;
@@ -221,7 +221,8 @@ static CruxTokenType identifier_type(void)
 			case 'r':
 				return check_keyword(2, 2, "ue", TOKEN_TRUE);
 			case 'y':
-				return check_keyword(2, 4, "peof", TOKEN_TYPEOF);
+				return check_keyword(2, 4, "peof",
+						     TOKEN_TYPEOF);
 			default:;
 			}
 		}
@@ -478,7 +479,7 @@ Token scan_token(void)
 			return make_token(TOKEN_RIGHT_SHIFT);
 		}
 		return make_token(match('=') ? TOKEN_GREATER_EQUAL
-					    : TOKEN_GREATER);
+					     : TOKEN_GREATER);
 	case '"':
 		return double_string();
 	case '\'':
