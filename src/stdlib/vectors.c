@@ -1,26 +1,31 @@
-#include "vectors.h"
 #include <math.h>
 #include <stdlib.h>
 
-#include "../object.h"
-#include "../panic.h"
+#include "object.h"
+#include "panic.h"
+#include "stdlib/vectors.h"
 
 #define EPSILON 1e-10
 
-#define TO_DOUBLE(value) IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value))
+#define TO_DOUBLE(value)                                                       \
+	IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value))
 
 #define IS_ZERO_SCALAR(scalar) ((scalar) < EPSILON && (scalar) > -EPSILON)
 
-static double vec2_magnitude(const ObjectVec2 *vec) {
+static double vec2_magnitude(const ObjectVec2 *vec)
+{
 	return vec->x * vec->x + vec->y * vec->y;
 }
 
-static double vec3_magnitude(const ObjectVec3 *vec) {
+static double vec3_magnitude(const ObjectVec3 *vec)
+{
 	return vec->x * vec->x + vec->y * vec->y + vec->z * vec->z;
 }
 
-static ObjectResult *create_vec2_result(VM *vm, ObjectModuleRecord *module_record,
-					const double x,const  double y) {
+static ObjectResult *create_vec2_result(VM *vm,
+					ObjectModuleRecord *module_record,
+					const double x, const double y)
+{
 	ObjectVec2 *vec = new_vec2(vm, x, y);
 	push(module_record, OBJECT_VAL(vec));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec));
@@ -28,9 +33,11 @@ static ObjectResult *create_vec2_result(VM *vm, ObjectModuleRecord *module_recor
 	return res;
 }
 
-static ObjectResult *create_vec3_result(VM *vm, ObjectModuleRecord *module_record,
+static ObjectResult *create_vec3_result(VM *vm,
+					ObjectModuleRecord *module_record,
 					const double x, const double y,
-					const double z) {
+					const double z)
+{
 	ObjectVec3 *vec = new_vec3(vm, x, y, z);
 	push(module_record, OBJECT_VAL(vec));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vec));
@@ -58,7 +65,8 @@ ObjectResult *new_vec3_function(VM *vm,
 				const int arg_count __attribute__((unused)),
 				const Value *args)
 {
-	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1]) || !IS_NUMERIC(args[2])) {
+	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1]) ||
+	    !IS_NUMERIC(args[2])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Parameters must be of type 'int' or 'float'.",
 			TYPE);
@@ -121,7 +129,7 @@ ObjectResult *vec2_add_method(VM *vm,
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
 	return create_vec2_result(vm, vm->current_module_record,
-				 vec1->x + vec2->x, vec1->y + vec2->y);
+				  vec1->x + vec2->x, vec1->y + vec2->y);
 }
 
 ObjectResult *vec3_add_method(VM *vm,
@@ -138,7 +146,8 @@ ObjectResult *vec3_add_method(VM *vm,
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
 	return create_vec3_result(vm, vm->current_module_record,
-				 vec1->x + vec2->x, vec1->y + vec2->y, vec1->z + vec2->z);
+				  vec1->x + vec2->x, vec1->y + vec2->y,
+				  vec1->z + vec2->z);
 }
 
 ObjectResult *vec2_subtract_method(VM *vm,
@@ -155,7 +164,7 @@ ObjectResult *vec2_subtract_method(VM *vm,
 	const ObjectVec2 *vec2 = AS_CRUX_VEC2(args[1]);
 
 	return create_vec2_result(vm, vm->current_module_record,
-				 vec1->x - vec2->x, vec1->y - vec2->y);
+				  vec1->x - vec2->x, vec1->y - vec2->y);
 }
 
 ObjectResult *vec3_subtract_method(VM *vm,
@@ -172,7 +181,8 @@ ObjectResult *vec3_subtract_method(VM *vm,
 	const ObjectVec3 *vec2 = AS_CRUX_VEC3(args[1]);
 
 	return create_vec3_result(vm, vm->current_module_record,
-				 vec1->x - vec2->x, vec1->y - vec2->y, vec1->z - vec2->z);
+				  vec1->x - vec2->x, vec1->y - vec2->y,
+				  vec1->z - vec2->z);
 }
 
 ObjectResult *vec2_multiply_method(VM *vm,
@@ -190,7 +200,7 @@ ObjectResult *vec2_multiply_method(VM *vm,
 	const double scalar = TO_DOUBLE(args[1]);
 
 	return create_vec2_result(vm, vm->current_module_record,
-				 vec->x * scalar, vec->y * scalar);
+				  vec->x * scalar, vec->y * scalar);
 }
 
 ObjectResult *vec3_multiply_method(VM *vm,
@@ -208,7 +218,8 @@ ObjectResult *vec3_multiply_method(VM *vm,
 	const double scalar = TO_DOUBLE(args[1]);
 
 	return create_vec3_result(vm, vm->current_module_record,
-				 vec->x * scalar, vec->y * scalar, vec->z * scalar);
+				  vec->x * scalar, vec->y * scalar,
+				  vec->z * scalar);
 }
 
 ObjectResult *vec2_divide_method(VM *vm,
@@ -230,7 +241,7 @@ ObjectResult *vec2_divide_method(VM *vm,
 	}
 
 	return create_vec2_result(vm, vm->current_module_record,
-				 vec->x / scalar, vec->y / scalar);
+				  vec->x / scalar, vec->y / scalar);
 }
 
 ObjectResult *vec3_divide_method(VM *vm,
@@ -252,7 +263,8 @@ ObjectResult *vec3_divide_method(VM *vm,
 	}
 
 	return create_vec3_result(vm, vm->current_module_record,
-				 vec->x / scalar, vec->y / scalar, vec->z / scalar);
+				  vec->x / scalar, vec->y / scalar,
+				  vec->z / scalar);
 }
 
 ObjectResult *vec2_magnitude_method(VM *vm,
@@ -312,7 +324,7 @@ ObjectResult *vec2_normalize_method(VM *vm,
 	}
 
 	return create_vec2_result(vm, vm->current_module_record,
-				 vec->x / magnitude, vec->y / magnitude);
+				  vec->x / magnitude, vec->y / magnitude);
 }
 
 ObjectResult *vec3_normalize_method(VM *vm,
@@ -336,7 +348,8 @@ ObjectResult *vec3_normalize_method(VM *vm,
 	}
 
 	return create_vec3_result(vm, vm->current_module_record,
-				 vec->x / magnitude, vec->y / magnitude, vec->z / magnitude);
+				  vec->x / magnitude, vec->y / magnitude,
+				  vec->z / magnitude);
 }
 
 // arg_count: 2

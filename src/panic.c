@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "std/core.h"
-#include "vm/vm.h"
-#include "vm/vm_helpers.h"
+#include "stdlib/core.h"
+#include "vm_helpers.h"
+#include "vm.h"
 
 static ErrorDetails getErrorDetails(const ErrorType type)
 {

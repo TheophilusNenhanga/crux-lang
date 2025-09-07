@@ -3,11 +3,11 @@
 
 #include <stdio.h>
 
+#include "../include/value.h"
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
-#include "value.h"
-#include "vm/vm.h"
+#include "vm.h"
 
 #define GC_PROTECT_START(current_module_record)                                \
 	Value *gc_stack_start = (current_module_record)->stack_top

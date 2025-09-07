@@ -1,16 +1,16 @@
 #include <stdio.h>
 
-#include "../file_handler.h"
-#include "../std/std.h"
-#include "vm.h"
-#include "vm_helpers.h"
-#include "vm_run.h"
+#include "../../include/stdlib/std.h"
+#include "../../include/vm.h"
+#include "../../include/vm_run.h"
+#include "../../include/file_handler.h"
+#include "../../include/vm_helpers.h"
 
 #include <string.h>
 
-#include "../debug.h"
-#include "../object.h"
-#include "../panic.h"
+#include "../../include/debug.h"
+#include "../../include/object.h"
+#include "../../include/panic.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH() goto *dispatchTable[endIndex]

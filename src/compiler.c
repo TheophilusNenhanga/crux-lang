@@ -7,13 +7,13 @@
 #include <string.h>
 
 #include "chunk.h"
-#include "errno.h"
 #include "file_handler.h"
-#include "memory.h"
 #include "object.h"
-#include "panic.h"
 #include "scanner.h"
 #include "value.h"
+#include <errno.h>
+#include "memory.h"
+#include "panic.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"

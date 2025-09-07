@@ -1,8 +1,8 @@
 #ifndef VM_H
 #define VM_H
 
-#include "../table.h"
-#include "../value.h"
+#include "../include/value.h"
+#include "table.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;

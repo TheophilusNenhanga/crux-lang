@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../memory.h"
-#include "string.h"
-#include "../panic.h"
+#include "memory.h"
+#include "panic.h"
+#include "stdlib/string.h"
 
 static void build_prefix_table(const char *pattern,
 			       const uint32_t patternLength,
@@ -31,12 +31,16 @@ ObjectResult *string_first_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectString *string = AS_CRUX_STRING(value);
 
 	if (string->length == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "'string' must have at least one character to get the first character.", VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"'string' must have at least one character to get the "
+			"first character.",
+			VALUE);
 	}
 
-	ObjectString* str = copy_string(vm, &string->chars[0], 1);
+	ObjectString *str = copy_string(vm, &string->chars[0], 1);
 	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
 
 	return res;
@@ -48,12 +52,17 @@ ObjectResult *string_last_method(VM *vm, int arg_count __attribute__((unused)),
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (string->length == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "'string' must have at least one character to get the last character.", VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"'string' must have at least one character to get the "
+			"last character.",
+			VALUE);
 	}
 
-	ObjectString* str = copy_string(vm, &string->chars[string->length - 1], 1);
+	ObjectString *str = copy_string(vm, &string->chars[string->length - 1],
+					1);
 	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
 	return res;
 }
@@ -64,20 +73,31 @@ ObjectResult *string_get_method(VM *vm, int arg_count __attribute__((unused)),
 	const Value value = args[0];
 	const Value index = args[1];
 	if (!IS_INT(index)) {
-		return MAKE_GC_SAFE_ERROR(vm, "<index> must be of type 'number'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<index> must be of type 'number'.",
+					  TYPE);
 	}
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (AS_INT(index) < 0 || (uint32_t)AS_INT(index) >= string->length) {
-		return MAKE_GC_SAFE_ERROR(vm, "<index> must be a non negative number that is less than the length of the string.", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"<index> must be a non negative number that is less "
+			"than the length of the string.",
+			BOUNDS);
 	}
 
 	if (string->length == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "'string' must have at least one character to get a character.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "'string' must have at least one "
+					  "character to get a character.",
+					  VALUE);
 	}
 
-	ObjectString* str = copy_string(vm, &string->chars[(uint32_t)AS_INT(index)], 1);
+	ObjectString *str = copy_string(vm,
+					&string->chars[(uint32_t)AS_INT(index)],
+					1);
 	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
 
 	return res;
@@ -89,9 +109,9 @@ ObjectResult *string_upper_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		ObjectString* empty_str = copy_string(vm, "", 0);
+		ObjectString *empty_str = copy_string(vm, "", 0);
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
-		ObjectResult* res = new_ok_result(vm, OBJECT_VAL(empty_str));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
 		return res;
 	}
@@ -99,7 +119,8 @@ ObjectResult *string_upper_method(VM *vm, int arg_count __attribute__((unused)),
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
 
 	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -111,9 +132,9 @@ ObjectResult *string_upper_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 	buffer[string->length] = '\0';
 
-	ObjectString* result_str = take_string(vm, buffer, string->length);
+	ObjectString *result_str = take_string(vm, buffer, string->length);
 	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(result_str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
 	return res;
@@ -125,9 +146,9 @@ ObjectResult *string_lower_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		ObjectString* empty_str = copy_string(vm, "", 0);
+		ObjectString *empty_str = copy_string(vm, "", 0);
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
-		ObjectResult* res = new_ok_result(vm, OBJECT_VAL(empty_str));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
 		return res;
 	}
@@ -135,7 +156,8 @@ ObjectResult *string_lower_method(VM *vm, int arg_count __attribute__((unused)),
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
 
 	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -147,9 +169,9 @@ ObjectResult *string_lower_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 	buffer[string->length] = '\0';
 
-	ObjectString* result_str = take_string(vm, buffer, string->length);
+	ObjectString *result_str = take_string(vm, buffer, string->length);
 	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(result_str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
 	return res;
@@ -161,9 +183,9 @@ ObjectResult *string_strip_method(VM *vm, int arg_count __attribute__((unused)),
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
-		ObjectString* empty_str = copy_string(vm, "", 0);
+		ObjectString *empty_str = copy_string(vm, "", 0);
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
-		ObjectResult* res = new_ok_result(vm, OBJECT_VAL(empty_str));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
 		return res;
 	}
@@ -178,9 +200,10 @@ ObjectResult *string_strip_method(VM *vm, int arg_count __attribute__((unused)),
 		end--;
 	}
 
-	ObjectString* result_str = copy_string(vm, string->chars + start, end - start);
+	ObjectString *result_str = copy_string(vm, string->chars + start,
+					       end - start);
 	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(result_str));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
 	return res;
@@ -193,20 +216,26 @@ ObjectResult *string_substring_method(VM *vm,
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<start> index must be of type 'int'.", VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "<start> index must be of type 'int'.", VALUE);
 	}
 	if (!IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<end> index must be of type 'int'.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<end> index must be of type 'int'.",
+					  VALUE);
 	}
 
 	const int rawStartIndex = AS_INT(args[1]);
 	const int rawEndIndex = AS_INT(args[2]);
 
 	if (rawStartIndex < 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<start> index cannot be negative.", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<start> index cannot be negative.",
+					  BOUNDS);
 	}
 	if (rawEndIndex < 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<end> index cannot be negative.", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "<end> index cannot be negative.",
+					  BOUNDS);
 	}
 
 	const uint32_t startIndex = (uint32_t)rawStartIndex;
@@ -218,9 +247,10 @@ ObjectResult *string_substring_method(VM *vm,
 	}
 
 	const char *substring = string->chars + startIndex;
-	ObjectString *newSubstring = copy_string(vm, substring, endIndex - startIndex);
+	ObjectString *newSubstring = copy_string(vm, substring,
+						 endIndex - startIndex);
 	push(vm->current_module_record, OBJECT_VAL(newSubstring));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(newSubstring));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(newSubstring));
 	pop(vm->current_module_record);
 
 	return res;
@@ -231,26 +261,28 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 {
 	ObjectModuleRecord *moduleRecord = vm->current_module_record;
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<delimiter> must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "<delimiter> must be of type 'string'.", TYPE);
 	}
 
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *delimiter = AS_CRUX_STRING(args[1]);
 
 	if (delimiter->length == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<delimiter> cannot be empty.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<delimiter> cannot be empty.",
+					  TYPE);
 	}
 
 	if (string->length == 0) {
 		ObjectArray *resultArray = new_array(vm, 1, moduleRecord);
 		push(vm->current_module_record, OBJECT_VAL(resultArray));
 
-		ObjectString* empty_str = copy_string(vm, "", 0);
+		ObjectString *empty_str = copy_string(vm, "", 0);
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
 		array_add_back(vm, resultArray, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record); // pop empty_str
 
-		ObjectResult* res = new_ok_result(vm, OBJECT_VAL(resultArray));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 		pop(vm->current_module_record); // pop resultArray
 		return res;
 	}
@@ -259,7 +291,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 		ObjectArray *resultArray = new_array(vm, 1, moduleRecord);
 		push(vm->current_module_record, OBJECT_VAL(resultArray));
 		array_add(vm, resultArray, OBJECT_VAL(string), 0);
-		ObjectResult* res = new_ok_result(vm, OBJECT_VAL(resultArray));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 		pop(vm->current_module_record);
 		return res;
 	}
@@ -269,13 +301,15 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, delimiterLength);
 	if (prefixTable == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	build_prefix_table(delimiter->chars, delimiterLength, prefixTable);
 
 	// initial guess of splits size
-	ObjectArray *resultArray = new_array(vm, stringLength / (delimiterLength + 1) + 1, moduleRecord);
+	ObjectArray *resultArray = new_array(
+		vm, stringLength / (delimiterLength + 1) + 1, moduleRecord);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	uint32_t lastSplitIndex = 0;
@@ -292,10 +326,14 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 		}
 
 		if (j == delimiterLength) {
-			const uint32_t substringLength = i - lastSplitIndex - delimiterLength + 1;
-			ObjectString *substring = copy_string(vm, string->chars + lastSplitIndex, substringLength);
+			const uint32_t substringLength = i - lastSplitIndex -
+							 delimiterLength + 1;
+			ObjectString *substring =
+				copy_string(vm, string->chars + lastSplitIndex,
+					    substringLength);
 			push(vm->current_module_record, OBJECT_VAL(substring));
-			array_add(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
+			array_add(vm, resultArray, OBJECT_VAL(substring),
+				  lastAddIndex);
 			pop(vm->current_module_record);
 			lastAddIndex++;
 
@@ -306,7 +344,8 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 
 	if (lastSplitIndex < stringLength) {
 		const uint32_t substringLength = stringLength - lastSplitIndex;
-		ObjectString *substring = copy_string(vm, string->chars + lastSplitIndex, substringLength);
+		ObjectString *substring = copy_string(
+			vm, string->chars + lastSplitIndex, substringLength);
 		push(vm->current_module_record, OBJECT_VAL(substring));
 		array_add(vm, resultArray, OBJECT_VAL(substring), lastAddIndex);
 		pop(vm->current_module_record);
@@ -314,7 +353,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count __attribute__((unused)),
 
 	FREE_ARRAY(vm, uint32_t, prefixTable, delimiterLength);
 
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(resultArray));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(vm->current_module_record);
 	return res;
 }
@@ -327,7 +366,8 @@ ObjectResult *string_contains_method(VM *vm,
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument 'goal' must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Argument 'goal' must be of type 'string'.", TYPE);
 	}
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
 
@@ -349,7 +389,9 @@ ObjectResult *string_contains_method(VM *vm,
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
 
 	if (prefixTable == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for string.contains().", MEMORY);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Failed to allocate memory for string.contains().",
+			MEMORY);
 	}
 
 	build_prefix_table(goal->chars, goalLength, prefixTable);
@@ -378,7 +420,8 @@ ObjectResult *string_replace_method(VM *vm,
 {
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) ||
 	    !IS_CRUX_STRING(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm, "All arguments must be strings.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "All arguments must be strings.",
+					  TYPE);
 	}
 
 	ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -386,10 +429,12 @@ ObjectResult *string_replace_method(VM *vm,
 	const ObjectString *replacement = AS_CRUX_STRING(args[2]);
 
 	if (string->length == 0 || goal->length == 0) {
-		return MAKE_GC_SAFE_ERROR(vm,
-			string->length == 0
-				? "Source string must have at least one character."
-				: "<target> substring must have at least one character.",
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			string->length == 0 ? "Source string must have at "
+					      "least one character."
+					    : "<target> substring must have at "
+					      "least one character.",
 			VALUE);
 	}
 
@@ -403,7 +448,8 @@ ObjectResult *string_replace_method(VM *vm,
 
 	uint32_t *prefixTable = ALLOCATE(vm, uint32_t, goalLength);
 	if (prefixTable == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	build_prefix_table(goal->chars, goalLength, prefixTable);
@@ -412,7 +458,8 @@ ObjectResult *string_replace_method(VM *vm,
 	uint32_t *matchIndices = ALLOCATE(vm, uint32_t, stringLength);
 	if (matchIndices == NULL) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	uint32_t j = 0;
@@ -435,13 +482,16 @@ ObjectResult *string_replace_method(VM *vm,
 		return new_ok_result(vm, OBJECT_VAL(string));
 	}
 
-	const int64_t lengthDiff = (int64_t)replacementLength - (int64_t)goalLength;
-	const int64_t newLength_64 = (int64_t)stringLength + lengthDiff * matchCount;
+	const int64_t lengthDiff = (int64_t)replacementLength -
+				   (int64_t)goalLength;
+	const int64_t newLength_64 = (int64_t)stringLength +
+				     lengthDiff * matchCount;
 
 	if (newLength_64 < 0 || newLength_64 > UINT32_MAX) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return MAKE_GC_SAFE_ERROR(vm, "Resulting string length exceeds maximum.", VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Resulting string length exceeds maximum.", VALUE);
 	}
 	const uint32_t newStringLength = (uint32_t)newLength_64;
 
@@ -449,7 +499,8 @@ ObjectResult *string_replace_method(VM *vm,
 	if (newStringChars == NULL) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed.",
+					  MEMORY);
 	}
 
 	uint32_t writeIndex = 0;
@@ -474,9 +525,10 @@ ObjectResult *string_replace_method(VM *vm,
 
 	newStringChars[newStringLength] = '\0';
 
-	ObjectString *newString = take_string(vm, newStringChars, newStringLength);
+	ObjectString *newString = take_string(vm, newStringChars,
+					      newStringLength);
 	push(vm->current_module_record, OBJECT_VAL(newString));
-	ObjectResult* res = new_ok_result(vm, OBJECT_VAL(newString));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(newString));
 	pop(vm->current_module_record);
 
 	FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
@@ -491,7 +543,9 @@ ObjectResult *string_starts_with_method(VM *vm,
 {
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "First argument <char> must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "First argument <char> must be of type 'string'.",
+			TYPE);
 	}
 
 	const ObjectString *prefix = AS_CRUX_STRING(args[1]);
@@ -520,7 +574,8 @@ ObjectResult *string_ends_with_method(VM *vm,
 {
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "First argument must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "First argument must be of type 'string'.", TYPE);
 	}
 	const ObjectString *suffix = AS_CRUX_STRING(args[1]);
 

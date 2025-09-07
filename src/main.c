@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "file_handler.h"
-#include "vm/vm.h"
+#include "vm.h"
 
 /**
  * Starts an interactive Read-Eval-Print Loop (REPL) for the language

@@ -1,4 +1,4 @@
-#include "vm_helpers.h"
+#include "../../include/vm_helpers.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -6,16 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../common.h"
-#include "../compiler.h"
-#include "../memory.h"
-#include "../object.h"
-#include "../panic.h"
-#include "../std/std.h"
-#include "../table.h"
-#include "../value.h"
-#include "vm.h"
-#include "vm_run.h"
+#include "../../include/common.h"
+#include "../../include/memory.h"
+#include "../../include/object.h"
+#include "../../include/stdlib/std.h"
+#include "../../include/table.h"
+#include "../../include/vm.h"
+#include "../../include/vm_run.h"
+#include "../../include/compiler.h"
+#include "../../include/panic.h"
+#include "../../include/value.h"
 
 void init_import_stack(VM *vm)
 {
