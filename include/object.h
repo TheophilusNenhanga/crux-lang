@@ -160,6 +160,16 @@ typedef enum {
 	OBJECT_VEC3,
 } ObjectType;
 
+struct CruxObject{
+	size_t pool_index;
+	ObjectType type; 
+};
+
+typedef struct {
+	void *data;
+	bool is_marked;
+} PoolObject;
+
 #ifdef PACKED_OBJECTS
 struct Object {
 	uint64_t next : 57; // next object
@@ -173,6 +183,7 @@ struct Object {
 	bool is_marked;
 };
 #endif
+
 struct ObjectString {
 	Object Object;
 	char *chars;

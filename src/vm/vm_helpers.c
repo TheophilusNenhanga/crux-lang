@@ -625,9 +625,27 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
+int init_object_pool(ObjectPool *object_pool)
+{
+	return -1;
+}
+
 void init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool isRepl = argc == 1 ? true : false;
+
+	vm->object_pool = malloc(sizeof(ObjectPool));
+	if (vm->object_pool == NULL) {
+		fprintf(stderr,
+			"Fatal Error - Out of Memory: Could not allocate "
+			"memory for object pool.\nShutting Down!");
+		exit(-1);
+	}
+
+	if (init_object_pool(vm->object_pool) == -1) {
+		// something went wrong
+	}
+
 	vm->gc_status = PAUSED;
 	vm->objects = NULL;
 	vm->bytes_allocated = 0;

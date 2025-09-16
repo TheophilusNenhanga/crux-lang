@@ -6,6 +6,8 @@
 typedef struct VM VM;
 typedef struct Object Object;
 typedef struct ObjectString ObjectString;
+typedef struct CruxObject CruxObject;
+
 
 #define QNAN ((uint64_t)0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t)0x8000000000000000)

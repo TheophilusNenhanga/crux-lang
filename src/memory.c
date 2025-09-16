@@ -11,6 +11,24 @@
 
 #define GC_HEAP_GROW_FACTOR 1.5
 
+void *allocate_object_with_gc(VM *vm, const size_t size)
+{
+	vm->bytes_allocated += size;
+	if (vm->bytes_allocated > vm->next_gc) {
+		collect_garbage(vm);
+	}
+	void *result = malloc(size);
+	if (result == NULL) {
+		fprintf(stderr,
+			"Fatal error - Out of Memory: Failed to reallocate %zu "
+			"bytes.\n "
+			"Exiting!",
+			size);
+		exit(1);
+	}
+	return result;
+}
+
 void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 		 const size_t newSize)
 {
@@ -32,7 +50,7 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 	void *result = realloc(pointer, newSize);
 	if (result == NULL) {
 		fprintf(stderr,
-			"Fatal error: Failed to reallocate %zu bytes.\n "
+			"Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n "
 			"Exiting!",
 			newSize);
 		exit(1);

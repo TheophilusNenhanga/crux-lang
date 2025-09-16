@@ -52,6 +52,14 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 	return object;
 }
 
+static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
+{
+	CruxObject *object = allocate_object_with_gc(vm, size);
+	object->type = type;
+	
+	return object;
+}
+
 /**
  * @brief Macro to allocate a specific type of object.
  *
