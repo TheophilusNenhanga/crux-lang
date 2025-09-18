@@ -54,7 +54,7 @@ void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
  * @param object The object to mark. If `NULL`, the function returns
  * immediately.
  */
-void mark_object(VM *vm, Object *object);
+void mark_object(VM *vm, CruxObject *object);
 
 /**
  * @brief Marks a Value as reachable during garbage collection.

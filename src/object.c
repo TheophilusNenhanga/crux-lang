@@ -15,43 +15,6 @@
 #include "object.h"
 #include "panic.h"
 
-/**
- * @brief Allocates a new object of the specified type.
- *
- * This is a static helper function used to allocate memory for a new object
- * and initialize its basic properties. It uses the `reallocate` function
- * for memory management, integrates with the garbage collector by linking
- * the new object into the VM's object list, and sets the object's type and
- * initial marking status.
- *
- * @param vm The virtual machine.
- * @param size The size of the object to allocate in bytes.
- * @param type The type of the object being allocated (ObjectType enum).
- *
- * @return A pointer to the newly allocated and initialized Object.
- */
-static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
-{
-	Object *object = reallocate(vm, NULL, 0, size);
-
-#ifdef DEBUG_LOG_GC
-	printf("%p mark ", (void *)object);
-	print_value(OBJECT_VAL(object), false);
-	printf("\n");
-#endif
-
-	OBJECT_SET_TYPE(object, type);
-	OBJECT_SET_NEXT(object, vm->objects);
-	OBJECT_SET_MARKED(object, false);
-	vm->objects = object;
-
-#ifdef DEBUG_LOG_GC
-	printf("%p allocate %zu for %d\n", (void *)object, size, type);
-#endif
-
-	return object;
-}
-
 static size_t get_new_pool_object(ObjectPool* pool)
 {
 	if (pool->free_top == 0) {
@@ -93,6 +56,16 @@ static size_t get_new_pool_object(ObjectPool* pool)
 	return index;
 }
 
+/**
+ * @brief Allocates a new object of the specified type.
+ *
+ * @param vm The virtual machine.
+ * @param size The size of the object to allocate in bytes.
+ * @param type The type of the object being allocated (ObjectType enum).
+ *
+ * @return A pointer to the newly allocated and initialized Object.
+ */
+
 static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
@@ -100,8 +73,7 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 	
 	size_t pool_index = get_new_pool_object(vm->object_pool);
 	if (pool_index == -1) {
-		// Somethign went wrong...
-		fprintf(stderr, "Something went wrong. when getting a pool object.");
+		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
 		exit(-1);
 	}
 
@@ -114,16 +86,15 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 	pool_object->is_marked = false;
 	pool_object->type = type;
 
+#ifdef DEBUG_LOG_GC
+	printf("%p allocate %zu for %d\n", (void *)object, size, type);
+#endif
+
 	return object;
 }
 
 /**
  * @brief Macro to allocate a specific type of object.
- *
- * This macro simplifies object allocation by wrapping the `allocateObject`
- * function. It casts the result of `allocateObject` to the desired object type,
- * reducing code duplication and improving readability.
- *
  * @param vm The virtual machine.
  * @param type The C type of the object to allocate (e.g., ObjectString).
  * @param objectType The ObjectType enum value for the object.
@@ -131,13 +102,10 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
  * @return A pointer to the newly allocated object, cast to the specified type.
  */
 #define ALLOCATE_OBJECT(vm, type, objectType)                                  \
-	(type *)allocateObject(vm, sizeof(type), objectType)
+	(type *)allocate_pooled_object(vm, sizeof(type), objectType)
 
 /**
  * @brief Calculates the next power of 2 capacity for a collection.
- *
- * This static helper function calculates the next power of 2 capacity for
- * collections like tables and arrays.
  *
  * @param n The desired minimum capacity.
  *
@@ -163,10 +131,6 @@ static uint32_t calculateCollectionCapacity(uint32_t n)
 
 /**
  * @brief Generates a hash code for a Value.
- *
- * This static helper function calculates a hash code for a given `Value`.
- * It handles different value types (strings, numbers, booleans, nil) to
- * produce a suitable hash value for use in hash tables.
  *
  * @param value The Value to hash.
  *
@@ -284,10 +248,7 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function)
 }
 
 /**
- * @brief Allocates a new string object.
- *
- * This static helper function allocates a new ObjectString and copies the given
- * character array into the object's memory. It also calculates and stores the
+ * @brief Allocates a new string object. calculates and stores the
  * string's hash value and interns the string in the VM's string table.
  *
  * @param vm The virtual machine.

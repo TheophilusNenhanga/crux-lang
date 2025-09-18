@@ -74,8 +74,6 @@ typedef struct {
 } ObjectPool;
 
 struct VM {
-	Object *objects;
-
 	ObjectPool* object_pool;
 
 	Table strings;
@@ -102,7 +100,7 @@ struct VM {
 
 	size_t bytes_allocated;
 	size_t next_gc;
-	Object **gray_stack;
+	CruxObject **gray_stack;
 	int gray_capacity;
 	int gray_count;
 	GC_STATUS gc_status;
