@@ -165,10 +165,11 @@ struct CruxObject{
 	ObjectType type; 
 };
 
-typedef struct {
+struct PoolObject{
 	void *data;
+	ObjectType type;
 	bool is_marked;
-} PoolObject;
+};
 
 #ifdef PACKED_OBJECTS
 struct Object {

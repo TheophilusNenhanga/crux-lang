@@ -7,6 +7,7 @@ typedef struct VM VM;
 typedef struct Object Object;
 typedef struct ObjectString ObjectString;
 typedef struct CruxObject CruxObject;
+typedef struct PoolObject PoolObject;
 
 
 #define QNAN ((uint64_t)0x7ffc000000000000)

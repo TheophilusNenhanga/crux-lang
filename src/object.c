@@ -52,11 +52,68 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 	return object;
 }
 
+static size_t get_new_pool_object(ObjectPool* pool)
+{
+	if (pool->free_top == 0) {
+		
+		size_t new_capacity = pool->capacity *
+				      OBJECT_POOL_GROWTH_FACTOR;
+		
+		PoolObject *old_objects = pool->objects;
+		size_t* old_free_list = pool->free_list;
+
+		pool->objects = realloc(pool->objects, new_capacity);
+		if (pool->objects == NULL) {
+			pool->objects = old_objects;
+			free(old_objects);
+			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
+					"to reallocate space for object pool. "
+					"Shutting down!");
+			exit(1);
+		}
+
+		pool->free_list = realloc(pool->free_list, new_capacity);
+		if (pool->free_list == NULL) {
+			pool->free_list = old_free_list;
+			free(old_free_list);
+			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
+					"to reallocate space for object pool. "
+					"Shutting down!");
+			exit(1);
+		}
+
+		for (size_t i = pool->capacity; i < new_capacity; i++) {
+			pool->free_list[pool->free_top++] = new_capacity - 1 -
+							    (i -
+							     pool->capacity);
+		}
+		pool->capacity = new_capacity;
+	}
+	size_t index = pool->free_list[--pool->free_top];
+	return index;
+}
+
 static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 	object->type = type;
 	
+	size_t pool_index = get_new_pool_object(vm->object_pool);
+	if (pool_index == -1) {
+		// Somethign went wrong...
+		fprintf(stderr, "Something went wrong. when getting a pool object.");
+		exit(-1);
+	}
+
+	object->pool_index = pool_index;
+	object->type = type;
+
+	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
+
+	pool_object->data = object;
+	pool_object->is_marked = false;
+	pool_object->type = type;
+
 	return object;
 }
 

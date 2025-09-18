@@ -625,26 +625,52 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-int init_object_pool(ObjectPool *object_pool)
+void free_object_pool(ObjectPool* pool)
 {
-	return -1;
+	if (pool->objects) {
+		free(pool->objects);
+	}
+	if (pool->free_list) {
+		free(pool->free_list);
+	}
+	pool->objects = NULL;
+	pool->free_list = NULL;
+}
+
+ObjectPool* init_object_pool(size_t initial_capacity)
+{
+	ObjectPool *pool = malloc(sizeof(ObjectPool));
+	if (!pool)
+		return NULL;
+
+	pool->objects = malloc(initial_capacity * sizeof(PoolObject));
+	pool->free_list = malloc(initial_capacity * sizeof(size_t));
+
+	if (!pool->objects || !pool->free_list) {
+		free(pool->objects);
+		free(pool->free_list);
+		free(pool);
+		return NULL;
+	}
+
+	pool->capacity = initial_capacity;
+	pool->count = 0;
+	pool->free_top = 0;
+
+	// Initialize all slots as free
+	for (size_t i = 0; i < initial_capacity; i++) {
+		pool->free_list[i] = initial_capacity - 1 - i;
+	}
+	pool->free_top = initial_capacity;
+
+	return pool;
 }
 
 void init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool isRepl = argc == 1 ? true : false;
 
-	vm->object_pool = malloc(sizeof(ObjectPool));
-	if (vm->object_pool == NULL) {
-		fprintf(stderr,
-			"Fatal Error - Out of Memory: Could not allocate "
-			"memory for object pool.\nShutting Down!");
-		exit(-1);
-	}
-
-	if (init_object_pool(vm->object_pool) == -1) {
-		// something went wrong
-	}
+	vm->object_pool = init_object_pool(INTIAL_OBJECT_POOL_CAPACITY);
 
 	vm->gc_status = PAUSED;
 	vm->objects = NULL;
@@ -753,6 +779,9 @@ void free_vm(VM *vm)
 	freeStructInstanceStack(&vm->struct_instance_stack);
 
 	free_module_record(vm, vm->current_module_record);
+
+	free_object_pool(vm->object_pool);
+	free(vm->object_pool);
 
 	free_objects(vm);
 	free(vm);

@@ -66,7 +66,7 @@ typedef enum {
 } GC_STATUS;
 
 typedef struct {
-	CruxObject *objects;
+	PoolObject *objects;
 	size_t count;
 	size_t capacity;
 	size_t *free_list;
