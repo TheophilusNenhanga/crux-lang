@@ -17,11 +17,23 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	if (vm->bytes_allocated > vm->next_gc) {
 		collect_garbage(vm);
 	}
-	void *result = malloc(size);
+	void *result = malloc(size); /* SEGFAULT HERE? */
 	if (result == NULL) {
 		fprintf(stderr,
 			"Fatal error - Out of Memory: Failed to reallocate %zu "
 			"bytes.\n "
+			"Exiting!",
+			size);
+		exit(1);
+	}
+	return result;
+}
+
+void* allocate_object_without_gc(VM *vm, const size_t size) {
+	void *result = malloc(size);
+	if (result == NULL) {
+		fprintf(stderr,
+			"Fatal error - Out of Memory: Failed to allocate %zu bytes.\n"
 			"Exiting!",
 			size);
 		exit(1);

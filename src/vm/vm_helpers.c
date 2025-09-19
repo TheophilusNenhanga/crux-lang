@@ -679,14 +679,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->current_module_record = (ObjectModuleRecord *)malloc(
-		sizeof(ObjectModuleRecord));
-	if (vm->current_module_record == NULL) {
-		fprintf(stderr, "Fatal Error: Could not allocate memory for "
-				"module record.\nShutting Down!\n");
-		exit(1);
-	}
-	init_module_record(vm->current_module_record, NULL, isRepl, true);
+	vm->current_module_record = new_object_module_record(vm, NULL, false, true);
 
 	reset_stack(vm->current_module_record);
 

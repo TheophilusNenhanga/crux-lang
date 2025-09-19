@@ -20,6 +20,7 @@
 	reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
 
 void *allocate_object_with_gc(VM *vm, const size_t size);
+void *allocate_object_without_gc(VM *vm, const size_t size);
 
 /**
  * @brief Reallocates a block of memory.

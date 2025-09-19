@@ -6,6 +6,9 @@
 #include "table.h"
 #include "value.h"
 
+/**
+Does not cause GC.
+*/
 void init_table(Table *table)
 {
 	table->count = 0;

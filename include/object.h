@@ -788,9 +788,6 @@ ObjectVec3 *new_vec3(VM *vm, double x, double y, double z);
 
 void free_object_static_table(VM *vm, ObjectStaticTable *table);
 
-bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
-			bool is_repl, bool is_main);
-
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 
 #endif

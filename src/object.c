@@ -92,6 +92,27 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 	return object;
 }
 
+static CruxObject* allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
+{
+	CruxObject *object = allocate_object_without_gc(vm, size);
+	object->type = type;
+	
+	size_t pool_index = get_new_pool_object(vm->object_pool);
+	if (pool_index == -1) {
+		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
+		exit(-1);
+	}
+	object->pool_index = pool_index;
+	object->type = type;
+	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
+	pool_object->data = object;
+	pool_object->is_marked = false;
+#ifdef DEBUG_LOG_GC
+	printf("%p allocate %zu for %d\n", (void *)object, size, type);
+#endif
+	return object;
+}
+
 /**
  * @brief Macro to allocate a specific type of object.
  * @param vm The virtual machine.
@@ -102,6 +123,9 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
  */
 #define ALLOCATE_OBJECT(vm, type, objectType)                                  \
 	(type *)allocate_pooled_object(vm, sizeof(type), objectType)
+
+#define ALLOCATE_OBJECT_WITHOUT_GC(vm, type, objectType)                       \
+	(type *)allocate_pooled_object_without_gc(vm, sizeof(type), objectType)
 
 /**
  * @brief Calculates the next power of 2 capacity for a collection.
@@ -792,8 +816,7 @@ ObjectString *to_string(VM *vm, const Value value)
 					to_string(vm, table->entries[i].key);
 				const ObjectString *v =
 					to_string(vm, table->entries[i].value);
-				bufSize += k->length + v->length +
-					   4; // key:value,
+				bufSize += k->length + v->length + 4; // key:value
 			}
 		}
 
@@ -1043,10 +1066,6 @@ static ObjectTableEntry *find_entry(ObjectTableEntry *entries,
 /**
  * @brief Adjusts the capacity of an object table.
  *
- * This static helper function resizes an ObjectTable to a new capacity. It
- * allocates a new entry array with the new capacity, rehashes all existing
- * entries into the new array, and frees the old entry array.
- *
  * @param vm The virtual machine.
  * @param table The ObjectTable to resize.
  * @param capacity The new capacity for the table.
@@ -1292,41 +1311,6 @@ ObjectRandom *new_random(VM *vm)
 	return random;
 }
 
-bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
-			const bool is_repl, const bool is_main)
-{
-	module_record->object.type = OBJECT_MODULE_RECORD;
-
-	/* TODO: Initialize pooled object for a malloced object */
-
-	module_record->path = path;
-	init_table(&module_record->globals);
-	init_table(&module_record->publics);
-	module_record->state = STATE_LOADING;
-	module_record->module_closure = NULL;
-	module_record->enclosing_module = NULL;
-
-	module_record->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
-	if (module_record->stack == NULL) {
-		return false;
-	}
-	module_record->stack_top = module_record->stack;
-	module_record->stack_limit = module_record->stack + STACK_MAX;
-	module_record->open_upvalues = NULL;
-
-	module_record->frames = (CallFrame *)malloc(FRAMES_MAX *
-						    sizeof(CallFrame));
-	if (module_record->frames == NULL) {
-		return false;
-	}
-	module_record->frame_count = 0;
-	module_record->frame_capacity = FRAMES_MAX;
-
-	module_record->is_main = is_main;
-	module_record->is_repl = is_repl;
-	return true;
-}
-
 void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 {
 	free_table(vm, &module_record->globals);
@@ -1341,7 +1325,7 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
 					     const bool is_main)
 {
 	ObjectModuleRecord *moduleRecord =
-		ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+		ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
 	init_table(&moduleRecord->publics);
