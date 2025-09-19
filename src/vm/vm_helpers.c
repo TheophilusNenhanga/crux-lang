@@ -657,7 +657,6 @@ ObjectPool* init_object_pool(size_t initial_capacity)
 	pool->count = 0;
 	pool->free_top = 0;
 
-	// Initialize all slots as free
 	for (size_t i = 0; i < initial_capacity; i++) {
 		pool->free_list[i] = initial_capacity - 1 - i;
 	}
@@ -779,10 +778,10 @@ void free_vm(VM *vm)
 
 	free_module_record(vm, vm->current_module_record);
 
+	free_objects(vm);
 	free_object_pool(vm->object_pool);
 	free(vm->object_pool);
 
-	free_objects(vm);
 	free(vm);
 }
 

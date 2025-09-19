@@ -61,6 +61,8 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 
 void mark_object(VM *vm, CruxObject *object)
 {
+	if (object == NULL) return;
+	
 	PoolObject *pool_object = &vm->object_pool->objects[object->pool_index];
 
 	if (pool_object == NULL)
@@ -751,7 +753,7 @@ void collect_garbage(VM *vm)
 void free_objects(VM *vm)
 {
 	ObjectPool *pool = vm->object_pool;
-	for (size_t i = 0; i < pool->capacity; i++) {
+	for (size_t i = 0; i < pool->count; i++) {
 		PoolObject *pool_object = &pool->objects[i];
 		if (pool_object->data != NULL) { /* CRASH HERE */
 			free_object(vm, (CruxObject *)pool_object->data);

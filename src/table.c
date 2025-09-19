@@ -158,6 +158,8 @@ void mark_table(VM *vm, const Table *table)
 {
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
+		if (entry->key == NULL)
+			continue;
 		mark_object(vm, (CruxObject *)entry->key);
 		mark_value(vm, entry->value);
 	}
