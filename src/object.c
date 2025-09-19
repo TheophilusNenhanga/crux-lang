@@ -84,7 +84,6 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 
 	pool_object->data = object;
 	pool_object->is_marked = false;
-	pool_object->type = type;
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
@@ -1296,9 +1295,9 @@ ObjectRandom *new_random(VM *vm)
 bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
 			const bool is_repl, const bool is_main)
 {
-	OBJECT_SET_TYPE(&module_record->object, OBJECT_MODULE_RECORD);
-	OBJECT_SET_NEXT(&module_record->object, NULL);
-	OBJECT_SET_MARKED(&module_record->object, false);
+	module_record->object.type = OBJECT_MODULE_RECORD;
+
+	/* TODO: Initialize pooled object for a malloced object */
 
 	module_record->path = path;
 	init_table(&module_record->globals);

@@ -60,21 +60,7 @@ ObjectResult *make_gc_safe_error(void);
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
-#ifdef PACKED_OBJECTS
-#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (uint64_t)(next_ptr) >> 3)
-
-#define OBJECT_GET_NEXT(obj)                                                   \
-	((Object *)(((obj)->next << 3) | (uint64_t)(obj) & 0x7))
-#else
-#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (next_ptr))
-#define OBJECT_GET_NEXT(obj) ((Object *)(((obj)->next)))
-#endif
-
 #define OBJECT_SET_TYPE(obj, obj_type) ((obj)->type = (obj_type))
-
-#define OBJECT_SET_MARKED(obj, marked) ((obj)->is_marked = (marked))
-
-#define OBJECT_GET_MARKED(obj) ((obj)->is_marked)
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)

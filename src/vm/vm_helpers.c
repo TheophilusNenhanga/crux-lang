@@ -673,7 +673,6 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->object_pool = init_object_pool(INTIAL_OBJECT_POOL_CAPACITY);
 
 	vm->gc_status = PAUSED;
-	vm->objects = NULL;
 	vm->bytes_allocated = 0;
 	vm->next_gc = 1024 * 1024;
 	vm->gray_count = 0;

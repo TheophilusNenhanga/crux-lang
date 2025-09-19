@@ -462,7 +462,7 @@ static void free_object(VM *vm, CruxObject *object)
 		free_dispatch[type](vm, object);
 	}
 
-	ObjectPool *pool = &vm->object_pool;
+	ObjectPool *pool = vm->object_pool;
 	pool->free_list[pool->free_top++] = index;
 	pool->count--;
 	pool->objects[index].data == NULL;
@@ -736,7 +736,7 @@ void collect_garbage(VM *vm)
 
 	mark_roots(vm);
 	trace_references(vm);
-	table_remove_white(&vm->strings); // Clean up string table
+	table_remove_white(vm, &vm->strings); // Clean up string table
 	sweep(vm);
 	vm->next_gc = vm->bytes_allocated * GC_HEAP_GROW_FACTOR;
 
@@ -753,7 +753,7 @@ void free_objects(VM *vm)
 	ObjectPool *pool = vm->object_pool;
 	for (size_t i = 0; i < pool->capacity; i++) {
 		PoolObject *pool_object = &pool->objects[i];
-		if (pool_object->data != NULL) {
+		if (pool_object->data != NULL) { /* CRASH HERE */
 			free_object(vm, (CruxObject *)pool_object->data);
 		}
 	}

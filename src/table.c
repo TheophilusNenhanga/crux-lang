@@ -158,17 +158,23 @@ void mark_table(VM *vm, const Table *table)
 {
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		mark_object(vm, (Object *)entry->key);
+		mark_object(vm, (CruxObject *)entry->key);
 		mark_value(vm, entry->value);
 	}
 }
 
-void table_remove_white(const Table *table)
+void table_remove_white(VM* vm, const Table *table)
 {
+	ObjectPool *object_pool = vm->object_pool;
+
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		if (entry->key != NULL &&
-		    !OBJECT_GET_MARKED(&entry->key->Object)) {
+		if (entry->key == NULL)
+			continue;
+
+		size_t index = entry->key->object.pool_index;
+		
+		if (!object_pool->objects[index].is_marked) {
 			table_delete(table, entry->key);
 		}
 	}

@@ -2250,7 +2250,7 @@ void mark_compiler_roots(VM *vm)
 {
 	const Compiler *compiler = current;
 	while (compiler != NULL) {
-		mark_object(vm, (Object *)compiler->function);
+		mark_object(vm, (CruxObject *)compiler->function);
 		compiler = (Compiler *)compiler->enclosing;
 	}
 }
