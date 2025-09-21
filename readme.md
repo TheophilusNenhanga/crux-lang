@@ -2,9 +2,13 @@
 
 A memory-managed, interpreted programming language.
 
-## Building from source
+## Getting Started
 
-### Windows
+To get started you can download the latest Crux release from the [release page](https://github.com/TheophilusNenhanga/crux-lang/releases), or you can build from source. 
+
+### Building from source
+
+#### Windows
 
 To build from source on Windows, you need to have mingw (for gcc) installed, and in your PATH.
 You can get mingw [here](https://www.mingw-w64.org/).
@@ -12,15 +16,15 @@ You can get mingw [here](https://www.mingw-w64.org/).
 ```shell
 mkdir build
 cd build
-cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ../src
+cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ../
 cmake --build . --config Release
 ```
 
-### Linux
+#### Linux
 
 ```shell
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../src
+cmake -DCMAKE_BUILD_TYPE=Release ../
 make
 ```

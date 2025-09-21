@@ -121,14 +121,98 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Get the latest tag (previous release)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          # If no previous tag exists, get all commits
+          if [ -z "$PREVIOUS_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%h %s" --no-merges)
+          else
+            COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"%h %s" --no-merges)
+          fi
+          
+          # Initialize changelog sections
+          FEATURES=""
+          FIXES=""
+          BREAKING=""
+          OTHER=""
+          
+          # Parse commits and categorize them
+          while IFS= read -r commit; do
+            if [[ $commit =~ ^[a-f0-9]+\ feat(\(.+\))?!: ]]; then
+              # Breaking feature
+              BREAKING="${BREAKING}- ${commit#* }\n"
+            elif [[ $commit =~ ^[a-f0-9]+\ feat(\(.+\))?: ]]; then
+              # Feature
+              FEATURES="${FEATURES}- ${commit#* }\n"
+            elif [[ $commit =~ ^[a-f0-9]+\ fix(\(.+\))?: ]]; then
+              # Bug fix
+              FIXES="${FIXES}- ${commit#* }\n"
+            elif [[ $commit =~ ^[a-f0-9]+\ [a-zA-Z]+(\(.+\))?!: ]]; then
+              # Other breaking changes
+              BREAKING="${BREAKING}- ${commit#* }\n"
+            else
+              # Other commits (docs, style, refactor, test, chore, etc.)
+              OTHER="${OTHER}- ${commit#* }\n"
+            fi
+          done <<< "$COMMITS"
+          
+          # Build the changelog
+          CHANGELOG="## What's Changed\n\n"
+          
+          if [ -n "$BREAKING" ]; then
+            CHANGELOG="${CHANGELOG}### ⚠️ Breaking Changes\n${BREAKING}\n"
+          fi
+          
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG="${CHANGELOG}### ✨ New Features\n${FEATURES}\n"
+          fi
+          
+          if [ -n "$FIXES" ]; then
+            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n${FIXES}\n"
+          fi
+          
+          if [ -n "$OTHER" ]; then
+            CHANGELOG="${CHANGELOG}### 🔧 Other Changes\n${OTHER}\n"
+          fi
+          
+          # Add download information
+          CHANGELOG="${CHANGELOG}## 📦 Downloads\n\n"
+          CHANGELOG="${CHANGELOG}Choose the appropriate binary for your system:\n\n"
+          CHANGELOG="${CHANGELOG}- **Linux (x64)**: \`crux-linux-amd64\`\n"
+          CHANGELOG="${CHANGELOG}- **Windows (x64)**: \`crux-windows-amd64.exe\`\n"
+          CHANGELOG="${CHANGELOG}- **macOS (Intel)**: \`crux-macos-amd64\`\n"
+          CHANGELOG="${CHANGELOG}- **macOS (Apple Silicon)**: \`crux-macos-arm64\`\n\n"
+          CHANGELOG="${CHANGELOG}Make the binary executable on Unix systems: \`chmod +x crux-*\`"
+          
+          # Save to file and output
+          echo -e "$CHANGELOG" > release_notes.md
+          echo "Generated release notes:"
+          cat release_notes.md
+          
+          # Set output for GitHub Actions (escape newlines)
+          {
+            echo 'RELEASE_NOTES<<EOF'
+            echo -e "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: Release v${{ inputs.version }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
           files: |
             crux-*/*
           token: ${{ secrets.GITHUB_TOKEN }}
