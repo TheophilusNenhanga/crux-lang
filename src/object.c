@@ -25,7 +25,7 @@ static size_t get_new_pool_object(ObjectPool* pool)
 		PoolObject *old_objects = pool->objects;
 		size_t* old_free_list = pool->free_list;
 
-		pool->objects = realloc(pool->objects, new_capacity);
+		pool->objects = realloc(pool->objects, new_capacity * sizeof(PoolObject));
 		if (pool->objects == NULL) {
 			pool->objects = old_objects;
 			free(old_objects);
@@ -35,7 +35,7 @@ static size_t get_new_pool_object(ObjectPool* pool)
 			exit(1);
 		}
 
-		pool->free_list = realloc(pool->free_list, new_capacity);
+		pool->free_list = realloc(pool->free_list, new_capacity * sizeof(size_t));
 		if (pool->free_list == NULL) {
 			pool->free_list = old_free_list;
 			free(old_free_list);
