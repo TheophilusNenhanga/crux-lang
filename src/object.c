@@ -45,11 +45,9 @@ static uint32_t get_new_pool_object(ObjectPool *pool)
 		}
 
 		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
+			pool->free_list[pool->free_top++] = i;
 			pool->objects[i].data = NULL;
 			pool->objects[i].is_marked = false;
-			pool->free_list[pool->free_top++] = new_capacity - 1 -
-							    (i -
-							     pool->capacity);
 		}
 		pool->capacity = new_capacity;
 	}
@@ -72,10 +70,10 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
 					  const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
-	object->type = type;
 
 	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
 
+	object->type = type;
 	object->pool_index = pool_index;
 
 	PoolObject *pool_object = &vm->object_pool->objects[pool_index];

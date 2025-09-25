@@ -745,7 +745,7 @@ static void trace_references(VM *vm)
 static void sweep(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
-	for (size_t i = 0; i < pool->count; i++) {
+	for (size_t i = 0; i < pool->capacity; i++) {
 		PoolObject *pool_object = &pool->objects[i];
 
 		if (pool_object->data == NULL)
@@ -786,7 +786,7 @@ void collect_garbage(VM *vm)
 void free_objects(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
-	for (uint32_t i = 1; i < pool->count; i++) { // index 0 is not used
+	for (uint32_t i = 0; i < pool->capacity; i++) {
 		const PoolObject *pool_object = &pool->objects[i];
 		if (pool_object->data != NULL) {
 			free_object(vm, pool_object->data);

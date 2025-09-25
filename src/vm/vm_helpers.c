@@ -643,7 +643,7 @@ ObjectPool* init_object_pool(const uint32_t initial_capacity)
 	if (!pool)
 		return NULL;
 
-	pool->objects = malloc(initial_capacity * sizeof(PoolObject));
+	pool->objects = calloc(initial_capacity, sizeof(PoolObject));
 	pool->free_list = malloc(initial_capacity * sizeof(uint32_t));
 
 	if (!pool->objects || !pool->free_list) {
@@ -658,9 +658,7 @@ ObjectPool* init_object_pool(const uint32_t initial_capacity)
 	pool->free_top = 0;
 
 	for (uint32_t i = 0; i < initial_capacity; i++) {
-		pool->free_list[i] = initial_capacity - 1 - i;
-		pool->objects[i].data = NULL;
-		pool->objects[i].is_marked = false;
+		pool->free_list[i] = i;
 	}
 	pool->free_top = initial_capacity;
 

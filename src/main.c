@@ -35,7 +35,8 @@ static void runFile(VM *vm, const char *path)
 {
 	const FileResult fileResult = read_file(path);
 	if (fileResult.error) {
-		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
+		fprintf(stderr, "Error reading file: %s\n",
+			fileResult.error);
 		exit(2);
 	}
 	const InterpretResult interpretResult = interpret(vm,
