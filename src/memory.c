@@ -17,7 +17,7 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	if (vm->bytes_allocated > vm->next_gc) {
 		collect_garbage(vm);
 	}
-	void *result = malloc(size); /* SEGFAULT HERE? */
+	void *result = malloc(size);
 	if (result == NULL) {
 		fprintf(stderr,
 			"Fatal error - Out of Memory: Failed to reallocate %zu "
@@ -29,7 +29,7 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	return result;
 }
 
-void* allocate_object_without_gc(VM *vm, const size_t size) {
+void* allocate_object_without_gc(const size_t size) {
 	void *result = malloc(size);
 	if (result == NULL) {
 		fprintf(stderr,
@@ -467,8 +467,12 @@ static void free_object(VM *vm, CruxObject *object)
 	printf("%p free type %d\n", (void *)object,
 	       OBJECT_TYPE(OBJECT_VAL(object)));
 #endif
+	if (object == NULL) {
+		vm->object_pool->count--;
+		return;
+	}
 
-	size_t index = object->pool_index;
+	const size_t index = object->pool_index;
 
 	const ObjectType type = object->type;
 	if (type <
@@ -479,7 +483,7 @@ static void free_object(VM *vm, CruxObject *object)
 	ObjectPool *pool = vm->object_pool;
 	pool->free_list[pool->free_top++] = index;
 	pool->count--;
-	pool->objects[index].data == NULL;
+	pool->objects[index].data = NULL;
 	pool->objects[index].is_marked = false;
 }
 
@@ -730,11 +734,11 @@ static void trace_references(VM *vm)
  */
 static void sweep(VM *vm)
 {
-	ObjectPool *pool = vm->object_pool;
-	for (int i = 0; i < pool->count; i++) {
-		PoolObject *pool_object = &pool->objects[i];
+	const ObjectPool *pool = vm->object_pool;
+	for (size_t i = 0; i < pool->count; i++) {
+		const PoolObject *pool_object = &pool->objects[i];
 		if (!pool_object->is_marked) {
-			free_object(vm, (CruxObject *)pool_object->data);
+			free_object(vm, pool_object->data);
 		}
 	}
 }
@@ -764,11 +768,11 @@ void collect_garbage(VM *vm)
 
 void free_objects(VM *vm)
 {
-	ObjectPool *pool = vm->object_pool;
-	for (size_t i = 0; i < pool->count; i++) {
-		PoolObject *pool_object = &pool->objects[i];
-		if (pool_object->data != NULL) { /* CRASH HERE */
-			free_object(vm, (CruxObject *)pool_object->data);
+	const ObjectPool *pool = vm->object_pool;
+	for (size_t i = 1; i < pool->count; i++) { // index 0 is not used
+		const PoolObject *pool_object = &pool->objects[i];
+		if (pool_object->data != NULL) {
+			free_object(vm, pool_object->data);
 		}
 	}
 	free(vm->gray_stack);

@@ -18,9 +18,8 @@
 static size_t get_new_pool_object(ObjectPool* pool)
 {
 	if (pool->free_top == 0) {
-		
-		size_t new_capacity = pool->capacity *
-				      OBJECT_POOL_GROWTH_FACTOR;
+		const size_t new_capacity = pool->capacity *
+				        OBJECT_POOL_GROWTH_FACTOR;
 		
 		PoolObject *old_objects = pool->objects;
 		size_t* old_free_list = pool->free_list;
@@ -52,7 +51,8 @@ static size_t get_new_pool_object(ObjectPool* pool)
 		}
 		pool->capacity = new_capacity;
 	}
-	size_t index = pool->free_list[--pool->free_top];
+	const size_t index = pool->free_list[--pool->free_top];
+	pool->count++;
 	return index;
 }
 
@@ -70,9 +70,9 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 	object->type = type;
-	
-	size_t pool_index = get_new_pool_object(vm->object_pool);
-	if (pool_index == -1) {
+
+	const size_t pool_index = get_new_pool_object(vm->object_pool);
+	if (pool_index == (size_t)-1) {
 		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
 		exit(-1);
 	}
@@ -94,11 +94,11 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 
 static CruxObject* allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
 {
-	CruxObject *object = allocate_object_without_gc(vm, size);
+	CruxObject *object = allocate_object_without_gc(size);
 	object->type = type;
-	
-	size_t pool_index = get_new_pool_object(vm->object_pool);
-	if (pool_index == -1) {
+
+	const size_t pool_index = get_new_pool_object(vm->object_pool);
+	if (pool_index == (size_t)-1) {
 		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
 		exit(-1);
 	}
