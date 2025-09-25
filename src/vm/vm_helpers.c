@@ -637,14 +637,14 @@ void free_object_pool(ObjectPool* pool)
 	pool->free_list = NULL;
 }
 
-ObjectPool* init_object_pool(size_t initial_capacity)
+ObjectPool* init_object_pool(const uint32_t initial_capacity)
 {
 	ObjectPool *pool = malloc(sizeof(ObjectPool));
 	if (!pool)
 		return NULL;
 
 	pool->objects = malloc(initial_capacity * sizeof(PoolObject));
-	pool->free_list = malloc(initial_capacity * sizeof(size_t));
+	pool->free_list = malloc(initial_capacity * sizeof(uint32_t));
 
 	if (!pool->objects || !pool->free_list) {
 		free(pool->objects);
@@ -657,8 +657,10 @@ ObjectPool* init_object_pool(size_t initial_capacity)
 	pool->count = 0;
 	pool->free_top = 0;
 
-	for (size_t i = 0; i < initial_capacity; i++) {
+	for (uint32_t i = 0; i < initial_capacity; i++) {
 		pool->free_list[i] = initial_capacity - 1 - i;
+		pool->objects[i].data = NULL;
+		pool->objects[i].is_marked = false;
 	}
 	pool->free_top = initial_capacity;
 
@@ -667,7 +669,7 @@ ObjectPool* init_object_pool(size_t initial_capacity)
 
 void init_vm(VM *vm, const int argc, const char **argv)
 {
-	const bool isRepl = argc == 1 ? true : false;
+	const bool is_repl = argc == 1 ? true : false;
 
 	vm->object_pool = init_object_pool(INTIAL_OBJECT_POOL_CAPACITY);
 
@@ -679,7 +681,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->current_module_record = new_object_module_record(vm, NULL, false, true);
+	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
 
 	reset_stack(vm->current_module_record);
 

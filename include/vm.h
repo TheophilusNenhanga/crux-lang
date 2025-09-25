@@ -67,10 +67,10 @@ typedef enum {
 
 typedef struct {
 	PoolObject *objects;
-	size_t count;
-	size_t capacity;
-	size_t *free_list;
-	size_t free_top;
+	uint32_t count;
+	uint32_t capacity;
+	uint32_t *free_list;
+	uint32_t free_top;
 } ObjectPool;
 
 struct VM {

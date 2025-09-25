@@ -29,11 +29,13 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	return result;
 }
 
-void* allocate_object_without_gc(const size_t size) {
+void *allocate_object_without_gc(const size_t size)
+{
 	void *result = malloc(size);
 	if (result == NULL) {
 		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to allocate %zu bytes.\n"
+			"Fatal error - Out of Memory: Failed to allocate %zu "
+			"bytes.\n"
 			"Exiting!",
 			size);
 		exit(1);
@@ -62,7 +64,8 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 	void *result = realloc(pointer, newSize);
 	if (result == NULL) {
 		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n "
+			"Fatal error - Out of Memory: Failed to reallocate %zu "
+			"bytes.\n "
 			"Exiting!",
 			newSize);
 		exit(1);
@@ -73,8 +76,9 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 
 void mark_object(VM *vm, CruxObject *object)
 {
-	if (object == NULL) return;
-	
+	if (object == NULL)
+		return;
+
 	PoolObject *pool_object = &vm->object_pool->objects[object->pool_index];
 
 	if (pool_object == NULL)
@@ -85,9 +89,9 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
-		vm->gray_stack = (CruxObject **)realloc(vm->gray_stack,
-						    vm->gray_capacity *
-							    sizeof(CruxObject*));
+		vm->gray_stack = (CruxObject **)
+			realloc(vm->gray_stack,
+				vm->gray_capacity * sizeof(CruxObject *));
 	}
 	if (vm->gray_stack == NULL) {
 		exit(1);
@@ -468,11 +472,16 @@ static void free_object(VM *vm, CruxObject *object)
 	       OBJECT_TYPE(OBJECT_VAL(object)));
 #endif
 	if (object == NULL) {
-		vm->object_pool->count--;
 		return;
 	}
 
-	const size_t index = object->pool_index;
+	const uint32_t index = object->pool_index;
+	ObjectPool *pool = vm->object_pool;
+
+	if (index >= pool->capacity || pool->objects[index].data != object) {
+		fprintf(stderr, "Error: Invalid pool index in free_object\n");
+		return;
+	}
 
 	const ObjectType type = object->type;
 	if (type <
@@ -480,11 +489,11 @@ static void free_object(VM *vm, CruxObject *object)
 		free_dispatch[type](vm, object);
 	}
 
-	ObjectPool *pool = vm->object_pool;
-	pool->free_list[pool->free_top++] = index;
-	pool->count--;
 	pool->objects[index].data = NULL;
 	pool->objects[index].is_marked = false;
+
+	pool->free_list[pool->free_top++] = index;
+	pool->count--;
 }
 
 // Individual free functions for dispatch table
@@ -680,8 +689,9 @@ void mark_roots(VM *vm)
 	if (vm->native_modules.modules != NULL) {
 		for (int i = 0; i < vm->native_modules.count; i++) {
 			mark_table(vm, vm->native_modules.modules[i].names);
-			mark_object(vm, (CruxObject *)vm->native_modules.modules[i]
-						.name);
+			mark_object(vm,
+				    (CruxObject *)vm->native_modules.modules[i]
+					    .name);
 		}
 	}
 
@@ -736,8 +746,14 @@ static void sweep(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
 	for (size_t i = 0; i < pool->count; i++) {
-		const PoolObject *pool_object = &pool->objects[i];
-		if (!pool_object->is_marked) {
+		PoolObject *pool_object = &pool->objects[i];
+
+		if (pool_object->data == NULL)
+			continue;
+
+		if (pool_object->is_marked) {
+			pool_object->is_marked = false;
+		} else {
 			free_object(vm, pool_object->data);
 		}
 	}
@@ -745,7 +761,8 @@ static void sweep(VM *vm)
 
 void collect_garbage(VM *vm)
 {
-	if (vm->gc_status == PAUSED) return;
+	if (vm->gc_status == PAUSED)
+		return;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc begin ---\n");
@@ -769,7 +786,7 @@ void collect_garbage(VM *vm)
 void free_objects(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
-	for (size_t i = 1; i < pool->count; i++) { // index 0 is not used
+	for (uint32_t i = 1; i < pool->count; i++) { // index 0 is not used
 		const PoolObject *pool_object = &pool->objects[i];
 		if (pool_object->data != NULL) {
 			free_object(vm, pool_object->data);

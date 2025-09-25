@@ -15,43 +15,45 @@
 #include "object.h"
 #include "panic.h"
 
-static size_t get_new_pool_object(ObjectPool* pool)
+static uint32_t get_new_pool_object(ObjectPool *pool)
 {
 	if (pool->free_top == 0) {
-		const size_t new_capacity = pool->capacity *
-				        OBJECT_POOL_GROWTH_FACTOR;
-		
-		PoolObject *old_objects = pool->objects;
-		size_t* old_free_list = pool->free_list;
+		const uint32_t new_capacity = pool->capacity *
+					      OBJECT_POOL_GROWTH_FACTOR;
+		if (new_capacity < pool->capacity) { // overflow
+			fprintf(stderr, "Fatal Error: Cannot index memory. "
+					"Shutting Down!");
+			exit(1);
+		}
 
-		pool->objects = realloc(pool->objects, new_capacity * sizeof(PoolObject));
+		pool->objects = realloc(pool->objects,
+					new_capacity * sizeof(PoolObject));
 		if (pool->objects == NULL) {
-			pool->objects = old_objects;
-			free(old_objects);
 			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
 					"to reallocate space for object pool. "
 					"Shutting down!");
 			exit(1);
 		}
 
-		pool->free_list = realloc(pool->free_list, new_capacity * sizeof(size_t));
+		pool->free_list = realloc(pool->free_list,
+					  new_capacity * sizeof(uint32_t));
 		if (pool->free_list == NULL) {
-			pool->free_list = old_free_list;
-			free(old_free_list);
 			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
 					"to reallocate space for object pool. "
 					"Shutting down!");
 			exit(1);
 		}
 
-		for (size_t i = pool->capacity; i < new_capacity; i++) {
+		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
+			pool->objects[i].data = NULL;
+			pool->objects[i].is_marked = false;
 			pool->free_list[pool->free_top++] = new_capacity - 1 -
 							    (i -
 							     pool->capacity);
 		}
 		pool->capacity = new_capacity;
 	}
-	const size_t index = pool->free_list[--pool->free_top];
+	const uint32_t index = pool->free_list[--pool->free_top];
 	pool->count++;
 	return index;
 }
@@ -66,19 +68,15 @@ static size_t get_new_pool_object(ObjectPool* pool)
  * @return A pointer to the newly allocated and initialized Object.
  */
 
-static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
+static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
+					  const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 	object->type = type;
 
-	const size_t pool_index = get_new_pool_object(vm->object_pool);
-	if (pool_index == (size_t)-1) {
-		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
-		exit(-1);
-	}
+	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
 
 	object->pool_index = pool_index;
-	object->type = type;
 
 	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
 
@@ -92,21 +90,22 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size, const Objec
 	return object;
 }
 
-static CruxObject* allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
+static CruxObject *allocate_pooled_object_without_gc(const VM *vm,
+						     const size_t size,
+						     const ObjectType type)
 {
 	CruxObject *object = allocate_object_without_gc(size);
-	object->type = type;
 
-	const size_t pool_index = get_new_pool_object(vm->object_pool);
-	if (pool_index == (size_t)-1) {
-		fprintf(stderr, "Something went wrong when getting a pool object. Shutting Down!");
-		exit(-1);
-	}
+	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
+
 	object->pool_index = pool_index;
 	object->type = type;
+
 	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
+
 	pool_object->data = object;
 	pool_object->is_marked = false;
+
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
 #endif
@@ -816,7 +815,8 @@ ObjectString *to_string(VM *vm, const Value value)
 					to_string(vm, table->entries[i].key);
 				const ObjectString *v =
 					to_string(vm, table->entries[i].value);
-				bufSize += k->length + v->length + 4; // key:value
+				bufSize += k->length + v->length +
+					   4; // key:value
 			}
 		}
 
@@ -1320,12 +1320,12 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 	free(module_record);
 }
 
-ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
+ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
 					     const bool is_repl,
 					     const bool is_main)
 {
-	ObjectModuleRecord *moduleRecord =
-		ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(
+		vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
 	init_table(&moduleRecord->publics);

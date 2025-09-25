@@ -1540,42 +1540,6 @@ static void result_unwrap(bool can_assign __attribute__((unused)))
 	emit_byte(OP_UNWRAP);
 }
 
-static double get_float_from_source(const Token *token)
-{
-	char *end;
-	errno = 0;
-
-	const char *numberStart = token->start;
-	const double number = strtod(numberStart, &end);
-
-	if (end == numberStart) {
-		compiler_panic(&parser, "Failed to form number", SYNTAX);
-		return 0;
-	}
-	if (errno == ERANGE) {
-		return number;
-	}
-	return number;
-}
-
-static int32_t get_int_from_source(const Token *token)
-{
-	char *end;
-	errno = 0;
-
-	const char *numberStart = token->start;
-	const int32_t number = (int32_t)strtod(numberStart, &end);
-
-	if (end == numberStart) {
-		compiler_panic(&parser, "Failed to form number", SYNTAX);
-		return 0;
-	}
-	if (errno == ERANGE) {
-		return number;
-	}
-	return number;
-}
-
 /**
  * Synchronizes the parser after encountering a syntax error.
  *

@@ -147,7 +147,7 @@ typedef enum {
 } ObjectType;
 
 struct CruxObject{
-	size_t pool_index;
+	uint32_t pool_index;
 	ObjectType type; 
 };
 
@@ -737,7 +737,7 @@ ObjectRandom *new_random(VM *vm);
 
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
 
-ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
+ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
 					     bool is_repl, bool is_main);
 
 /**
