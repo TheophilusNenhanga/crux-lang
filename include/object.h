@@ -146,15 +146,25 @@ typedef enum {
 	OBJECT_VEC3,
 } ObjectType;
 
-struct CruxObject{
+struct CruxObject {
 	uint32_t pool_index;
-	ObjectType type; 
+	ObjectType type;
 };
 
-struct PoolObject{
+struct PoolObject {
 	void *data;
-	bool is_marked;
 };
+
+#define MARK_BIT ((uintptr_t)1 << 63)
+#define PTR_MASK (~MARK_BIT)
+#define IS_MARKED(obj) ((uintptr_t)(obj)->data & MARK_BIT)
+#define GET_DATA(obj) ((void *)((uintptr_t)(obj)->data & PTR_MASK))
+#define SET_DATA(obj, ptr)                                                     \
+	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
+				((uintptr_t)(obj)->data & MARK_BIT)))
+#define SET_MARKED(obj, marked)                                                \
+	((obj)->data = (void *)((uintptr_t)(obj)->data & PTR_MASK |            \
+				((marked) ? MARK_BIT : 0)))
 
 struct ObjectString {
 	CruxObject object;

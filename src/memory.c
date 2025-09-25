@@ -83,9 +83,9 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (pool_object == NULL)
 		return;
-	if (pool_object->is_marked)
+	if (IS_MARKED(pool_object))
 		return;
-	pool_object->is_marked = true;
+	SET_MARKED(pool_object, true);
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
@@ -478,7 +478,7 @@ static void free_object(VM *vm, CruxObject *object)
 	const uint32_t index = object->pool_index;
 	ObjectPool *pool = vm->object_pool;
 
-	if (index >= pool->capacity || pool->objects[index].data != object) {
+	if (index >= pool->capacity) {
 		fprintf(stderr, "Error: Invalid pool index in free_object\n");
 		return;
 	}
@@ -489,14 +489,15 @@ static void free_object(VM *vm, CruxObject *object)
 		free_dispatch[type](vm, object);
 	}
 
-	pool->objects[index].data = NULL;
-	pool->objects[index].is_marked = false;
+	PoolObject* pool_object = &pool->objects[index];
+
+	SET_DATA(pool_object, NULL);
+	SET_MARKED(pool_object, false);
 
 	pool->free_list[pool->free_top++] = index;
 	pool->count--;
 }
 
-// Individual free functions for dispatch table
 static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
@@ -748,13 +749,13 @@ static void sweep(VM *vm)
 	for (size_t i = 0; i < pool->capacity; i++) {
 		PoolObject *pool_object = &pool->objects[i];
 
-		if (pool_object->data == NULL)
+		if (GET_DATA(pool_object) == NULL)
 			continue;
 
-		if (pool_object->is_marked) {
-			pool_object->is_marked = false;
+		if (IS_MARKED(pool_object)) {
+			SET_MARKED(pool_object, false);
 		} else {
-			free_object(vm, pool_object->data);
+			free_object(vm, GET_DATA(pool_object));
 		}
 	}
 }
@@ -788,8 +789,8 @@ void free_objects(VM *vm)
 	const ObjectPool *pool = vm->object_pool;
 	for (uint32_t i = 0; i < pool->capacity; i++) {
 		const PoolObject *pool_object = &pool->objects[i];
-		if (pool_object->data != NULL) {
-			free_object(vm, pool_object->data);
+		if (GET_DATA(pool_object) != NULL) {
+			free_object(vm, GET_DATA(pool_object));
 		}
 	}
 	free(vm->gray_stack);

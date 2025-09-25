@@ -46,8 +46,9 @@ static uint32_t get_new_pool_object(ObjectPool *pool)
 
 		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
 			pool->free_list[pool->free_top++] = i;
-			pool->objects[i].data = NULL;
-			pool->objects[i].is_marked = false;
+			PoolObject* pool_object = &pool->objects[i];
+			SET_DATA(pool_object, NULL);
+			SET_MARKED(pool_object, false);
 		}
 		pool->capacity = new_capacity;
 	}
@@ -78,8 +79,8 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
 
 	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
 
-	pool_object->data = object;
-	pool_object->is_marked = false;
+	SET_DATA(pool_object, object);
+	SET_MARKED(pool_object, false);
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
@@ -101,8 +102,8 @@ static CruxObject *allocate_pooled_object_without_gc(const VM *vm,
 
 	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
 
-	pool_object->data = object;
-	pool_object->is_marked = false;
+	SET_DATA(pool_object, object);
+	SET_MARKED(pool_object, false);
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
@@ -1311,11 +1312,10 @@ ObjectRandom *new_random(VM *vm)
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 {
-	free_table(vm, &module_record->globals);
-	free_table(vm, &module_record->publics);
-	free(module_record->stack);
-	free(module_record->frames);
-	free(module_record);
+	if (module_record == NULL)
+		return;
+
+	free_object_module_record(vm, module_record);
 }
 
 ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,

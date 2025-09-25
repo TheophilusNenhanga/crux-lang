@@ -669,7 +669,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool is_repl = argc == 1 ? true : false;
 
-	vm->object_pool = init_object_pool(INTIAL_OBJECT_POOL_CAPACITY);
+	vm->object_pool = init_object_pool(INITIAL_OBJECT_POOL_CAPACITY);
 
 	vm->gc_status = PAUSED;
 	vm->bytes_allocated = 0;

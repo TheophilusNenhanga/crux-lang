@@ -168,18 +168,19 @@ void mark_table(VM *vm, const Table *table)
 	}
 }
 
-void table_remove_white(VM* vm, const Table *table)
+void table_remove_white(const VM * vm, const Table *table)
 {
-	ObjectPool *object_pool = vm->object_pool;
+	const ObjectPool *object_pool = vm->object_pool;
 
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
 		if (entry->key == NULL)
 			continue;
 
-		size_t index = entry->key->object.pool_index;
+		const uint32_t index = entry->key->object.pool_index;
+		const PoolObject* pool_object = &object_pool->objects[index];
 		
-		if (!object_pool->objects[index].is_marked) {
+		if (!IS_MARKED(pool_object)) {
 			table_delete(table, entry->key);
 		}
 	}
