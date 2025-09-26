@@ -65,8 +65,17 @@ typedef enum {
 	RUNNING,
 } GC_STATUS;
 
+typedef struct {
+	PoolObject *objects;
+	uint32_t count;
+	uint32_t capacity;
+	uint32_t *free_list;
+	uint32_t free_top;
+} ObjectPool;
+
 struct VM {
-	Object *objects;
+	ObjectPool* object_pool;
+
 	Table strings;
 
 	Table module_cache;
@@ -91,7 +100,7 @@ struct VM {
 
 	size_t bytes_allocated;
 	size_t next_gc;
-	Object **gray_stack;
+	CruxObject **gray_stack;
 	int gray_capacity;
 	int gray_count;
 	GC_STATUS gc_status;

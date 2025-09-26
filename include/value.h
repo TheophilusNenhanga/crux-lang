@@ -4,8 +4,10 @@
 #include "common.h"
 
 typedef struct VM VM;
-typedef struct Object Object;
 typedef struct ObjectString ObjectString;
+typedef struct CruxObject CruxObject;
+typedef struct PoolObject PoolObject;
+
 
 #define QNAN ((uint64_t)0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t)0x8000000000000000)
@@ -30,7 +32,7 @@ typedef uint64_t Value;
 #define AS_FLOAT(value) valueToNum(value)
 #define AS_BOOL(value) ((value) == TRUE_VAL)
 #define AS_CRUX_OBJECT(value)                                                  \
-	((Object *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
+	((CruxObject *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
 
 #define OBJECT_VAL(obj) (Value)(SIGN_BIT | QNAN | (uint64_t)(uintptr_t)(obj))
 #define BOOL_VAL(b) ((b) ? TRUE_VAL : FALSE_VAL)

@@ -19,6 +19,9 @@
 #define FREE_ARRAY(vm, type, pointer, oldCount)                                \
 	reallocate(vm, pointer, sizeof(type) * (oldCount), 0)
 
+void *allocate_object_with_gc(VM *vm, size_t size);
+void *allocate_object_without_gc(size_t size);
+
 /**
  * @brief Reallocates a block of memory.
  *
@@ -52,7 +55,7 @@ void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
  * @param object The object to mark. If `NULL`, the function returns
  * immediately.
  */
-void mark_object(VM *vm, Object *object);
+void mark_object(VM *vm, CruxObject *object);
 
 /**
  * @brief Marks a Value as reachable during garbage collection.

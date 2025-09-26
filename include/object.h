@@ -60,21 +60,7 @@ ObjectResult *make_gc_safe_error(void);
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
-#ifdef PACKED_OBJECTS
-#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (uint64_t)(next_ptr) >> 3)
-
-#define OBJECT_GET_NEXT(obj)                                                   \
-	((Object *)(((obj)->next << 3) | (uint64_t)(obj) & 0x7))
-#else
-#define OBJECT_SET_NEXT(obj, next_ptr) ((obj)->next = (next_ptr))
-#define OBJECT_GET_NEXT(obj) ((Object *)(((obj)->next)))
-#endif
-
 #define OBJECT_SET_TYPE(obj, obj_type) ((obj)->type = (obj_type))
-
-#define OBJECT_SET_MARKED(obj, marked) ((obj)->is_marked = (marked))
-
-#define OBJECT_GET_MARKED(obj) ((obj)->is_marked)
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
@@ -160,28 +146,35 @@ typedef enum {
 	OBJECT_VEC3,
 } ObjectType;
 
-#ifdef PACKED_OBJECTS
-struct Object {
-	uint64_t next : 57; // next object
-	uint64_t type : 6; // object type (supports up to 64 types)
-	uint64_t is_marked : 1; // GC mark flag
-} __attribute__((packed));
-#else
-struct Object {
-	Object *next;
+struct CruxObject {
+	uint32_t pool_index;
 	ObjectType type;
-	bool is_marked;
 };
-#endif
+
+struct PoolObject {
+	void *data;
+};
+
+#define MARK_BIT ((uintptr_t)1 << 63)
+#define PTR_MASK (~MARK_BIT)
+#define IS_MARKED(obj) ((uintptr_t)(obj)->data & MARK_BIT)
+#define GET_DATA(obj) ((void *)((uintptr_t)(obj)->data & PTR_MASK))
+#define SET_DATA(obj, ptr)                                                     \
+	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
+				((uintptr_t)(obj)->data & MARK_BIT)))
+#define SET_MARKED(obj, marked)                                                \
+	((obj)->data = (void *)((uintptr_t)(obj)->data & PTR_MASK |            \
+				((marked) ? MARK_BIT : 0)))
+
 struct ObjectString {
-	Object Object;
+	CruxObject object;
 	char *chars;
 	uint32_t length; // this is the length without the null terminator
 	uint32_t hash;
 };
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	int arity;
 	int upvalue_count;
 	Chunk chunk;
@@ -190,35 +183,35 @@ typedef struct {
 } ObjectFunction;
 
 typedef struct ObjectUpvalue {
-	Object object;
+	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
 typedef struct ObjectClosure {
-	Object object;
+	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	Value *values;
 	uint32_t size; // size and capacity will always be the same
 	uint32_t hash;
 } ObjectStaticArray;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
 
@@ -252,14 +245,14 @@ typedef enum {
 } ErrorType;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
 struct ObjectResult {
-	Object object;
+	CruxObject object;
 	bool is_ok;
 	union {
 		Value value;
@@ -272,28 +265,28 @@ typedef Value (*CruxInfallibleCallable)(VM *vm, int arg_count,
 					const Value *args);
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeFunction;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeMethod;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeInfallibleFunction;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
@@ -306,21 +299,21 @@ typedef struct {
 } ObjectTableEntry;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectStaticTable;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
 	FILE *file;
@@ -329,26 +322,26 @@ typedef struct {
 } ObjectFile;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	ObjectString *name;
 	Table fields; // <field_name: index>
 } ObjectStruct;
 
 struct ObjectStructInstance {
-	Object object;
+	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
 	uint16_t field_count;
 };
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	double x;
 	double y;
 } ObjectVec2;
 
 typedef struct {
-	Object object;
+	CruxObject object;
 	double x;
 	double y;
 	double z;
@@ -361,7 +354,7 @@ typedef enum {
 } ModuleState;
 
 struct ObjectModuleRecord {
-	Object object;
+	CruxObject object;
 	ObjectString *path;
 	Table globals;
 	Table publics;
@@ -754,7 +747,7 @@ ObjectRandom *new_random(VM *vm);
 
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
 
-ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
+ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
 					     bool is_repl, bool is_main);
 
 /**
@@ -804,9 +797,6 @@ ObjectVec2 *new_vec2(VM *vm, double x, double y);
 ObjectVec3 *new_vec3(VM *vm, double x, double y, double z);
 
 void free_object_static_table(VM *vm, ObjectStaticTable *table);
-
-bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
-			bool is_repl, bool is_main);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 

@@ -541,7 +541,7 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int index = AS_INT(indexValue);
+		int32_t index = AS_INT(indexValue);
 		ObjectArray *array = AS_CRUX_ARRAY(
 			PEEK(currentModuleRecord, 0));
 
@@ -564,7 +564,7 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int index = AS_INT(indexValue);
+		int32_t index = AS_INT(indexValue);
 		ObjectString *string = AS_CRUX_STRING(
 			PEEK(currentModuleRecord, 0));
 		ObjectString *ch;
@@ -585,7 +585,7 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int index = AS_INT(indexValue);
+		int32_t index = AS_INT(indexValue);
 		ObjectStaticArray *array = AS_CRUX_STATIC_ARRAY(
 			PEEK(currentModuleRecord, 1));
 		if (index < 0 || index >= array->size) {

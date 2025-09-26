@@ -15,14 +15,50 @@
 #include "object.h"
 #include "panic.h"
 
+static uint32_t get_new_pool_object(ObjectPool *pool)
+{
+	if (pool->free_top == 0) {
+		const uint32_t new_capacity = pool->capacity *
+					      OBJECT_POOL_GROWTH_FACTOR;
+		if (new_capacity < pool->capacity) { // overflow
+			fprintf(stderr, "Fatal Error: Cannot index memory. "
+					"Shutting Down!");
+			exit(1);
+		}
+
+		pool->objects = realloc(pool->objects,
+					new_capacity * sizeof(PoolObject));
+		if (pool->objects == NULL) {
+			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
+					"to reallocate space for object pool. "
+					"Shutting down!");
+			exit(1);
+		}
+
+		pool->free_list = realloc(pool->free_list,
+					  new_capacity * sizeof(uint32_t));
+		if (pool->free_list == NULL) {
+			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
+					"to reallocate space for object pool. "
+					"Shutting down!");
+			exit(1);
+		}
+
+		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
+			pool->free_list[pool->free_top++] = i;
+			PoolObject* pool_object = &pool->objects[i];
+			SET_DATA(pool_object, NULL);
+			SET_MARKED(pool_object, false);
+		}
+		pool->capacity = new_capacity;
+	}
+	const uint32_t index = pool->free_list[--pool->free_top];
+	pool->count++;
+	return index;
+}
+
 /**
  * @brief Allocates a new object of the specified type.
- *
- * This is a static helper function used to allocate memory for a new object
- * and initialize its basic properties. It uses the `reallocate` function
- * for memory management, integrates with the garbage collector by linking
- * the new object into the VM's object list, and sets the object's type and
- * initial marking status.
  *
  * @param vm The virtual machine.
  * @param size The size of the object to allocate in bytes.
@@ -30,20 +66,21 @@
  *
  * @return A pointer to the newly allocated and initialized Object.
  */
-static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
+
+static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
+					  const ObjectType type)
 {
-	Object *object = reallocate(vm, NULL, 0, size);
+	CruxObject *object = allocate_object_with_gc(vm, size);
 
-#ifdef DEBUG_LOG_GC
-	printf("%p mark ", (void *)object);
-	print_value(OBJECT_VAL(object), false);
-	printf("\n");
-#endif
+	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
 
-	OBJECT_SET_TYPE(object, type);
-	OBJECT_SET_NEXT(object, vm->objects);
-	OBJECT_SET_MARKED(object, false);
-	vm->objects = object;
+	object->type = type;
+	object->pool_index = pool_index;
+
+	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
+
+	SET_DATA(pool_object, object);
+	SET_MARKED(pool_object, false);
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
@@ -52,13 +89,30 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
 	return object;
 }
 
+static CruxObject *allocate_pooled_object_without_gc(const VM *vm,
+						     const size_t size,
+						     const ObjectType type)
+{
+	CruxObject *object = allocate_object_without_gc(size);
+
+	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
+
+	object->pool_index = pool_index;
+	object->type = type;
+
+	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
+
+	SET_DATA(pool_object, object);
+	SET_MARKED(pool_object, false);
+
+#ifdef DEBUG_LOG_GC
+	printf("%p allocate %zu for %d\n", (void *)object, size, type);
+#endif
+	return object;
+}
+
 /**
  * @brief Macro to allocate a specific type of object.
- *
- * This macro simplifies object allocation by wrapping the `allocateObject`
- * function. It casts the result of `allocateObject` to the desired object type,
- * reducing code duplication and improving readability.
- *
  * @param vm The virtual machine.
  * @param type The C type of the object to allocate (e.g., ObjectString).
  * @param objectType The ObjectType enum value for the object.
@@ -66,13 +120,13 @@ static Object *allocateObject(VM *vm, const size_t size, const ObjectType type)
  * @return A pointer to the newly allocated object, cast to the specified type.
  */
 #define ALLOCATE_OBJECT(vm, type, objectType)                                  \
-	(type *)allocateObject(vm, sizeof(type), objectType)
+	(type *)allocate_pooled_object(vm, sizeof(type), objectType)
+
+#define ALLOCATE_OBJECT_WITHOUT_GC(vm, type, objectType)                       \
+	(type *)allocate_pooled_object_without_gc(vm, sizeof(type), objectType)
 
 /**
  * @brief Calculates the next power of 2 capacity for a collection.
- *
- * This static helper function calculates the next power of 2 capacity for
- * collections like tables and arrays.
  *
  * @param n The desired minimum capacity.
  *
@@ -98,10 +152,6 @@ static uint32_t calculateCollectionCapacity(uint32_t n)
 
 /**
  * @brief Generates a hash code for a Value.
- *
- * This static helper function calculates a hash code for a given `Value`.
- * It handles different value types (strings, numbers, booleans, nil) to
- * produce a suitable hash value for use in hash tables.
  *
  * @param value The Value to hash.
  *
@@ -219,10 +269,7 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function)
 }
 
 /**
- * @brief Allocates a new string object.
- *
- * This static helper function allocates a new ObjectString and copies the given
- * character array into the object's memory. It also calculates and stores the
+ * @brief Allocates a new string object. calculates and stores the
  * string's hash value and interns the string in the VM's string table.
  *
  * @param vm The virtual machine.
@@ -768,7 +815,7 @@ ObjectString *to_string(VM *vm, const Value value)
 				const ObjectString *v =
 					to_string(vm, table->entries[i].value);
 				bufSize += k->length + v->length +
-					   4; // key:value,
+					   4; // key:value
 			}
 		}
 
@@ -1018,10 +1065,6 @@ static ObjectTableEntry *find_entry(ObjectTableEntry *entries,
 /**
  * @brief Adjusts the capacity of an object table.
  *
- * This static helper function resizes an ObjectTable to a new capacity. It
- * allocates a new entry array with the new capacity, rehashes all existing
- * entries into the new array, and frees the old entry array.
- *
  * @param vm The virtual machine.
  * @param table The ObjectTable to resize.
  * @param capacity The new capacity for the table.
@@ -1267,56 +1310,20 @@ ObjectRandom *new_random(VM *vm)
 	return random;
 }
 
-bool init_module_record(ObjectModuleRecord *module_record, ObjectString *path,
-			const bool is_repl, const bool is_main)
-{
-	OBJECT_SET_TYPE(&module_record->object, OBJECT_MODULE_RECORD);
-	OBJECT_SET_NEXT(&module_record->object, NULL);
-	OBJECT_SET_MARKED(&module_record->object, false);
-
-	module_record->path = path;
-	init_table(&module_record->globals);
-	init_table(&module_record->publics);
-	module_record->state = STATE_LOADING;
-	module_record->module_closure = NULL;
-	module_record->enclosing_module = NULL;
-
-	module_record->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
-	if (module_record->stack == NULL) {
-		return false;
-	}
-	module_record->stack_top = module_record->stack;
-	module_record->stack_limit = module_record->stack + STACK_MAX;
-	module_record->open_upvalues = NULL;
-
-	module_record->frames = (CallFrame *)malloc(FRAMES_MAX *
-						    sizeof(CallFrame));
-	if (module_record->frames == NULL) {
-		return false;
-	}
-	module_record->frame_count = 0;
-	module_record->frame_capacity = FRAMES_MAX;
-
-	module_record->is_main = is_main;
-	module_record->is_repl = is_repl;
-	return true;
-}
-
 void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 {
-	free_table(vm, &module_record->globals);
-	free_table(vm, &module_record->publics);
-	free(module_record->stack);
-	free(module_record->frames);
-	free(module_record);
+	if (module_record == NULL)
+		return;
+
+	free_object_module_record(vm, module_record);
 }
 
-ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path,
+ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
 					     const bool is_repl,
 					     const bool is_main)
 {
-	ObjectModuleRecord *moduleRecord =
-		ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(
+		vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
 	init_table(&moduleRecord->publics);

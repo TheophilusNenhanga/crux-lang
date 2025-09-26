@@ -6,6 +6,9 @@
 #include "table.h"
 #include "value.h"
 
+/**
+Does not cause GC.
+*/
 void init_table(Table *table)
 {
 	table->count = 0;
@@ -158,17 +161,26 @@ void mark_table(VM *vm, const Table *table)
 {
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		mark_object(vm, (Object *)entry->key);
+		if (entry->key == NULL)
+			continue;
+		mark_object(vm, (CruxObject *)entry->key);
 		mark_value(vm, entry->value);
 	}
 }
 
-void table_remove_white(const Table *table)
+void table_remove_white(const VM * vm, const Table *table)
 {
+	const ObjectPool *object_pool = vm->object_pool;
+
 	for (int i = 0; i < table->capacity; i++) {
 		const Entry *entry = &table->entries[i];
-		if (entry->key != NULL &&
-		    !OBJECT_GET_MARKED(&entry->key->Object)) {
+		if (entry->key == NULL)
+			continue;
+
+		const uint32_t index = entry->key->object.pool_index;
+		const PoolObject* pool_object = &object_pool->objects[index];
+		
+		if (!IS_MARKED(pool_object)) {
 			table_delete(table, entry->key);
 		}
 	}

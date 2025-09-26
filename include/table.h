@@ -90,7 +90,7 @@ ObjectString *table_find_string(const Table *table, const char *chars,
  *
  * @param table Pointer to the table to clean up.
  */
-void table_remove_white(const Table *table);
+void table_remove_white(const VM * vm, const Table *table);
 
 /**
  * Marks all objects in the table as reachable during garbage collection.

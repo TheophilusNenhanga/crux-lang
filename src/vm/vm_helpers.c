@@ -625,11 +625,53 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
+void free_object_pool(ObjectPool* pool)
+{
+	if (pool->objects) {
+		free(pool->objects);
+	}
+	if (pool->free_list) {
+		free(pool->free_list);
+	}
+	pool->objects = NULL;
+	pool->free_list = NULL;
+}
+
+ObjectPool* init_object_pool(const uint32_t initial_capacity)
+{
+	ObjectPool *pool = malloc(sizeof(ObjectPool));
+	if (!pool)
+		return NULL;
+
+	pool->objects = calloc(initial_capacity, sizeof(PoolObject));
+	pool->free_list = malloc(initial_capacity * sizeof(uint32_t));
+
+	if (!pool->objects || !pool->free_list) {
+		free(pool->objects);
+		free(pool->free_list);
+		free(pool);
+		return NULL;
+	}
+
+	pool->capacity = initial_capacity;
+	pool->count = 0;
+	pool->free_top = 0;
+
+	for (uint32_t i = 0; i < initial_capacity; i++) {
+		pool->free_list[i] = i;
+	}
+	pool->free_top = initial_capacity;
+
+	return pool;
+}
+
 void init_vm(VM *vm, const int argc, const char **argv)
 {
-	const bool isRepl = argc == 1 ? true : false;
+	const bool is_repl = argc == 1 ? true : false;
+
+	vm->object_pool = init_object_pool(INITIAL_OBJECT_POOL_CAPACITY);
+
 	vm->gc_status = PAUSED;
-	vm->objects = NULL;
 	vm->bytes_allocated = 0;
 	vm->next_gc = 1024 * 1024;
 	vm->gray_count = 0;
@@ -637,14 +679,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->current_module_record = (ObjectModuleRecord *)malloc(
-		sizeof(ObjectModuleRecord));
-	if (vm->current_module_record == NULL) {
-		fprintf(stderr, "Fatal Error: Could not allocate memory for "
-				"module record.\nShutting Down!\n");
-		exit(1);
-	}
-	init_module_record(vm->current_module_record, NULL, isRepl, true);
+	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
 
 	reset_stack(vm->current_module_record);
 
@@ -737,6 +772,9 @@ void free_vm(VM *vm)
 	free_module_record(vm, vm->current_module_record);
 
 	free_objects(vm);
+	free_object_pool(vm->object_pool);
+	free(vm->object_pool);
+
 	free(vm);
 }
 
