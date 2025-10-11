@@ -1,5 +1,6 @@
-#include "chunk.h"
 #include <stdlib.h>
+
+#include "chunk.h"
 #include "memory.h"
 #include "panic.h"
 

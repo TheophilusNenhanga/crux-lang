@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "vm/vm.h"
 #include "common.h"
 #include "file_handler.h"
-#include "vm.h"
 
 /**
  * Starts an interactive Read-Eval-Print Loop (REPL) for the language

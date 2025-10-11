@@ -1,12 +1,11 @@
-#include "compiler.h"
-
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <errno.h>
+
+#include "compiler.h"
 #include "chunk.h"
 #include "file_handler.h"
 #include "memory.h"

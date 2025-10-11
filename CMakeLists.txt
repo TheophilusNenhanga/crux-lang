@@ -35,20 +35,45 @@ if (CMAKE_BUILD_TYPE STREQUAL "Perf")
 	set(CMAKE_C_FLAGS_PERF "-O2 -g -fno-omit-frame-pointer")
 endif()
 
-file(GLOB SOURCES
-				"src/*.c"
-				"src/stdlib/*.c"
-				"src/vm/*.c"
+set(SOURCES
+				"src/chunk.c"
+				"src/compiler.c"
+				"src/debug.c"
+				"src/file_handler.c"
+				"src/main.c"
+				"src/memory.c"
+				"src/object.c"
+				"src/panic.c"
+				"src/scanner.c"
+				"src/table.c"
+				"src/value.c"
+
+				"src/compiler/ast.c"
+				"src/compiler/codegen.c"
+				"src/compiler/ast_compiler.c"
+
+				"src/vm/vm_run.c"
+				"src/vm/vm_helpers.c"
+
+				"src/stdlib/array.c"
+				"src/stdlib/core.c"
+				"src/stdlib/error.c"
+				"src/stdlib/fs.c"
+				"src/stdlib/io.c"
+				"src/stdlib/math.c"
+				"src/stdlib/random.c"
+				"src/stdlib/std.c"
+				"src/stdlib/string.c"
+				"src/stdlib/sys.c"
+				"src/stdlib/tables.c"
+				"src/stdlib/time.c"
+				"src/stdlib/vectors.c"
 )
 
-file(GLOB HEADERS
-			"include/*.h"
-			"include/stdlib/*.h"
-)
+add_executable(crux ${SOURCES})
 
-include_directories(include)
+target_include_directories(crux PRIVATE "include")
 
-add_executable(crux ${SOURCES} ${HEADERS})
 
 if (UNIX)
 	target_link_libraries(crux PRIVATE m)
@@ -56,9 +81,4 @@ endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND UNIX)
 	target_link_options(crux PRIVATE -fsanitize=address -fsanitize=undefined)
-endif ()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Profile")
-	target_compile_options(crux PRIVATE -pg)
-	target_link_options(crux PRIVATE -pg)
 endif ()

@@ -1,7 +1,6 @@
-#include "stdlib/std.h"
-
 #include <string.h>
 
+#include "stdlib/std.h"
 #include "memory.h"
 #include "panic.h"
 #include "stdlib/array.h"

@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "vm/vm_helpers.h"
 #include "memory.h"
 #include "panic.h"
 #include "stdlib/array.h"
-#include "vm_helpers.h"
 
 ObjectResult *array_push_method(VM *vm, int arg_count __attribute__((unused)),
 				const Value *args)

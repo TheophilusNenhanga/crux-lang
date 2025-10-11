@@ -1,8 +1,8 @@
 #ifndef VM_HELPERS_H
 #define VM_HELPERS_H
 
-#include "../include/vm.h"
-#include "chunk.h"
+#include "../chunk.h"
+#include "vm.h"
 
 void reset_stack(ObjectModuleRecord *moduleRecord);
 

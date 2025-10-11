@@ -1,7 +1,6 @@
-#include "stdlib/core.h"
-
 #include <stdlib.h>
 
+#include "stdlib/core.h"
 #include "object.h"
 #include "panic.h"
 
