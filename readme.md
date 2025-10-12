@@ -14,17 +14,14 @@ To build from source on Windows, you need to have mingw (for gcc) installed, and
 You can get mingw [here](https://www.mingw-w64.org/).
 
 ```shell
-mkdir build
-cd build
-cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ../
-cmake --build . --config Release
+cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 #### Linux
 
 ```shell
-mkdir build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../
 make
 ```

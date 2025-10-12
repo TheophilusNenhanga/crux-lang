@@ -11,4 +11,4 @@ src/CMakeSettings.json
 /src/cmake-build-*
 /cmake-build-*
 /build-wsl
-tests/benchmarks/render.ppm
+*.ppm
