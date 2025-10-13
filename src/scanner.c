@@ -459,6 +459,7 @@ Token scan_token(void)
 		if (match('=')) {
 			return make_token(TOKEN_BANG_EQUAL);
 		}
+		return error_token("Unexpected token");
 	}
 	case '=': {
 		if (match('=')) {

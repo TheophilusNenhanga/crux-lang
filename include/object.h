@@ -85,8 +85,7 @@ ObjectResult *make_gc_safe_error(void);
 #define IS_CRUX_STRUCT(value) is_object_type(value, OBJECT_STRUCT)
 #define IS_CRUX_STRUCT_INSTANCE(value)                                         \
 	is_object_type(value, OBJECT_STRUCT_INSTANCE)
-#define IS_CRUX_VEC2(value) is_object_type(value, OBJECT_VEC2)
-#define IS_CRUX_VEC3(value) is_object_type(value, OBJECT_VEC3)
+#define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -115,8 +114,7 @@ ObjectResult *make_gc_safe_error(void);
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT_INSTANCE(value)                                         \
 	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_VEC2(value) ((ObjectVec2 *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_VEC3(value) ((ObjectVec3 *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -142,8 +140,7 @@ typedef enum {
 	OBJECT_STATIC_TABLE,
 	OBJECT_STRUCT,
 	OBJECT_STRUCT_INSTANCE,
-	OBJECT_VEC2,
-	OBJECT_VEC3,
+	OBJECT_VECTOR,
 } ObjectType;
 
 struct CruxObject {
@@ -336,16 +333,9 @@ struct ObjectStructInstance {
 
 typedef struct {
 	CruxObject object;
-	double x;
-	double y;
-} ObjectVec2;
-
-typedef struct {
-	CruxObject object;
-	double x;
-	double y;
-	double z;
-} ObjectVec3;
+	uint32_t dimension;
+	double *components;
+} ObjectVector;
 
 typedef enum {
 	STATE_LOADING,
@@ -792,9 +782,7 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 					  uint16_t field_count,
 					  ObjectModuleRecord *module_record);
 
-ObjectVec2 *new_vec2(VM *vm, double x, double y);
-
-ObjectVec3 *new_vec3(VM *vm, double x, double y, double z);
+ObjectVector *new_vector(VM* vm, uint32_t dimension);
 
 void free_object_static_table(VM *vm, ObjectStaticTable *table);
 
