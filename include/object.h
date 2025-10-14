@@ -331,10 +331,17 @@ struct ObjectStructInstance {
 	uint16_t field_count;
 };
 
+#define STATIC_VECTOR_SIZE 4
+#define VECTOR_COMPONENTS(vec) \
+((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
+
 typedef struct {
 	CruxObject object;
-	uint32_t dimension;
-	double *components;
+	uint32_t dimensions;
+	union {
+		double* h_components; /* heap components */
+		double s_components[STATIC_VECTOR_SIZE]; /* static components */
+	} as;
 } ObjectVector;
 
 typedef enum {
@@ -782,7 +789,7 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 					  uint16_t field_count,
 					  ObjectModuleRecord *module_record);
 
-ObjectVector *new_vector(VM* vm, uint32_t dimension);
+ObjectVector *new_vector(VM* vm, uint32_t dimensions);
 
 void free_object_static_table(VM *vm, ObjectStaticTable *table);
 

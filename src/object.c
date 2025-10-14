@@ -233,7 +233,7 @@ void print_type(const Value value)
 		break;
 	case OBJECT_VECTOR: {
 		ObjectVector *vector = AS_CRUX_VECTOR(value);
-		printf("'Vec<%d>'", vector->dimension);
+		printf("'Vec<%d>'", vector->dimensions);
 		break;
 	}
 	default:
@@ -617,11 +617,20 @@ void print_object(const Value value, const bool in_collection)
 	}
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		printf("Vec%d(", vector->dimension);
-		for (uint32_t i = 0; i < vector->dimension; i++) {
-			printf("%f", vector->components[i]);
-			if (i != vector->dimension - 1) {
-				printf(", ");
+		printf("Vec%d(", vector->dimensions);
+		if (vector->dimensions > 4) {
+			for (uint32_t i = 0; i < vector->dimensions; i++) {
+				printf("%f", vector->as.h_components[i]);
+				if (i != vector->dimensions - 1) {
+					printf(", ");
+				}
+			}
+		}else {
+			for (uint32_t i = 0; i <vector->dimensions; i++) {
+				printf("%f", vector->as.s_components[i]);
+				if (i != vector->dimensions - 1) {
+					printf(", ");
+				}
 			}
 		}
 		printf(")");
@@ -1431,12 +1440,14 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 	return structInstance;
 }
 
-ObjectVector *new_vector(VM *vm, const uint32_t dimension)
+ObjectVector *new_vector(VM *vm, const uint32_t dimensions)
 {
 	ObjectVector *vector = ALLOCATE_OBJECT(vm, ObjectVector, OBJECT_VECTOR);
 	push(vm->current_module_record, OBJECT_VAL(vector));
-	vector->dimension = dimension;
-	vector->components = ALLOCATE(vm, double, dimension);
+	vector->dimensions = dimensions;
+	if (vector->dimensions > 4) {
+		vector->as.h_components = ALLOCATE(vm, double, dimensions);
+	}
 	pop(vm->current_module_record);
 	return vector;
 }

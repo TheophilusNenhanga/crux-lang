@@ -613,7 +613,9 @@ static void free_object_struct_instance(VM *vm, CruxObject *object)
 static void free_object_vector(VM *vm, CruxObject *object)
 {
 	const ObjectVector *vector = (ObjectVector *)object;
-	FREE(vm , double, vector->components);
+	if (vector->dimensions > 4) {
+		FREE(vm, double, vector->as.h_components);
+	}
 	FREE(vm, OBJECT_VECTOR, object);
 }
 
