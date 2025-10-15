@@ -625,7 +625,7 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-void free_object_pool(ObjectPool* pool)
+void free_object_pool(ObjectPool *pool)
 {
 	if (pool->objects) {
 		free(pool->objects);
@@ -637,7 +637,7 @@ void free_object_pool(ObjectPool* pool)
 	pool->free_list = NULL;
 }
 
-ObjectPool* init_object_pool(const uint32_t initial_capacity)
+ObjectPool *init_object_pool(const uint32_t initial_capacity)
 {
 	ObjectPool *pool = malloc(sizeof(ObjectPool));
 	if (!pool)
@@ -679,7 +679,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
+	vm->current_module_record = new_object_module_record(vm, NULL, is_repl,
+							     true);
 
 	reset_stack(vm->current_module_record);
 
@@ -1622,4 +1623,139 @@ Value typeof_value(VM *vm, const Value value)
 	}
 	__builtin_unreachable();
 	return OBJECT_VAL(copy_string(vm, "unknown", 7));
+}
+
+bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
+				Value *target, const Value operand,const OpCode op)
+{
+	const bool currentIsInt = IS_INT(*target);
+	const bool currentIsFloat = IS_FLOAT(*target);
+	const bool operandIsInt = IS_INT(operand);
+	const bool operandIsFloat = IS_FLOAT(operand);
+
+	if (op == OP_SET_LOCAL_PLUS &&
+	    (IS_CRUX_STRING(*target) || IS_CRUX_STRING(operand))) {
+		// += is not defined for strings
+		return false;
+	}
+
+	if (!((currentIsInt || currentIsFloat) &&
+	      (operandIsInt || operandIsFloat))) {
+		runtime_panic(currentModuleRecord, false, TYPE,
+			      "Operands must be numbers.");
+		return false;
+	}
+
+	Value result;
+
+	// both integers
+	if (currentIsInt && operandIsInt) {
+		const int32_t a = AS_INT(*target);
+		const int32_t b = AS_INT(operand);
+		int64_t temp;
+
+		switch (op) {
+		case OP_SET_LOCAL_PLUS:
+		case OP_SET_UPVALUE_PLUS:
+		case OP_SET_GLOBAL_PLUS:
+			temp = (int64_t)a + (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_MINUS:
+		case OP_SET_UPVALUE_MINUS:
+		case OP_SET_GLOBAL_MINUS:
+			temp = (int64_t)a - (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_STAR:
+		case OP_SET_UPVALUE_STAR:
+		case OP_SET_GLOBAL_STAR:
+			temp = (int64_t)a * (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_SLASH:
+		case OP_SET_UPVALUE_SLASH:
+		case OP_SET_GLOBAL_SLASH:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Division by zero.");
+				return false;
+			}
+			result = FLOAT_VAL((double)a / (double)b);
+			break;
+		case OP_SET_LOCAL_INT_DIVIDE:
+		case OP_SET_UPVALUE_INT_DIVIDE:
+		case OP_SET_GLOBAL_INT_DIVIDE:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Integer division by zero.");
+				return false;
+			}
+			result = (a == INT32_MIN && b == -1)
+					 ? FLOAT_VAL(-(double)INT32_MIN)
+					 : INT_VAL(a / b);
+			break;
+		case OP_SET_LOCAL_MODULUS:
+		case OP_SET_UPVALUE_MODULUS:
+		case OP_SET_GLOBAL_MODULUS:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Modulo by zero.");
+				return false;
+			}
+			result = (a == INT32_MIN && b == -1) ? INT_VAL(0)
+							     : INT_VAL(a % b);
+			break;
+		default:
+			return false;
+		}
+	} else {
+		// Either one of the operands is a float
+		const double a = currentIsFloat ? AS_FLOAT(*target)
+						: (double)AS_INT(*target);
+		const double b = operandIsFloat ? AS_FLOAT(operand)
+						: (double)AS_INT(operand);
+
+		switch (op) {
+		case OP_SET_LOCAL_PLUS:
+		case OP_SET_UPVALUE_PLUS:
+		case OP_SET_GLOBAL_PLUS:
+			result = FLOAT_VAL(a + b);
+			break;
+		case OP_SET_LOCAL_MINUS:
+		case OP_SET_UPVALUE_MINUS:
+		case OP_SET_GLOBAL_MINUS:
+			result = FLOAT_VAL(a - b);
+			break;
+		case OP_SET_LOCAL_STAR:
+		case OP_SET_UPVALUE_STAR:
+		case OP_SET_GLOBAL_STAR:
+			result = FLOAT_VAL(a * b);
+			break;
+		case OP_SET_LOCAL_SLASH:
+		case OP_SET_UPVALUE_SLASH:
+		case OP_SET_GLOBAL_SLASH:
+			if (b == 0.0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Division by zero.");
+				return false;
+			}
+			result = FLOAT_VAL(a / b);
+			break;
+		default:
+			runtime_panic(
+				currentModuleRecord, false, TYPE,
+				"Integer operations require integer operands.");
+			return false;
+		}
+	}
+
+	*target = result;
+	return true;
 }

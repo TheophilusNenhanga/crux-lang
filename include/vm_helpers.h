@@ -103,4 +103,7 @@ ObjectStructInstance *pop_struct_stack(VM *vm);
 bool pushStructStack(VM *vm, ObjectStructInstance *struct_instance);
 ObjectStructInstance *peek_struct_stack(const VM *vm);
 
+bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
+				Value *target, Value operand, OpCode op);
+
 #endif // VM_HELPERS_H
