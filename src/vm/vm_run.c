@@ -808,9 +808,9 @@ OP_SET_LOCAL_MINUS: {
 OP_SET_UPVALUE_SLASH: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
-					OP_SET_LOCAL_MINUS)) {
+					OP_SET_UPVALUE_SLASH)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -819,7 +819,7 @@ OP_SET_UPVALUE_SLASH: {
 OP_SET_UPVALUE_STAR: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
 					OP_SET_UPVALUE_STAR)) {
 		return INTERPRET_RUNTIME_ERROR;
@@ -830,7 +830,7 @@ OP_SET_UPVALUE_STAR: {
 OP_SET_UPVALUE_PLUS: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
 					OP_SET_UPVALUE_PLUS)) {
 		return INTERPRET_RUNTIME_ERROR;
@@ -841,11 +841,12 @@ OP_SET_UPVALUE_PLUS: {
 OP_SET_UPVALUE_MINUS: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
 					OP_SET_UPVALUE_MINUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
+	DISPATCH();
 }
 
 OP_SET_GLOBAL_SLASH: {
@@ -1053,7 +1054,7 @@ OP_SET_LOCAL_MODULUS: {
 OP_SET_UPVALUE_INT_DIVIDE: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
 					OP_SET_UPVALUE_INT_DIVIDE)) {
 		return INTERPRET_RUNTIME_ERROR;
@@ -1064,7 +1065,7 @@ OP_SET_UPVALUE_INT_DIVIDE: {
 OP_SET_UPVALUE_MODULUS: {
 	uint8_t slot = READ_BYTE();
 	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
+					frame->closure->upvalues[slot]->location,
 					PEEK(currentModuleRecord, 0),
 					OP_SET_UPVALUE_MODULUS)) {
 		return INTERPRET_RUNTIME_ERROR;
