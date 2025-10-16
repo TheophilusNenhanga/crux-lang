@@ -198,22 +198,24 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_SET_UPVALUE:
 		return byte_instruction("OP_SET_UPVALUE", chunk, offset);
 	case OP_CLOSURE: {
+		/* TODO: FIX SEG FAULT */
 		offset++;
-		const uint8_t constant = chunk->code[offset++];
-		printf("%-16s %4d ", "OP_CLOSURE", constant);
-		print_value(chunk->constants.values[constant], false);
-		printf("\n");
-
-		const ObjectFunction *function = AS_CRUX_FUNCTION(
-			chunk->constants.values[constant]);
-		for (int j = 0; j < function->upvalue_count; j++) {
-			const int isLocal = chunk->code[offset++];
-			const int index = chunk->code[offset++];
-			printf("%04d        |                %s %d\n",
-			       offset - 2, isLocal ? "local" : "upvalue",
-			       index);
-		}
 		return offset;
+		// const uint8_t constant = chunk->code[offset++];
+		// printf("%-16s %4d ", "OP_CLOSURE", constant);
+		// print_value(chunk->constants.values[constant], false);
+		// printf("\n");
+		//
+		// const ObjectFunction *function = AS_CRUX_FUNCTION(
+		// 	chunk->constants.values[constant]);
+		// for (int j = 0; j < function->upvalue_count; j++) {
+		// 	const int isLocal = chunk->code[offset++];
+		// 	const int index = chunk->code[offset++];
+		// 	printf("%04d        |                %s %d\n",
+		// 	       offset - 2, isLocal ? "local" : "upvalue",
+		// 	       index);
+		// }
+		// return offset;
 	}
 	case OP_CLOSE_UPVALUE:
 		return simple_instruction("OP_CLOSE_UPVALUE", offset);
@@ -364,6 +366,9 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 
 	case OP_TYPEOF: {
 		return simple_instruction("OP_TYPEOF", offset);
+	}
+	case OP_UNWRAP: {
+		return simple_instruction("OP_UNWRAP", offset);
 	}
 
 	default:
