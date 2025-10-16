@@ -1328,7 +1328,7 @@ static Value typeof_struct_instance(VM *vm,
 
 static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
 {
-	return OBJECT_VAL(copy_string(vm, "vec<>", 5));
+	return OBJECT_VAL(copy_string(vm, "vec", 3));
 }
 
 // Dispatch table for object types
