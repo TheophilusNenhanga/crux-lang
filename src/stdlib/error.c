@@ -57,20 +57,16 @@ ObjectResult *assert_function(VM *vm, int arg_count __attribute__((unused)),
 
 	const bool result = AS_BOOL(args[0]);
 	ObjectString *message = AS_CRUX_STRING(args[1]);
-	push(module_record, OBJECT_VAL(message));
 
 	if (result == false) {
 		ObjectError *error = new_error(vm, message, ASSERT, true);
 		push(vm->current_module_record, OBJECT_VAL(error));
 		ObjectResult *res = new_error_result(vm, error);
 		pop(vm->current_module_record);
-		pop(vm->current_module_record);
 		return res;
 	}
 
 	ObjectResult *res = new_ok_result(vm, NIL_VAL);
-	pop(vm->current_module_record);
-	pop(vm->current_module_record);
 	return res;
 }
 
