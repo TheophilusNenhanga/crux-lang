@@ -617,7 +617,7 @@ static ObjectFunction *end_compiler(void)
 	ObjectFunction *function = current->function;
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.had_error) {
-		disassembleChunk(current_chunk(),
+		disassemble_chunk(current_chunk(),
 				 function->name != NULL ? function->name->chars
 							: "<script>");
 	}
