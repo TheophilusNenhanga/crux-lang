@@ -13,9 +13,11 @@
 #include <unistd.h>
 #endif
 
-ObjectResult *args_function(VM *vm, int arg_count __attribute__((unused)),
-			    const Value *args __attribute__((unused)))
+/* TODO: Split this into two functions argv and argc */
+ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectArray *resultArray = new_array(vm, 2, module_record);
 	ObjectArray *argvArray = new_array(vm, vm->args.argc, module_record);
@@ -47,9 +49,11 @@ ObjectResult *args_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, OBJECT_VAL(resultArray));
 }
 
-Value platform_function(VM *vm, int arg_count __attribute__((unused)),
-			const Value *args __attribute__((unused)))
+/* TODO: This can fail if out of memory */
+Value platform_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
 #ifdef _WIN32
 	return OBJECT_VAL(copy_string(vm, "windows", 7));
 #elif __linux__
@@ -61,9 +65,11 @@ Value platform_function(VM *vm, int arg_count __attribute__((unused)),
 #endif
 }
 
-Value arch_function(VM *vm, int arg_count __attribute__((unused)),
-		    const Value *args __attribute__((unused)))
+/* TODO: This can fail if Out of Memory */
+Value arch_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
 #if defined(__x86_64__) || defined(_M_X64)
 	return OBJECT_VAL(copy_string(vm, "x86_64", 6));
 #elif defined(__i386) || defined(_M_IX86)
@@ -95,10 +101,11 @@ Value arch_function(VM *vm, int arg_count __attribute__((unused)),
 #endif
 }
 
-Value pid_function(VM *vm __attribute__((unused)),
-		   int arg_count __attribute__((unused)),
-		   const Value *args __attribute__((unused)))
+Value pid_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
+	(void)args;
 #ifdef _WIN32
 	return INT_VAL(GetCurrentProcessId());
 #else
@@ -106,9 +113,9 @@ Value pid_function(VM *vm __attribute__((unused)),
 #endif
 }
 
-ObjectResult *get_env_function(VM *vm, int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *get_env_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Argument <name> must be of type 'string'.", TYPE);
@@ -134,9 +141,9 @@ ObjectResult *get_env_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *sleep_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *sleep_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Argument <seconds> must be of type 'int'.", TYPE);
@@ -150,13 +157,13 @@ ObjectResult *sleep_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, BOOL_VAL(true));
 }
 
-Value exit_function(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value exit_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)vm;
+	(void)arg_count;
 	if (!IS_INT(args[0])) {
 		exit(1);
 	}
 	exit(AS_INT(args[0]));
-	__builtin_unreachable();
 	return BOOL_VAL(true);
 }

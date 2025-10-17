@@ -248,7 +248,7 @@ OP_NOT_EQUAL: {
 }
 
 OP_ADD: {
-	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) ||
+	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) &&
 	    IS_CRUX_STRING(PEEK(currentModuleRecord, 1))) {
 		if (!concatenate(vm)) {
 			return INTERPRET_RUNTIME_ERROR;
@@ -310,7 +310,7 @@ OP_DEFINE_GLOBAL: {
 	runtime_panic(
 		currentModuleRecord, false, NAME,
 		currentModuleRecord->is_repl
-			? "Warning: Defined a name that already had a "
+			? "Defined a name that already had a "
 			  "definition"
 			: "Cannot define '%s' because it is already defined.",
 		name->chars);
@@ -541,11 +541,11 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int32_t index = AS_INT(indexValue);
+		uint32_t index = (uint32_t) AS_INT(indexValue);
 		ObjectArray *array = AS_CRUX_ARRAY(
 			PEEK(currentModuleRecord, 0));
 
-		if (index < 0 || index >= array->size) {
+		if (index >= array->size) {
 			runtime_panic(currentModuleRecord, false, BOUNDS,
 				      "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
@@ -564,11 +564,11 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int32_t index = AS_INT(indexValue);
+		uint32_t index = (uint32_t) AS_INT(indexValue);
 		ObjectString *string = AS_CRUX_STRING(
 			PEEK(currentModuleRecord, 0));
 		ObjectString *ch;
-		if (index < 0 || index >= string->length) {
+		if (index >= string->length) {
 			runtime_panic(currentModuleRecord, false, BOUNDS,
 				      "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
@@ -585,10 +585,10 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int32_t index = AS_INT(indexValue);
+		uint32_t index = (uint32_t) AS_INT(indexValue);
 		ObjectStaticArray *array = AS_CRUX_STATIC_ARRAY(
 			PEEK(currentModuleRecord, 1));
-		if (index < 0 || index >= array->size) {
+		if (index >= array->size) {
 			runtime_panic(currentModuleRecord, false, BOUNDS,
 				      "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;

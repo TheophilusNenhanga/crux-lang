@@ -3,9 +3,9 @@
 #include "memory.h"
 #include "panic.h"
 
-ObjectResult *error_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *error_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const Value message = args[0];
 	ObjectString *errorMessage = to_string(vm, message);
@@ -18,9 +18,9 @@ ObjectResult *error_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *panic_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *panic_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const Value value = args[0];
 
 	if (IS_CRUX_ERROR(value)) {
@@ -38,10 +38,9 @@ ObjectResult *panic_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *assert_function(VM *vm, int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *assert_function(VM *vm, int arg_count, const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
+	(void)arg_count;
 	if (!IS_BOOL(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -70,17 +69,17 @@ ObjectResult *assert_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-Value error_message_method(VM *vm __attribute__((unused)),
-			   int arg_count __attribute__((unused)),
-			   const Value *args)
+Value error_message_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)vm;
+	(void)arg_count;
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	return OBJECT_VAL(error->message);
 }
 
-ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	ObjectModuleRecord *module_record = vm->current_module_record;
 
@@ -304,9 +303,9 @@ ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 }
 
-ObjectResult *err_function(VM *vm, int arg_count __attribute__((unused)),
-			   const Value *args)
+ObjectResult *err_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
 		return new_error_result(vm, AS_CRUX_ERROR(args[0]));
 	}
@@ -321,16 +320,17 @@ ObjectResult *err_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *ok_function(VM *vm, int arg_count __attribute__((unused)),
-			  const Value *args)
+ObjectResult *ok_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	return new_ok_result(vm, args[0]);
 }
 
 // arg0 - Result
-Value unwrap_function(VM *vm __attribute__((unused)),
-		      int arg_count __attribute__((unused)), const Value *args)
+Value unwrap_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	const ObjectResult *result = AS_CRUX_RESULT(args[0]);
 	if (result->is_ok) {
 		return result->as.value;
