@@ -1,9 +1,9 @@
 #include "stdlib/tables.h"
 #include "panic.h"
 
-ObjectResult *table_values_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *table_values_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	ObjectArray *values = new_array(vm, table->size,
 					vm->current_module_record);
@@ -33,9 +33,9 @@ ObjectResult *table_values_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, OBJECT_VAL(values));
 }
 
-ObjectResult *table_keys_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
 	ObjectArray *keys = new_array(vm, table->size,
@@ -66,9 +66,9 @@ ObjectResult *table_keys_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, OBJECT_VAL(keys));
 }
 
-ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
@@ -122,9 +122,9 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count __attribute__((unused)),
 
 // arg0 - table
 // arg1 - key
-ObjectResult *table_remove_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *table_remove_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
@@ -143,9 +143,9 @@ ObjectResult *table_remove_method(VM *vm, int arg_count __attribute__((unused)),
 
 // arg0 - table
 // arg1 - key
-ObjectResult *table_get_method(VM *vm, int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *table_get_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
@@ -166,10 +166,10 @@ ObjectResult *table_get_method(VM *vm, int arg_count __attribute__((unused)),
 
 // args[0] - table
 // args[1] - key
-Value table_has_key_method(VM *vm __attribute__((unused)),
-			   int arg_count __attribute__((unused)),
-			   const Value *args)
+Value table_has_key_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
@@ -182,10 +182,10 @@ Value table_has_key_method(VM *vm __attribute__((unused)),
 // args[0] - table
 // args[1] - key
 // args[2] - default value
-Value table_get_or_else_method(VM *vm __attribute__((unused)),
-			       int arg_count __attribute__((unused)),
-			       const Value *args)
+Value table_get_or_else_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	const Value defaultValue = args[2];

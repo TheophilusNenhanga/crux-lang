@@ -311,9 +311,9 @@ fn main() {
     let vertical = v.multiply(viewport_height)?;
     let lower_left_corner = camera_origin.subtract(horizontal.multiply(0.5)?)?.subtract(vertical.multiply(0.5)?)?.subtract(w.multiply(focal_length)?)?;
 
-    println("Rendering image (" + IMAGE_WIDTH + "x" + IMAGE_HEIGHT + ")...");
-    println("Samples per pixel: " + SAMPLES_PER_PIXEL);
-    println("Max ray depth: " + MAX_DEPTH);
+    println("Rendering image (" + string(IMAGE_WIDTH)? + "x" + string(IMAGE_HEIGHT)? + ")...");
+    println("Samples per pixel: " + string(SAMPLES_PER_PIXEL)?);
+    println("Max ray depth: " + string(MAX_DEPTH)?);
 
     let start_time = _time_ms();
 
@@ -323,12 +323,12 @@ fn main() {
         Err => panic("Error opening file for writing");
     };
     file.write("P3\n");
-    file.write(IMAGE_WIDTH + " " + IMAGE_HEIGHT + "\n");
+    file.write(string(IMAGE_WIDTH)? + " " + string(IMAGE_HEIGHT)? + "\n");
     file.write("255\n");
 
     for let j = IMAGE_HEIGHT - 1; j >= 0; j -= 1 {
         if j % 10 == 0 {
-            println("Scanlines remaining: " + j);
+            println("Scanlines remaining: " + string(j)?);
         }
 
         for let i = 0; i < IMAGE_WIDTH; i += 1 {
@@ -352,12 +352,12 @@ fn main() {
             let ig = int(COLOR_SCALE * g)?;
             let ib = int(COLOR_SCALE * b)?;
 
-            file.write(ir + " " + ig + " " + ib + "\n");
+            file.write(string(ir)? + " " + string(ig)? + " " + string(ib)? + "\n");
         }
     }
     let end_time = _time_ms();
     let elapsed_time = end_time - start_time;
-    println("Rendering completed in " + elapsed_time + " ms");
+    println("Rendering completed in " + string(elapsed_time)? + " ms");
     file.close();
 }
 

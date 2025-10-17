@@ -22,25 +22,26 @@ static FILE *get_channel(const char *channel)
 	return NULL;
 }
 
-Value print_function(VM *vm __attribute__((unused)),
-		     int arg_count __attribute__((unused)), const Value *args)
+Value print_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)vm;
+	(void)arg_count;
 	print_value(args[0], false);
 	return NIL_VAL;
 }
 
-Value println_function(VM *vm __attribute__((unused)),
-		       const int arg_count __attribute__((unused)),
-		       const Value *args)
+Value println_function(VM *vm, const int arg_count, const Value *args)
 {
+	(void)vm;
+	(void)arg_count;
 	print_value(args[0], false);
 	printf("\n");
 	return NIL_VAL;
 }
 
-ObjectResult *print_to_function(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *print_to_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Channel and content must be strings.", TYPE);
@@ -62,9 +63,10 @@ ObjectResult *print_to_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, BOOL_VAL(true));
 }
 
-ObjectResult *scan_function(VM *vm, int arg_count __attribute__((unused)),
-			    const Value *args __attribute__((unused)))
+ObjectResult *scan_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
 	const int ch = getchar();
 	if (ch == EOF) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
@@ -83,9 +85,10 @@ ObjectResult *scan_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *scanln_function(VM *vm, int arg_count __attribute__((unused)),
-			      const Value *args __attribute__((unused)))
+ObjectResult *scanln_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
 	char buffer[1024];
 	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
@@ -105,9 +108,9 @@ ObjectResult *scanln_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *scan_from_function(VM *vm, int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *scan_from_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
 					  TYPE);
@@ -138,10 +141,9 @@ ObjectResult *scan_from_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *scanln_from_function(VM *vm,
-				   int arg_count __attribute__((unused)),
-				   const Value *args)
+ObjectResult *scanln_from_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
 					  TYPE);
@@ -181,9 +183,9 @@ ObjectResult *scanln_from_function(VM *vm,
 	return res;
 }
 
-ObjectResult *nscan_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *nscan_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Number of characters must be a number.", TYPE);
@@ -233,9 +235,9 @@ ObjectResult *nscan_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *nscan_from_function(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *nscan_from_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
 					  TYPE);
@@ -298,9 +300,9 @@ ObjectResult *nscan_from_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *open_file_function(VM *vm, int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *open_file_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "<file_path> must be of type 'string'.", IO);
@@ -380,9 +382,9 @@ static bool is_appendable(const ObjectString *mode)
 	       strcmp(mode->chars, "rb") == 0;
 }
 
-ObjectResult *readln_file_method(VM *vm, int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *readln_file_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Could not read file.", IO);
@@ -422,10 +424,9 @@ ObjectResult *readln_file_method(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *read_all_file_method(VM *vm,
-				   int arg_count __attribute__((unused)),
-				   const Value *args)
+ObjectResult *read_all_file_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Could not read file.", IO);
@@ -450,8 +451,7 @@ ObjectResult *read_all_file_method(VM *vm,
 			MEMORY);
 	}
 
-	size_t _ __attribute__((unused)) = fread(buffer, 1, fileSize,
-						 file->file);
+	size_t _ = fread(buffer, 1, fileSize, file->file);
 	buffer[fileSize] = '\0';
 
 	ObjectString *result_str = take_string(vm, buffer, fileSize);
@@ -462,9 +462,9 @@ ObjectResult *read_all_file_method(VM *vm,
 	return res;
 }
 
-ObjectResult *close_file_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *close_file_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 	if (file->file == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Could not close file.", IO);
@@ -481,9 +481,9 @@ ObjectResult *close_file_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *write_file_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *write_file_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (file->file == NULL) {
@@ -511,9 +511,9 @@ ObjectResult *write_file_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *writeln_file_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *writeln_file_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (file->file == NULL) {

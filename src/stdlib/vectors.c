@@ -45,10 +45,9 @@ static ObjectResult *create_vec3_result(VM *vm,
 	return res;
 }
 
-ObjectResult *new_vec2_function(VM *vm,
-				const int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *new_vec2_function(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Parameters must be of type 'int' or 'float'.",
@@ -61,10 +60,9 @@ ObjectResult *new_vec2_function(VM *vm,
 	return create_vec2_result(vm, vm->current_module_record, x, y);
 }
 
-ObjectResult *new_vec3_function(VM *vm,
-				const int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *new_vec3_function(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_NUMERIC(args[0]) || !IS_NUMERIC(args[1]) ||
 	    !IS_NUMERIC(args[2])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -79,10 +77,9 @@ ObjectResult *new_vec3_function(VM *vm,
 	return create_vec3_result(vm, vm->current_module_record, x, y, z);
 }
 
-ObjectResult *vec2_dot_method(VM *vm,
-			      const int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *vec2_dot_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "dot method can only be used on Vec2 objects.",
@@ -97,10 +94,9 @@ ObjectResult *vec2_dot_method(VM *vm,
 	return res;
 }
 
-ObjectResult *vec3_dot_method(VM *vm,
-			      const int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *vec3_dot_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "dot method can only be used on Vec3 objects.",
@@ -115,10 +111,9 @@ ObjectResult *vec3_dot_method(VM *vm,
 	return res;
 }
 
-ObjectResult *vec2_add_method(VM *vm,
-			      const int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *vec2_add_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec2 objects.",
@@ -132,10 +127,9 @@ ObjectResult *vec2_add_method(VM *vm,
 				  vec1->x + vec2->x, vec1->y + vec2->y);
 }
 
-ObjectResult *vec3_add_method(VM *vm,
-			      const int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *vec3_add_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "add method can only be used on Vec3 objects.",
@@ -150,10 +144,10 @@ ObjectResult *vec3_add_method(VM *vm,
 				  vec1->z + vec2->z);
 }
 
-ObjectResult *vec2_subtract_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec2_subtract_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec2 objects.",
@@ -167,10 +161,10 @@ ObjectResult *vec2_subtract_method(VM *vm,
 				  vec1->x - vec2->x, vec1->y - vec2->y);
 }
 
-ObjectResult *vec3_subtract_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec3_subtract_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "subtract method can only be used on Vec3 objects.",
@@ -185,10 +179,10 @@ ObjectResult *vec3_subtract_method(VM *vm,
 				  vec1->z - vec2->z);
 }
 
-ObjectResult *vec2_multiply_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec2_multiply_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "multiply method can only be used on "
@@ -203,10 +197,10 @@ ObjectResult *vec2_multiply_method(VM *vm,
 				  vec->x * scalar, vec->y * scalar);
 }
 
-ObjectResult *vec3_multiply_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec3_multiply_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "multiply method can only be used on "
@@ -222,10 +216,9 @@ ObjectResult *vec3_multiply_method(VM *vm,
 				  vec->z * scalar);
 }
 
-ObjectResult *vec2_divide_method(VM *vm,
-				 const int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *vec2_divide_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "divide method can only be used on "
@@ -244,10 +237,9 @@ ObjectResult *vec2_divide_method(VM *vm,
 				  vec->x / scalar, vec->y / scalar);
 }
 
-ObjectResult *vec3_divide_method(VM *vm,
-				 const int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *vec3_divide_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "divide method can only be used on "
@@ -267,10 +259,10 @@ ObjectResult *vec3_divide_method(VM *vm,
 				  vec->z / scalar);
 }
 
-ObjectResult *vec2_magnitude_method(VM *vm,
-				    const int arg_count __attribute__((unused)),
+ObjectResult *vec2_magnitude_method(VM *vm, const int arg_count,
 				    const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -285,10 +277,10 @@ ObjectResult *vec2_magnitude_method(VM *vm,
 	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec3_magnitude_method(VM *vm,
-				    const int arg_count __attribute__((unused)),
+ObjectResult *vec3_magnitude_method(VM *vm, const int arg_count,
 				    const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -303,10 +295,10 @@ ObjectResult *vec3_magnitude_method(VM *vm,
 	return new_ok_result(vm, FLOAT_VAL(result));
 }
 
-ObjectResult *vec2_normalize_method(VM *vm,
-				    const int arg_count __attribute__((unused)),
+ObjectResult *vec2_normalize_method(VM *vm, const int arg_count,
 				    const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -327,10 +319,10 @@ ObjectResult *vec2_normalize_method(VM *vm,
 				  vec->x / magnitude, vec->y / magnitude);
 }
 
-ObjectResult *vec3_normalize_method(VM *vm,
-				    const int arg_count __attribute__((unused)),
+ObjectResult *vec3_normalize_method(VM *vm, const int arg_count,
 				    const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -353,10 +345,10 @@ ObjectResult *vec3_normalize_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec2_distance_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec2_distance_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "distance method can only be used on Vec2 objects.",
@@ -374,10 +366,9 @@ ObjectResult *vec2_distance_method(VM *vm,
 }
 
 // arg_count: 1
-ObjectResult *vec2_angle_method(VM *vm,
-				const int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *vec2_angle_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "angle method can only be used on Vec2 objects.",
@@ -390,11 +381,10 @@ ObjectResult *vec2_angle_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec2_angle_between_method(VM *vm,
-					const int arg_count
-					__attribute__((unused)),
+ObjectResult *vec2_angle_between_method(VM *vm, const int arg_count,
 					const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -423,10 +413,9 @@ ObjectResult *vec2_angle_between_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec2_rotate_method(VM *vm,
-				 const int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *vec2_rotate_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) ||
 	    (!IS_INT(args[1]) && !IS_FLOAT(args[1]))) {
@@ -454,10 +443,9 @@ ObjectResult *vec2_rotate_method(VM *vm,
 }
 
 // arg_count: 3
-ObjectResult *vec2_lerp_method(VM *vm,
-			       const int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *vec2_lerp_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1]) ||
 	    (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
@@ -483,10 +471,10 @@ ObjectResult *vec2_lerp_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec2_reflect_method(VM *vm,
-				  const int arg_count __attribute__((unused)),
+ObjectResult *vec2_reflect_method(VM *vm, const int arg_count,
 				  const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -521,10 +509,10 @@ ObjectResult *vec2_reflect_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec3_distance_method(VM *vm,
-				   const int arg_count __attribute__((unused)),
+ObjectResult *vec3_distance_method(VM *vm, const int arg_count,
 				   const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "distance method can only be used on Vec3 objects.",
@@ -543,10 +531,9 @@ ObjectResult *vec3_distance_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec3_cross_method(VM *vm,
-				const int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *vec3_cross_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -569,11 +556,10 @@ ObjectResult *vec3_cross_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec3_angle_between_method(VM *vm,
-					const int arg_count
-					__attribute__((unused)),
+ObjectResult *vec3_angle_between_method(VM *vm, const int arg_count,
 					const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -605,10 +591,9 @@ ObjectResult *vec3_angle_between_method(VM *vm,
 }
 
 // arg_count: 3
-ObjectResult *vec3_lerp_method(VM *vm,
-			       const int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *vec3_lerp_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1]) ||
 	    (!IS_INT(args[2]) && !IS_FLOAT(args[2]))) {
 		return MAKE_GC_SAFE_ERROR(
@@ -636,10 +621,10 @@ ObjectResult *vec3_lerp_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec3_reflect_method(VM *vm,
-				  const int arg_count __attribute__((unused)),
+ObjectResult *vec3_reflect_method(VM *vm, const int arg_count,
 				  const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "reflect method can only be used on Vec3 objects.",
@@ -679,10 +664,9 @@ ObjectResult *vec3_reflect_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec2_equals_method(VM *vm,
-				 const int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *vec2_equals_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC2(args[0]) || !IS_CRUX_VEC2(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "equals method can only be used on Vec2 objects.",
@@ -699,10 +683,9 @@ ObjectResult *vec2_equals_method(VM *vm,
 }
 
 // arg_count: 2
-ObjectResult *vec3_equals_method(VM *vm,
-				 const int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *vec3_equals_method(VM *vm, const int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_VEC3(args[0]) || !IS_CRUX_VEC3(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "equals method can only be used on Vec3 objects.",
@@ -718,32 +701,37 @@ ObjectResult *vec3_equals_method(VM *vm,
 	return new_ok_result(vm, BOOL_VAL(equal));
 }
 
-Value vec2_x_method(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value vec2_x_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	return FLOAT_VAL(AS_CRUX_VEC2(args[0])->x);
 }
 
-Value vec2_y_method(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value vec2_y_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	return FLOAT_VAL(AS_CRUX_VEC2(args[0])->y);
 }
 
-Value vec3_x_method(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value vec3_x_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	return FLOAT_VAL(AS_CRUX_VEC3(args[0])->x);
 }
 
-Value vec3_y_method(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value vec3_y_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	return FLOAT_VAL(AS_CRUX_VEC3(args[0])->y);
 }
 
-Value vec3_z_method(VM *vm __attribute__((unused)),
-		    int arg_count __attribute__((unused)), const Value *args)
+Value vec3_z_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	return FLOAT_VAL(AS_CRUX_VEC3(args[0])->z);
 }

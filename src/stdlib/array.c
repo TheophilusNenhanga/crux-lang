@@ -7,9 +7,9 @@
 #include "stdlib/array.h"
 #include "vm_helpers.h"
 
-ObjectResult *array_push_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *array_push_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value to_add = args[1];
 
@@ -21,9 +21,9 @@ ObjectResult *array_push_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *array_pop_method(VM *vm, int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *array_pop_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
@@ -39,9 +39,9 @@ ObjectResult *array_pop_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, popped);
 }
 
-ObjectResult *array_insert_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *array_insert_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[2])) {
@@ -73,10 +73,9 @@ ObjectResult *array_insert_method(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *array_remove_at_method(VM *vm,
-				     int arg_count __attribute__((unused)),
-				     const Value *args)
+ObjectResult *array_remove_at_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
@@ -102,9 +101,9 @@ ObjectResult *array_remove_at_method(VM *vm,
 	return new_ok_result(vm, removed_element);
 }
 
-ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_CRUX_ARRAY(args[1])) {
@@ -138,9 +137,9 @@ ObjectResult *array_concat_method(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *array_slice_method(VM *vm, int arg_count __attribute__((unused)),
-				 const Value *args)
+ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
@@ -185,10 +184,9 @@ ObjectResult *array_slice_method(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *array_reverse_method(VM *vm,
-				   int arg_count __attribute__((unused)),
-				   const Value *args)
+ObjectResult *array_reverse_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	Value *values = ALLOCATE(vm, Value, array->size);
@@ -212,10 +210,9 @@ ObjectResult *array_reverse_method(VM *vm,
 	return new_ok_result(vm, NIL_VAL);
 }
 
-ObjectResult *array_index_of_method(VM *vm,
-				    int arg_count __attribute__((unused)),
-				    const Value *args)
+ObjectResult *array_index_of_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
 
@@ -228,10 +225,11 @@ ObjectResult *array_index_of_method(VM *vm,
 				  VALUE);
 }
 
-Value array_contains_method(VM *vm __attribute__((unused)),
-			    int arg_count __attribute__((unused)),
-			    const Value *args)
+Value array_contains_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
+	(void)vm;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
 
@@ -243,10 +241,11 @@ Value array_contains_method(VM *vm __attribute__((unused)),
 	return BOOL_VAL(false);
 }
 
-Value array_clear_method(VM *vm __attribute__((unused)),
-			 int arg_count __attribute__((unused)),
-			 const Value *args)
+Value array_clear_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
+	(void)vm;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -257,10 +256,10 @@ Value array_clear_method(VM *vm __attribute__((unused)),
 	return NIL_VAL;
 }
 
-Value arrayEqualsMethod(VM *vm __attribute__((unused)),
-			int arg_count __attribute__((unused)),
-			const Value *args)
+Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	if (!IS_CRUX_ARRAY(args[1])) {
 		return BOOL_VAL(false);
 	}
@@ -283,9 +282,9 @@ Value arrayEqualsMethod(VM *vm __attribute__((unused)),
 
 // arg0 - array
 // arg1 - function
-ObjectResult *array_map_method(VM *vm, int arg_count __attribute__((unused)),
-			       const Value *args)
+ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
@@ -339,9 +338,9 @@ ObjectResult *array_map_method(VM *vm, int arg_count __attribute__((unused)),
 
 // arg0 - array
 // arg1 - function
-ObjectResult *array_filter_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
@@ -398,9 +397,9 @@ ObjectResult *array_filter_method(VM *vm, int arg_count __attribute__((unused)),
 // arg0 - array
 // arg1 - function
 // arg2 - initial value
-ObjectResult *array_reduce_method(VM *vm, int arg_count __attribute__((unused)),
-				  const Value *args)
+ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
@@ -552,9 +551,9 @@ static void quick_sort(Value *arr, const int low, const int high)
 }
 
 // arg0 - array
-ObjectResult *array_sort_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
@@ -587,9 +586,9 @@ ObjectResult *array_sort_method(VM *vm, int arg_count __attribute__((unused)),
 
 // arg0 - array
 // arg1 - separator string
-ObjectResult *array_join_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Expected arg <separator> to be of type 'string'.",
