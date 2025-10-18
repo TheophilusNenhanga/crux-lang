@@ -15,7 +15,7 @@ assert(typeof v8_2 == "vec", "Failed to create vector with dimension 8");
 
 // Testing the equals method. If equals does not work then the rest of the tests will fail.
 println("=== Testing the equals method with dimension 4 ===");
-assert(v4.equals(v4_2) == true, "Failed to compare vectors");
+assert(v4.equals(Vec(4, [1, 2, 3, 4])?) == true, "Failed to compare vectors");
 
 println("=== Testing the equals method with dimension 8 ===");
 assert(v8.equals(v8_2) == true, "Failed to compare vectors");
