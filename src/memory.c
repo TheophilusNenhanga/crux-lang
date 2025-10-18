@@ -208,8 +208,7 @@ static void blacken_file(VM *vm, CruxObject *object);
 static void blacken_module_record(VM *vm, CruxObject *object);
 static void blacken_struct(VM *vm, CruxObject *object);
 static void blacken_struct_instance(VM *vm, CruxObject *object);
-static void blacken_vec2(VM *vm, CruxObject *object);
-static void blacken_vec3(VM *vm, CruxObject *object);
+static void blacken_vector(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
@@ -233,8 +232,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STATIC_TABLE] = blacken_static_table,
 	[OBJECT_STRUCT] = blacken_struct,
 	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
-	[OBJECT_VEC2] = blacken_vec2,
-	[OBJECT_VEC3] = blacken_vec3,
+	[OBJECT_VECTOR] = blacken_vector,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -387,13 +385,7 @@ static void blacken_struct_instance(VM *vm, CruxObject *object)
 	mark_struct_instance(vm, instance);
 }
 
-static void blacken_vec2(VM *vm, CruxObject *object)
-{
-	(void)vm;
-	(void)object;
-}
-
-static void blacken_vec3(VM *vm, CruxObject *object)
+static void blacken_vector(VM *vm, CruxObject *object)
 {
 	(void)vm;
 	(void)object;
@@ -436,8 +428,7 @@ static void free_object_file(VM *vm, CruxObject *object);
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object);
 static void free_object_struct(VM *vm, CruxObject *object);
 static void free_object_struct_instance(VM *vm, CruxObject *object);
-static void free_object_vec2(VM *vm, CruxObject *object);
-static void free_object_vec3(VM *vm, CruxObject *object);
+static void free_object_vector(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -461,8 +452,7 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_STATIC_TABLE] = free_object_static_table_wrapper,
 	[OBJECT_STRUCT] = free_object_struct,
 	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
-	[OBJECT_VEC2] = free_object_vec2,
-	[OBJECT_VEC3] = free_object_vec3,
+	[OBJECT_VECTOR] = free_object_vector
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -620,14 +610,13 @@ static void free_object_struct_instance(VM *vm, CruxObject *object)
 	FREE(vm, ObjectStructInstance, object);
 }
 
-static void free_object_vec2(VM *vm, CruxObject *object)
+static void free_object_vector(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectVec2, object);
-}
-
-static void free_object_vec3(VM *vm, CruxObject *object)
-{
-	FREE(vm, ObjectVec3, object);
+	const ObjectVector *vector = (ObjectVector *)object;
+	if (vector->dimensions > 4) {
+		FREE(vm, double, vector->as.h_components);
+	}
+	FREE(vm, OBJECT_VECTOR, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
@@ -705,8 +694,7 @@ void mark_roots(VM *vm)
 	mark_table(vm, &vm->error_type);
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
-	mark_table(vm, &vm->vec2_type);
-	mark_table(vm, &vm->vec3_type);
+	mark_table(vm, &vm->vector_type);
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 

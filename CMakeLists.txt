@@ -28,11 +28,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_C_FLAGS_RELEASE "-O3")
+	add_compile_options(-O3)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Perf")
-	set(CMAKE_C_FLAGS_PERF "-O2 -g -fno-omit-frame-pointer")
+	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed)
 endif()
 
 file(GLOB SOURCES

@@ -310,11 +310,16 @@ static bool handle_string_invoke(VM *vm, const ObjectString *name,
 
 static bool handle_undefined_invoke(VM *vm,
 				    const ObjectString *name
-				    __attribute__((unused)),
-				    int arg_count __attribute__((unused)),
-				    Value original __attribute__((unused)),
-				    Value receiver __attribute__((unused)))
+				    ,
+				    int arg_count ,
+				    Value original ,
+				    Value receiver )
 {
+	(void) name;
+	(void) arg_count;
+	(void) original;
+	(void) receiver;
+
 	runtime_panic(vm->current_module_record, false, TYPE,
 		      "Only instances have methods");
 	return false;
@@ -375,23 +380,12 @@ static bool handle_random_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
-static bool handle_vec2_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
+static bool handle_vector_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
 {
 	Value value;
-	if (table_get(&vm->vec2_type, name, &value)) {
-		return handle_invoke(vm, arg_count, receiver, original, value);
-	}
-	undefined_method_return(vm->current_module_record, name);
-}
-
-static bool handle_vec3_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
-{
-	Value value;
-	if (table_get(&vm->vec3_type, name, &value)) {
+	if (table_get(&vm->vector_type, name, &value)) {
 		return handle_invoke(vm, arg_count, receiver, original, value);
 	}
 	undefined_method_return(vm->current_module_record, name);
@@ -446,8 +440,7 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STATIC_TABLE] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
-	[OBJECT_VEC2] = handle_vec2_invoke,
-	[OBJECT_VEC3] = handle_vec3_invoke,
+	[OBJECT_VECTOR] = handle_vector_invoke
 };
 
 /**
@@ -690,8 +683,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->random_type);
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
-	init_table(&vm->vec2_type);
-	init_table(&vm->vec3_type);
+	init_table(&vm->vector_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -755,8 +747,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->random_type);
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
-	free_table(vm, &vm->vec2_type);
-	free_table(vm, &vm->vec3_type);
+	free_table(vm, &vm->vector_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1335,14 +1326,9 @@ static Value typeof_struct_instance(VM *vm,
 	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
 }
 
-static Value typeof_vec2(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
 {
-	return OBJECT_VAL(copy_string(vm, "vec2", 4));
-}
-
-static Value typeof_vec3(VM *vm, const Value value __attribute__((unused)))
-{
-	return OBJECT_VAL(copy_string(vm, "vec3", 4));
+	return OBJECT_VAL(copy_string(vm, "vec", 3));
 }
 
 // Dispatch table for object types
@@ -1366,8 +1352,7 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STATIC_TABLE] = typeof_static_table,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
-	[OBJECT_VEC2] = typeof_vec2,
-	[OBJECT_VEC3] = typeof_vec3,
+	[OBJECT_VECTOR] = typeof_vector
 };
 
 /**
