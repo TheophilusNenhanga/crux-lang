@@ -1,0 +1,83 @@
+// Testing compound operations
+
+let x = 5;
+println("=== Testing += ===");
+x += 5;
+assert(x == 10, "Expected x to be 10 - Failed to add 5");
+
+println("=== Testing -= ===");
+x -= 3;
+assert(x == 7, "Expected x to be 7 - Failed to subtract 3");
+
+println("=== Testing *= ===");
+x *= 4;
+assert(x == 28, "Expected x to be 28 - Failed to multiply by 4");
+
+println("=== Testing /= ===");
+x /= 2;
+assert(x == 14, "Expected x to be 14 - Failed to divide by 2");
+
+
+fn compound_operations() {
+    let x = 5;
+    println("=== Testing += ===");
+    x += 5;
+    assert(x == 10, "Expected x to be 10 - Failed to add 5");
+
+    println("=== Testing -= ===");
+    x -= 3;
+    assert(x == 7, "Expected x to be 7 - Failed to subtract 3");
+
+    println("=== Testing *= ===");
+    x *= 4;
+    assert(x == 28, "Expected x to be 28 - Failed to multiply by 4");
+
+    println("=== Testing /= ===");
+    x /= 2;
+    assert(x == 14, "Expected x to be 14 - Failed to divide by 2");
+}
+
+println("=== Testing Compound Operations in Local Scope ===");
+compound_operations();
+
+println("=== Testing Compound Operations in Closure Scope ===");
+fn compound_closure() {
+    let x = 0;
+    let call_counter = 0;
+    fn make_counter() {
+        call_counter += 1;
+        if call_counter % 4 == 0 {
+            println("=== Testing += ===");
+            x += 5;
+            return x;
+        }
+        if call_counter % 4 == 1 {
+            println("=== Testing -= ===");
+            x -= 1;
+            return x;
+        }
+        if call_counter % 4 == 2 {
+            println("=== Testing *= ===");
+            x *= 2;
+            return x;
+        }
+        if call_counter % 4 == 3 {
+            println("=== Testing /= ===");
+            x /= 2;
+            return x;
+        }
+    }
+    return make_counter;
+}
+
+let counter = compound_closure();
+assert(counter() == -1, "Failed to perform -= operation in a closure.");
+assert(counter() == -2, "Failed to perform *= operation in a closure.");
+assert(counter() == -1, "Failed to perform /= operation in a closure.");
+assert(counter() == 4, "Failed to perform += operation in a closure.");
+assert(counter() == 3, "Failed to perform -= operation in a closure.");
+assert(counter() == 6, "Failed to perform *= operation in a closure.");
+assert(counter() == 3, "Failed to perform /= operation in a closure.");
+assert(counter() == 8, "Failed to perform += operation in a closure.");
+
+println("=== END OF COMPOUND OPERATION TESTS ===");
