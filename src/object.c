@@ -231,12 +231,11 @@ void print_type(const Value value)
 	case OBJECT_FILE:
 		printf("'file'");
 		break;
-	case OBJECT_VEC2:
-		printf("'Vec2'");
+	case OBJECT_VECTOR: {
+		ObjectVector *vector = AS_CRUX_VECTOR(value);
+		printf("'Vec<%d>'", vector->dimensions);
 		break;
-	case OBJECT_VEC3:
-		printf("'Vec3'");
-		break;
+	}
 	default:
 		printf("'unknown'");
 	}
@@ -393,9 +392,6 @@ static void print_error_type(const ErrorType type)
 		break;
 	case COLLECTION_SET:
 		printf("collection set");
-		break;
-	case UNPACK_MISMATCH:
-		printf("unpack mismatch");
 		break;
 	case MEMORY:
 		printf("memory");
@@ -616,16 +612,27 @@ void print_object(const Value value, const bool in_collection)
 		print_struct_instance(AS_CRUX_STRUCT_INSTANCE(value));
 		break;
 	}
-	case OBJECT_VEC2: {
-		const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
-		printf("Vec2(%g, %g)", vec2->x, vec2->y);
+	case OBJECT_VECTOR: {
+		const ObjectVector *vector = AS_CRUX_VECTOR(value);
+		printf("Vec%d(", vector->dimensions);
+		if (vector->dimensions > 4) {
+			for (uint32_t i = 0; i < vector->dimensions; i++) {
+				printf("%.17g", vector->as.h_components[i]);
+				if (i != vector->dimensions - 1) {
+					printf(", ");
+				}
+			}
+		}else {
+			for (uint32_t i = 0; i <vector->dimensions; i++) {
+				printf("%.17g", vector->as.s_components[i]);
+				if (i != vector->dimensions - 1) {
+					printf(", ");
+				}
+			}
+		}
+		printf(")");
 		break;
-	}
-	case OBJECT_VEC3: {
-		const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
-		printf("Vec3(%g, %g, %g)", vec3->x, vec3->y, vec3->z);
-		break;
-	}
+	} 
 	}
 }
 
@@ -650,7 +657,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		char buffer[32];
 		if (IS_FLOAT(value)) {
 			const double num = AS_FLOAT(value);
-			snprintf(buffer, sizeof(buffer), "%g", num);
+			snprintf(buffer, sizeof(buffer), "%.17g", num);
 		} else if (IS_INT(value)) {
 			const int32_t num = AS_INT(value);
 			snprintf(buffer, sizeof(buffer), "%d", num);
@@ -854,7 +861,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		const ObjectError *error = AS_CRUX_ERROR(value);
 		char buffer[1024];
 		const int length = snprintf(buffer, sizeof(buffer),
-					    "<error: %s>",
+					    "<Error: %s>",
 					    error->message->chars);
 		return copy_string(vm, buffer, length);
 	}
@@ -868,48 +875,27 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 
 	case OBJECT_RANDOM: {
-		return copy_string(vm, "<random>", 8);
+		return copy_string(vm, "<Random>", 8);
 	}
 
 	case OBJECT_FILE: {
-		return copy_string(vm, "<file>", 6);
+		return copy_string(vm, "<File>", 6);
 	}
 
 	case OBJECT_STRUCT: {
-		return copy_string(vm, "<struct>", 8);
+		return copy_string(vm, "<Struct>", 8);
 	}
 
 	case OBJECT_STRUCT_INSTANCE: {
-		return copy_string(vm, "<struct instance>", 17);
+		return copy_string(vm, "<Struct Instance>", 17);
 	}
 
-	case OBJECT_VEC2: {
-		const ObjectVec2 *vec2 = AS_CRUX_VEC2(value);
-		const int needed = snprintf(NULL, 0, "Vec2(%g, %g)", vec2->x,
-					    vec2->y);
-		char *buffer = ALLOCATE(vm, char, needed + 1);
-		if (buffer == NULL) {
-			return copy_string(vm, "<crux object>", 13);
-		}
-		snprintf(buffer, needed, "Vec2(%g, %g)", vec2->x, vec2->y);
-		return take_string(vm, buffer, strlen(buffer));
-	}
-
-	case OBJECT_VEC3: {
-		const ObjectVec3 *vec3 = AS_CRUX_VEC3(value);
-		const int needed = snprintf(NULL, 0, "Vec3(%g, %g, %g)",
-					    vec3->x, vec3->y, vec3->z);
-		char *buffer = ALLOCATE(vm, char, needed + 1);
-		if (buffer == NULL) {
-			return copy_string(vm, "<crux object>", 13);
-		}
-		snprintf(buffer, needed, "Vec3(%g, %g, %g)", vec3->x, vec3->y,
-			 vec3->z);
-		return take_string(vm, buffer, strlen(buffer));
+	case OBJECT_VECTOR: {
+		return copy_string(vm, "<Vec<>>", 7);
 	}
 
 	default:
-		return copy_string(vm, "<crux object>", 13);
+		return copy_string(vm, "<Crux Object>", 13);
 	}
 }
 
@@ -1451,19 +1437,14 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 	return structInstance;
 }
 
-ObjectVec2 *new_vec2(VM *vm, const double x, const double y)
+ObjectVector *new_vector(VM *vm, const uint32_t dimensions)
 {
-	ObjectVec2 *vec2 = ALLOCATE_OBJECT(vm, ObjectVec2, OBJECT_VEC2);
-	vec2->x = x;
-	vec2->y = y;
-	return vec2;
-}
-
-ObjectVec3 *new_vec3(VM *vm, const double x, const double y, const double z)
-{
-	ObjectVec3 *vec3 = ALLOCATE_OBJECT(vm, ObjectVec3, OBJECT_VEC3);
-	vec3->x = x;
-	vec3->y = y;
-	vec3->z = z;
-	return vec3;
+	ObjectVector *vector = ALLOCATE_OBJECT(vm, ObjectVector, OBJECT_VECTOR);
+	push(vm->current_module_record, OBJECT_VAL(vector));
+	vector->dimensions = dimensions;
+	if (vector->dimensions > 4) {
+		vector->as.h_components = ALLOCATE(vm, double, dimensions);
+	}
+	pop(vm->current_module_record);
+	return vector;
 }

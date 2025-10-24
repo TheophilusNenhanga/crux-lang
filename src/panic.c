@@ -103,22 +103,17 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 				      "Could not set value in collection. "
 				      "Check the key type and value."};
 	}
-	case UNPACK_MISMATCH: {
-		return (ErrorDetails){
-			"Unpack Mismatch Error",
-			"Ensure that you assign all unpacked values."};
-	}
 	case MEMORY: {
 		return (ErrorDetails){"Memory Error",
 				      "Cannot allocate more memory."};
 	}
 	case ASSERT: {
 		return (ErrorDetails){"Assert Error",
-				      "The assert statement failed."};
+				      "Double check your program's expectations;"};
 	}
 	case IMPORT_EXTENT: {
 		return (ErrorDetails){"Import Extent Error",
-				      "Cannot import any more names."};
+				      "Import less external modules."};
 	}
 	case IO: {
 		return (ErrorDetails){"IO Error",

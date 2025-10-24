@@ -14,10 +14,7 @@
 #include "panic.h"
 #include "scanner.h"
 #include "value.h"
-
-#ifdef DEBUG_PRINT_CODE
 #include "debug.h"
-#endif
 
 Parser parser;
 
@@ -577,8 +574,9 @@ static uint8_t argument_list(void)
  * @param can_assign Whether the 'and' expression can be the target of an
  * assignment.
  */
-static void and_(bool can_assign __attribute__((unused)))
+static void and_(bool can_assign)
 {
+	(void) can_assign;
 	const int endJump = emit_jump(OP_JUMP_IF_FALSE);
 	emit_byte(OP_POP);
 	parse_precedence(PREC_AND);
