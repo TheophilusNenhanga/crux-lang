@@ -308,17 +308,15 @@ static bool handle_string_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
-static bool handle_undefined_invoke(VM *vm,
-				    const ObjectString *name
-				    ,
-				    int arg_count ,
-				    Value original ,
-				    Value receiver )
+static bool handle_undefined_invoke(VM *vm, const ObjectString *name,
+				    int arg_count, Value original,
+				    Value receiver)
 {
-	(void) name;
-	(void) arg_count;
-	(void) original;
-	(void) receiver;
+	(void)name;
+	(void)arg_count;
+	(void)original;
+	(void)receiver;
+
 	runtime_panic(vm->current_module_record, false, TYPE,
 		      "Only instances have methods");
 	return false;
@@ -379,23 +377,12 @@ static bool handle_random_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
-static bool handle_vec2_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
+static bool handle_vector_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
 {
 	Value value;
-	if (table_get(&vm->vec2_type, name, &value)) {
-		return handle_invoke(vm, arg_count, receiver, original, value);
-	}
-	undefined_method_return(vm->current_module_record, name);
-}
-
-static bool handle_vec3_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
-{
-	Value value;
-	if (table_get(&vm->vec3_type, name, &value)) {
+	if (table_get(&vm->vector_type, name, &value)) {
 		return handle_invoke(vm, arg_count, receiver, original, value);
 	}
 	undefined_method_return(vm->current_module_record, name);
@@ -413,12 +400,10 @@ static bool handle_result_invoke(VM *vm, const ObjectString *name,
 }
 
 static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
-					  int arg_count,
-					  Value original
-					  ,
+					  int arg_count, Value original,
 					  const Value receiver)
 {
-	(void) original;
+	(void)original;
 	arg_count--;
 	const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
 		receiver);
@@ -451,9 +436,7 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STATIC_TABLE] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
-	[OBJECT_VEC2] = handle_vec2_invoke,
-	[OBJECT_VEC3] = handle_vec3_invoke,
-};
+	[OBJECT_VECTOR] = handle_vector_invoke};
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -550,8 +533,8 @@ bool concatenate(VM *vm)
 		return false;
 	}
 
-	const ObjectString* stringA = AS_CRUX_STRING(a);
-	const ObjectString* stringB = AS_CRUX_STRING(b);
+	const ObjectString *stringA = AS_CRUX_STRING(a);
+	const ObjectString *stringB = AS_CRUX_STRING(b);
 
 	const uint64_t length = stringA->length + stringB->length;
 	char *chars = ALLOCATE(vm, char, length + 1);
@@ -677,8 +660,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->random_type);
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
-	init_table(&vm->vec2_type);
-	init_table(&vm->vec3_type);
+	init_table(&vm->vector_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -742,8 +724,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->random_type);
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
-	free_table(vm, &vm->vec2_type);
-	free_table(vm, &vm->vec3_type);
+	free_table(vm, &vm->vector_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1009,11 +990,10 @@ static bool float_greater_equal(ObjectModuleRecord *current_module_record,
 }
 
 static bool float_invalid_int_op(ObjectModuleRecord *current_module_record,
-				 double doubleA ,
-				 double doubleB )
+				 double doubleA, double doubleB)
 {
-	(void) doubleA;
-	(void) doubleB;
+	(void)doubleA;
+	(void)doubleB;
 	runtime_panic(current_module_record, false, TYPE,
 		      "Operands for integer operation must both be integers.");
 	return false;
@@ -1062,15 +1042,13 @@ typedef InterpretResult (*FloatCompoundOp)(
 
 // Integer compound operation handlers
 static InterpretResult
-int_compound_plus(ObjectModuleRecord *current_module_record
-		  ,
-		  const ObjectString *name ,
-		  char *operation , int32_t icurrent,
+int_compound_plus(ObjectModuleRecord *current_module_record,
+		  const ObjectString *name, char *operation, int32_t icurrent,
 		  int32_t ioperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) operation;
-	(void) name;
+	(void)current_module_record;
+	(void)operation;
+	(void)name;
 	const int64_t result = (int64_t)icurrent + (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1081,15 +1059,13 @@ int_compound_plus(ObjectModuleRecord *current_module_record
 }
 
 static InterpretResult
-int_compound_minus(ObjectModuleRecord *current_module_record
-		   ,
-		   const ObjectString *name ,
-		   char *operation , int32_t icurrent,
+int_compound_minus(ObjectModuleRecord *current_module_record,
+		   const ObjectString *name, char *operation, int32_t icurrent,
 		   int32_t ioperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) operation;
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	const int64_t result = (int64_t)icurrent - (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1100,15 +1076,13 @@ int_compound_minus(ObjectModuleRecord *current_module_record
 }
 
 static InterpretResult
-int_compound_star(ObjectModuleRecord *current_module_record
-		  ,
-		  const ObjectString *name ,
-		  char *operation , int32_t icurrent,
+int_compound_star(ObjectModuleRecord *current_module_record,
+		  const ObjectString *name, char *operation, int32_t icurrent,
 		  int32_t ioperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) operation;
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	const int64_t result = (int64_t)icurrent * (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1173,43 +1147,37 @@ int_compound_modulus(ObjectModuleRecord *current_module_record,
 
 // Float compound operation handlers
 static InterpretResult
-float_compound_plus(ObjectModuleRecord *current_module_record
-		    ,
-		    const ObjectString *name ,
-		    char *operation , double dcurrent,
+float_compound_plus(ObjectModuleRecord *current_module_record,
+		    const ObjectString *name, char *operation, double dcurrent,
 		    double doperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) operation;
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent + doperand);
 	return INTERPRET_OK;
 }
 
 static InterpretResult
-float_compound_minus(ObjectModuleRecord *current_module_record
-		     ,
-		     const ObjectString *name ,
-		     char *operation , double dcurrent,
+float_compound_minus(ObjectModuleRecord *current_module_record,
+		     const ObjectString *name, char *operation, double dcurrent,
 		     double doperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) operation;
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent - doperand);
 	return INTERPRET_OK;
 }
 
 static InterpretResult
-float_compound_star(ObjectModuleRecord *current_module_record
-		    ,
-		    const ObjectString *name ,
-		    char *operation , double dcurrent,
+float_compound_star(ObjectModuleRecord *current_module_record,
+		    const ObjectString *name, char *operation, double dcurrent,
 		    double doperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) operation;
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent * doperand);
 	return INTERPRET_OK;
 }
@@ -1229,19 +1197,15 @@ float_compound_slash(ObjectModuleRecord *current_module_record,
 	return INTERPRET_OK;
 }
 
-static InterpretResult
-float_compound_invalid_int_op(ObjectModuleRecord *current_module_record,
-			      const ObjectString *name ,
-			      char *operation,
-			      double dcurrent ,
-			      double doperand ,
-			      Value *resultValue )
+static InterpretResult float_compound_invalid_int_op(
+	ObjectModuleRecord *current_module_record, const ObjectString *name,
+	char *operation, double dcurrent, double doperand, Value *resultValue)
 {
-	(void) current_module_record;
-	(void) name;
-	(void) dcurrent;
-	(void) doperand;
-	(void) resultValue;
+	(void)current_module_record;
+	(void)name;
+	(void)dcurrent;
+	(void)doperand;
+	(void)resultValue;
 	runtime_panic(current_module_record, false, TYPE,
 		      "Operands for integer compound assignment '%s' must both "
 		      "be integers.",
@@ -1272,15 +1236,15 @@ static const FloatCompoundOp float_compound_ops[] = {
 typedef Value (*TypeofHandler)(VM *vm, Value value);
 
 // Object type handlers for typeof
-static Value typeof_string(VM *vm, const Value value )
+static Value typeof_string(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "string", 6));
 }
 
-static Value typeof_function(VM *vm, const Value value )
+static Value typeof_function(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "function", 8));
 }
 
@@ -1290,86 +1254,75 @@ static Value typeof_upvalue(VM *vm, const Value value)
 	return typeof_value(vm, upvalue->closed);
 }
 
-static Value typeof_array(VM *vm, const Value value )
+static Value typeof_array(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "array", 5));
 }
 
-static Value typeof_table(VM *vm, const Value value )
+static Value typeof_table(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "table", 5));
 }
 
-static Value typeof_error(VM *vm, const Value value )
+static Value typeof_error(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "error", 5));
 }
 
-static Value typeof_result(VM *vm, const Value value )
+static Value typeof_result(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "result", 6));
 }
 
-static Value typeof_random(VM *vm, const Value value )
+static Value typeof_random(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "random", 6));
 }
 
-static Value typeof_file(VM *vm, const Value value )
+static Value typeof_file(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "file", 4));
 }
 
-static Value typeof_module_record(VM *vm,
-				  const Value value )
+static Value typeof_module_record(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "module", 6));
 }
 
-static Value typeof_static_array(VM *vm,
-				 const Value value )
+static Value typeof_static_array(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "static array", 12));
 }
 
-static Value typeof_static_table(VM *vm,
-				 const Value value )
+static Value typeof_static_table(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "static table", 12));
 }
 
-static Value typeof_struct(VM *vm, const Value value )
+static Value typeof_struct(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "struct", 6));
 }
 
-static Value typeof_struct_instance(VM *vm,
-				    const Value value )
+static Value typeof_struct_instance(VM *vm, const Value value)
 {
-	(void) value;
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
 }
 
-static Value typeof_vec2(VM *vm, const Value value )
+static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
 {
-	(void) value;
-	return OBJECT_VAL(copy_string(vm, "vec2", 4));
-}
-
-static Value typeof_vec3(VM *vm, const Value value )
-{
-	(void) value;
-	return OBJECT_VAL(copy_string(vm, "vec3", 4));
+	return OBJECT_VAL(copy_string(vm, "vec", 3));
 }
 
 // Dispatch table for object types
@@ -1393,9 +1346,7 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STATIC_TABLE] = typeof_static_table,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
-	[OBJECT_VEC2] = typeof_vec2,
-	[OBJECT_VEC3] = typeof_vec3,
-};
+	[OBJECT_VECTOR] = typeof_vector};
 
 /**
  * Performs a binary operation on the top two values of the stack.
@@ -1652,7 +1603,8 @@ Value typeof_value(VM *vm, const Value value)
 }
 
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
-				Value *target, const Value operand,const OpCode op)
+				Value *target, const Value operand,
+				const OpCode op)
 {
 	const bool currentIsInt = IS_INT(*target);
 	const bool currentIsFloat = IS_FLOAT(*target);

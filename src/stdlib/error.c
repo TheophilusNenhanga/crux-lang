@@ -244,15 +244,6 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		return res;
 	}
 
-	case UNPACK_MISMATCH: {
-		ObjectString *type = copy_string(vm, "<unpack mismatch error>",
-						 23);
-		push(module_record, OBJECT_VAL(type));
-		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
-		pop(module_record);
-		return res;
-	}
-
 	case MEMORY: {
 		ObjectString *type = copy_string(vm, "<memory error>", 14);
 		push(module_record, OBJECT_VAL(type));
