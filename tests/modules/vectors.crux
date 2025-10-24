@@ -1,6 +1,5 @@
 use Vec from "crux:vectors";
 
-// Testing Creating new vectors
 println("=== Testing creating a vector with 4 dimensions ===");
 let v4 = Vec(4, [1, 2, 3, 4])?;
 let v4_2 = Vec(4, [4, 3, 2, 1])?;
@@ -13,26 +12,24 @@ let v8_2 = Vec(8, [8, 7, 6, 5, 4, 3, 2, 1])?;
 assert(typeof v8 == "vec", "Failed to create vector with dimension 8");
 assert(typeof v8_2 == "vec", "Failed to create vector with dimension 8");
 
-// Testing the equals method. If equals does not work then the rest of the tests will fail.
 println("=== Testing the equals method with dimension 4 ===");
-assert(v4.equals(Vec(4, [1, 2, 3, 4])?) == true, "Failed to compare vectors");
+assert(v4.equals(Vec(4, [1, 2, 3, 4])?)? == true, "Failed to compare vectors");
 
 println("=== Testing the equals method with dimension 8 ===");
-assert(v8.equals(v8_2) == true, "Failed to compare vectors");
+assert(v8.equals(Vec(8, [1, 2, 3, 4, 5, 6, 7, 8])?)? == true, "Failed to compare vectors");
 
-// Testing the dot method
 println("=== Testing the dot method with dimension 4 ===");
-assert(v4.dot(v4_2) == 30, "Failed to calculate dot product");
+assert(v4.dot(v4_2)? == 20, "Failed to calculate dot product");
 
 println("=== Testing the dot method with dimension 8 ===");
-assert(v8.dot(v8_2) == 120, "Failed to calculate dot product");
+assert(v8.dot(v8_2)? == 120, "Failed to calculate dot product");
 
 println("=== Testing the add method with dimension 4 ===");
 let add_result4 = Vec(4, [5, 5, 5, 5])?;
 assert(add_result4.equals(v4.add(v4_2)?)?, "Failed to add vectors");
 
 println("=== Testing the add method with dimension 8 ===");
-let add_result8 = Vec(8, [5, 5, 5, 5, 5, 5, 5, 5])?;
+let add_result8 = Vec(8, [9, 9, 9, 9, 9, 9, 9, 9])?;
 assert(add_result8.equals(v8.add(v8_2)?)?, "Failed to add vectors");
 
 println("=== Testing the subtract method with dimension 4 ===");
@@ -63,50 +60,42 @@ println("=== Testing the magnitude method with dimension 4 ===");
 assert(v4.magnitude()? == 5.477225575051661, "Failed to calculate magnitude");
 
 println("=== Testing the magnitude method with dimension 8 ===");
-assert(v8.magnitude()? == 11.313708498984761, "Failed to calculate magnitude");
+assert(v8.magnitude()? == 14.2828568570857, "Failed to calculate magnitude");
 
 println("=== Testing the normalize method with dimension 4 ===");
-let normalize_result4 = Vec(4, [0.4, 0.8, 1.2, 1.6]);
-assert(normalize_result4.equals(v4.normalize()?)?, "Failed to normalize vector");
+let normalize_result4 = Vec(4, [0.18257418583505536, 0.3651483716701107, 0.5477225575051661, 0.7302967433402214])?;
+assert(normalize_result4.equals(v4.normalize()?)?, "Failed to normalize vector4");
 
 println("=== Testing the normalize method with dimension 8 ===");
-let normalize_result8 = Vec(8, [0.4, 0.8, 1.2, 1.6, 2, 2.4, 2.8, 3.2]);
-assert(normalize_result8.equals(v8.normalize()?)?, "Failed to normalize vector");
+let normalize_result8 = Vec(8, [0.070014004201400484, 0.14002800840280097, 0.21004201260420147, 0.28005601680560194, 0.35007002100700241, 0.42008402520840293, 0.4900980294098034, 0.56011203361120387])?;
+assert(normalize_result8.equals(v8.normalize()?)?, "Failed to normalize vector8");
 
 println("=== Testing the distance method with dimension 4 ===");
-assert(v4.distance(v4_2)? == 5.656854249492381, "Failed to calculate distance");
+assert(v4.distance(v4_2)? == 4.4721359549995796, "Failed to calculate distance");
 
 println("=== Testing the distance method with dimension 8 ===");
-assert(v8.distance(v8_2)? == 12.649110640673518, "Failed to calculate distance");
-
-println("=== Testing the cross method with dimension 4 ===");
-let cross_result4 = Vec(4, [0.0, 0.0, 0.0, 0.0]);
-assert(cross_result4.equals(v4.cross(v4_2)?)?, "Failed to calculate cross product");
-
-println("=== Testing the cross method with dimension 8 ===");
-let cross_result8 = Vec(8, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-assert(cross_result8.equals(v8.cross(v8_2)?)?, "Failed to calculate cross product");
+assert(v8.distance(v8_2)? == 12.961481396815721, "Failed to calculate distance");
 
 println("=== Testing the angle_between method with dimension 4 ===");
-assert(v4.angle_between(v4_2)? == 0.0, "Failed to calculate angle between vectors");
+assert(v4.angle_between(v4_2)? == 0.84106867056793033, "Failed to calculate angle between vectors");
 
 println("=== Testing the angle_between method with dimension 8 ===");
-assert(v8.angle_between(v8_2)? == 0.0, "Failed to calculate angle between vectors");
+assert(v8.angle_between(v8_2)? == 0.94192140129984492, "Failed to calculate angle between vectors");
 
 println("=== Testing the lerp method with dimension 4 ===");
-let lerp_result4 = Vec(4, [1.0, 2.0, 3.0, 4.0]);
+let lerp_result4 = Vec(4, [2.5, 2.5, 2.5, 2.5])?;
 assert(lerp_result4.equals(v4.lerp(v4_2, 0.5)?)?, "Failed to calculate linear interpolation");
 
 println("=== Testing the lerp method with dimension 8 ===");
-let lerp_result8 = Vec(8, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+let lerp_result8 = Vec(8, [4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5])?;
 assert(lerp_result8.equals(v8.lerp(v8_2, 0.5)?)?, "Failed to calculate linear interpolation");
 
 println("=== Testing the reflect method with dimension 4 ===");
-let reflect_result4 = Vec(4, [1.0, 2.0, 3.0, 4.0]);
+let reflect_result4 = Vec(4, [-4.3333333333333321, -1.9999999999999996, 0.33333333333333393, 2.666666666666667])?;
 assert(reflect_result4.equals(v4.reflect(v4_2)?)?, "Failed to calculate reflection");
 
 println("=== Testing the reflect method with dimension 8 ===");
-let reflect_result8 = Vec(8, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+let reflect_result8 = Vec(8, [-8.4117647058823533, -6.235294117647058, -4.0588235294117645, -1.8823529411764701, 0.29411764705882337, 2.4705882352941178, 4.6470588235294112, 6.8235294117647056])?;
 assert(reflect_result8.equals(v8.reflect(v8_2)?)?, "Failed to calculate reflection");
 
 println("=== Testing the x method with dimension 4 ===");

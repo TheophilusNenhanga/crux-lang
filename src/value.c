@@ -39,7 +39,7 @@ void print_value(const Value value, const bool inCollection)
 	} else if (IS_NIL(value)) {
 		printf("nil");
 	} else if IS_FLOAT (value) {
-		printf("%g", AS_FLOAT(value));
+		printf("%.17g", AS_FLOAT(value));
 	} else if (IS_INT(value)) {
 		printf("%d", AS_INT(value));
 	} else if (IS_CRUX_OBJECT(value)) {

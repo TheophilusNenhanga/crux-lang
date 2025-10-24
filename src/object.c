@@ -393,9 +393,6 @@ static void print_error_type(const ErrorType type)
 	case COLLECTION_SET:
 		printf("collection set");
 		break;
-	case UNPACK_MISMATCH:
-		printf("unpack mismatch");
-		break;
 	case MEMORY:
 		printf("memory");
 		break;
@@ -620,14 +617,14 @@ void print_object(const Value value, const bool in_collection)
 		printf("Vec%d(", vector->dimensions);
 		if (vector->dimensions > 4) {
 			for (uint32_t i = 0; i < vector->dimensions; i++) {
-				printf("%f", vector->as.h_components[i]);
+				printf("%.17g", vector->as.h_components[i]);
 				if (i != vector->dimensions - 1) {
 					printf(", ");
 				}
 			}
 		}else {
 			for (uint32_t i = 0; i <vector->dimensions; i++) {
-				printf("%f", vector->as.s_components[i]);
+				printf("%.17g", vector->as.s_components[i]);
 				if (i != vector->dimensions - 1) {
 					printf(", ");
 				}
@@ -660,7 +657,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		char buffer[32];
 		if (IS_FLOAT(value)) {
 			const double num = AS_FLOAT(value);
-			snprintf(buffer, sizeof(buffer), "%g", num);
+			snprintf(buffer, sizeof(buffer), "%.17g", num);
 		} else if (IS_INT(value)) {
 			const int32_t num = AS_INT(value);
 			snprintf(buffer, sizeof(buffer), "%d", num);

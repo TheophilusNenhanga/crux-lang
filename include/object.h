@@ -232,7 +232,6 @@ typedef enum {
 	STACK_OVERFLOW,
 	COLLECTION_GET,
 	COLLECTION_SET,
-	UNPACK_MISMATCH,
 	MEMORY,
 	VALUE, // correct type, but incorrect value
 	ASSERT,
