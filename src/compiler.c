@@ -1187,12 +1187,6 @@ static void array_literal(bool can_assign)
 	create_array(OP_ARRAY, "array");
 }
 
-static void static_array_literal(bool can_assign)
-{
-	(void)can_assign;
-	create_array(OP_STATIC_ARRAY, "static array");
-}
-
 static void create_table(const OpCode creationOpCode, const char *typeName)
 {
 	uint16_t elementCount = 0;
@@ -1224,11 +1218,6 @@ static void table_literal(bool can_assign)
 	create_table(OP_TABLE, "table");
 }
 
-static void static_table_literal(bool can_assign)
-{
-	(void)can_assign;
-	create_table(OP_STATIC_TABLE, "static table");
-}
 
 /**
  * Parses a collection index access expression (e.g., array[index]).
@@ -2133,10 +2122,6 @@ ParseRule rules[] = {
 	[TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
 	[TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
-	[TOKEN_DOLLAR_LEFT_CURLY] = {static_table_literal, NULL, NULL,
-				     PREC_NONE},
-	[TOKEN_DOLLAR_LEFT_SQUARE] = {static_array_literal, NULL, NULL,
-				      PREC_NONE},
 	[TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
 	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},

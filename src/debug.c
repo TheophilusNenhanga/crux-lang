@@ -342,12 +342,6 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_STRUCT_16: {
 		return simple_instruction("OP_STRUCT_16", offset);
 	}
-	case OP_STATIC_ARRAY: {
-		return simple_instruction("OP_STATIC_ARRAY", offset);
-	}
-	case OP_STATIC_TABLE: {
-		return simple_instruction("OP_STATIC_TABLE", offset);
-	}
 	case OP_STRUCT_INSTANCE_START: {
 		return simple_instruction("OP_STRUCT_INSTANCE_START", offset);
 	}

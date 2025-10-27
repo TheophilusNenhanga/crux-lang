@@ -16,12 +16,6 @@ static Value get_length(const Value value)
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
 	}
-	if (IS_CRUX_STATIC_ARRAY(value)) {
-		return INT_VAL(AS_CRUX_STATIC_ARRAY(value)->size);
-	}
-	if (IS_CRUX_STATIC_TABLE(value)) {
-		return INT_VAL(AS_CRUX_STATIC_TABLE(value)->size);
-	}
 	return NIL_VAL;
 }
 

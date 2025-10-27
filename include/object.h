@@ -78,8 +78,6 @@
 #define IS_CRUX_RANDOM(value) is_object_type(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) is_object_type(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) is_object_type(value, OBJECT_MODULE_RECORD)
-#define IS_CRUX_STATIC_ARRAY(value) is_object_type(value, OBJECT_STATIC_ARRAY)
-#define IS_CRUX_STATIC_TABLE(value) is_object_type(value, OBJECT_STATIC_TABLE)
 #define IS_CRUX_STRUCT(value) is_object_type(value, OBJECT_STRUCT)
 #define IS_CRUX_STRUCT_INSTANCE(value)                                         \
 	is_object_type(value, OBJECT_STRUCT_INSTANCE)
@@ -107,8 +105,6 @@
 #define AS_CRUX_MODULE_RECORD(value)                                           \
 	((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_STATIC_ARRAY(value) ((ObjectStaticArray *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_STATIC_TABLE(value) ((ObjectStaticTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT_INSTANCE(value)                                         \
 	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
@@ -134,8 +130,6 @@ typedef enum {
 	OBJECT_RANDOM,
 	OBJECT_FILE,
 	OBJECT_MODULE_RECORD,
-	OBJECT_STATIC_ARRAY,
-	OBJECT_STATIC_TABLE,
 	OBJECT_STRUCT,
 	OBJECT_STRUCT_INSTANCE,
 	OBJECT_VECTOR,
@@ -197,13 +191,6 @@ typedef struct {
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
-
-typedef struct {
-	CruxObject object;
-	Value *values;
-	uint32_t size; // size and capacity will always be the same
-	uint32_t hash;
-} ObjectStaticArray;
 
 typedef struct {
 	CruxObject object;
@@ -298,13 +285,6 @@ typedef struct {
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
-
-typedef struct {
-	CruxObject object;
-	ObjectTableEntry *entries;
-	uint32_t capacity;
-	uint32_t size;
-} ObjectStaticTable;
 
 typedef struct {
 	CruxObject object;
@@ -771,15 +751,6 @@ bool object_table_remove(ObjectTable *table, Value key);
  */
 bool object_table_contains_key(ObjectTable *table, Value key);
 
-ObjectStaticArray *new_static_array(VM *vm, uint16_t element_count,
-				    ObjectModuleRecord *module_record);
-
-ObjectStaticTable *new_static_table(VM *vm, uint16_t element_count,
-				    ObjectModuleRecord *module_record);
-
-bool object_static_table_set(VM *vm, ObjectStaticTable *table, Value key,
-			     Value value);
-
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
@@ -787,8 +758,6 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 					  ObjectModuleRecord *module_record);
 
 ObjectVector *new_vector(VM* vm, uint32_t dimensions);
-
-void free_object_static_table(VM *vm, ObjectStaticTable *table);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 

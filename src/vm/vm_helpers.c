@@ -432,8 +432,6 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_RANDOM] = handle_random_invoke,
 	[OBJECT_FILE] = handle_file_invoke,
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
-	[OBJECT_STATIC_ARRAY] = handle_undefined_invoke,
-	[OBJECT_STATIC_TABLE] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
 	[OBJECT_VECTOR] = handle_vector_invoke};
@@ -1296,18 +1294,6 @@ static Value typeof_module_record(VM *vm, const Value value)
 	return OBJECT_VAL(copy_string(vm, "module", 6));
 }
 
-static Value typeof_static_array(VM *vm, const Value value)
-{
-	(void)value;
-	return OBJECT_VAL(copy_string(vm, "static array", 12));
-}
-
-static Value typeof_static_table(VM *vm, const Value value)
-{
-	(void)value;
-	return OBJECT_VAL(copy_string(vm, "static table", 12));
-}
-
 static Value typeof_struct(VM *vm, const Value value)
 {
 	(void)value;
@@ -1342,8 +1328,6 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_RANDOM] = typeof_random,
 	[OBJECT_FILE] = typeof_file,
 	[OBJECT_MODULE_RECORD] = typeof_module_record,
-	[OBJECT_STATIC_ARRAY] = typeof_static_array,
-	[OBJECT_STATIC_TABLE] = typeof_static_table,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
 	[OBJECT_VECTOR] = typeof_vector};

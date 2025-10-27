@@ -125,8 +125,6 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 					&&OP_SET_PROPERTY_16,
 					&&OP_INVOKE_16,
 					&&OP_TYPEOF,
-					&&OP_STATIC_ARRAY,
-					&&OP_STATIC_TABLE,
 					&&OP_STRUCT,
 					&&OP_STRUCT_16,
 					&&OP_STRUCT_INSTANCE_START,
@@ -579,46 +577,6 @@ OP_GET_COLLECTION: {
 		DISPATCH();
 	}
 
-	case OBJECT_STATIC_ARRAY: {
-		if (!IS_INT(indexValue)) {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Index must be of type 'int'.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		uint32_t index = (uint32_t) AS_INT(indexValue);
-		ObjectStaticArray *array = AS_CRUX_STATIC_ARRAY(
-			PEEK(currentModuleRecord, 1));
-		if (index >= array->size) {
-			runtime_panic(currentModuleRecord, false, BOUNDS,
-				      "Index out of bounds.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		pop_push(currentModuleRecord, array->values[index]);
-		DISPATCH();
-	}
-
-	case OBJECT_STATIC_TABLE: {
-		if (IS_CRUX_HASHABLE(indexValue)) {
-			ObjectStaticTable *table = AS_CRUX_STATIC_TABLE(
-				PEEK(currentModuleRecord, 0));
-			Value value;
-			if (!object_table_get(table->entries, table->size,
-					      table->capacity, indexValue,
-					      &value)) {
-				runtime_panic(currentModuleRecord, false,
-					      COLLECTION_GET,
-					      "Failed to get value from table");
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			pop_push(currentModuleRecord, value);
-		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.", READ_STRING());
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		DISPATCH();
-	}
-
 	default: {
 		runtime_panic(currentModuleRecord, false, TYPE,
 			      "Cannot get from a non-collection type.");
@@ -660,20 +618,6 @@ OP_SET_COLLECTION: {
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		break;
-	}
-
-	case OBJECT_STATIC_ARRAY: {
-		runtime_panic(currentModuleRecord, false, COLLECTION_SET,
-			      "'static array' does not support value updates. "
-			      "Use 'array' instead.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	case OBJECT_STATIC_TABLE: {
-		runtime_panic(currentModuleRecord, false, COLLECTION_SET,
-			      "'static table' does not support value updates. "
-			      "Use 'table' instead.");
-		return INTERPRET_RUNTIME_ERROR;
 	}
 	default: {
 		runtime_panic(currentModuleRecord, false, TYPE,
@@ -1430,43 +1374,6 @@ OP_TYPEOF: {
 	Value typeValue = typeof_value(vm, value);
 	pop(currentModuleRecord);
 	push(currentModuleRecord, typeValue);
-	DISPATCH();
-}
-
-OP_STATIC_ARRAY: {
-	uint16_t elementCount = READ_SHORT();
-	ObjectStaticArray *array = new_static_array(vm, elementCount,
-						    currentModuleRecord);
-	Value *values = array->values;
-	for (int i = elementCount - 1; i >= 0; i--) {
-		values[i] = pop(currentModuleRecord);
-	}
-	push(currentModuleRecord, OBJECT_VAL(array));
-	DISPATCH();
-}
-
-OP_STATIC_TABLE: {
-	uint16_t elementCount = READ_SHORT();
-	ObjectStaticTable *table = new_static_table(vm, elementCount,
-						    currentModuleRecord);
-	for (int i = elementCount - 1; i >= 0; i--) {
-		Value value = pop(currentModuleRecord);
-		Value key = pop(currentModuleRecord);
-		if (IS_CRUX_HASHABLE(key)) {
-			if (!object_static_table_set(vm, table, key, value)) {
-				runtime_panic(
-					currentModuleRecord, false,
-					COLLECTION_SET,
-					"Failed to set value in static table.");
-				return INTERPRET_RUNTIME_ERROR;
-			}
-		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-	}
-	push(currentModuleRecord, OBJECT_VAL(table));
 	DISPATCH();
 }
 
