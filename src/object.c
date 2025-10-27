@@ -1149,6 +1149,8 @@ bool object_table_contains_key(ObjectTable *table, const Value key)
 	if (!table)
 		return false;
 
+	if (table->size == 0) return false;
+
 	const ObjectTableEntry *entry = find_entry(table->entries,
 						   table->capacity, key);
 	return entry->is_occupied;

@@ -18,8 +18,6 @@
 
 #define STATIC_STRING_LEN(static_string) sizeof((static_string)) - 1
 
-ObjectResult *make_gc_safe_error(void);
-
 // Only works with string literals -- gc_safe_static_message
 #define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gc_safe_error_type)     \
 	({                                                                     \

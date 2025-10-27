@@ -228,7 +228,6 @@ ObjectResult *array_index_of_method(VM *vm, int arg_count, const Value *args)
 Value array_contains_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
-	(void)args;
 	(void)vm;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];

@@ -104,6 +104,7 @@ static const Callable coreFunctions[] = {
 	{"ok", ok_function, 1},		{"int", int_function, 1},
 	{"float", float_function, 1},	{"string", string_function, 1},
 	{"table", table_function, 1},	{"array", array_function, 1},
+	{"format", format_function, 2}
 };
 
 static const InfallibleCallable coreInfallibleFunctions[] = {

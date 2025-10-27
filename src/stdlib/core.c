@@ -331,3 +331,89 @@ Value table_function_(VM *vm, int arg_count, const Value *args)
 	(void)arg_count;
 	return cast_table(vm, args);
 }
+
+ObjectResult* format_function(VM *vm, int arg_count, const Value *args)
+{
+	(void)arg_count;
+	if (!IS_CRUX_STRING(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm, "argument <format> must be of type 'string'.", TYPE);
+	}
+	if (!IS_CRUX_TABLE(args[1])) {
+		return MAKE_GC_SAFE_ERROR(vm, "argument <format> must be of type 'string'.", TYPE);
+	}
+
+	const ObjectString *str = AS_CRUX_STRING(args[0]);
+	ObjectTable* table = AS_CRUX_TABLE(args[1]);
+
+	typedef struct {
+		uint32_t start;
+		uint32_t end;
+		ObjectString* string;
+	} FormatToken;
+
+	FormatToken* tokens = malloc(sizeof(FormatToken) *str->length );
+	bool in_token = false;
+	uint32_t token_index = 0;
+	for (uint32_t i = 0; i < str->length; i++) {
+		if (str->chars[i] == '{') {
+			if (in_token) {
+				free(tokens);
+				return MAKE_GC_SAFE_ERROR(vm, "format token cannot have { within it", VALUE);
+			}
+			in_token = true;
+			tokens[token_index].start = i;
+		}
+		if (str->chars[i] == '}') {
+			if (in_token) {
+				tokens[token_index].end = i;
+				in_token = false;
+				token_index++;
+			}
+		}
+	}
+
+	if (in_token) {
+		free(tokens);
+		return MAKE_GC_SAFE_ERROR(vm, "Unterminated format token.", VALUE);
+
+	}
+
+	for (uint32_t i = 0; i < token_index; i++) {
+		// +1 to exclude the '{'
+		// -1 to exclude the '}'
+		ObjectString* string = copy_string(vm, str->chars + tokens[i].start + 1, tokens[i].end - tokens[i].start - 1);
+		if (!object_table_contains_key(table, OBJECT_VAL(string))) {
+			free(tokens);
+			return MAKE_GC_SAFE_ERROR(vm, "Format token specified name that does not exist in format table", VALUE);
+		}
+		tokens[i].string = string;
+	}
+
+	bool printing_token = false;
+	for (uint32_t i = 0; i < str->length; i++) {
+		if (str->chars[i] == '{') {
+			for (uint32_t j = 0; j < token_index; j++) {
+				if (i == tokens[j].start) {
+					Value value;
+					if (!object_table_get(table->entries, table->size, table->capacity, OBJECT_VAL(tokens[j].string), &value)) {
+						free(tokens);
+						return MAKE_GC_SAFE_ERROR(vm, "Failed to get the token from the format table", VALUE);
+					}
+					print_value(value, false);
+					printing_token = true;
+				}
+			}
+		}
+		if (printing_token) {
+			continue;
+		}
+		if (str->chars[i] == '}') {
+			printing_token = false;
+			continue;
+		}
+		printf("%c", str->chars[i]);
+	}
+
+	free(tokens);
+	return new_ok_result(vm, NIL_VAL);
+}
