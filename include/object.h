@@ -152,7 +152,7 @@ struct PoolObject {
 	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
 				((uintptr_t)(obj)->data & MARK_BIT)))
 #define SET_MARKED(obj, marked)                                                \
-	((obj)->data = (void *)((uintptr_t)(obj)->data & PTR_MASK |            \
+	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |            \
 				((marked) ? MARK_BIT : 0)))
 
 struct ObjectString {

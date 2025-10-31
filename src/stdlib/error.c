@@ -276,6 +276,13 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		pop(module_record);
 		return res;
 	}
+	case IMPORT: {
+		ObjectString *type = copy_string(vm, "<import error>", 14);
+		push(module_record, OBJECT_VAL(type));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
+		pop(module_record);
+		return res;
+	}
 	case IO: {
 		ObjectString *type = copy_string(vm, "<io error>", 10);
 		push(module_record, OBJECT_VAL(type));
