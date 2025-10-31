@@ -31,7 +31,9 @@ static const Callable stringMethods[] = {
 	{"contains", string_contains_method, 2},
 	{"replace", string_replace_method, 3},
 	{"split", string_split_method, 2},
-	{"substring", string_substring_method, 3}};
+	{"substring", string_substring_method, 3},
+	{"concat", string_concat_method, 2}
+};
 
 static const InfallibleCallable stringInfallibleMethods[] = {
 	{"_is_empty", string_is_empty_method, 1},

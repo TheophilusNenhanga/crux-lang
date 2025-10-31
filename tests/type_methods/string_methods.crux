@@ -141,3 +141,9 @@ let empty_string = "";
 assert(empty_string._is_empty() == true, "Failed to check if string is empty");
 let non_empty_string = "Hello";
 assert(non_empty_string._is_empty() == false, "Failed to check if string is empty");
+
+// string concat
+let string1 = "Hello";
+let string2 = "World";
+let concatenated_string = string1.concat(string2)?;
+assert(concatenated_string == "HelloWorld", "Failed to concatenate strings");

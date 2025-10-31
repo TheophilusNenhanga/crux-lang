@@ -680,3 +680,32 @@ Value string_is_empty_method(VM *vm, int arg_count, const Value *args)
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	return BOOL_VAL(string->length == 0);
 }
+
+/*
+ * arg0 -> the string this is called on
+ * arg1 -> the string that will be concatenated
+ */
+ObjectResult* string_concat_method(VM *vm, int arg_count, const Value *args)
+{
+	(void)arg_count;
+
+	if (!IS_CRUX_STRING(args[1])) {
+		return MAKE_GC_SAFE_ERROR(vm, "First argument must be of type 'string'.", TYPE);
+	}
+	const ObjectString *current = AS_CRUX_STRING(args[0]);
+	const ObjectString *string = AS_CRUX_STRING(args[1]);
+
+	const uint32_t length = string->length + current->length;
+	if (length < current->length) {
+		return MAKE_GC_SAFE_ERROR(vm, "Resultant string is too greater than the supported length.", LIMIT);
+	}
+
+	char* result_string = malloc(length + 1);
+	memcpy(result_string, current->chars, current->length);
+	memcpy(result_string + current->length, string->chars, string->length);
+	result_string[length] = '\0';
+	/* take string will free length + 1 --- which is what we allocated */
+	ObjectString* res = take_string(vm, result_string, length);
+
+	return new_ok_result(vm, OBJECT_VAL(res));
+}
