@@ -16,18 +16,12 @@ static Value get_length(const Value value)
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
 	}
-	if (IS_CRUX_STATIC_ARRAY(value)) {
-		return INT_VAL(AS_CRUX_STATIC_ARRAY(value)->size);
-	}
-	if (IS_CRUX_STATIC_TABLE(value)) {
-		return INT_VAL(AS_CRUX_STATIC_TABLE(value)->size);
-	}
 	return NIL_VAL;
 }
 
-ObjectResult *length_function(VM *vm, int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *length_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const Value value = args[0];
 	const Value length = get_length(value);
 	if (IS_NIL(length)) {
@@ -39,9 +33,10 @@ ObjectResult *length_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, length);
 }
 
-Value length_function_(VM *vm __attribute__((unused)),
-		       int arg_count __attribute__((unused)), const Value *args)
+Value length_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	const Value value = args[0];
 	return get_length(value);
 }
@@ -171,9 +166,9 @@ static Value cast_table(VM *vm, const Value *args)
 	return result;
 }
 
-static Value cast_int(VM *vm __attribute__((unused)), const Value arg,
-		      bool *success)
+static Value cast_int(VM *vm, const Value arg, bool *success)
 {
+	(void)vm;
 	if (IS_INT(arg)) {
 		return arg;
 	}
@@ -206,9 +201,9 @@ static Value cast_int(VM *vm __attribute__((unused)), const Value arg,
 	return NIL_VAL;
 }
 
-static Value cast_float(VM *vm __attribute__((unused)), const Value *args,
-			bool *success)
+static Value cast_float(VM *vm, const Value *args, bool *success)
 {
+	(void)vm;
 	const Value value = args[0];
 
 	if (IS_INT(value)) {
@@ -237,9 +232,9 @@ static Value cast_float(VM *vm __attribute__((unused)), const Value *args,
 	return NIL_VAL;
 }
 
-ObjectResult *int_function(VM *vm, int arg_count __attribute__((unused)),
-			   const Value *args)
+ObjectResult *int_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
@@ -250,9 +245,9 @@ ObjectResult *int_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, value);
 }
 
-ObjectResult *float_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *float_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
@@ -262,9 +257,9 @@ ObjectResult *float_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, value);
 }
 
-ObjectResult *string_function(VM *vm, int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *string_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const Value value = args[0];
 	ObjectString *str = to_string(vm, value);
 	push(vm->current_module_record, OBJECT_VAL(str));
@@ -273,9 +268,9 @@ ObjectResult *string_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *array_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *array_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -286,37 +281,37 @@ ObjectResult *array_function(VM *vm, int arg_count __attribute__((unused)),
 	return new_ok_result(vm, array);
 }
 
-ObjectResult *table_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *table_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const Value table = cast_table(vm, args);
 	return new_ok_result(vm, table);
 }
 
-Value int_function_(VM *vm, int arg_count __attribute__((unused)),
-		    const Value *args)
+Value int_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	const Value argument = args[0];
 	return cast_int(vm, argument, &success);
 }
 
-Value float_function_(VM *vm, int arg_count __attribute__((unused)),
-		      const Value *args)
+Value float_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	return cast_float(vm, args, &success);
 }
 
-Value string_function_(VM *vm, int arg_count __attribute__((unused)),
-		       const Value *args)
+Value string_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	return OBJECT_VAL(to_string(vm, args[0]));
 }
 
-Value array_function_(VM *vm, int arg_count __attribute__((unused)),
-		      const Value *args)
+Value array_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -325,8 +320,131 @@ Value array_function_(VM *vm, int arg_count __attribute__((unused)),
 	return array;
 }
 
-Value table_function_(VM *vm, int arg_count __attribute__((unused)),
-		      const Value *args)
+Value table_function_(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	return cast_table(vm, args);
+}
+
+ObjectResult *format_function(VM *vm, int arg_count, const Value *args)
+{
+	(void)arg_count;
+	if (!IS_CRUX_STRING(args[0])) {
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"argument <format_string> must be of type 'string'.",
+			TYPE);
+	}
+	if (!IS_CRUX_TABLE(args[1])) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "argument <format_table> must be of type 'table'.",
+			TYPE);
+	}
+
+	const ObjectString *str = AS_CRUX_STRING(args[0]);
+	const ObjectTable *table = AS_CRUX_TABLE(args[1]);
+
+	typedef struct {
+		uint32_t start;
+		uint32_t end;
+		ObjectString *key;
+		Value value;
+	} FormatToken;
+
+	uint32_t tokens_capacity = 8;
+
+	FormatToken *tokens = malloc(sizeof(FormatToken) * tokens_capacity);
+
+	if (!tokens) {
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed",
+					  VALUE);
+	}
+
+	bool in_token = false;
+	uint32_t token_count = 0;
+	uint32_t token_start = 0;
+
+	for (uint32_t i = 0; i < str->length; i++) {
+		if (str->chars[i] == '{') {
+			if (in_token) {
+				free(tokens);
+				return MAKE_GC_SAFE_ERROR(
+					vm,
+					"format token cannot have { within it",
+					VALUE);
+			}
+			in_token = true;
+			token_start = i;
+		} else if (str->chars[i] == '}') {
+			if (!in_token) {
+				free(tokens);
+				return MAKE_GC_SAFE_ERROR(
+					vm, "Unexpected } without matching {",
+					VALUE);
+			}
+
+			if (token_count >= tokens_capacity) {
+				tokens_capacity *= 2;
+				FormatToken *new_tokens = realloc(
+					tokens,
+					sizeof(FormatToken) * tokens_capacity);
+				if (!new_tokens) {
+					free(tokens);
+					return MAKE_GC_SAFE_ERROR(
+						vm, "Memory allocation failed",
+						VALUE);
+				}
+				tokens = new_tokens;
+			}
+
+			const uint32_t key_length = i - token_start - 1;
+			ObjectString *key = copy_string(
+				vm, str->chars + token_start + 1, key_length);
+			push(vm->current_module_record, OBJECT_VAL(key));
+			Value value;
+			if (!object_table_get(table->entries, table->size,
+					      table->capacity, OBJECT_VAL(key),
+					      &value)) {
+				free(tokens);
+				return MAKE_GC_SAFE_ERROR(
+					vm,
+					"Format token specified name that does "
+					"not exist in format table",
+					VALUE);
+			}
+
+			tokens[token_count].start = token_start;
+			tokens[token_count].end = i;
+			tokens[token_count].key = key;
+			tokens[token_count].value = value;
+			token_count++;
+
+			in_token = false;
+		}
+	}
+
+	if (in_token) {
+		free(tokens);
+		return MAKE_GC_SAFE_ERROR(vm, "Unterminated format token.",
+					  VALUE);
+	}
+
+	uint32_t current_token = 0;
+	for (uint32_t i = 0; i < str->length; i++) {
+		if (current_token < token_count &&
+		    i == tokens[current_token].start) {
+			print_value(tokens[current_token].value, false);
+			i = tokens[current_token].end;
+			current_token++;
+		} else {
+			printf("%c", str->chars[i]);
+		}
+	}
+
+	for (uint32_t i = 0; i < token_count; i++) {
+		pop(vm->current_module_record);
+	}
+
+	free(tokens);
+	return new_ok_result(vm, NIL_VAL);
 }

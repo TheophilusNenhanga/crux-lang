@@ -17,6 +17,26 @@ typedef struct PoolObject PoolObject;
 #define TAG_INT32_BIT ((uint64_t)1 << 48)
 typedef uint64_t Value;
 
+static double value_to_num(const Value value)
+{
+	union {
+		Value v;
+		double d;
+	} u;
+	u.v = value;
+	return u.d;
+}
+
+static Value num_to_value(const double num)
+{
+	union {
+		double d;
+		Value v;
+	} u;
+	u.d = num;
+	return u.v;
+}
+
 #define IS_INT(value)                                                          \
 	(((value) & (QNAN | SIGN_BIT | TAG_INT32_BIT)) ==                      \
 	 (QNAN | TAG_INT32_BIT))
@@ -29,7 +49,7 @@ typedef uint64_t Value;
 #define IS_NUMERIC(value) (IS_INT(value) || IS_FLOAT(value))
 
 #define AS_INT(value) ((int32_t)((value) & 0xFFFFFFFF))
-#define AS_FLOAT(value) valueToNum(value)
+#define AS_FLOAT(value) value_to_num(value)
 #define AS_BOOL(value) ((value) == TRUE_VAL)
 #define AS_CRUX_OBJECT(value)                                                  \
 	((CruxObject *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
@@ -39,29 +59,9 @@ typedef uint64_t Value;
 #define FALSE_VAL ((Value)(uint64_t)(QNAN | TAG_FALSE))
 #define TRUE_VAL ((Value)(uint64_t)(QNAN | TAG_TRUE))
 #define NIL_VAL ((Value)(uint64_t)(QNAN | TAG_NIL))
-#define FLOAT_VAL(num) numToValue(num)
+#define FLOAT_VAL(num) num_to_value(num)
 #define INT_VAL(integer)                                                       \
 	((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
-
-static double valueToNum(const Value value)
-{
-	union {
-		Value v;
-		double d;
-	} u;
-	u.v = value;
-	return u.d;
-}
-
-static Value numToValue(const double num)
-{
-	union {
-		double d;
-		Value v;
-	} u;
-	u.d = num;
-	return u.v;
-}
 
 typedef struct {
 	Value *values;

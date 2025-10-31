@@ -5,14 +5,14 @@ let a = 0;
 while a < 5 {
     a += 1;
 }
-assert(a == 5, "Basic While: Expected a to be 5 but got " + a);
+assert(a == 5, "Basic While: Expected a to be 5 but got ".concat(_string(a))?);
 
 println("--- Testing while loop that executes once ---");
 let b = 0;
 while b < 1 {
     b += 1;
 }
-assert(b == 1, "While (one iteration): Expected b to be 1 but got " + b);
+assert(b == 1, "While (one iteration): Expected b to be 1 but got ".concat(_string(b))?);
 
 println("--- Testing while loop that never executes ---");
 let c = 5;
@@ -21,7 +21,7 @@ while c < 5 {
     c_executed = true;
     c += 1;
 }
-assert(c == 5, "While (zero iterations): Expected c to remain 5 but got " + c);
+assert(c == 5, "While (zero iterations): Expected c to remain 5 but got ".concat(_string(c))?);
 assert(c_executed == false, "While (zero iterations): Loop body executed when it shouldn't have.");
 
 println("--- Testing while loop with '>=' condition and decrement ---");
@@ -31,8 +31,8 @@ while d >= 0 { // 3, 2, 1, 0
     d -= 1;
     d_iterations += 1;
 }
-assert(d == -1, "While (decrement, >=): Expected d to be -1 but got " + d);
-assert(d_iterations == 4, "While (decrement, >=): Expected 4 iterations but got " + d_iterations);
+assert(d == -1, "While (decrement, >=): Expected d to be -1 but got ".concat(_string(d))?);
+assert(d_iterations == 4, "While (decrement, >=): Expected 4 iterations but got ".concat(_string(d_iterations))?);
 
 println("--- Testing while loop with '!=' condition ---");
 let e = 0;
@@ -44,7 +44,7 @@ while e != target_e {
         break;
     }
 }
-assert(e == target_e, "While (!=): Expected e to be " + target_e + " but got " + e);
+assert(e == target_e, "While (!=): Expected e to be ".concat(_string(target_e))?.concat(" but got ")?.concat(_string(e))?);
 
 
 println("--- Testing 'break' in while loop ---");
@@ -57,8 +57,8 @@ while f < 10 {
     f_sum += f; // Sums 0, 1, 2
     f += 1;
 }
-assert(f == 3, "While (break): Expected f to be 3 (value at break) but got " + f);
-assert(f_sum == 3, "While (break): Expected f_sum to be 3 (0+1+2) but got " + f_sum);
+assert(f == 3, "While (break): Expected f to be 3 (value at break) but got ".concat(_string(f))?);
+assert(f_sum == 3, "While (break): Expected f_sum to be 3 (0+1+2) but got ".concat(_string(f_sum))?);
 
 
 println("--- Testing 'continue' in while loop ---");
@@ -74,9 +74,9 @@ while g < 5 { // g will be 0, 1, 2, 3, 4
     // g values that reach here after increment: 1, 3, 5
     g_sum += g;
 }
-assert(g == 5, "While (continue): Expected g to be 5 but got " + g);
-assert(g_sum == 9, "While (continue): Expected sum of processed values to be 9 but got " + g_sum); // 1 (g=1) + 3 (g=3) + 5 (g=5)
-assert(g_iterations == 5, "While (continue): Expected 5 total iterations but got " + g_iterations);
+assert(g == 5, "While (continue): Expected g to be 5 but got ".concat(_string(g))?);
+assert(g_sum == 9, "While (continue): Expected sum of processed values to be 9 but got ".concat(_string(g_sum))?); // 1 (g=1) + 3 (g=3) + 5 (g=5)
+assert(g_iterations == 5, "While (continue): Expected 5 total iterations but got ".concat(_string(g_iterations))?);
 
 
 println("--- Testing nested while loops ---");
@@ -92,9 +92,8 @@ while h_outer < 2 { // Outer loop: 0, 1
     }
     h_outer += 1;
 }
-assert(outer_count == 2, "Nested While: Expected outer_count to be 2 but got " + outer_count);
-assert(inner_total_count == 6, "Nested While: Expected inner_total_count to be 6 (2*3) but got " + inner_total_count);
-
+assert(outer_count == 2, "Nested While: Expected outer_count to be 2 but got ".concat(_string(outer_count))?);
+assert(inner_total_count == 6, "Nested While: Expected inner_total_count to be 6 (2*3) but got ".concat(_string(inner_total_count))?);
 println("--- Testing 'while true' with break ---");
 let i = 0;
 let i_iterations = 0;
@@ -109,8 +108,8 @@ while true { // or `while 1` if numbers are truthy and `true` isn't a keyword
         break;
     }
 }
-assert(i == 4, "While (true with break): Expected i to be 4 but got " + i);
-assert(i_iterations == 4, "While (true with break): Expected 4 iterations but got " + i_iterations);
+assert(i == 4, "While (true with break): Expected i to be 4 but got ".concat(_string(i))?);
+assert(i_iterations == 4, "While (true with break): Expected 4 iterations but got ".concat(_string(i_iterations))?);
 
 println("--- Testing scoping of variables declared inside while ---");
 let k_outer = 0;
@@ -120,25 +119,27 @@ while k_outer < 2 { // k_outer = 0, 1
     sum_inner_k += k_inner;
     k_outer += 1;
 }
-assert(k_outer == 2, "While (scoping): Expected k_outer to be 2 but got " + k_outer);
-assert(sum_inner_k == 10, "While (scoping): Expected sum_inner_k to be 10 (0+10) but got " + sum_inner_k);
-
-
-// Too many constants error
+assert(k_outer == 2, "While (scoping): Expected k_outer to be 2 but got ".concat(_string(k_outer))?);
+assert(sum_inner_k == 10, "While (scoping): Expected sum_inner_k to be 10 (0+10) but got ".concat(_string(sum_inner_k))?);
 
 // --- Test with a more complex condition ---
-// println("--- Testing while loop with complex condition ---");
-// let x = 0;
-// let y = 10;
-// let iterations_complex = 0;
-// while x < y and y > 5 { // x=0,y=10 -> x=1,y=9 -> x=2,y=8 -> x=3,y=7 -> x=4,y=6. Next x=5,y=5 (x<y is false)
-//     x += 1;
-//     y -= 1;
-//     iterations_complex += 1;
-// }
-// assert(x == 5, "While (complex condition): Expected x to be 5 but got " + x);
-// assert(y == 5, "While (complex condition): Expected y to be 5 but got " + y);
-// assert(iterations_complex == 5, "While (complex condition): Expected 5 iterations but got " + iterations_complex);
 
+// TODO: This test does not work --- for some reason y becomes negative 9 after first iteration
+
+//println("--- Testing while loop with complex condition ---");
+//let x = 0;
+//let y = 10;
+//println(y);
+//let iterations_complex = 0;
+//while x < y {
+//    x += 1;
+//    y -= 1;
+//    println(y);
+//    iterations_complex += 1;
+//    format("Iteration {iter}: x={x}, y={y}\n", {"iter": iterations_complex, "x": x, "y": y});
+//}
+//assert(x == 5, "While (complex condition): Expected x to be 5 but got ".concat(_string(x))?);
+//assert(y == 5, "While (complex condition): Expected y to be 5 but got ".concat(_string(y))?);
+//assert(iterations_complex == 5, "While (complex condition): Expected 5 iterations but got ".concat(_string(iterations_complex))?);
 
 println("===  End of testing while loops  ===");

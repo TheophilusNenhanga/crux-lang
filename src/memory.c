@@ -193,9 +193,7 @@ typedef void (*FreeFunction)(VM *vm, CruxObject *object);
 static void blacken_closure(VM *vm, CruxObject *object);
 static void blacken_function(VM *vm, CruxObject *object);
 static void blacken_upvalue(VM *vm, CruxObject *object);
-static void blacken_static_array(VM *vm, CruxObject *object);
 static void blacken_array(VM *vm, CruxObject *object);
-static void blacken_static_table(VM *vm, CruxObject *object);
 static void blacken_table(VM *vm, CruxObject *object);
 static void blacken_error(VM *vm, CruxObject *object);
 static void blacken_native_function(VM *vm, CruxObject *object);
@@ -228,8 +226,6 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_RANDOM] = blacken_random,
 	[OBJECT_FILE] = blacken_file,
 	[OBJECT_MODULE_RECORD] = blacken_module_record,
-	[OBJECT_STATIC_ARRAY] = blacken_static_array,
-	[OBJECT_STATIC_TABLE] = blacken_static_table,
 	[OBJECT_STRUCT] = blacken_struct,
 	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
 	[OBJECT_VECTOR] = blacken_vector,
@@ -272,22 +268,11 @@ static void blacken_upvalue(VM *vm, CruxObject *object)
 	mark_value(vm, ((ObjectUpvalue *)object)->closed);
 }
 
-static void blacken_static_array(VM *vm, CruxObject *object)
-{
-	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
-	mark_object_array(vm, staticArray->values, staticArray->size);
-}
 
 static void blacken_array(VM *vm, CruxObject *object)
 {
 	const ObjectArray *array = (ObjectArray *)object;
 	mark_object_array(vm, array->values, array->size);
-}
-
-static void blacken_static_table(VM *vm, CruxObject *object)
-{
-	const ObjectStaticTable *table = (ObjectStaticTable *)object;
-	mark_object_table(vm, table->entries, table->size);
 }
 
 static void blacken_table(VM *vm, CruxObject *object)
@@ -417,8 +402,6 @@ static void free_object_native_infallible_function(VM *vm, CruxObject *object);
 static void free_object_native_infallible_method(VM *vm, CruxObject *object);
 static void free_object_closure(VM *vm, CruxObject *object);
 static void free_object_upvalue(VM *vm, CruxObject *object);
-static void free_object_static_array(VM *vm, CruxObject *object);
-static void free_object_static_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_array(VM *vm, CruxObject *object);
 static void free_object_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_error(VM *vm, CruxObject *object);
@@ -448,8 +431,6 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_RANDOM] = free_object_random,
 	[OBJECT_FILE] = free_object_file,
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
-	[OBJECT_STATIC_ARRAY] = free_object_static_array,
-	[OBJECT_STATIC_TABLE] = free_object_static_table_wrapper,
 	[OBJECT_STRUCT] = free_object_struct,
 	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
 	[OBJECT_VECTOR] = free_object_vector
@@ -535,19 +516,6 @@ static void free_object_upvalue(VM *vm, CruxObject *object)
 	FREE(vm, ObjectUpvalue, object);
 }
 
-static void free_object_static_array(VM *vm, CruxObject *object)
-{
-	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
-	FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
-	FREE(vm, ObjectStaticArray, object);
-}
-
-static void free_object_static_table_wrapper(VM *vm, CruxObject *object)
-{
-	ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
-	free_object_static_table(vm, staticTable);
-	FREE(vm, ObjectStaticTable, object);
-}
 
 static void free_object_array(VM *vm, CruxObject *object)
 {

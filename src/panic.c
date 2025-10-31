@@ -127,6 +127,18 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 			"An error occurred while importing a module. Check "
 			"the module path and name."};
 	}
+	case BRANCH_EXTENT: {
+		return (ErrorDetails){
+		"Branch Extent Error",
+			"You have exceeded the allowed number of branches. Use less branches."
+		};
+	}
+	case VALUE: {
+		return (ErrorDetails){
+		"Value Error",
+		"Check the value and whether it's correct for the usage context."
+		};
+	}
 	case RUNTIME:
 	default:
 		return (ErrorDetails){

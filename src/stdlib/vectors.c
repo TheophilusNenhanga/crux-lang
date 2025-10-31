@@ -13,9 +13,8 @@
 
 #define IS_ZERO_SCALAR(scalar) ((scalar) < EPSILON && (scalar) > -EPSILON)
 
-
 static double compute_magnitude(const double *restrict components,
-					const uint32_t dimensions)
+				const uint32_t dimensions)
 {
 	double sum = 0.0;
 	for (uint32_t i = 0; i < dimensions; i++) {
@@ -25,8 +24,8 @@ static double compute_magnitude(const double *restrict components,
 }
 
 static double compute_dot_product(const double *restrict comp1,
-					  const double *restrict comp2,
-					  const uint32_t dimensions)
+				  const double *restrict comp2,
+				  const uint32_t dimensions)
 {
 	double result = 0.0;
 	for (uint32_t i = 0; i < dimensions; i++) {
@@ -36,9 +35,9 @@ static double compute_dot_product(const double *restrict comp1,
 }
 
 static void compute_vector_add(double *restrict result,
-				       const double *restrict comp1,
-				       const double *restrict comp2,
-				       const uint32_t dimensions)
+			       const double *restrict comp1,
+			       const double *restrict comp2,
+			       const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = comp1[i] + comp2[i];
@@ -46,9 +45,9 @@ static void compute_vector_add(double *restrict result,
 }
 
 static void compute_vector_subtract(double *restrict result,
-					    const double *restrict comp1,
-					    const double *restrict comp2,
-					    const uint32_t dimensions)
+				    const double *restrict comp1,
+				    const double *restrict comp2,
+				    const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = comp1[i] - comp2[i];
@@ -56,9 +55,9 @@ static void compute_vector_subtract(double *restrict result,
 }
 
 static void compute_scalar_multiply(double *restrict result,
-					    const double *restrict components,
-					    const double scalar,
-					    const uint32_t dimensions)
+				    const double *restrict components,
+				    const double scalar,
+				    const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = components[i] * scalar;
@@ -66,9 +65,9 @@ static void compute_scalar_multiply(double *restrict result,
 }
 
 static void compute_scalar_divide(double *restrict result,
-					  const double *restrict components,
-					  const double scalar,
-					  const uint32_t dimensions)
+				  const double *restrict components,
+				  const double scalar,
+				  const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = components[i] / scalar;
@@ -76,9 +75,8 @@ static void compute_scalar_divide(double *restrict result,
 }
 
 static void compute_normalize(double *restrict result,
-				      const double *restrict components,
-				      const double magnitude,
-				      const uint32_t dimensions)
+			      const double *restrict components,
+			      const double magnitude, const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = components[i] / magnitude;
@@ -86,8 +84,8 @@ static void compute_normalize(double *restrict result,
 }
 
 static double compute_distance(const double *restrict comp1,
-				       const double *restrict comp2,
-				       const uint32_t dimensions)
+			       const double *restrict comp2,
+			       const uint32_t dimensions)
 {
 	double sum = 0.0;
 	for (uint32_t i = 0; i < dimensions; i++) {
@@ -97,11 +95,9 @@ static double compute_distance(const double *restrict comp1,
 	return sqrt(sum);
 }
 
-static void compute_lerp(double *restrict result,
-				 const double *restrict comp1,
-				 const double *restrict comp2,
-				 const double t,
-				 const uint32_t dimensions)
+static void compute_lerp(double *restrict result, const double *restrict comp1,
+			 const double *restrict comp2, const double t,
+			 const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		result[i] = comp1[i] + t * (comp2[i] - comp1[i]);
@@ -109,10 +105,9 @@ static void compute_lerp(double *restrict result,
 }
 
 static void compute_reflect(double *restrict result,
-				    const double *restrict incident,
-				    const double *restrict normal,
-				    const double normal_mag,
-				    const uint32_t dimensions)
+			    const double *restrict incident,
+			    const double *restrict normal,
+			    const double normal_mag, const uint32_t dimensions)
 {
 	double dot = 0.0;
 	for (uint32_t i = 0; i < dimensions; i++) {
@@ -125,8 +120,8 @@ static void compute_reflect(double *restrict result,
 }
 
 static bool compute_equals(const double *restrict comp1,
-				   const double *restrict comp2,
-				   const uint32_t dimensions)
+			   const double *restrict comp2,
+			   const uint32_t dimensions)
 {
 	for (uint32_t i = 0; i < dimensions; i++) {
 		if (fabs(comp1[i] - comp2[i]) >= EPSILON) {
@@ -135,7 +130,6 @@ static bool compute_equals(const double *restrict comp1,
 	}
 	return true;
 }
-
 
 static double vector_magnitude(const ObjectVector *vec)
 {
@@ -174,7 +168,6 @@ ObjectResult *new_vector_function(VM *vm, const int arg_count,
 	const uint32_t dimensions = AS_INT(args[0]);
 	const uint32_t copy_count = (array->size < dimensions) ? array->size
 							       : dimensions;
-
 
 	ObjectVector *vector = new_vector(vm, dimensions);
 	push(vm->current_module_record, OBJECT_VAL(vector));
@@ -218,7 +211,8 @@ ObjectResult *vector_dot_method(VM *vm, const int arg_count, const Value *args)
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
 	const double *comp2 = VECTOR_COMPONENTS(vec2);
 
-	const double result = compute_dot_product(comp1, comp2, vec1->dimensions);
+	const double result = compute_dot_product(comp1, comp2,
+						  vec1->dimensions);
 
 	return new_ok_result(vm, FLOAT_VAL(result));
 }
@@ -252,7 +246,7 @@ ObjectResult *vector_add_method(VM *vm, const int arg_count, const Value *args)
 
 	compute_vector_add(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult* result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 	return result;
 }
@@ -288,7 +282,7 @@ ObjectResult *vector_subtract_method(VM *vm, const int arg_count,
 
 	compute_vector_subtract(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult* result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 	return result;
 }
@@ -308,7 +302,6 @@ ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
-
 	ObjectVector *result_vector = new_vector(vm, vec->dimensions);
 	push(vm->current_module_record, OBJECT_VAL(result_vector));
 
@@ -317,7 +310,7 @@ ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
 
 	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
 
-	ObjectResult* result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 
 	return result;
@@ -427,7 +420,8 @@ ObjectResult *vector_distance_method(VM *vm, const int arg_count,
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
 	const double *comp2 = VECTOR_COMPONENTS(vec2);
 
-	const double distance = compute_distance(comp1, comp2, vec1->dimensions);
+	const double distance = compute_distance(comp1, comp2,
+						 vec1->dimensions);
 
 	return new_ok_result(vm, FLOAT_VAL(distance));
 }

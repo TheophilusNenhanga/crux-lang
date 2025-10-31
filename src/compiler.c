@@ -8,13 +8,13 @@
 
 #include <errno.h>
 #include "chunk.h"
+#include "debug.h"
 #include "file_handler.h"
 #include "memory.h"
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
 #include "value.h"
-#include "debug.h"
 
 Parser parser;
 
@@ -576,7 +576,7 @@ static uint8_t argument_list(void)
  */
 static void and_(bool can_assign)
 {
-	(void) can_assign;
+	(void)can_assign;
 	const int endJump = emit_jump(OP_JUMP_IF_FALSE);
 	emit_byte(OP_POP);
 	parse_precedence(PREC_AND);
@@ -590,8 +590,9 @@ static void and_(bool can_assign)
  * @param can_assign Whether the 'or' expression can be the target of an
  * assignment.
  */
-static void or_(bool can_assign __attribute__((unused)))
+static void or_(bool can_assign)
 {
+	(void)can_assign;
 	const int elseJump = emit_jump(OP_JUMP_IF_FALSE);
 	const int endJump = emit_jump(OP_JUMP);
 
@@ -616,8 +617,8 @@ static ObjectFunction *end_compiler(void)
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.had_error) {
 		disassemble_chunk(current_chunk(),
-				 function->name != NULL ? function->name->chars
-							: "<script>");
+				  function->name != NULL ? function->name->chars
+							 : "<script>");
 	}
 #endif
 
@@ -626,8 +627,9 @@ static ObjectFunction *end_compiler(void)
 	return function;
 }
 
-static void binary(bool can_assign __attribute__((unused)))
+static void binary(bool can_assign)
 {
+	(void)can_assign;
 	const CruxTokenType operatorType = parser.previous.type;
 	const ParseRule *rule = get_rule(operatorType);
 	parse_precedence(rule->precedence + 1);
@@ -684,8 +686,9 @@ static void binary(bool can_assign __attribute__((unused)))
 	}
 }
 
-static void call(bool can_assign __attribute__((unused)))
+static void call(bool can_assign)
 {
+	(void)can_assign;
 	const uint8_t arg_count = argument_list();
 	emit_bytes(OP_CALL, arg_count);
 }
@@ -696,8 +699,9 @@ static void call(bool can_assign __attribute__((unused)))
  * @param can_assign Whether the literal can be the target of an assignment
  * (always false).
  */
-static void literal(bool can_assign __attribute__((unused)))
+static void literal(bool can_assign)
 {
+	(void)can_assign;
 	switch (parser.previous.type) {
 	case TOKEN_FALSE:
 		emit_byte(OP_FALSE);
@@ -1112,8 +1116,9 @@ static void fn_declaration(void)
 	define_variable(global);
 }
 
-static void anonymous_function(bool can_assign __attribute__((unused)))
+static void anonymous_function(bool can_assign)
 {
+	(void)can_assign;
 	Compiler compiler;
 	init_compiler(&compiler, TYPE_ANONYMOUS, current->owner);
 	begin_scope();
@@ -1176,14 +1181,10 @@ static void create_array(const OpCode creationOpCode, const char *typeName)
 	emit_bytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void array_literal(bool can_assign __attribute__((unused)))
+static void array_literal(bool can_assign)
 {
+	(void)can_assign;
 	create_array(OP_ARRAY, "array");
-}
-
-static void static_array_literal(bool can_assign __attribute__((unused)))
-{
-	create_array(OP_STATIC_ARRAY, "static array");
 }
 
 static void create_table(const OpCode creationOpCode, const char *typeName)
@@ -1211,15 +1212,12 @@ static void create_table(const OpCode creationOpCode, const char *typeName)
 	emit_bytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
 }
 
-static void table_literal(bool can_assign __attribute__((unused)))
+static void table_literal(bool can_assign)
 {
+	(void)can_assign;
 	create_table(OP_TABLE, "table");
 }
 
-static void static_table_literal(bool can_assign __attribute__((unused)))
-{
-	create_table(OP_STATIC_TABLE, "static table");
-}
 
 /**
  * Parses a collection index access expression (e.g., array[index]).
@@ -1533,8 +1531,9 @@ static void struct_declaration(void)
 	GC_PROTECT_END(current->owner->current_module_record);
 }
 
-static void result_unwrap(bool can_assign __attribute__((unused)))
+static void result_unwrap(bool can_assign)
 {
+	(void)can_assign;
 	emit_byte(OP_UNWRAP);
 }
 
@@ -1626,8 +1625,9 @@ static void give_statement(void)
 /**
  * Parses a match expression.
  */
-static void match_expression(bool can_assign __attribute__((unused)))
+static void match_expression(bool can_assign)
 {
+	(void)can_assign;
 	begin_match_scope();
 	expression(); // compile match target
 	consume(TOKEN_LEFT_BRACE, "Expected '{' after match target.");
@@ -1865,14 +1865,16 @@ static void statement(void)
  * @param can_assign Whether the grouping expression can be the target of an
  * assignment.
  */
-static void grouping(bool can_assign __attribute__((unused)))
+static void grouping(bool can_assign)
 {
+	(void)can_assign;
 	expression();
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
-static void number(bool can_assign __attribute__((unused)))
+static void number(bool can_assign)
 {
+	(void)can_assign;
 	char *end;
 	errno = 0;
 
@@ -1953,8 +1955,9 @@ static char process_escape_sequence(const char escape, bool *hasError)
  * @param can_assign Whether the string literal can be the target of an
  * assignment.
  */
-static void string(bool can_assign __attribute__((unused)))
+static void string(bool can_assign)
 {
+	(void)can_assign;
 	char *processed = ALLOCATE(current->owner, char,
 				   parser.previous.length);
 
@@ -2032,8 +2035,9 @@ static void string(bool can_assign __attribute__((unused)))
  * @param can_assign Whether the unary expression can be the target of an
  * assignment.
  */
-static void unary(bool can_assign __attribute__((unused)))
+static void unary(bool can_assign)
 {
+	(void)can_assign;
 	const CruxTokenType operatorType = parser.previous.type;
 
 	// compile the operand
@@ -2051,8 +2055,9 @@ static void unary(bool can_assign __attribute__((unused)))
 	}
 }
 
-static void typeof_expression(bool can_assign __attribute__((unused)))
+static void typeof_expression(bool can_assign)
 {
+	(void)can_assign;
 	parse_precedence(PREC_UNARY);
 	emit_byte(OP_TYPEOF);
 }
@@ -2117,10 +2122,6 @@ ParseRule rules[] = {
 	[TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
 	[TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
-	[TOKEN_DOLLAR_LEFT_CURLY] = {static_table_literal, NULL, NULL,
-				     PREC_NONE},
-	[TOKEN_DOLLAR_LEFT_SQUARE] = {static_array_literal, NULL, NULL,
-				      PREC_NONE},
 	[TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
 	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},

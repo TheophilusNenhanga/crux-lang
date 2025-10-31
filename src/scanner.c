@@ -176,6 +176,7 @@ static CruxTokenType identifier_type(void)
 			}
 			break;
 		}
+		break;
 	case 'o':
 		return check_keyword(1, 1, "r", TOKEN_OR);
 	case 'r':
@@ -485,15 +486,6 @@ Token scan_token(void)
 		return double_string();
 	case '\'':
 		return single_string();
-	case '$': {
-		if (match('{')) {
-			return make_token(TOKEN_DOLLAR_LEFT_CURLY);
-		}
-		if (match('[')) {
-			return make_token(TOKEN_DOLLAR_LEFT_SQUARE);
-		}
-		break;
-	}
 	case '?': {
 		return make_token(TOKEN_QUESTION_MARK);
 	}

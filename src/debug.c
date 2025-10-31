@@ -128,7 +128,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		printf("%4d ", chunk->lines[offset]);
 	}
 
-	const uint8_t instruction =
+	const OpCode instruction =
 		chunk->code[offset]; // read a single byte, that is the opcode
 
 	switch (instruction) {
@@ -342,12 +342,6 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_STRUCT_16: {
 		return simple_instruction("OP_STRUCT_16", offset);
 	}
-	case OP_STATIC_ARRAY: {
-		return simple_instruction("OP_STATIC_ARRAY", offset);
-	}
-	case OP_STATIC_TABLE: {
-		return simple_instruction("OP_STATIC_TABLE", offset);
-	}
 	case OP_STRUCT_INSTANCE_START: {
 		return simple_instruction("OP_STRUCT_INSTANCE_START", offset);
 	}
@@ -369,6 +363,34 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_UNWRAP: {
 		return simple_instruction("OP_UNWRAP", offset);
+	}
+	case OP_CONSTANT_16: {
+		return constant_instruction("OP_CONSTANT_16", chunk, offset);
+	}
+	case OP_DEFINE_GLOBAL_16: {
+		return constant_instruction("OP_DEFINE_GLOBAL_16", chunk,
+					    offset);
+	}
+	case OP_GET_GLOBAL_16: {
+		return constant_instruction("OP_GET_GLOBAL_16", chunk, offset);
+	}
+	case OP_SET_GLOBAL_16: {
+		return constant_instruction("OP_SET_GLOBAL_16", chunk, offset);
+	}
+	case OP_GET_PROPERTY_16: {
+		return constant_instruction("OP_GET_PROPERTY_16", chunk,
+					    offset);
+	}
+	case OP_SET_PROPERTY_16: {
+		return constant_instruction("OP_SET_PROPERTY_16", chunk,
+					    offset);
+	}
+	case OP_INVOKE_16: {
+		return invoke_instruction("OP_INVOKE_16", chunk, offset);
+	}
+	case OP_ANON_FUNCTION_16: {
+		return constant_instruction("OP_ANON_FUNCTION_16", chunk,
+					    offset);
 	}
 
 	default:

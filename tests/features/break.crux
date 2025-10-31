@@ -10,8 +10,8 @@ while a < 10 {
     a_sum += a; // Sums 0, 1, 2
     a += 1;
 }
-assert(a == 3, "Basic break: Expected a to be 3 but got " + a);
-assert(a_sum == 3, "Basic break: Expected a_sum to be 3 (0+1+2) but got " + a_sum);
+assert(a == 3, "Basic break: Expected a to be 3 but got ".concat(_string(a))?);
+assert(a_sum == 3, "Basic break: Expected a_sum to be 3 (0+1+2) but got ".concat(_string(a_sum))?);
 
 println("--- Testing break in first iteration ---");
 let b = 0;
@@ -23,7 +23,7 @@ while b < 5 {
     b_executed = true;
     b += 1;
 }
-assert(b == 0, "Break first iteration: Expected b to be 0 but got " + b);
+assert(b == 0, "Break first iteration: Expected b to be 0 but got ".concat(_string(b))?);
 assert(b_executed == false, "Break first iteration: Code after break should not execute");
 
 println("--- Testing break in last possible iteration ---");
@@ -36,8 +36,8 @@ while c < 5 {
         break;
     }
 }
-assert(c == 5, "Break last iteration: Expected c to be 5 but got " + c);
-assert(c_count == 5, "Break last iteration: Expected c_count to be 5 but got " + c_count);
+assert(c == 5, "Break last iteration: Expected c to be 5 but got ".concat(_string(c))?);
+assert(c_count == 5, "Break last iteration: Expected c_count to be 5 but got ".concat(_string(c_count))?);
 
 println("--- Testing break with multiple conditions ---");
 let d = 0;
@@ -53,8 +53,8 @@ while d < 20 {
     }
     d += 1;
 }
-assert(d == 7, "Break multiple conditions: Expected d to be 7 but got " + d);
-assert(d_reason == "seven", "Break multiple conditions: Expected reason 'seven' but got '" + d_reason + "'");
+assert(d == 7, "Break multiple conditions: Expected d to be 7 but got ".concat(_string(d))?);
+assert(d_reason == "seven", "Break multiple conditions: Expected reason 'seven' but got '".concat(_string(d_reason))?);
 
 println("--- Testing break in nested while loops (inner break only) ---");
 let e_outer = 0;
@@ -72,9 +72,9 @@ while e_outer < 3 { // Outer: 0, 1, 2
     }
     e_outer += 1;
 }
-assert(e_outer == 3, "Nested break (inner): Expected e_outer to be 3 but got " + e_outer);
-assert(e_inner_breaks == 3, "Nested break (inner): Expected 3 inner breaks but got " + e_inner_breaks);
-assert(e_total_inner_iterations == 6, "Nested break (inner): Expected 6 total inner iterations (3*2) but got " + e_total_inner_iterations);
+assert(e_outer == 3, "Nested break (inner): Expected e_outer to be 3 but got ".concat(_string(e_outer))?);
+assert(e_inner_breaks == 3, "Nested break (inner): Expected 3 inner breaks but got ".concat(_string(e_inner_breaks))?);
+assert(e_total_inner_iterations == 6, "Nested break (inner): Expected 6 total inner iterations (3*2) but got ".concat(_string(e_total_inner_iterations))?);
 
 println("--- Testing break in nested while loops (outer break) ---");
 let f_outer = 0;
@@ -92,9 +92,9 @@ while f_outer < 5 {
         break;
     }
 }
-assert(f_outer == 2, "Nested break (outer): Expected f_outer to be 2 but got " + f_outer);
-assert(f_outer_iterations == 2, "Nested break (outer): Expected 2 outer iterations but got " + f_outer_iterations);
-assert(f_inner_total == 3, "Nested break (outer): Expected 6 inner iterations (2*3) but got " + f_inner_total);
+assert(f_outer == 2, "Nested break (outer): Expected f_outer to be 2 but got ".concat(_string(f_outer))?);
+assert(f_outer_iterations == 2, "Nested break (outer): Expected 2 outer iterations but got ".concat(_string(f_outer_iterations))?);
+assert(f_inner_total == 3, "Nested break (outer): Expected 6 inner iterations (2*3) but got ".concat(_string(f_inner_total))?);
 // 6
 
 println("--- Testing break with complex condition ---");
@@ -107,8 +107,8 @@ while g <= 10 {
     }
     g += 1;
 }
-assert(g == 5, "Break complex condition: Expected g to be 5 but got " + g);
-assert(g_product == 120, "Break complex condition: Expected g_product to be 120 but got " + g_product);
+assert(g == 5, "Break complex condition: Expected g to be 5 but got ".concat(_string(g))?);
+assert(g_product == 120, "Break complex condition: Expected g_product to be 120 but got ".concat(_string(g_product))?);
 
 println("--- Testing break doesn't affect outer scope ---");
 let h = 10;
@@ -122,7 +122,7 @@ while h > 0 {
     }
     h -= 1;
 }
-assert(h == 0, "Break scope test: Expected h to be 7 but got " + h);
+assert(h == 0, "Break scope test: Expected h to be 7 but got ".concat(_string(h))?);
 assert(h_inner_modified == false, "Break scope test: Expected h_inner_modified to be true");
 // 7
 
@@ -140,8 +140,8 @@ while true {
         break;
     }
 }
-assert(i == 8, "Break in while true: Expected i to be 8 but got " + i);
-assert(i_safety_count == 4, "Break in while true: Expected 4 iterations but got " + i_safety_count);
+assert(i == 8, "Break in while true: Expected i to be 8 but got ".concat(_string(i))?);
+assert(i_safety_count == 4, "Break in while true: Expected 4 iterations but got ".concat(_string(i_safety_count))?);
 
 // Too many constants error
 
@@ -157,7 +157,7 @@ while j < 10 {
         break;
     }
 }
-assert(j == 6, "Break after control flow: Expected j to be 6 but got " + j);
-assert(j_sum == 6, "Break after control flow: Expected j_sum to be 6 (0+2+4) but got " + j_sum);
+assert(j == 6, "Break after control flow: Expected j to be 6 but got ".concat(_string(j))?);
+assert(j_sum == 6, "Break after control flow: Expected j_sum to be 6 (0+2+4) but got ".concat(_string(j_sum))?);
 
 println("===  End of testing break statement  ===");

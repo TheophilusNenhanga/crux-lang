@@ -560,19 +560,8 @@ void print_object(const Value value, const bool in_collection)
 		print_array(array->values, array->size);
 		break;
 	}
-	case OBJECT_STATIC_ARRAY: {
-		const ObjectStaticArray *staticArray = AS_CRUX_STATIC_ARRAY(
-			value);
-		print_array(staticArray->values, staticArray->size);
-		break;
-	}
 	case OBJECT_TABLE: {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		print_table(table->entries, table->capacity, table->size);
-		break;
-	}
-	case OBJECT_STATIC_TABLE: {
-		const ObjectStaticTable *table = AS_CRUX_STATIC_TABLE(value);
 		print_table(table->entries, table->capacity, table->size);
 		break;
 	}
@@ -990,14 +979,6 @@ void free_object_table(VM *vm, ObjectTable *table)
 	table->size = 0;
 }
 
-void free_object_static_table(VM *vm, ObjectStaticTable *table)
-{
-	FREE_ARRAY(vm, ObjectTableEntry, table->entries, table->capacity);
-	table->entries = NULL;
-	table->capacity = 0;
-	table->size = 0;
-}
-
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
 {
 	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
@@ -1148,6 +1129,8 @@ bool object_table_contains_key(ObjectTable *table, const Value key)
 {
 	if (!table)
 		return false;
+
+	if (table->size == 0) return false;
 
 	const ObjectTableEntry *entry = find_entry(table->entries,
 						   table->capacity, key);
@@ -1346,66 +1329,6 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record)
 	record->stack = NULL;
 	free_table(vm, &record->globals);
 	free_table(vm, &record->publics);
-}
-
-ObjectStaticArray *new_static_array(VM *vm, const uint16_t element_count,
-				    ObjectModuleRecord *module_record)
-{
-	GC_PROTECT_START(module_record);
-	ObjectStaticArray *array = ALLOCATE_OBJECT(vm, ObjectStaticArray,
-						   OBJECT_STATIC_ARRAY);
-	array->values = NULL;
-	array->size = 0;
-	GC_PROTECT(module_record, OBJECT_VAL(array));
-	array->size = element_count;
-	array->values = ALLOCATE(vm, Value, element_count);
-	GC_PROTECT_END(module_record);
-	return array;
-}
-
-ObjectStaticTable *new_static_table(VM *vm, const uint16_t element_count,
-				    ObjectModuleRecord *module_record)
-{
-	GC_PROTECT_START(module_record);
-	ObjectStaticTable *table = ALLOCATE_OBJECT(vm, ObjectStaticTable,
-						   OBJECT_STATIC_TABLE);
-	table->capacity = 0;
-	table->size = 0;
-	table->entries = NULL;
-	const uint32_t newCapacity = calculateCollectionCapacity(
-		(uint32_t)((1 + TABLE_MAX_LOAD) * element_count));
-	GC_PROTECT(module_record, OBJECT_VAL(table));
-
-	table->entries = ALLOCATE(vm, ObjectTableEntry, newCapacity);
-	for (uint32_t i = 0; i < table->capacity; i++) {
-		table->entries[i].value = NIL_VAL;
-		table->entries[i].key = NIL_VAL;
-		table->entries[i].is_occupied = false;
-	}
-	GC_PROTECT_END(module_record);
-	return table;
-}
-
-bool object_static_table_set(VM *vm, ObjectStaticTable *table, const Value key,
-			     const Value value)
-{
-	ObjectTableEntry *entry = find_entry(table->entries, table->capacity,
-					     key);
-	const bool isNewKey = !entry->is_occupied;
-	if (isNewKey) {
-		table->size++;
-	}
-
-	if (IS_CRUX_OBJECT(key))
-		mark_value(vm, key);
-	if (IS_CRUX_OBJECT(value))
-		mark_value(vm, value);
-
-	entry->key = key;
-	entry->value = value;
-	entry->is_occupied = true;
-
-	return true;
 }
 
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name)
