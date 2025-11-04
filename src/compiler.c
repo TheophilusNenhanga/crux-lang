@@ -134,7 +134,7 @@ static void patch_jump(const int offset)
 		compiler_panic(&parser, "Too much code to jump over.",
 			       BRANCH_EXTENT);
 	}
-	current_chunk()->code[offset] =  (uint16_t) jump;
+	current_chunk()->code[offset] = (uint16_t)jump;
 }
 
 /**
@@ -856,72 +856,9 @@ static void named_variable(Token name, const bool can_assign)
 		getOp = OP_GET_UPVALUE;
 		setOp = OP_SET_UPVALUE;
 	} else {
-		const uint16_t globalArg = identifier_constant(&name);
-
-		if (can_assign) {
-			if (match(TOKEN_EQUAL)) {
-				expression();
-				emit_words(OP_SET_GLOBAL, globalArg);
-				return;
-			}
-
-			CompoundOp op;
-			bool isCompoundAssignment = true;
-
-			if (match(TOKEN_PLUS_EQUAL)) {
-				op = COMPOUND_OP_PLUS;
-			} else if (match(TOKEN_MINUS_EQUAL)) {
-				op = COMPOUND_OP_MINUS;
-			} else if (match(TOKEN_STAR_EQUAL)) {
-				op = COMPOUND_OP_STAR;
-			} else if (match(TOKEN_SLASH_EQUAL)) {
-				op = COMPOUND_OP_SLASH;
-			} else if (match(TOKEN_BACK_SLASH_EQUAL)) {
-				op = COMPOUND_OP_BACK_SLASH;
-			} else if (match(TOKEN_PERCENT_EQUAL)) {
-				op = COMPOUND_OP_PERCENT;
-			} else {
-				isCompoundAssignment = false;
-			}
-
-			if (isCompoundAssignment) {
-				expression();
-				const OpCode compoundOp =
-					get_compound_opcode(OP_SET_GLOBAL, op);
-				if (globalArg <= UINT8_MAX) {
-					emit_words(compoundOp,
-						globalArg);
-				} else {
-					emit_words(OP_GET_GLOBAL, globalArg);
-					switch (op) {
-					case COMPOUND_OP_PLUS:
-						emit_word(OP_ADD);
-						break;
-					case COMPOUND_OP_MINUS:
-						emit_word(OP_SUBTRACT);
-						break;
-					case COMPOUND_OP_STAR:
-						emit_word(OP_MULTIPLY);
-						break;
-					case COMPOUND_OP_SLASH:
-						emit_word(OP_DIVIDE);
-						break;
-					case COMPOUND_OP_BACK_SLASH:
-						emit_word(OP_INT_DIVIDE);
-						break;
-					case COMPOUND_OP_PERCENT:
-						emit_word(OP_MODULUS);
-						break;
-					}
-					emit_words(OP_SET_GLOBAL, globalArg);
-				}
-				return;
-			}
-		}
-
-		emit_words(OP_GET_GLOBAL, globalArg);
-
-		return;
+		arg = identifier_constant(&name);
+		getOp = OP_GET_GLOBAL;
+		setOp = OP_SET_GLOBAL;
 	}
 
 	if (can_assign) {
@@ -952,10 +889,13 @@ static void named_variable(Token name, const bool can_assign)
 
 		if (isCompoundAssignment) {
 			expression();
-			emit_words(get_compound_opcode(setOp, op), arg);
+			const OpCode compoundOp = get_compound_opcode(setOp,
+								      op);
+			emit_words(compoundOp, arg);
 			return;
 		}
 	}
+
 	emit_words(getOp, arg);
 }
 
@@ -1141,7 +1081,10 @@ static void table_literal(bool can_assign)
 			consume(TOKEN_COLON, "Expected ':' after <table> key");
 			expression();
 			if (elementCount >= UINT16_MAX) {
-				compiler_panic(&parser, "Too many elements in 'table' literal.", SYNTAX);
+				compiler_panic(
+					&parser,
+					"Too many elements in 'table' literal.",
+					SYNTAX);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
@@ -1413,7 +1356,6 @@ static void struct_declaration(void)
 
 	const uint16_t structConstant = make_constant(OBJECT_VAL(structObject));
 	emit_words(OP_STRUCT, structConstant);
-
 
 	define_variable(nameConstant);
 
