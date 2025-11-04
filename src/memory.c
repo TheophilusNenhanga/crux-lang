@@ -193,9 +193,7 @@ typedef void (*FreeFunction)(VM *vm, CruxObject *object);
 static void blacken_closure(VM *vm, CruxObject *object);
 static void blacken_function(VM *vm, CruxObject *object);
 static void blacken_upvalue(VM *vm, CruxObject *object);
-static void blacken_static_array(VM *vm, CruxObject *object);
 static void blacken_array(VM *vm, CruxObject *object);
-static void blacken_static_table(VM *vm, CruxObject *object);
 static void blacken_table(VM *vm, CruxObject *object);
 static void blacken_error(VM *vm, CruxObject *object);
 static void blacken_native_function(VM *vm, CruxObject *object);
@@ -208,8 +206,7 @@ static void blacken_file(VM *vm, CruxObject *object);
 static void blacken_module_record(VM *vm, CruxObject *object);
 static void blacken_struct(VM *vm, CruxObject *object);
 static void blacken_struct_instance(VM *vm, CruxObject *object);
-static void blacken_vec2(VM *vm, CruxObject *object);
-static void blacken_vec3(VM *vm, CruxObject *object);
+static void blacken_vector(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
@@ -229,12 +226,9 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_RANDOM] = blacken_random,
 	[OBJECT_FILE] = blacken_file,
 	[OBJECT_MODULE_RECORD] = blacken_module_record,
-	[OBJECT_STATIC_ARRAY] = blacken_static_array,
-	[OBJECT_STATIC_TABLE] = blacken_static_table,
 	[OBJECT_STRUCT] = blacken_struct,
 	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
-	[OBJECT_VEC2] = blacken_vec2,
-	[OBJECT_VEC3] = blacken_vec3,
+	[OBJECT_VECTOR] = blacken_vector,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -274,22 +268,11 @@ static void blacken_upvalue(VM *vm, CruxObject *object)
 	mark_value(vm, ((ObjectUpvalue *)object)->closed);
 }
 
-static void blacken_static_array(VM *vm, CruxObject *object)
-{
-	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
-	mark_object_array(vm, staticArray->values, staticArray->size);
-}
 
 static void blacken_array(VM *vm, CruxObject *object)
 {
 	const ObjectArray *array = (ObjectArray *)object;
 	mark_object_array(vm, array->values, array->size);
-}
-
-static void blacken_static_table(VM *vm, CruxObject *object)
-{
-	const ObjectStaticTable *table = (ObjectStaticTable *)object;
-	mark_object_table(vm, table->entries, table->size);
 }
 
 static void blacken_table(VM *vm, CruxObject *object)
@@ -387,13 +370,7 @@ static void blacken_struct_instance(VM *vm, CruxObject *object)
 	mark_struct_instance(vm, instance);
 }
 
-static void blacken_vec2(VM *vm, CruxObject *object)
-{
-	(void)vm;
-	(void)object;
-}
-
-static void blacken_vec3(VM *vm, CruxObject *object)
+static void blacken_vector(VM *vm, CruxObject *object)
 {
 	(void)vm;
 	(void)object;
@@ -425,8 +402,6 @@ static void free_object_native_infallible_function(VM *vm, CruxObject *object);
 static void free_object_native_infallible_method(VM *vm, CruxObject *object);
 static void free_object_closure(VM *vm, CruxObject *object);
 static void free_object_upvalue(VM *vm, CruxObject *object);
-static void free_object_static_array(VM *vm, CruxObject *object);
-static void free_object_static_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_array(VM *vm, CruxObject *object);
 static void free_object_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_error(VM *vm, CruxObject *object);
@@ -436,8 +411,7 @@ static void free_object_file(VM *vm, CruxObject *object);
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object);
 static void free_object_struct(VM *vm, CruxObject *object);
 static void free_object_struct_instance(VM *vm, CruxObject *object);
-static void free_object_vec2(VM *vm, CruxObject *object);
-static void free_object_vec3(VM *vm, CruxObject *object);
+static void free_object_vector(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -457,12 +431,9 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_RANDOM] = free_object_random,
 	[OBJECT_FILE] = free_object_file,
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
-	[OBJECT_STATIC_ARRAY] = free_object_static_array,
-	[OBJECT_STATIC_TABLE] = free_object_static_table_wrapper,
 	[OBJECT_STRUCT] = free_object_struct,
 	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
-	[OBJECT_VEC2] = free_object_vec2,
-	[OBJECT_VEC3] = free_object_vec3,
+	[OBJECT_VECTOR] = free_object_vector
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -545,19 +516,6 @@ static void free_object_upvalue(VM *vm, CruxObject *object)
 	FREE(vm, ObjectUpvalue, object);
 }
 
-static void free_object_static_array(VM *vm, CruxObject *object)
-{
-	const ObjectStaticArray *staticArray = (ObjectStaticArray *)object;
-	FREE_ARRAY(vm, Value, staticArray->values, staticArray->size);
-	FREE(vm, ObjectStaticArray, object);
-}
-
-static void free_object_static_table_wrapper(VM *vm, CruxObject *object)
-{
-	ObjectStaticTable *staticTable = (ObjectStaticTable *)object;
-	free_object_static_table(vm, staticTable);
-	FREE(vm, ObjectStaticTable, object);
-}
 
 static void free_object_array(VM *vm, CruxObject *object)
 {
@@ -620,14 +578,13 @@ static void free_object_struct_instance(VM *vm, CruxObject *object)
 	FREE(vm, ObjectStructInstance, object);
 }
 
-static void free_object_vec2(VM *vm, CruxObject *object)
+static void free_object_vector(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectVec2, object);
-}
-
-static void free_object_vec3(VM *vm, CruxObject *object)
-{
-	FREE(vm, ObjectVec3, object);
+	const ObjectVector *vector = (ObjectVector *)object;
+	if (vector->dimensions > 4) {
+		FREE(vm, double, vector->as.h_components);
+	}
+	FREE(vm, ObjectVector, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
@@ -705,8 +662,7 @@ void mark_roots(VM *vm)
 	mark_table(vm, &vm->error_type);
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
-	mark_table(vm, &vm->vec2_type);
-	mark_table(vm, &vm->vec3_type);
+	mark_table(vm, &vm->vector_type);
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 

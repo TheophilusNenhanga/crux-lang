@@ -214,17 +214,19 @@ ObjectResult *round_function(VM *vm, const int arg_count, const Value *args)
 	return new_ok_result(vm, FLOAT_VAL(round(AS_FLOAT(args[0]))));
 }
 
-Value pi_function(VM *vm __attribute__((unused)),
-		  int arg_count __attribute__((unused)),
-		  const Value *args __attribute__((unused)))
+Value pi_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
+	(void)vm;
 	return FLOAT_VAL(3.14159265358979323846);
 }
 
-Value e_function(VM *vm __attribute__((unused)),
-		 int arg_count __attribute__((unused)),
-		 const Value *args __attribute__((unused)))
+Value e_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)args;
+	(void)vm;
 	return FLOAT_VAL(2.71828182845904523536);
 }
 

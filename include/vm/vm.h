@@ -21,7 +21,7 @@ typedef enum {
  */
 typedef struct {
 	ObjectClosure *closure;
-	uint8_t *ip;
+	uint16_t *ip;
 	Value *slots;
 } CallFrame;
 
@@ -89,8 +89,7 @@ struct VM {
 	Table error_type;
 	Table file_type;
 	Table result_type;
-	Table vec2_type;
-	Table vec3_type;
+	Table vector_type;
 
 	StructInstanceStack struct_instance_stack;
 

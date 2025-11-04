@@ -6,7 +6,7 @@
 #include "file_handler.h"
 
 /**
- * Starts an interactive Read-Eval-Print Loop (REPL) for the language
+ * Starts the (REPL)
  */
 static void repl(VM *vm)
 {

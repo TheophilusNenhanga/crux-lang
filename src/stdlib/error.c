@@ -3,9 +3,9 @@
 #include "memory.h"
 #include "panic.h"
 
-ObjectResult *error_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *error_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const Value message = args[0];
 	ObjectString *errorMessage = to_string(vm, message);
@@ -18,9 +18,9 @@ ObjectResult *error_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *panic_function(VM *vm, int arg_count __attribute__((unused)),
-			     const Value *args)
+ObjectResult *panic_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const Value value = args[0];
 
 	if (IS_CRUX_ERROR(value)) {
@@ -38,10 +38,9 @@ ObjectResult *panic_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *assert_function(VM *vm, int arg_count __attribute__((unused)),
-			      const Value *args)
+ObjectResult *assert_function(VM *vm, int arg_count, const Value *args)
 {
-	ObjectModuleRecord *module_record = vm->current_module_record;
+	(void)arg_count;
 	if (!IS_BOOL(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -57,34 +56,30 @@ ObjectResult *assert_function(VM *vm, int arg_count __attribute__((unused)),
 
 	const bool result = AS_BOOL(args[0]);
 	ObjectString *message = AS_CRUX_STRING(args[1]);
-	push(module_record, OBJECT_VAL(message));
 
 	if (result == false) {
 		ObjectError *error = new_error(vm, message, ASSERT, true);
 		push(vm->current_module_record, OBJECT_VAL(error));
 		ObjectResult *res = new_error_result(vm, error);
 		pop(vm->current_module_record);
-		pop(vm->current_module_record);
 		return res;
 	}
 
 	ObjectResult *res = new_ok_result(vm, NIL_VAL);
-	pop(vm->current_module_record);
-	pop(vm->current_module_record);
 	return res;
 }
 
-Value error_message_method(VM *vm __attribute__((unused)),
-			   int arg_count __attribute__((unused)),
-			   const Value *args)
+Value error_message_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)vm;
+	(void)arg_count;
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	return OBJECT_VAL(error->message);
 }
 
-ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
-				const Value *args)
+ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	ObjectModuleRecord *module_record = vm->current_module_record;
 
@@ -249,15 +244,6 @@ ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
 		return res;
 	}
 
-	case UNPACK_MISMATCH: {
-		ObjectString *type = copy_string(vm, "<unpack mismatch error>",
-						 23);
-		push(module_record, OBJECT_VAL(type));
-		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
-		pop(module_record);
-		return res;
-	}
-
 	case MEMORY: {
 		ObjectString *type = copy_string(vm, "<memory error>", 14);
 		push(module_record, OBJECT_VAL(type));
@@ -290,6 +276,13 @@ ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
 		pop(module_record);
 		return res;
 	}
+	case IMPORT: {
+		ObjectString *type = copy_string(vm, "<import error>", 14);
+		push(module_record, OBJECT_VAL(type));
+		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
+		pop(module_record);
+		return res;
+	}
 	case IO: {
 		ObjectString *type = copy_string(vm, "<io error>", 10);
 		push(module_record, OBJECT_VAL(type));
@@ -308,9 +301,9 @@ ObjectResult *error_type_method(VM *vm, int arg_count __attribute__((unused)),
 	}
 }
 
-ObjectResult *err_function(VM *vm, int arg_count __attribute__((unused)),
-			   const Value *args)
+ObjectResult *err_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
 		return new_error_result(vm, AS_CRUX_ERROR(args[0]));
 	}
@@ -325,16 +318,17 @@ ObjectResult *err_function(VM *vm, int arg_count __attribute__((unused)),
 	return res;
 }
 
-ObjectResult *ok_function(VM *vm, int arg_count __attribute__((unused)),
-			  const Value *args)
+ObjectResult *ok_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
 	return new_ok_result(vm, args[0]);
 }
 
 // arg0 - Result
-Value unwrap_function(VM *vm __attribute__((unused)),
-		      int arg_count __attribute__((unused)), const Value *args)
+Value unwrap_function(VM *vm, int arg_count, const Value *args)
 {
+	(void)arg_count;
+	(void)vm;
 	const ObjectResult *result = AS_CRUX_RESULT(args[0]);
 	if (result->is_ok) {
 		return result->as.value;

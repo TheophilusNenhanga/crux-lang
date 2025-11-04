@@ -1,7 +1,7 @@
 println("=== START OF RAY TRACER ===");
 
 use Random from "crux:random";
-use Vec3 from "crux:vectors";
+use Vec from "crux:vectors";
 use _time_ms from "crux:time";
 use open_file from "crux:io";
 use sqrt, min from "crux:math";
@@ -21,19 +21,19 @@ let COLOR_SCALE = 255.999;
 let INV_WIDTH = 1.0 / (IMAGE_WIDTH - 1);
 let INV_HEIGHT = 1.0 / (IMAGE_HEIGHT - 1);
 
-let VEC3_ZERO = Vec3(0, 0, 0)?;
-let VEC3_WHITE = Vec3(1.0, 1.0, 1.0)?;
-let VEC3_BLUE = Vec3(0.5, 0.7, 1.0)?;
+let VEC3_ZERO = Vec(3,[0, 0, 0])?;
+let VEC3_WHITE = Vec(3,[1.0, 1.0, 1.0])?;
+let VEC3_BLUE = Vec(3,[0.5, 0.7, 1.0])?;
 
 struct Ray {
-    origin, // Vec3
-    direction, // Vec3
-    at // (float) -> Vec3
+    origin, // Vec
+    direction, // Vec
+    at // (float) -> Vec
 }
 
 struct HitRecord {
-    p, // Vec3
-    normal, // Vec3
+    p, // Vec
+    normal, // Vec
     t, // float
     front_face, // bool
     material // Material
@@ -41,12 +41,12 @@ struct HitRecord {
 
 struct Material {
     scatter, // (Ray, HitRecord) -> Table[string, any]
-    albedo, // Vec3
+    albedo, // Vec
     fuzz // float | nil
 }
 
 struct Sphere {
-    center, // Vec3
+    center, // Vec
     radius, // float
     radius_squared, // float
     material // Material
@@ -73,7 +73,7 @@ fn reflect(vector, normal) {
 
 fn random_in_unit_sphere() {
     while true {
-        let p_result = Vec3(g_random.double(-1, 1)?, g_random.double(-1, 1)?, g_random.double(-1, 1)?);
+        let p_result = Vec(3,[g_random.double(-1, 1)?, g_random.double(-1, 1)?, g_random.double(-1, 1)?]);
 
         let p = match p_result {
             Ok(v) => give v;
@@ -171,11 +171,11 @@ fn ray_color(ray, depth, world) {
         if scatter_result != nil {
             let scattered_color = ray_color(scatter_result["scattered"], depth - 1, world);
             let attenuation = scatter_result["attenuation"];
-            return Vec3(
+            return Vec(3,[
                 attenuation.x() * scattered_color.x(),
                 attenuation.y() * scattered_color.y(),
                 attenuation.z() * scattered_color.z()
-            )?;
+            ])?;
         }else {
             return VEC3_ZERO;
         }
@@ -211,7 +211,7 @@ fn newSphere(center, radius, material){
     };
 }
 
-// albedo: Vec3
+// albedo: Vec
 // fuzz: float | nil
 fn newMetal(albedo, fuzz) {
     fn scatter(ray_in, rec) {
@@ -241,7 +241,7 @@ fn newMetal(albedo, fuzz) {
     return metal;
 }
 
-// albedo: Vec3
+// albedo: Vec
 fn newLambertian(albedo) {
     // scatter: (Ray, HitRecord) -> Table[string, any]
     fn scatter(ray_in, rec) {
@@ -281,23 +281,23 @@ fn main() {
     println("Setting up the scene...");
     let world = [];
 
-    let ground_material = newLambertian(Vec3(0.5, 0.5, 0.5)?);
-    world.push(newSphere(Vec3(0, -1000, -1)?, 1000, ground_material));
+    let ground_material = newLambertian(Vec(3,[0.5, 0.5, 0.5])?);
+    world.push(newSphere(Vec(3,[0, -1000, -1])?, 1000, ground_material));
 
-    let material1 = newLambertian(Vec3(0.7, 0.3, 0.3)?);
-    world.push(newSphere(Vec3(0, 1, 0)?, 1, material1));
+    let material1 = newLambertian(Vec(3,[0.7, 0.3, 0.3])?);
+    world.push(newSphere(Vec(3,[0, 1, 0])?, 1, material1));
 
-    let material2 = newMetal(Vec3(0.8, 0.6, 0.2)?, 0.2);
-    world.push(newSphere(Vec3(-4, 1, 0)?, 1, material2));
+    let material2 = newMetal(Vec(3,[0.8, 0.6, 0.2])?, 0.2);
+    world.push(newSphere(Vec(3,[-4, 1, 0])?, 1, material2));
 
-    let material3 = newMetal(Vec3(0.8, 0.8, 0.8)?, 0.0);
-    world.push(newSphere(Vec3(4, 1, 0)?, 1, material3));
+    let material3 = newMetal(Vec(3,[0.8, 0.8, 0.8])?, 0.0);
+    world.push(newSphere(Vec(3,[4, 1, 0])?, 1, material3));
 
     // setup for rendering
 
-    let camera_origin = Vec3(13, 2, 3)?;
-    let camera_target = Vec3(0, 0, 0)?;
-    let camera_vup = Vec3(0, 1, 0)?;
+    let camera_origin = Vec(3,[13, 2, 3])?;
+    let camera_target = Vec(3,[0, 0, 0])?;
+    let camera_vup = Vec(3,[0, 1, 0])?;
 
     let viewport_height = 2.0;
     let viewport_width = IMAGE_ASPECT_RATIO * viewport_height;
@@ -311,9 +311,9 @@ fn main() {
     let vertical = v.multiply(viewport_height)?;
     let lower_left_corner = camera_origin.subtract(horizontal.multiply(0.5)?)?.subtract(vertical.multiply(0.5)?)?.subtract(w.multiply(focal_length)?)?;
 
-    println("Rendering image (" + IMAGE_WIDTH + "x" + IMAGE_HEIGHT + ")...");
-    println("Samples per pixel: " + SAMPLES_PER_PIXEL);
-    println("Max ray depth: " + MAX_DEPTH);
+    println("Rendering image (" + _string(IMAGE_WIDTH) + "x" + _string(IMAGE_HEIGHT) + ")...");
+    println("Samples per pixel: " + _string(SAMPLES_PER_PIXEL));
+    println("Max ray depth: " + _string(MAX_DEPTH));
 
     let start_time = _time_ms();
 
@@ -323,12 +323,12 @@ fn main() {
         Err => panic("Error opening file for writing");
     };
     file.write("P3\n");
-    file.write(IMAGE_WIDTH + " " + IMAGE_HEIGHT + "\n");
+    file.write(_string(IMAGE_WIDTH) + " " + _string(IMAGE_HEIGHT) + "\n");
     file.write("255\n");
 
     for let j = IMAGE_HEIGHT - 1; j >= 0; j -= 1 {
         if j % 10 == 0 {
-            println("Scanlines remaining: " + j);
+            println("Scanlines remaining: " + _string(j));
         }
 
         for let i = 0; i < IMAGE_WIDTH; i += 1 {
@@ -348,16 +348,16 @@ fn main() {
             let g = sqrt(pixel_color.y() * SCALE)?;
             let b = sqrt(pixel_color.z() * SCALE)?;
 
-            let ir = int(COLOR_SCALE * r)?;
-            let ig = int(COLOR_SCALE * g)?;
-            let ib = int(COLOR_SCALE * b)?;
+            let ir = _int(COLOR_SCALE * r);
+            let ig = _int(COLOR_SCALE * g);
+            let ib = _int(COLOR_SCALE * b);
 
-            file.write(ir + " " + ig + " " + ib + "\n");
+            file.write(_string(ir) + " " + _string(ig) + " " + _string(ib) + "\n");
         }
     }
     let end_time = _time_ms();
     let elapsed_time = end_time - start_time;
-    println("Rendering completed in " + elapsed_time + " ms");
+    println("Rendering completed in " + _string(elapsed_time) + " ms");
     file.close();
 }
 

@@ -11,7 +11,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-	set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+	add_compile_options(-g -O0 -Wswitch-enum -Wimplicit-fallthrough)
 
 	if (UNIX)
 		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
@@ -21,18 +21,18 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fstack-protector-strong")
 
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wextra")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat=2 -Wformat-security")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wnull-dereference -Wstack-protector")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Warray-bounds -Wshift-overflow")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_C_FLAGS_RELEASE "-O3")
+	add_compile_options(-O3)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Perf")
-	set(CMAKE_C_FLAGS_PERF "-O2 -g -fno-omit-frame-pointer")
+	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed)
 endif()
 
 set(SOURCES

@@ -78,31 +78,19 @@ typedef enum {
 	OP_USE_NATIVE,
 	OP_USE_MODULE,
 	OP_FINISH_USE,
-	OP_CONSTANT_16,
-	OP_DEFINE_GLOBAL_16,
-	OP_GET_GLOBAL_16,
-	OP_SET_GLOBAL_16,
-	OP_GET_PROPERTY_16,
-	OP_SET_PROPERTY_16,
-	OP_INVOKE_16,
 	OP_TYPEOF,
-	OP_STATIC_ARRAY,
-	OP_STATIC_TABLE,
 	OP_STRUCT,
-	OP_STRUCT_16,
 	OP_STRUCT_INSTANCE_START,
 	OP_STRUCT_NAMED_FIELD,
-	OP_STRUCT_NAMED_FIELD_16,
 	OP_STRUCT_INSTANCE_END,
 	OP_NIL_RETURN,
-	OP_ANON_FUNCTION_16,
 	OP_UNWRAP,
 } OpCode;
 
 typedef struct {
 	int count;
 	int capacity;
-	uint8_t *code;
+	uint16_t *code;
 	int *lines;
 	ValueArray constants;
 } Chunk;
@@ -129,7 +117,7 @@ void init_chunk(Chunk *chunk);
  * @param byte The byte to append to the chunk
  * @param line The source code line number corresponding to this byte
  */
-void write_chunk(VM *vm, Chunk *chunk, uint8_t byte, int line);
+void write_chunk(VM *vm, Chunk *chunk, uint16_t byte, int line);
 
 /**
  * @brief Frees memory allocated for a chunk

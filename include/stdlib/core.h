@@ -18,4 +18,6 @@ Value string_function_(VM *vm, int arg_count, const Value *args);
 Value array_function_(VM *vm, int arg_count, const Value *args);
 Value table_function_(VM *vm, int arg_count, const Value *args);
 
+ObjectResult* format_function(VM *vm, int arg_count, const Value *args);
+
 #endif

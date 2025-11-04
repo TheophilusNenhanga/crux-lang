@@ -1,11 +1,11 @@
+#include "vm_helpers.h"
+
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "vm/vm.h"
-#include "vm/vm_run.h"
 #include "common.h"
 #include "compiler.h"
 #include "memory.h"
@@ -14,7 +14,8 @@
 #include "stdlib/std.h"
 #include "table.h"
 #include "value.h"
-#include "vm/vm_helpers.h"
+#include "vm.h"
+#include "vm_run.h"
 
 void init_import_stack(VM *vm)
 {
@@ -307,13 +308,15 @@ static bool handle_string_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
-static bool handle_undefined_invoke(VM *vm,
-				    const ObjectString *name
-				    __attribute__((unused)),
-				    int arg_count __attribute__((unused)),
-				    Value original __attribute__((unused)),
-				    Value receiver __attribute__((unused)))
+static bool handle_undefined_invoke(VM *vm, const ObjectString *name,
+				    int arg_count, Value original,
+				    Value receiver)
 {
+	(void)name;
+	(void)arg_count;
+	(void)original;
+	(void)receiver;
+
 	runtime_panic(vm->current_module_record, false, TYPE,
 		      "Only instances have methods");
 	return false;
@@ -374,23 +377,12 @@ static bool handle_random_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
-static bool handle_vec2_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
+static bool handle_vector_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
 {
 	Value value;
-	if (table_get(&vm->vec2_type, name, &value)) {
-		return handle_invoke(vm, arg_count, receiver, original, value);
-	}
-	undefined_method_return(vm->current_module_record, name);
-}
-
-static bool handle_vec3_invoke(VM *vm, const ObjectString *name,
-			       const int arg_count, const Value original,
-			       const Value receiver)
-{
-	Value value;
-	if (table_get(&vm->vec3_type, name, &value)) {
+	if (table_get(&vm->vector_type, name, &value)) {
 		return handle_invoke(vm, arg_count, receiver, original, value);
 	}
 	undefined_method_return(vm->current_module_record, name);
@@ -408,11 +400,10 @@ static bool handle_result_invoke(VM *vm, const ObjectString *name,
 }
 
 static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
-					  int arg_count,
-					  Value original
-					  __attribute__((unused)),
+					  int arg_count, Value original,
 					  const Value receiver)
 {
+	(void)original;
 	arg_count--;
 	const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
 		receiver);
@@ -441,13 +432,9 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_RANDOM] = handle_random_invoke,
 	[OBJECT_FILE] = handle_file_invoke,
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
-	[OBJECT_STATIC_ARRAY] = handle_undefined_invoke,
-	[OBJECT_STATIC_TABLE] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
-	[OBJECT_VEC2] = handle_vec2_invoke,
-	[OBJECT_VEC3] = handle_vec3_invoke,
-};
+	[OBJECT_VECTOR] = handle_vector_invoke};
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -539,32 +526,13 @@ bool concatenate(VM *vm)
 	const Value b = PEEK(current_module_record, 0);
 	const Value a = PEEK(current_module_record, 1);
 
-	ObjectString *stringB;
-	ObjectString *stringA;
-
-	if (IS_CRUX_STRING(b)) {
-		stringB = AS_CRUX_STRING(b);
-	} else {
-		stringB = to_string(vm, b);
-		if (stringB == NULL) {
-			runtime_panic(
-				current_module_record, false, TYPE,
-				"Could not convert right operand to a string.");
-			return false;
-		}
+	if (!IS_CRUX_STRING(a) || !IS_CRUX_STRING(b)) {
+		/* Concatenation is only defined for string */
+		return false;
 	}
 
-	if (IS_CRUX_STRING(a)) {
-		stringA = AS_CRUX_STRING(a);
-	} else {
-		stringA = to_string(vm, a);
-		if (stringA == NULL) {
-			runtime_panic(
-				current_module_record, false, TYPE,
-				"Could not convert left operand to a string.");
-			return false;
-		}
-	}
+	const ObjectString *stringA = AS_CRUX_STRING(a);
+	const ObjectString *stringB = AS_CRUX_STRING(b);
 
 	const uint64_t length = stringA->length + stringB->length;
 	char *chars = ALLOCATE(vm, char, length + 1);
@@ -624,7 +592,7 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-void free_object_pool(ObjectPool* pool)
+void free_object_pool(ObjectPool *pool)
 {
 	if (pool->objects) {
 		free(pool->objects);
@@ -636,7 +604,7 @@ void free_object_pool(ObjectPool* pool)
 	pool->free_list = NULL;
 }
 
-ObjectPool* init_object_pool(const uint32_t initial_capacity)
+ObjectPool *init_object_pool(const uint32_t initial_capacity)
 {
 	ObjectPool *pool = malloc(sizeof(ObjectPool));
 	if (!pool)
@@ -678,7 +646,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 
-	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
+	vm->current_module_record = new_object_module_record(vm, NULL, is_repl,
+							     true);
 
 	reset_stack(vm->current_module_record);
 
@@ -689,8 +658,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->random_type);
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
-	init_table(&vm->vec2_type);
-	init_table(&vm->vec3_type);
+	init_table(&vm->vector_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -754,8 +722,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->random_type);
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
-	free_table(vm, &vm->vec2_type);
-	free_table(vm, &vm->vec3_type);
+	free_table(vm, &vm->vector_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1021,9 +988,10 @@ static bool float_greater_equal(ObjectModuleRecord *current_module_record,
 }
 
 static bool float_invalid_int_op(ObjectModuleRecord *current_module_record,
-				 double doubleA __attribute__((unused)),
-				 double doubleB __attribute__((unused)))
+				 double doubleA, double doubleB)
 {
+	(void)doubleA;
+	(void)doubleB;
 	runtime_panic(current_module_record, false, TYPE,
 		      "Operands for integer operation must both be integers.");
 	return false;
@@ -1072,12 +1040,13 @@ typedef InterpretResult (*FloatCompoundOp)(
 
 // Integer compound operation handlers
 static InterpretResult
-int_compound_plus(ObjectModuleRecord *current_module_record
-		  __attribute__((unused)),
-		  const ObjectString *name __attribute__((unused)),
-		  char *operation __attribute__((unused)), int32_t icurrent,
+int_compound_plus(ObjectModuleRecord *current_module_record,
+		  const ObjectString *name, char *operation, int32_t icurrent,
 		  int32_t ioperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)operation;
+	(void)name;
 	const int64_t result = (int64_t)icurrent + (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1088,12 +1057,13 @@ int_compound_plus(ObjectModuleRecord *current_module_record
 }
 
 static InterpretResult
-int_compound_minus(ObjectModuleRecord *current_module_record
-		   __attribute__((unused)),
-		   const ObjectString *name __attribute__((unused)),
-		   char *operation __attribute__((unused)), int32_t icurrent,
+int_compound_minus(ObjectModuleRecord *current_module_record,
+		   const ObjectString *name, char *operation, int32_t icurrent,
 		   int32_t ioperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	const int64_t result = (int64_t)icurrent - (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1104,12 +1074,13 @@ int_compound_minus(ObjectModuleRecord *current_module_record
 }
 
 static InterpretResult
-int_compound_star(ObjectModuleRecord *current_module_record
-		  __attribute__((unused)),
-		  const ObjectString *name __attribute__((unused)),
-		  char *operation __attribute__((unused)), int32_t icurrent,
+int_compound_star(ObjectModuleRecord *current_module_record,
+		  const ObjectString *name, char *operation, int32_t icurrent,
 		  int32_t ioperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	const int64_t result = (int64_t)icurrent * (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1174,34 +1145,37 @@ int_compound_modulus(ObjectModuleRecord *current_module_record,
 
 // Float compound operation handlers
 static InterpretResult
-float_compound_plus(ObjectModuleRecord *current_module_record
-		    __attribute__((unused)),
-		    const ObjectString *name __attribute__((unused)),
-		    char *operation __attribute__((unused)), double dcurrent,
+float_compound_plus(ObjectModuleRecord *current_module_record,
+		    const ObjectString *name, char *operation, double dcurrent,
 		    double doperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent + doperand);
 	return INTERPRET_OK;
 }
 
 static InterpretResult
-float_compound_minus(ObjectModuleRecord *current_module_record
-		     __attribute__((unused)),
-		     const ObjectString *name __attribute__((unused)),
-		     char *operation __attribute__((unused)), double dcurrent,
+float_compound_minus(ObjectModuleRecord *current_module_record,
+		     const ObjectString *name, char *operation, double dcurrent,
 		     double doperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent - doperand);
 	return INTERPRET_OK;
 }
 
 static InterpretResult
-float_compound_star(ObjectModuleRecord *current_module_record
-		    __attribute__((unused)),
-		    const ObjectString *name __attribute__((unused)),
-		    char *operation __attribute__((unused)), double dcurrent,
+float_compound_star(ObjectModuleRecord *current_module_record,
+		    const ObjectString *name, char *operation, double dcurrent,
 		    double doperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent * doperand);
 	return INTERPRET_OK;
 }
@@ -1221,14 +1195,15 @@ float_compound_slash(ObjectModuleRecord *current_module_record,
 	return INTERPRET_OK;
 }
 
-static InterpretResult
-float_compound_invalid_int_op(ObjectModuleRecord *current_module_record,
-			      const ObjectString *name __attribute__((unused)),
-			      char *operation,
-			      double dcurrent __attribute__((unused)),
-			      double doperand __attribute__((unused)),
-			      Value *resultValue __attribute__((unused)))
+static InterpretResult float_compound_invalid_int_op(
+	ObjectModuleRecord *current_module_record, const ObjectString *name,
+	char *operation, double dcurrent, double doperand, Value *resultValue)
 {
+	(void)current_module_record;
+	(void)name;
+	(void)dcurrent;
+	(void)doperand;
+	(void)resultValue;
 	runtime_panic(current_module_record, false, TYPE,
 		      "Operands for integer compound assignment '%s' must both "
 		      "be integers.",
@@ -1256,16 +1231,18 @@ static const FloatCompoundOp float_compound_ops[] = {
 };
 
 // Function pointer type for typeof operations
-typedef Value (*TypeofHandler)(VM *vm, const Value value);
+typedef Value (*TypeofHandler)(VM *vm, Value value);
 
 // Object type handlers for typeof
-static Value typeof_string(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_string(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "string", 6));
 }
 
-static Value typeof_function(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_function(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "function", 8));
 }
 
@@ -1275,73 +1252,63 @@ static Value typeof_upvalue(VM *vm, const Value value)
 	return typeof_value(vm, upvalue->closed);
 }
 
-static Value typeof_array(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_array(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "array", 5));
 }
 
-static Value typeof_table(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_table(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "table", 5));
 }
 
-static Value typeof_error(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_error(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "error", 5));
 }
 
-static Value typeof_result(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_result(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "result", 6));
 }
 
-static Value typeof_random(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_random(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "random", 6));
 }
 
-static Value typeof_file(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_file(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "file", 4));
 }
 
-static Value typeof_module_record(VM *vm,
-				  const Value value __attribute__((unused)))
+static Value typeof_module_record(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "module", 6));
 }
 
-static Value typeof_static_array(VM *vm,
-				 const Value value __attribute__((unused)))
+static Value typeof_struct(VM *vm, const Value value)
 {
-	return OBJECT_VAL(copy_string(vm, "static array", 12));
-}
-
-static Value typeof_static_table(VM *vm,
-				 const Value value __attribute__((unused)))
-{
-	return OBJECT_VAL(copy_string(vm, "static table", 12));
-}
-
-static Value typeof_struct(VM *vm, const Value value __attribute__((unused)))
-{
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "struct", 6));
 }
 
-static Value typeof_struct_instance(VM *vm,
-				    const Value value __attribute__((unused)))
+static Value typeof_struct_instance(VM *vm, const Value value)
 {
+	(void)value;
 	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
 }
 
-static Value typeof_vec2(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
 {
-	return OBJECT_VAL(copy_string(vm, "vec2", 4));
-}
-
-static Value typeof_vec3(VM *vm, const Value value __attribute__((unused)))
-{
-	return OBJECT_VAL(copy_string(vm, "vec3", 4));
+	return OBJECT_VAL(copy_string(vm, "vec", 3));
 }
 
 // Dispatch table for object types
@@ -1361,13 +1328,9 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_RANDOM] = typeof_random,
 	[OBJECT_FILE] = typeof_file,
 	[OBJECT_MODULE_RECORD] = typeof_module_record,
-	[OBJECT_STATIC_ARRAY] = typeof_static_array,
-	[OBJECT_STATIC_TABLE] = typeof_static_table,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
-	[OBJECT_VEC2] = typeof_vec2,
-	[OBJECT_VEC3] = typeof_vec3,
-};
+	[OBJECT_VECTOR] = typeof_vector};
 
 /**
  * Performs a binary operation on the top two values of the stack.
@@ -1524,8 +1487,8 @@ bool check_previous_instruction(const CallFrame *frame,
 				const int instructions_ago,
 				const OpCode instruction)
 {
-	const uint8_t *current = frame->ip;
-	const uint8_t *codeStart = frame->closure->function->chunk.code;
+	const uint16_t *current = frame->ip;
+	const uint16_t *codeStart = frame->closure->function->chunk.code;
 
 	// Check if we have enough bytes before current position,
 	if (current - (instructions_ago + 2) < codeStart) {
@@ -1621,4 +1584,140 @@ Value typeof_value(VM *vm, const Value value)
 	}
 	__builtin_unreachable();
 	return OBJECT_VAL(copy_string(vm, "unknown", 7));
+}
+
+bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
+				Value *target, const Value operand,
+				const OpCode op)
+{
+	const bool currentIsInt = IS_INT(*target);
+	const bool currentIsFloat = IS_FLOAT(*target);
+	const bool operandIsInt = IS_INT(operand);
+	const bool operandIsFloat = IS_FLOAT(operand);
+
+	if (op == OP_SET_LOCAL_PLUS &&
+	    (IS_CRUX_STRING(*target) || IS_CRUX_STRING(operand))) {
+		// += is not defined for strings
+		return false;
+	}
+
+	if (!((currentIsInt || currentIsFloat) &&
+	      (operandIsInt || operandIsFloat))) {
+		runtime_panic(currentModuleRecord, false, TYPE,
+			      "Operands must be numbers.");
+		return false;
+	}
+
+	Value result;
+
+	// both integers
+	if (currentIsInt && operandIsInt) {
+		const int32_t a = AS_INT(*target);
+		const int32_t b = AS_INT(operand);
+		int64_t temp;
+
+		switch (op) {
+		case OP_SET_LOCAL_PLUS:
+		case OP_SET_UPVALUE_PLUS:
+		case OP_SET_GLOBAL_PLUS:
+			temp = (int64_t)a + (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_MINUS:
+		case OP_SET_UPVALUE_MINUS:
+		case OP_SET_GLOBAL_MINUS:
+			temp = (int64_t)a - (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_STAR:
+		case OP_SET_UPVALUE_STAR:
+		case OP_SET_GLOBAL_STAR:
+			temp = (int64_t)a * (int64_t)b;
+			result = (temp >= INT32_MIN && temp <= INT32_MAX)
+					 ? INT_VAL((int32_t)temp)
+					 : FLOAT_VAL((double)temp);
+			break;
+		case OP_SET_LOCAL_SLASH:
+		case OP_SET_UPVALUE_SLASH:
+		case OP_SET_GLOBAL_SLASH:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Division by zero.");
+				return false;
+			}
+			result = FLOAT_VAL((double)a / (double)b);
+			break;
+		case OP_SET_LOCAL_INT_DIVIDE:
+		case OP_SET_UPVALUE_INT_DIVIDE:
+		case OP_SET_GLOBAL_INT_DIVIDE:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Integer division by zero.");
+				return false;
+			}
+			result = (a == INT32_MIN && b == -1)
+					 ? FLOAT_VAL(-(double)INT32_MIN)
+					 : INT_VAL(a / b);
+			break;
+		case OP_SET_LOCAL_MODULUS:
+		case OP_SET_UPVALUE_MODULUS:
+		case OP_SET_GLOBAL_MODULUS:
+			if (b == 0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Modulo by zero.");
+				return false;
+			}
+			result = (a == INT32_MIN && b == -1) ? INT_VAL(0)
+							     : INT_VAL(a % b);
+			break;
+		default:
+			return false;
+		}
+	} else {
+		// Either one of the operands is a float
+		const double a = currentIsFloat ? AS_FLOAT(*target)
+						: (double)AS_INT(*target);
+		const double b = operandIsFloat ? AS_FLOAT(operand)
+						: (double)AS_INT(operand);
+
+		switch (op) {
+		case OP_SET_LOCAL_PLUS:
+		case OP_SET_UPVALUE_PLUS:
+		case OP_SET_GLOBAL_PLUS:
+			result = FLOAT_VAL(a + b);
+			break;
+		case OP_SET_LOCAL_MINUS:
+		case OP_SET_UPVALUE_MINUS:
+		case OP_SET_GLOBAL_MINUS:
+			result = FLOAT_VAL(a - b);
+			break;
+		case OP_SET_LOCAL_STAR:
+		case OP_SET_UPVALUE_STAR:
+		case OP_SET_GLOBAL_STAR:
+			result = FLOAT_VAL(a * b);
+			break;
+		case OP_SET_LOCAL_SLASH:
+		case OP_SET_UPVALUE_SLASH:
+		case OP_SET_GLOBAL_SLASH:
+			if (b == 0.0) {
+				runtime_panic(currentModuleRecord, false, MATH,
+					      "Division by zero.");
+				return false;
+			}
+			result = FLOAT_VAL(a / b);
+			break;
+		default:
+			runtime_panic(
+				currentModuleRecord, false, TYPE,
+				"Integer operations require integer operands.");
+			return false;
+		}
+	}
+
+	*target = result;
+	return true;
 }

@@ -30,7 +30,9 @@ static const Callable stringMethods[] = {
 	{"contains", string_contains_method, 2},
 	{"replace", string_replace_method, 3},
 	{"split", string_split_method, 2},
-	{"substring", string_substring_method, 3}};
+	{"substring", string_substring_method, 3},
+	{"concat", string_concat_method, 2}
+};
 
 static const InfallibleCallable stringInfallibleMethods[] = {
 	{"_is_empty", string_is_empty_method, 1},
@@ -103,6 +105,7 @@ static const Callable coreFunctions[] = {
 	{"ok", ok_function, 1},		{"int", int_function, 1},
 	{"float", float_function, 1},	{"string", string_function, 1},
 	{"table", table_function, 1},	{"array", array_function, 1},
+	{"format", format_function, 2}
 };
 
 static const InfallibleCallable coreInfallibleFunctions[] = {
@@ -181,50 +184,30 @@ static const Callable fileSystemFunctions[] = {
 	{"copy_file", copy_file_function, 2},
 	{"is_file_in", is_file_in_function, 2}};
 
-static const Callable vectorFunctions[] = {{"Vec2", new_vec2_function, 2},
-					   {"Vec3", new_vec3_function, 3}};
+static const Callable vectorFunctions[] = {{"Vec", new_vector_function, 2}};
 
-static const Callable vec2Methods[] = {
-	{"dot", vec2_dot_method, 2},
-	{"add", vec2_add_method, 2},
-	{"subtract", vec2_subtract_method, 2},
-	{"multiply", vec2_multiply_method, 2},
-	{"divide", vec2_divide_method, 2},
-	{"magnitude", vec2_magnitude_method, 1},
-	{"normalize", vec2_normalize_method, 1},
-	{"distance", vec2_distance_method, 2},
-	{"angle", vec2_angle_method, 1},
-	{"rotate", vec2_rotate_method, 2},
-	{"lerp", vec2_lerp_method, 3},
-	{"reflect", vec2_reflect_method, 2},
-	{"equals", vec2_equals_method, 2},
+static const Callable vectorMethods[] = {
+	{"dot", vector_dot_method, 2},
+	{"add", vector_add_method, 2},
+	{"subtract", vector_subtract_method, 2},
+	{"multiply", vector_multiply_method, 2},
+	{"divide", vector_divide_method, 2},
+	{"magnitude", vector_magnitude_method, 1},
+	{"normalize", vector_normalize_method, 1},
+	{"distance", vector_distance_method, 2},
+	{"angle_between", vector_angle_between_method, 2},
+	{"cross", vector_cross_method, 2},
+	{"lerp", vector_lerp_method, 3},
+	{"reflect", vector_reflect_method, 2},
+	{"equals", vector_equals_method, 2},
 };
 
-static const InfallibleCallable vec2InfallibleMethods[] = {
-	{"x", vec2_x_method, 1},
-	{"y", vec2_y_method, 1},
-};
-
-static const Callable vec3Methods[] = {
-	{"dot", vec3_dot_method, 2},
-	{"add", vec3_add_method, 2},
-	{"subtract", vec3_subtract_method, 2},
-	{"multiply", vec3_multiply_method, 2},
-	{"divide", vec3_divide_method, 2},
-	{"magnitude", vec3_magnitude_method, 1},
-	{"normalize", vec3_normalize_method, 1},
-	{"distance", vec3_distance_method, 2},
-	{"angle_between", vec3_angle_between_method, 2},
-	{"cross", vec3_cross_method, 2},
-	{"lerp", vec3_lerp_method, 3},
-	{"reflect", vec3_reflect_method, 2},
-	{"equals", vec3_equals_method, 2},
-};
-
-static const InfallibleCallable vec3InfallibleMethods[] = {
-	{"x", vec3_x_method, 1},
-	{"y", vec3_y_method, 1},
-	{"z", vec3_z_method, 1},
+static const InfallibleCallable vectorInfallibleMethods[] = {
+	{"x", vector_x_method, 1},
+	{"y", vector_y_method, 1},
+	{"z", vector_z_method, 1},
+	{"w", vector_w_method, 1},
+	{"dimension", vector_dimension_method, 1}
 };
 
 bool register_native_method(VM *vm, Table *method_table,
@@ -457,12 +440,9 @@ bool initialize_std_lib(VM *vm)
 			    resultInfallibleMethods,
 			    ARRAY_COUNT(resultInfallibleMethods));
 
-	initTypeMethodTable(vm, &vm->vec2_type, vec2Methods,
-			    ARRAY_COUNT(vec2Methods), vec2InfallibleMethods,
-			    ARRAY_COUNT(vec2InfallibleMethods));
-	initTypeMethodTable(vm, &vm->vec3_type, vec3Methods,
-			    ARRAY_COUNT(vec3Methods), vec3InfallibleMethods,
-			    ARRAY_COUNT(vec3InfallibleMethods));
+	initTypeMethodTable(vm, &vm->vector_type, vectorMethods,
+			    ARRAY_COUNT(vectorMethods), vectorInfallibleMethods,
+			    ARRAY_COUNT(vectorInfallibleMethods));
 
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),

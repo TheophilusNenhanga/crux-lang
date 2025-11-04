@@ -1,7 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include "../object.h"
+#include "object.h"
 
 ObjectResult *string_first_method(VM *vm, int arg_count, const Value *args);
 ObjectResult *string_last_method(VM *vm, int arg_count, const Value *args);
@@ -16,6 +16,7 @@ ObjectResult *string_contains_method(VM *vm, int arg_count, const Value *args);
 ObjectResult *string_starts_with_method(VM *vm, int arg_count,
 					const Value *args);
 ObjectResult *string_ends_with_method(VM *vm, int arg_count, const Value *args);
+ObjectResult* string_concat_method(VM *vm, int arg_count, const Value *args);
 
 Value string_is_al_num_method(VM *vm, int arg_count, const Value *args);
 Value string_is_alpha_method(VM *vm, int arg_count, const Value *args);

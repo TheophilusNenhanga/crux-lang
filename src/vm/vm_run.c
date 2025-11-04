@@ -1,20 +1,22 @@
 #include <stdio.h>
+
+#include "file_handler.h"
+#include "stdlib/std.h"
+#include "vm.h"
+#include "vm_helpers.h"
+#include "vm_run.h"
+
 #include <string.h>
 
-#include "vm/vm.h"
 #include "debug.h"
-#include "file_handler.h"
 #include "object.h"
 #include "panic.h"
-#include "stdlib/std.h"
-#include "vm/vm_helpers.h"
-#include "vm/vm_run.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH() goto *dispatchTable[endIndex]
 #else
 #define DISPATCH()                                                             \
-	instruction = READ_BYTE();                                             \
+	instruction = READ_SHORT();                                            \
 	goto *dispatchTable[instruction]
 #endif
 
@@ -32,15 +34,10 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 		&currentModuleRecord
 			 ->frames[currentModuleRecord->frame_count - 1];
 
-#define READ_BYTE() (*frame->ip++)
+#define READ_SHORT() (*frame->ip++)
 #define READ_CONSTANT()                                                        \
-	(frame->closure->function->chunk.constants.values[READ_BYTE()])
-#define READ_STRING() AS_CRUX_STRING(READ_CONSTANT())
-#define READ_SHORT()                                                           \
-	(frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
-#define READ_CONSTANT_16()                                                     \
 	(frame->closure->function->chunk.constants.values[READ_SHORT()])
-#define READ_STRING_16() AS_CRUX_STRING(READ_CONSTANT_16())
+#define READ_STRING() AS_CRUX_STRING(READ_CONSTANT())
 
 	static void *dispatchTable[] = {&&OP_RETURN,
 					&&OP_CONSTANT,
@@ -115,32 +112,20 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 					&&OP_USE_NATIVE,
 					&&OP_USE_MODULE,
 					&&OP_FINISH_USE,
-					&&OP_CONSTANT_16,
-					&&OP_DEFINE_GLOBAL_16,
-					&&OP_GET_GLOBAL_16,
-					&&OP_SET_GLOBAL_16,
-					&&OP_GET_PROPERTY_16,
-					&&OP_SET_PROPERTY_16,
-					&&OP_INVOKE_16,
 					&&OP_TYPEOF,
-					&&OP_STATIC_ARRAY,
-					&&OP_STATIC_TABLE,
 					&&OP_STRUCT,
-					&&OP_STRUCT_16,
 					&&OP_STRUCT_INSTANCE_START,
 					&&OP_STRUCT_NAMED_FIELD,
-					&&OP_STRUCT_NAMED_FIELD_16,
 					&&OP_STRUCT_INSTANCE_END,
 					&&OP_NIL_RETURN,
-					&&OP_ANON_FUNCTION_16,
 					&&OP_UNWRAP,
 					&&end};
 
-	uint8_t instruction;
+	uint16_t instruction;
 #ifdef DEBUG_TRACE_EXECUTION
-	static uint8_t endIndex = sizeof(dispatchTable) /
-					  sizeof(dispatchTable[0]) -
-				  1;
+	static uint16_t endIndex = sizeof(dispatchTable) /
+					   sizeof(dispatchTable[0]) -
+				   1;
 #endif
 	DISPATCH();
 OP_RETURN: {
@@ -246,7 +231,7 @@ OP_NOT_EQUAL: {
 }
 
 OP_ADD: {
-	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) ||
+	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) &&
 	    IS_CRUX_STRING(PEEK(currentModuleRecord, 1))) {
 		if (!concatenate(vm)) {
 			return INTERPRET_RUNTIME_ERROR;
@@ -308,7 +293,7 @@ OP_DEFINE_GLOBAL: {
 	runtime_panic(
 		currentModuleRecord, false, NAME,
 		currentModuleRecord->is_repl
-			? "Warning: Defined a name that already had a "
+			? "Defined a name that already had a "
 			  "definition"
 			: "Cannot define '%s' because it is already defined.",
 		name->chars);
@@ -343,13 +328,13 @@ OP_SET_GLOBAL: {
 }
 
 OP_GET_LOCAL: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	push(currentModuleRecord, frame->slots[slot]);
 	DISPATCH();
 }
 
 OP_SET_LOCAL: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	frame->slots[slot] = PEEK(currentModuleRecord, 0);
 	DISPATCH();
 }
@@ -376,7 +361,7 @@ OP_LOOP: {
 }
 
 OP_CALL: {
-	int arg_count = READ_BYTE();
+	int arg_count = READ_SHORT();
 	if (!call_value(vm, PEEK(currentModuleRecord, arg_count), arg_count)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -391,8 +376,8 @@ OP_CLOSURE: {
 	push(currentModuleRecord, OBJECT_VAL(closure));
 
 	for (int i = 0; i < closure->upvalue_count; i++) {
-		uint8_t isLocal = READ_BYTE();
-		uint8_t index = READ_BYTE();
+		uint16_t isLocal = READ_SHORT();
+		uint16_t index = READ_SHORT();
 
 		if (isLocal) {
 			closure->upvalues[i] = capture_upvalue(vm,
@@ -406,13 +391,13 @@ OP_CLOSURE: {
 }
 
 OP_GET_UPVALUE: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	push(currentModuleRecord, *frame->closure->upvalues[slot]->location);
 	DISPATCH();
 }
 
 OP_SET_UPVALUE: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	*frame->closure->upvalues[slot]->location = PEEK(currentModuleRecord,
 							 0);
 	DISPATCH();
@@ -485,7 +470,7 @@ OP_SET_PROPERTY: {
 
 OP_INVOKE: {
 	ObjectString *methodName = READ_STRING();
-	int arg_count = READ_BYTE();
+	int arg_count = READ_SHORT();
 	if (!invoke(vm, methodName, arg_count)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -539,11 +524,11 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int32_t index = AS_INT(indexValue);
+		uint32_t index = (uint32_t)AS_INT(indexValue);
 		ObjectArray *array = AS_CRUX_ARRAY(
 			PEEK(currentModuleRecord, 0));
 
-		if (index < 0 || index >= array->size) {
+		if (index >= array->size) {
 			runtime_panic(currentModuleRecord, false, BOUNDS,
 				      "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
@@ -562,11 +547,11 @@ OP_GET_COLLECTION: {
 				      "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
-		int32_t index = AS_INT(indexValue);
+		uint32_t index = (uint32_t)AS_INT(indexValue);
 		ObjectString *string = AS_CRUX_STRING(
 			PEEK(currentModuleRecord, 0));
 		ObjectString *ch;
-		if (index < 0 || index >= string->length) {
+		if (index >= string->length) {
 			runtime_panic(currentModuleRecord, false, BOUNDS,
 				      "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
@@ -574,46 +559,6 @@ OP_GET_COLLECTION: {
 		// Only single character indexing
 		ch = copy_string(vm, string->chars + index, 1);
 		pop_push(currentModuleRecord, OBJECT_VAL(ch));
-		DISPATCH();
-	}
-
-	case OBJECT_STATIC_ARRAY: {
-		if (!IS_INT(indexValue)) {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Index must be of type 'int'.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		int32_t index = AS_INT(indexValue);
-		ObjectStaticArray *array = AS_CRUX_STATIC_ARRAY(
-			PEEK(currentModuleRecord, 1));
-		if (index < 0 || index >= array->size) {
-			runtime_panic(currentModuleRecord, false, BOUNDS,
-				      "Index out of bounds.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		pop_push(currentModuleRecord, array->values[index]);
-		DISPATCH();
-	}
-
-	case OBJECT_STATIC_TABLE: {
-		if (IS_CRUX_HASHABLE(indexValue)) {
-			ObjectStaticTable *table = AS_CRUX_STATIC_TABLE(
-				PEEK(currentModuleRecord, 0));
-			Value value;
-			if (!object_table_get(table->entries, table->size,
-					      table->capacity, indexValue,
-					      &value)) {
-				runtime_panic(currentModuleRecord, false,
-					      COLLECTION_GET,
-					      "Failed to get value from table");
-				return INTERPRET_RUNTIME_ERROR;
-			}
-			pop_push(currentModuleRecord, value);
-		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.", READ_STRING());
-			return INTERPRET_RUNTIME_ERROR;
-		}
 		DISPATCH();
 	}
 
@@ -659,20 +604,6 @@ OP_SET_COLLECTION: {
 		}
 		break;
 	}
-
-	case OBJECT_STATIC_ARRAY: {
-		runtime_panic(currentModuleRecord, false, COLLECTION_SET,
-			      "'static array' does not support value updates. "
-			      "Use 'array' instead.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	case OBJECT_STATIC_TABLE: {
-		runtime_panic(currentModuleRecord, false, COLLECTION_SET,
-			      "'static table' does not support value updates. "
-			      "Use 'table' instead.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
 	default: {
 		runtime_panic(currentModuleRecord, false, TYPE,
 			      "Value is not a mutable collection type.");
@@ -707,7 +638,7 @@ OP_RIGHT_SHIFT: {
 }
 
 OP_SET_LOCAL_SLASH: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	Value currentValue = frame->slots[slot];
 	Value operandValue = PEEK(currentModuleRecord, 0); // Right-hand side
 
@@ -742,7 +673,7 @@ OP_SET_LOCAL_SLASH: {
 }
 
 OP_SET_LOCAL_STAR: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	Value currentValue = frame->slots[slot];
 	Value operandValue = PEEK(currentModuleRecord, 0);
 
@@ -782,265 +713,68 @@ OP_SET_LOCAL_STAR: {
 }
 
 OP_SET_LOCAL_PLUS: {
-	uint8_t slot = READ_BYTE();
-	Value currentValue = frame->slots[slot];
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
-		push(currentModuleRecord, currentValue);
-		if (!concatenate(vm)) {
-			pop(currentModuleRecord);
-
-			return INTERPRET_RUNTIME_ERROR;
-		}
-
-		frame->slots[slot] = PEEK(currentModuleRecord, 0);
-	} else if ((currentIsInt || currentIsFloat) &&
-		   (operandIsInt || operandIsFloat)) {
-		Value resultValue;
-		if (currentIsInt && operandIsInt) {
-			int32_t icurrent = AS_INT(currentValue);
-			int32_t ioperand = AS_INT(operandValue);
-			int64_t result = (int64_t)icurrent + (int64_t)ioperand;
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				resultValue = INT_VAL((int32_t)result);
-			} else {
-				resultValue = FLOAT_VAL(
-					(double)result); // Promote
-			}
-		} else {
-			double dcurrent = currentIsFloat
-						  ? AS_FLOAT(currentValue)
-						  : (double)AS_INT(
-							    currentValue);
-			double doperand = operandIsFloat
-						  ? AS_FLOAT(operandValue)
-						  : (double)AS_INT(
-							    operandValue);
-			resultValue = FLOAT_VAL(dcurrent + doperand);
-		}
-		frame->slots[slot] = resultValue;
-	} else {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '+=' must be of type 'float' | "
-			      "'int' | 'string'.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(currentModuleRecord,
+					&frame->slots[slot],
+					PEEK(currentModuleRecord, 0),
+					OP_SET_LOCAL_PLUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
 	DISPATCH();
 }
 
 OP_SET_LOCAL_MINUS: {
-	uint8_t slot = READ_BYTE();
-	Value currentValue = frame->slots[slot];
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '-=' must be numbers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(currentModuleRecord,
+					&frame->slots[slot],
+					PEEK(currentModuleRecord, 0),
+					OP_SET_LOCAL_MINUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	Value resultValue;
-
-	if (currentIsInt && operandIsInt) {
-		int32_t icurrent = AS_INT(currentValue);
-		int32_t ioperand = AS_INT(operandValue);
-		int64_t result = (int64_t)icurrent - (int64_t)ioperand;
-		if (result >= INT32_MIN && result <= INT32_MAX) {
-			resultValue = INT_VAL((int32_t)result);
-		} else {
-			resultValue = FLOAT_VAL((double)result);
-		}
-	} else {
-		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-						 : (double)AS_INT(currentValue);
-		double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-						 : (double)AS_INT(operandValue);
-		resultValue = FLOAT_VAL(dcurrent - doperand);
-	}
-
-	frame->slots[slot] = resultValue;
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_SLASH: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '/=' must be numbers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_SLASH)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	Value resultValue;
-
-	double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-					 : (double)AS_INT(currentValue);
-	double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-					 : (double)AS_INT(operandValue);
-
-	if (doperand == 0.0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Division by zero in '/=' assignment.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	resultValue = FLOAT_VAL(dcurrent / doperand);
-	*location = resultValue;
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_STAR: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '*=' must be numbers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_STAR)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	Value resultValue;
-
-	if (currentIsInt && operandIsInt) {
-		int32_t icurrent = AS_INT(currentValue);
-		int32_t ioperand = AS_INT(operandValue);
-		int64_t result = (int64_t)icurrent * (int64_t)ioperand;
-		if (result >= INT32_MIN && result <= INT32_MAX) {
-			resultValue = INT_VAL((int32_t)result);
-		} else {
-			resultValue = FLOAT_VAL((double)result);
-		}
-	} else {
-		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-						 : (double)AS_INT(currentValue);
-		double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-						 : (double)AS_INT(operandValue);
-		resultValue = FLOAT_VAL(dcurrent * doperand);
-	}
-
-	*location = resultValue;
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_PLUS: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (IS_CRUX_STRING(currentValue) || IS_CRUX_STRING(operandValue)) {
-		push(currentModuleRecord, currentValue);
-		if (!concatenate(vm)) {
-			pop(currentModuleRecord);
-			return INTERPRET_RUNTIME_ERROR;
-		}
-		*location = PEEK(currentModuleRecord, 0);
-	} else if ((currentIsInt || currentIsFloat) &&
-		   (operandIsInt || operandIsFloat)) {
-		Value resultValue;
-		if (currentIsInt && operandIsInt) {
-			int32_t icurrent = AS_INT(currentValue);
-			int32_t ioperand = AS_INT(operandValue);
-			int64_t result = (int64_t)icurrent + (int64_t)ioperand;
-			if (result >= INT32_MIN && result <= INT32_MAX) {
-				resultValue = INT_VAL((int32_t)result);
-			} else {
-				resultValue = FLOAT_VAL((double)result);
-			}
-		} else {
-			double dcurrent = currentIsFloat
-						  ? AS_FLOAT(currentValue)
-						  : (double)AS_INT(
-							    currentValue);
-			double doperand = operandIsFloat
-						  ? AS_FLOAT(operandValue)
-						  : (double)AS_INT(
-							    operandValue);
-			resultValue = FLOAT_VAL(dcurrent + doperand);
-		}
-		*location = resultValue;
-	} else {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '+=' must be numbers or strings.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_PLUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_MINUS: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	bool currentIsInt = IS_INT(currentValue);
-	bool currentIsFloat = IS_FLOAT(currentValue);
-	bool operandIsInt = IS_INT(operandValue);
-	bool operandIsFloat = IS_FLOAT(operandValue);
-
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '-=' must be numbers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MINUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	Value resultValue;
-
-	if (currentIsInt && operandIsInt) {
-		int32_t icurrent = AS_INT(currentValue);
-		int32_t ioperand = AS_INT(operandValue);
-		int64_t result = (int64_t)icurrent - (int64_t)ioperand;
-		if (result >= INT32_MIN && result <= INT32_MAX) {
-			resultValue = INT_VAL((int32_t)result);
-		} else {
-			resultValue = FLOAT_VAL((double)result);
-		}
-	} else {
-		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-						 : (double)AS_INT(currentValue);
-		double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-						 : (double)AS_INT(operandValue);
-		resultValue = FLOAT_VAL(dcurrent - doperand);
-	}
-
-	*location = resultValue;
 	DISPATCH();
 }
 
@@ -1108,8 +842,8 @@ OP_ANON_FUNCTION: {
 	ObjectClosure *closure = new_closure(vm, function);
 	push(currentModuleRecord, OBJECT_VAL(closure));
 	for (int i = 0; i < closure->upvalue_count; i++) {
-		uint8_t isLocal = READ_BYTE();
-		uint8_t index = READ_BYTE();
+		uint16_t isLocal = READ_SHORT();
+		uint16_t index = READ_SHORT();
 
 		if (isLocal) {
 			closure->upvalues[i] = capture_upvalue(vm,
@@ -1179,7 +913,7 @@ OP_RESULT_MATCH_ERR: {
 }
 
 OP_RESULT_BIND: {
-	uint8_t slot = READ_BYTE();
+	uint16_t slot = READ_SHORT();
 	Value bind = PEEK(currentModuleRecord, 0);
 	vm->match_handler.match_bind = bind;
 	vm->match_handler.is_match_bind = true;
@@ -1226,139 +960,57 @@ OP_SET_GLOBAL_MODULUS: {
 }
 
 OP_SET_LOCAL_INT_DIVIDE: {
-	uint8_t slot = READ_BYTE();
-	Value currentValue = frame->slots[slot];
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '//=' must both be integers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(currentModuleRecord,
+					&frame->slots[slot],
+					PEEK(currentModuleRecord, 0),
+					OP_SET_LOCAL_INT_DIVIDE)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	int32_t icurrent = AS_INT(currentValue);
-	int32_t ioperand = AS_INT(operandValue);
-
-	if (ioperand == 0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Integer division by zero in '//=' assignment.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	Value resultValue;
-	if (icurrent == INT32_MIN && ioperand == -1) {
-		resultValue = FLOAT_VAL(-(double)INT32_MIN); // Promote
-	} else {
-		resultValue = INT_VAL(icurrent / ioperand);
-	}
-
-	frame->slots[slot] = resultValue;
 	DISPATCH();
 }
 OP_SET_LOCAL_MODULUS: {
-	uint8_t slot = READ_BYTE();
-	Value currentValue = frame->slots[slot];
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '%=' must both be integers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(currentModuleRecord,
+					&frame->slots[slot],
+					PEEK(currentModuleRecord, 0),
+					OP_SET_LOCAL_MODULUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	int32_t icurrent = AS_INT(currentValue);
-	int32_t ioperand = AS_INT(operandValue);
-
-	if (ioperand == 0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Modulo by zero in '%=' assignment.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	Value resultValue;
-	if (icurrent == INT32_MIN && ioperand == -1) {
-		resultValue = INT_VAL(0);
-	} else {
-		resultValue = INT_VAL(icurrent % ioperand);
-	}
-
-	frame->slots[slot] = resultValue;
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_INT_DIVIDE: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '//=' must both be integers.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_INT_DIVIDE)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	int32_t icurrent = AS_INT(currentValue);
-	int32_t ioperand = AS_INT(operandValue);
-
-	if (ioperand == 0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Integer division by zero in '//=' assignment.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	Value resultValue;
-	if (icurrent == INT32_MIN && ioperand == -1) {
-		resultValue = FLOAT_VAL(-(double)INT32_MIN); // Promote
-	} else {
-		resultValue = INT_VAL(icurrent / ioperand);
-	}
-
-	*location = resultValue;
 	DISPATCH();
 }
 
 OP_SET_UPVALUE_MODULUS: {
-	uint8_t slot = READ_BYTE();
-	Value *location = frame->closure->upvalues[slot]->location;
-	Value currentValue = *location;
-	Value operandValue = PEEK(currentModuleRecord, 0);
-
-	if (!IS_INT(currentValue) || !IS_INT(operandValue)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '%=' must both be of type 'int'.");
+	uint16_t slot = READ_SHORT();
+	if (!handle_compound_assignment(
+		    currentModuleRecord,
+		    frame->closure->upvalues[slot]->location,
+		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MODULUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	int32_t icurrent = AS_INT(currentValue);
-	int32_t ioperand = AS_INT(operandValue);
-
-	if (ioperand == 0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Modulo by zero in '%=' assignment.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	Value resultValue;
-	if (ioperand == -1 && icurrent == INT32_MIN) {
-		resultValue = INT_VAL(0);
-	} else {
-		resultValue = INT_VAL(icurrent % ioperand);
-	}
-
-	*location = resultValue;
 	DISPATCH();
 }
 
 OP_USE_NATIVE: {
-	uint8_t nameCount = READ_BYTE();
+	uint16_t nameCount = READ_SHORT();
 	ObjectString *names[UINT8_MAX];
 	ObjectString *aliases[UINT8_MAX];
 
-	for (uint8_t i = 0; i < nameCount; i++) {
+	for (uint16_t i = 0; i < nameCount; i++) {
 		names[i] = READ_STRING();
 	}
-	for (uint8_t i = 0; i < nameCount; i++) {
+	for (uint16_t i = 0; i < nameCount; i++) {
 		aliases[i] = READ_STRING();
 	}
 
@@ -1526,7 +1178,7 @@ OP_USE_MODULE: {
 }
 
 OP_FINISH_USE: {
-	uint8_t nameCount = READ_BYTE();
+	uint16_t nameCount = READ_SHORT();
 	ObjectString *names[UINT8_MAX];
 	ObjectString *aliases[UINT8_MAX];
 
@@ -1552,7 +1204,7 @@ OP_FINISH_USE: {
 	}
 
 	// copy names
-	for (uint8_t i = 0; i < nameCount; i++) {
+	for (uint16_t i = 0; i < nameCount; i++) {
 		ObjectString *name = names[i];
 		ObjectString *alias = aliases[i];
 
@@ -1578,130 +1230,6 @@ OP_FINISH_USE: {
 	DISPATCH();
 }
 
-OP_CONSTANT_16: {
-	Value constant = READ_CONSTANT_16();
-	push(currentModuleRecord, constant);
-	DISPATCH();
-}
-
-OP_DEFINE_GLOBAL_16: {
-	ObjectString *name = READ_STRING_16();
-	bool isPublic = false;
-	if (check_previous_instruction(frame, 3, OP_PUB)) {
-		isPublic = true;
-	}
-	if (table_set(vm, &currentModuleRecord->globals, name,
-		      PEEK(currentModuleRecord, 0))) {
-		if (isPublic) {
-			table_set(vm, &currentModuleRecord->publics, name,
-				  PEEK(currentModuleRecord, 0));
-		}
-		pop(currentModuleRecord);
-		DISPATCH();
-	}
-	runtime_panic(currentModuleRecord, false, NAME,
-		      "Cannot define '%s' because it is already defined.",
-		      name->chars);
-	return INTERPRET_RUNTIME_ERROR;
-}
-
-OP_GET_GLOBAL_16: {
-	ObjectString *name = READ_STRING_16();
-	Value value;
-	if (table_get(&currentModuleRecord->globals, name, &value)) {
-		push(currentModuleRecord, value);
-		DISPATCH();
-	}
-	runtime_panic(currentModuleRecord, false, NAME,
-		      "Undefined variable '%s'.", name->chars);
-	return INTERPRET_RUNTIME_ERROR;
-}
-
-OP_SET_GLOBAL_16: {
-	ObjectString *name = READ_STRING_16();
-	if (table_set(vm, &currentModuleRecord->globals, name,
-		      PEEK(currentModuleRecord, 0))) {
-		runtime_panic(
-			currentModuleRecord, false, NAME,
-			"Cannot give variable '%s' a value because it has "
-			"not been "
-			"defined\nDid you forget 'let'?",
-			name->chars);
-		return INTERPRET_RUNTIME_ERROR;
-	}
-	DISPATCH();
-}
-
-OP_GET_PROPERTY_16: {
-	Value receiver = pop(currentModuleRecord);
-	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
-		runtime_panic(
-			currentModuleRecord, false, TYPE,
-			"Cannot get property on non 'struct instance' type.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	ObjectString *name = READ_STRING_16();
-	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
-	ObjectStruct *structType = instance->struct_type;
-
-	Value indexValue;
-	if (!table_get(&structType->fields, name, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, NAME,
-			      "Property '%s' does not exist on struct '%s'.",
-			      name->chars, structType->name->chars);
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	push(currentModuleRecord,
-	     instance->fields[(uint16_t)AS_INT(indexValue)]);
-	DISPATCH();
-}
-
-OP_SET_PROPERTY_16: {
-	Value valueToSet = pop(currentModuleRecord);
-	Value receiver = pop(currentModuleRecord);
-
-	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
-		ObjectString *name = READ_STRING_16();
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Cannot set property '%s' on non struct instance "
-			      "value. %s",
-			      name->chars,
-			      type_error_message(vm, receiver,
-						 "struct instance"));
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
-	ObjectString *name = READ_STRING();
-	ObjectStruct *structType = instance->struct_type;
-
-	Value indexValue;
-	if (!table_get(&structType->fields, name, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, NAME,
-			      "Property '%s' does not exist on struct '%s'.",
-			      name->chars, structType->name->chars);
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	instance->fields[(uint16_t)AS_INT(indexValue)] = valueToSet;
-	push(currentModuleRecord, valueToSet);
-
-	DISPATCH();
-}
-
-OP_INVOKE_16: {
-	ObjectString *methodName = READ_STRING_16();
-	int arg_count = READ_BYTE();
-	if (!invoke(vm, methodName, arg_count)) {
-		return INTERPRET_RUNTIME_ERROR;
-	}
-	frame = &currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
-	DISPATCH();
-}
-
 OP_TYPEOF: {
 	Value value = PEEK(currentModuleRecord, 0);
 	Value typeValue = typeof_value(vm, value);
@@ -1710,51 +1238,8 @@ OP_TYPEOF: {
 	DISPATCH();
 }
 
-OP_STATIC_ARRAY: {
-	uint16_t elementCount = READ_SHORT();
-	ObjectStaticArray *array = new_static_array(vm, elementCount,
-						    currentModuleRecord);
-	Value *values = array->values;
-	for (int i = elementCount - 1; i >= 0; i--) {
-		values[i] = pop(currentModuleRecord);
-	}
-	push(currentModuleRecord, OBJECT_VAL(array));
-	DISPATCH();
-}
-
-OP_STATIC_TABLE: {
-	uint16_t elementCount = READ_SHORT();
-	ObjectStaticTable *table = new_static_table(vm, elementCount,
-						    currentModuleRecord);
-	for (int i = elementCount - 1; i >= 0; i--) {
-		Value value = pop(currentModuleRecord);
-		Value key = pop(currentModuleRecord);
-		if (IS_CRUX_HASHABLE(key)) {
-			if (!object_static_table_set(vm, table, key, value)) {
-				runtime_panic(
-					currentModuleRecord, false,
-					COLLECTION_SET,
-					"Failed to set value in static table.");
-				return INTERPRET_RUNTIME_ERROR;
-			}
-		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.");
-			return INTERPRET_RUNTIME_ERROR;
-		}
-	}
-	push(currentModuleRecord, OBJECT_VAL(table));
-	DISPATCH();
-}
-
 OP_STRUCT: {
 	ObjectStruct *structObject = AS_CRUX_STRUCT(READ_CONSTANT());
-	push(currentModuleRecord, OBJECT_VAL(structObject));
-	DISPATCH();
-}
-
-OP_STRUCT_16: {
-	ObjectStruct *structObject = AS_CRUX_STRUCT(READ_CONSTANT_16());
 	push(currentModuleRecord, OBJECT_VAL(structObject));
 	DISPATCH();
 }
@@ -1798,30 +1283,6 @@ OP_STRUCT_NAMED_FIELD: {
 	DISPATCH();
 }
 
-OP_STRUCT_NAMED_FIELD_16: {
-	ObjectStructInstance *structInstance = peek_struct_stack(vm);
-	if (structInstance == NULL) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to get struct from stack.");
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	ObjectString *fieldName = READ_STRING_16();
-
-	ObjectStruct *structType = structInstance->struct_type;
-	Value indexValue;
-	if (!table_get(&structType->fields, fieldName, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Field '%s' does not exist on struct type '%s'.",
-			      fieldName->chars, structType->name->chars);
-		return INTERPRET_RUNTIME_ERROR;
-	}
-
-	uint16_t index = (uint16_t)AS_INT(indexValue);
-	structInstance->fields[index] = pop(currentModuleRecord);
-	DISPATCH();
-}
-
 OP_STRUCT_INSTANCE_END: {
 	ObjectStructInstance *structInstance = pop_struct_stack(vm);
 	if (structInstance == NULL) {
@@ -1847,25 +1308,6 @@ OP_NIL_RETURN: {
 
 	if (is_anonymous_frame)
 		return INTERPRET_OK;
-	DISPATCH();
-}
-
-OP_ANON_FUNCTION_16: {
-	ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT_16());
-	ObjectClosure *closure = new_closure(vm, function);
-	push(currentModuleRecord, OBJECT_VAL(closure));
-	for (int i = 0; i < closure->upvalue_count; i++) {
-		uint8_t isLocal = READ_BYTE();
-		uint8_t index = READ_BYTE();
-
-		if (isLocal) {
-			closure->upvalues[i] = capture_upvalue(vm,
-							       frame->slots +
-								       index);
-		} else {
-			closure->upvalues[i] = frame->closure->upvalues[index];
-		}
-	}
 	DISPATCH();
 }
 
@@ -1899,17 +1341,13 @@ end: {
 				(int)(frame->ip -
 				      frame->closure->function->chunk.code));
 
-	instruction = READ_BYTE();
+	instruction = READ_SHORT();
 	goto *dispatchTable[instruction];
 }
 
-#undef READ_BYTE
 #undef READ_CONSTANT
 #undef BINARY_OP
 #undef BOOL_BINARY_OP
 #undef READ_STRING
-#undef READ_STRING_16
 #undef READ_SHORT
-#undef READ_CONSTANT_16
-#undef READ_STRING_16
 }

@@ -45,8 +45,8 @@ static int simple_instruction(const char *name, const int offset)
 static int byte_instruction(const char *name, const Chunk *chunk,
 			    const int offset)
 {
-	const uint8_t slot = chunk->code[offset + 1];
-	printf("%-16s %4d\n", name, slot);
+	const uint16_t slot = chunk->code[offset + 1];
+	printf("%-16s %6d\n", name, slot);
 	return offset + 2;
 }
 
@@ -85,7 +85,7 @@ static int jump_instruction(const char *name, const int sign,
 static int constant_instruction(const char *name, const Chunk *chunk,
 				const int offset)
 {
-	const uint8_t constant =
+	const uint16_t constant =
 		chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	print_value(chunk->constants.values[constant],
@@ -108,8 +108,8 @@ static int constant_instruction(const char *name, const Chunk *chunk,
 static int invoke_instruction(const char *name, const Chunk *chunk,
 			      const int offset)
 {
-	const uint8_t constant = chunk->code[offset + 1];
-	const uint8_t arg_count = chunk->code[offset + 2];
+	const uint16_t constant = chunk->code[offset + 1];
+	const uint16_t arg_count = chunk->code[offset + 2];
 	printf("%-16s (%d args) %4d '", name, arg_count, constant);
 	print_value(chunk->constants.values[constant], false);
 	printf("'\n");
@@ -127,7 +127,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		printf("%4d ", chunk->lines[offset]);
 	}
 
-	const uint8_t instruction =
+	const OpCode instruction =
 		chunk->code[offset]; // read a single byte, that is the opcode
 
 	switch (instruction) {
@@ -197,22 +197,24 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_SET_UPVALUE:
 		return byte_instruction("OP_SET_UPVALUE", chunk, offset);
 	case OP_CLOSURE: {
+		/* TODO: FIX SEG FAULT */
 		offset++;
-		const uint8_t constant = chunk->code[offset++];
-		printf("%-16s %4d ", "OP_CLOSURE", constant);
-		print_value(chunk->constants.values[constant], false);
-		printf("\n");
-
-		const ObjectFunction *function = AS_CRUX_FUNCTION(
-			chunk->constants.values[constant]);
-		for (int j = 0; j < function->upvalue_count; j++) {
-			const int isLocal = chunk->code[offset++];
-			const int index = chunk->code[offset++];
-			printf("%04d        |                %s %d\n",
-			       offset - 2, isLocal ? "local" : "upvalue",
-			       index);
-		}
 		return offset;
+		// const uint16_t constant = chunk->code[offset++];
+		// printf("%-16s %4d ", "OP_CLOSURE", constant);
+		// print_value(chunk->constants.values[constant], false);
+		// printf("\n");
+		//
+		// const ObjectFunction *function = AS_CRUX_FUNCTION(
+		// 	chunk->constants.values[constant]);
+		// for (int j = 0; j < function->upvalue_count; j++) {
+		// 	const int isLocal = chunk->code[offset++];
+		// 	const int index = chunk->code[offset++];
+		// 	printf("%04d        |                %s %d\n",
+		// 	       offset - 2, isLocal ? "local" : "upvalue",
+		// 	       index);
+		// }
+		// return offset;
 	}
 	case OP_CLOSE_UPVALUE:
 		return simple_instruction("OP_CLOSE_UPVALUE", offset);
@@ -288,7 +290,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return constant_instruction("OP_ANON_FUNCTION", chunk, offset);
 	}
 	case OP_USE_MODULE: {
-		const uint8_t nameCount = chunk->code[offset + 1];
+		const uint16_t nameCount = chunk->code[offset + 1];
 		printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
 		print_value(
 			chunk->constants
@@ -336,23 +338,11 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_STRUCT: {
 		return simple_instruction("OP_STRUCT", offset);
 	}
-	case OP_STRUCT_16: {
-		return simple_instruction("OP_STRUCT_16", offset);
-	}
-	case OP_STATIC_ARRAY: {
-		return simple_instruction("OP_STATIC_ARRAY", offset);
-	}
-	case OP_STATIC_TABLE: {
-		return simple_instruction("OP_STATIC_TABLE", offset);
-	}
 	case OP_STRUCT_INSTANCE_START: {
 		return simple_instruction("OP_STRUCT_INSTANCE_START", offset);
 	}
 	case OP_STRUCT_NAMED_FIELD: {
 		return simple_instruction("OP_STRUCT_NAMED_FIELD", offset);
-	}
-	case OP_STRUCT_NAMED_FIELD_16: {
-		return simple_instruction("OP_STRUCT_NAMED_FIELD_16", offset);
 	}
 	case OP_STRUCT_INSTANCE_END: {
 		return simple_instruction("OP_STRUCT_INSTANCE_END", offset);
@@ -364,7 +354,9 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_TYPEOF: {
 		return simple_instruction("OP_TYPEOF", offset);
 	}
-
+	case OP_UNWRAP: {
+		return simple_instruction("OP_UNWRAP", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;
