@@ -124,22 +124,20 @@ assert(sum_inner_k == 10, "While (scoping): Expected sum_inner_k to be 10 (0+10)
 
 // --- Test with a more complex condition ---
 
-// TODO: This test does not work --- for some reason y becomes negative 9 after first iteration
-
-//println("--- Testing while loop with complex condition ---");
-//let x = 0;
-//let y = 10;
-//println(y);
-//let iterations_complex = 0;
-//while x < y {
-//    x += 1;
-//    y -= 1;
-//    println(y);
-//    iterations_complex += 1;
-//    format("Iteration {iter}: x={x}, y={y}\n", {"iter": iterations_complex, "x": x, "y": y});
-//}
-//assert(x == 5, "While (complex condition): Expected x to be 5 but got ".concat(_string(x))?);
-//assert(y == 5, "While (complex condition): Expected y to be 5 but got ".concat(_string(y))?);
-//assert(iterations_complex == 5, "While (complex condition): Expected 5 iterations but got ".concat(_string(iterations_complex))?);
+println("--- Testing while loop with complex condition ---");
+let x = 0;
+let y = 10;
+println(y);
+let iterations_complex = 0;
+while x < y {
+    x += 1;
+    y -= 1;
+    println(y);
+    iterations_complex += 1;
+    format("Iteration {iter}: x={x}, y={y}\n", {"iter": iterations_complex, "x": x, "y": y});
+}
+assert(x == 5, "While (complex condition): Expected x to be 5 but got ".concat(_string(x))?);
+assert(y == 5, "While (complex condition): Expected y to be 5 but got ".concat(_string(y))?);
+assert(iterations_complex == 5, "While (complex condition): Expected 5 iterations but got ".concat(_string(iterations_complex))?);
 
 println("===  End of testing while loops  ===");

@@ -584,7 +584,7 @@ static void free_object_vector(VM *vm, CruxObject *object)
 	if (vector->dimensions > 4) {
 		FREE(vm, double, vector->as.h_components);
 	}
-	FREE(vm, OBJECT_VECTOR, object);
+	FREE(vm, ObjectVector, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)

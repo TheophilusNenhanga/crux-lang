@@ -1487,8 +1487,8 @@ bool check_previous_instruction(const CallFrame *frame,
 				const int instructions_ago,
 				const OpCode instruction)
 {
-	const uint8_t *current = frame->ip;
-	const uint8_t *codeStart = frame->closure->function->chunk.code;
+	const uint16_t *current = frame->ip;
+	const uint16_t *codeStart = frame->closure->function->chunk.code;
 
 	// Check if we have enough bytes before current position,
 	if (current - (instructions_ago + 2) < codeStart) {
