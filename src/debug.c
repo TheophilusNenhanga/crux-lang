@@ -46,8 +46,8 @@ static int simple_instruction(const char *name, const int offset)
 static int byte_instruction(const char *name, const Chunk *chunk,
 			    const int offset)
 {
-	const uint8_t slot = chunk->code[offset + 1];
-	printf("%-16s %4d\n", name, slot);
+	const uint16_t slot = chunk->code[offset + 1];
+	printf("%-16s %6d\n", name, slot);
 	return offset + 2;
 }
 
@@ -86,7 +86,7 @@ static int jump_instruction(const char *name, const int sign,
 static int constant_instruction(const char *name, const Chunk *chunk,
 				const int offset)
 {
-	const uint8_t constant =
+	const uint16_t constant =
 		chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	print_value(chunk->constants.values[constant],
@@ -109,8 +109,8 @@ static int constant_instruction(const char *name, const Chunk *chunk,
 static int invoke_instruction(const char *name, const Chunk *chunk,
 			      const int offset)
 {
-	const uint8_t constant = chunk->code[offset + 1];
-	const uint8_t arg_count = chunk->code[offset + 2];
+	const uint16_t constant = chunk->code[offset + 1];
+	const uint16_t arg_count = chunk->code[offset + 2];
 	printf("%-16s (%d args) %4d '", name, arg_count, constant);
 	print_value(chunk->constants.values[constant], false);
 	printf("'\n");
@@ -201,7 +201,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		/* TODO: FIX SEG FAULT */
 		offset++;
 		return offset;
-		// const uint8_t constant = chunk->code[offset++];
+		// const uint16_t constant = chunk->code[offset++];
 		// printf("%-16s %4d ", "OP_CLOSURE", constant);
 		// print_value(chunk->constants.values[constant], false);
 		// printf("\n");
@@ -291,7 +291,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return constant_instruction("OP_ANON_FUNCTION", chunk, offset);
 	}
 	case OP_USE_MODULE: {
-		const uint8_t nameCount = chunk->code[offset + 1];
+		const uint16_t nameCount = chunk->code[offset + 1];
 		printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
 		print_value(
 			chunk->constants
@@ -339,17 +339,11 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_STRUCT: {
 		return simple_instruction("OP_STRUCT", offset);
 	}
-	case OP_STRUCT_16: {
-		return simple_instruction("OP_STRUCT_16", offset);
-	}
 	case OP_STRUCT_INSTANCE_START: {
 		return simple_instruction("OP_STRUCT_INSTANCE_START", offset);
 	}
 	case OP_STRUCT_NAMED_FIELD: {
 		return simple_instruction("OP_STRUCT_NAMED_FIELD", offset);
-	}
-	case OP_STRUCT_NAMED_FIELD_16: {
-		return simple_instruction("OP_STRUCT_NAMED_FIELD_16", offset);
 	}
 	case OP_STRUCT_INSTANCE_END: {
 		return simple_instruction("OP_STRUCT_INSTANCE_END", offset);
@@ -364,35 +358,6 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_UNWRAP: {
 		return simple_instruction("OP_UNWRAP", offset);
 	}
-	case OP_CONSTANT_16: {
-		return constant_instruction("OP_CONSTANT_16", chunk, offset);
-	}
-	case OP_DEFINE_GLOBAL_16: {
-		return constant_instruction("OP_DEFINE_GLOBAL_16", chunk,
-					    offset);
-	}
-	case OP_GET_GLOBAL_16: {
-		return constant_instruction("OP_GET_GLOBAL_16", chunk, offset);
-	}
-	case OP_SET_GLOBAL_16: {
-		return constant_instruction("OP_SET_GLOBAL_16", chunk, offset);
-	}
-	case OP_GET_PROPERTY_16: {
-		return constant_instruction("OP_GET_PROPERTY_16", chunk,
-					    offset);
-	}
-	case OP_SET_PROPERTY_16: {
-		return constant_instruction("OP_SET_PROPERTY_16", chunk,
-					    offset);
-	}
-	case OP_INVOKE_16: {
-		return invoke_instruction("OP_INVOKE_16", chunk, offset);
-	}
-	case OP_ANON_FUNCTION_16: {
-		return constant_instruction("OP_ANON_FUNCTION_16", chunk,
-					    offset);
-	}
-
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

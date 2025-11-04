@@ -161,6 +161,7 @@ Value exit_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)vm;
 	(void)arg_count;
+	/* TODO: exit the vm gracefully */
 	if (!IS_INT(args[0])) {
 		exit(1);
 	}

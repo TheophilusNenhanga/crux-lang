@@ -177,18 +177,15 @@ let test_array = [1, 2, 3, 4, 5];
 let t19 = sum_array(test_array);
 assert(t19 == 15, "Function sum_array failed. Expected 15, got: ".concat(_string(t19))?);
 
-// TODO: multiply_by_three is simple? FIX THIS
 
 // Function as variable assignment
 fn multiply_by_three(x) {
 	return x * 3;
 }
-println("I should be <fn multiply_by_three> but I am: ");
-println(multiply_by_three);
 
-let func_var = simple;
-let t20 = func_var();
-assert(t20 == 1, "Function variable assignment failed. Expected 1, got: ".concat(_string(t20))?);
+let func_var = multiply_by_three;
+let t20 = func_var(4);
+assert(t20 == 12, "Function variable assignment failed. Expected 12, got: ".concat(_string(t20))?);
 
 // Functions with early return
 fn find_first_positive(arr) {

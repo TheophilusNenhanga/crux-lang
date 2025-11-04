@@ -1,12 +1,12 @@
 #include "compiler.h"
 
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <errno.h>
 #include "chunk.h"
 #include "debug.h"
 #include "file_handler.h"
@@ -79,16 +79,16 @@ static bool match(const CruxTokenType type)
 	return true;
 }
 
-static void emit_byte(const uint8_t byte)
+static void emit_word(const uint16_t word)
 {
-	write_chunk(current->owner, current_chunk(), byte,
+	write_chunk(current->owner, current_chunk(), word,
 		    parser.previous.line);
 }
 
-static void emit_bytes(const uint8_t byte1, const uint8_t byte2)
+static void emit_words(const uint16_t word1, const uint16_t word2)
 {
-	emit_byte(byte1);
-	emit_byte(byte2);
+	emit_word(word1);
+	emit_word(word2);
 }
 
 /**
@@ -97,13 +97,13 @@ static void emit_bytes(const uint8_t byte1, const uint8_t byte2)
  */
 static void emit_loop(const int loopStart)
 {
-	emit_byte(OP_LOOP);
+	emit_word(OP_LOOP);
 	const int offset = current_chunk()->count - loopStart +
-			   2; // +2 takes into account the size of the OP_LOOP
+			   1; // +1 takes into account the size of the OP_LOOP
 	if (offset > UINT16_MAX) {
 		compiler_panic(&parser, "Loop body too large.", LOOP_EXTENT);
 	}
-	emit_bytes(((offset >> 8) & 0xff), (offset & 0xff));
+	emit_word(offset);
 }
 
 /**
@@ -114,11 +114,11 @@ static void emit_loop(const int loopStart)
  * @return The index of the jump instruction in the bytecode, used for patching
  * later.
  */
-static int emit_jump(const uint8_t instruction)
+static int emit_jump(const uint16_t instruction)
 {
-	emit_byte(instruction);
-	emit_bytes(0xff, 0xff);
-	return current_chunk()->count - 2;
+	emit_word(instruction);
+	emit_word(0xffff);
+	return current_chunk()->count - 1;
 }
 
 /**
@@ -128,14 +128,13 @@ static int emit_jump(const uint8_t instruction)
  */
 static void patch_jump(const int offset)
 {
-	// -2 to adjust for the bytecode for the jump offset itself
-	const int jump = current_chunk()->count - offset - 2;
+	// -1 to adjust for the bytecode for the jump offset itself
+	const int jump = current_chunk()->count - offset - 1;
 	if (jump > UINT16_MAX) {
 		compiler_panic(&parser, "Too much code to jump over.",
 			       BRANCH_EXTENT);
 	}
-	current_chunk()->code[offset] = (jump >> 8) & 0xff;
-	current_chunk()->code[offset + 1] = jump & 0xff;
+	current_chunk()->code[offset] = (uint16_t)jump;
 }
 
 /**
@@ -143,7 +142,7 @@ static void patch_jump(const int offset)
  */
 static void emit_return(void)
 {
-	emit_byte(OP_NIL_RETURN);
+	emit_word(OP_NIL_RETURN);
 }
 
 /**
@@ -156,7 +155,7 @@ static uint16_t make_constant(const Value value)
 {
 	const int constant = add_constant(current->owner, current_chunk(),
 					  value);
-	if (constant > UINT16_MAX) {
+	if (constant >= UINT16_MAX) {
 		compiler_panic(&parser, "Too many constants in one chunk.",
 			       LIMIT);
 		return 0;
@@ -172,12 +171,10 @@ static uint16_t make_constant(const Value value)
 static void emit_constant(const Value value)
 {
 	const uint16_t constant = make_constant(value);
-	if (constant <= UINT8_MAX) {
-		emit_bytes(OP_CONSTANT, (uint8_t)constant);
-	} else {
-		emit_byte(OP_CONSTANT_16);
-		emit_bytes(((constant >> 8) & 0xff), (constant & 0xff));
+	if (constant >= UINT16_MAX) {
+		compiler_panic(&parser, "Too many constants", SYNTAX);
 	}
+	emit_words(OP_CONSTANT, constant);
 }
 
 /**
@@ -256,9 +253,9 @@ static void cleanupLocalsToDepth(const int targetDepth)
 	while (current->local_count > 0 &&
 	       current->locals[current->local_count - 1].depth > targetDepth) {
 		if (current->locals[current->local_count - 1].is_captured) {
-			emit_byte(OP_CLOSE_UPVALUE);
+			emit_word(OP_CLOSE_UPVALUE);
 		} else {
-			emit_byte(OP_POP);
+			emit_word(OP_POP);
 		}
 		current->local_count--;
 	}
@@ -319,7 +316,7 @@ static int resolve_local(const Compiler *compiler, const Token *name)
 
 static void push_loop_context(const LoopType type, const int continueTarget)
 {
-	if (current->loop_depth >= 255) {
+	if (current->loop_depth >= UINT8_MAX) {
 		compiler_panic(&parser, "Too many nested loops.", LOOP_EXTENT);
 		return;
 	}
@@ -391,7 +388,7 @@ static int get_current_continue_target(void)
  * @return The index of the added upvalue in the current function's upvalue
  * array.
  */
-static int add_upvalue(Compiler *compiler, const uint8_t index,
+static int add_upvalue(Compiler *compiler, const uint16_t index,
 		       const bool isLocal)
 {
 	const int upvalueCount = compiler->function->upvalue_count;
@@ -403,7 +400,7 @@ static int add_upvalue(Compiler *compiler, const uint8_t index,
 		}
 	}
 
-	if (upvalueCount >= UINT8_COUNT) {
+	if (upvalueCount >= UINT16_MAX) {
 		compiler_panic(&parser,
 			       "Too many closure variables in function.",
 			       CLOSURE_EXTENT);
@@ -433,12 +430,12 @@ static int resolve_upvalue(Compiler *compiler, Token *name)
 	const int local = resolve_local(compiler->enclosing, name);
 	if (local != -1) {
 		(compiler->enclosing)->locals[local].is_captured = true;
-		return add_upvalue(compiler, (uint8_t)local, true);
+		return add_upvalue(compiler, (uint16_t)local, true);
 	}
 
 	const int upValue = resolve_upvalue(compiler->enclosing, name);
 	if (upValue != -1) {
-		return add_upvalue(compiler, (uint8_t)upValue, false);
+		return add_upvalue(compiler, (uint16_t)upValue, false);
 	}
 
 	return -1;
@@ -451,7 +448,7 @@ static int resolve_upvalue(Compiler *compiler, Token *name)
  */
 static void add_local(const Token name)
 {
-	if (current->local_count == UINT8_COUNT) {
+	if (current->local_count == UINT16_MAX) {
 		compiler_panic(&parser, "Too many local variables in function.",
 			       LOCAL_EXTENT);
 		return;
@@ -536,12 +533,10 @@ static void define_variable(const uint16_t global)
 		mark_initialized();
 		return;
 	}
-	if (global <= UINT8_MAX) {
-		emit_bytes(OP_DEFINE_GLOBAL, (uint8_t)global);
-	} else {
-		emit_byte(OP_DEFINE_GLOBAL_16);
-		emit_bytes(((global >> 8) & 0xff), (global & 0xff));
+	if (global >= UINT16_MAX) {
+		compiler_panic(&parser, "Too many variables.", SYNTAX);
 	}
+	emit_words(OP_DEFINE_GLOBAL, global);
 }
 
 /**
@@ -549,17 +544,17 @@ static void define_variable(const uint16_t global)
  *
  * @return The number of arguments parsed.
  */
-static uint8_t argument_list(void)
+static uint16_t argument_list(void)
 {
-	uint8_t arg_count = 0;
+	uint16_t arg_count = 0;
 	if (!check(TOKEN_RIGHT_PAREN)) {
 		do {
 			expression();
-			if (arg_count == 255) {
-				compiler_panic(
-					&parser,
-					"Cannot have more than 255 arguments.",
-					ARGUMENT_EXTENT);
+			if (arg_count == UINT16_MAX) {
+				compiler_panic(&parser,
+					       "Cannot have more than 65535 "
+					       "arguments.",
+					       ARGUMENT_EXTENT);
 			}
 			arg_count++;
 		} while (match(TOKEN_COMMA));
@@ -578,7 +573,7 @@ static void and_(bool can_assign)
 {
 	(void)can_assign;
 	const int endJump = emit_jump(OP_JUMP_IF_FALSE);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 	parse_precedence(PREC_AND);
 
 	patch_jump(endJump);
@@ -597,7 +592,7 @@ static void or_(bool can_assign)
 	const int endJump = emit_jump(OP_JUMP);
 
 	patch_jump(elseJump);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 	parse_precedence(PREC_OR);
 	patch_jump(endJump);
 }
@@ -636,49 +631,49 @@ static void binary(bool can_assign)
 
 	switch (operatorType) {
 	case TOKEN_BANG_EQUAL:
-		emit_byte(OP_NOT_EQUAL);
+		emit_word(OP_NOT_EQUAL);
 		break;
 	case TOKEN_EQUAL_EQUAL:
-		emit_byte(OP_EQUAL);
+		emit_word(OP_EQUAL);
 		break;
 	case TOKEN_GREATER:
-		emit_byte(OP_GREATER);
+		emit_word(OP_GREATER);
 		break;
 	case TOKEN_GREATER_EQUAL:
-		emit_byte(OP_GREATER_EQUAL);
+		emit_word(OP_GREATER_EQUAL);
 		break;
 	case TOKEN_LESS:
-		emit_byte(OP_LESS);
+		emit_word(OP_LESS);
 		break;
 	case TOKEN_LESS_EQUAL:
-		emit_byte(OP_LESS_EQUAL);
+		emit_word(OP_LESS_EQUAL);
 		break;
 	case TOKEN_PLUS:
-		emit_byte(OP_ADD);
+		emit_word(OP_ADD);
 		break;
 	case TOKEN_MINUS:
-		emit_byte(OP_SUBTRACT);
+		emit_word(OP_SUBTRACT);
 		break;
 	case TOKEN_STAR:
-		emit_byte(OP_MULTIPLY);
+		emit_word(OP_MULTIPLY);
 		break;
 	case TOKEN_SLASH:
-		emit_byte(OP_DIVIDE);
+		emit_word(OP_DIVIDE);
 		break;
 	case TOKEN_PERCENT:
-		emit_byte(OP_MODULUS);
+		emit_word(OP_MODULUS);
 		break;
 	case TOKEN_RIGHT_SHIFT:
-		emit_byte(OP_RIGHT_SHIFT);
+		emit_word(OP_RIGHT_SHIFT);
 		break;
 	case TOKEN_LEFT_SHIFT:
-		emit_byte(OP_LEFT_SHIFT);
+		emit_word(OP_LEFT_SHIFT);
 		break;
 	case TOKEN_BACKSLASH:
-		emit_byte(OP_INT_DIVIDE);
+		emit_word(OP_INT_DIVIDE);
 		break;
 	case TOKEN_STAR_STAR:
-		emit_byte(OP_POWER);
+		emit_word(OP_POWER);
 		break;
 
 	default:
@@ -689,8 +684,8 @@ static void binary(bool can_assign)
 static void call(bool can_assign)
 {
 	(void)can_assign;
-	const uint8_t arg_count = argument_list();
-	emit_bytes(OP_CALL, arg_count);
+	const uint16_t arg_count = argument_list();
+	emit_words(OP_CALL, arg_count);
 }
 
 /**
@@ -704,13 +699,13 @@ static void literal(bool can_assign)
 	(void)can_assign;
 	switch (parser.previous.type) {
 	case TOKEN_FALSE:
-		emit_byte(OP_FALSE);
+		emit_word(OP_FALSE);
 		break;
 	case TOKEN_NIL:
-		emit_byte(OP_NIL);
+		emit_word(OP_NIL);
 		break;
 	case TOKEN_TRUE:
-		emit_byte(OP_TRUE);
+		emit_word(OP_TRUE);
 		break;
 	default:
 		return; // unreachable
@@ -728,31 +723,19 @@ static void dot(const bool can_assign)
 	consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
 	const uint16_t name = identifier_constant(&parser.previous);
 
+	if (name >= UINT16_MAX) {
+		compiler_panic(&parser, "Too many constants.", SYNTAX);
+	}
+
 	if (can_assign && match(TOKEN_EQUAL)) {
 		expression();
-		if (name <= UINT8_MAX) {
-			emit_bytes(OP_SET_PROPERTY, (uint8_t)name);
-		} else {
-			emit_byte(OP_SET_PROPERTY_16);
-			emit_bytes(((name >> 8) & 0xff), (name & 0xff));
-		}
+		emit_words(OP_SET_PROPERTY, name);
 	} else if (match(TOKEN_LEFT_PAREN)) {
-		const uint8_t arg_count = argument_list();
-		if (name <= UINT8_MAX) {
-			emit_bytes(OP_INVOKE, (uint8_t)name);
-			emit_byte(arg_count);
-		} else {
-			emit_byte(OP_INVOKE_16);
-			emit_bytes(((name >> 8) & 0xff), (name & 0xff));
-			emit_byte(arg_count);
-		}
+		const uint16_t arg_count = argument_list();
+		emit_words(OP_INVOKE, name);
+		emit_word(arg_count);
 	} else {
-		if (name <= UINT8_MAX) {
-			emit_bytes(OP_GET_PROPERTY, (uint8_t)name);
-		} else {
-			emit_byte(OP_GET_PROPERTY_16);
-			emit_bytes(((name >> 8) & 0xff), (name & 0xff));
-		}
+		emit_words(OP_GET_PROPERTY, name);
 	}
 }
 
@@ -863,7 +846,7 @@ static OpCode get_compound_opcode(const OpCode setOp, const CompoundOp op)
  */
 static void named_variable(Token name, const bool can_assign)
 {
-	uint8_t getOp, setOp;
+	uint16_t getOp, setOp;
 	int arg = resolve_local(current, &name);
 
 	if (arg != -1) {
@@ -873,106 +856,15 @@ static void named_variable(Token name, const bool can_assign)
 		getOp = OP_GET_UPVALUE;
 		setOp = OP_SET_UPVALUE;
 	} else {
-		const uint16_t globalArg = identifier_constant(&name);
-
-		if (can_assign) {
-			if (match(TOKEN_EQUAL)) {
-				expression();
-				if (globalArg <= UINT8_MAX) {
-					emit_bytes(OP_SET_GLOBAL,
-						   (uint8_t)globalArg);
-				} else {
-					emit_byte(OP_SET_GLOBAL_16);
-					emit_bytes(globalArg >> 8 & 0xff,
-						   globalArg & 0xff);
-				}
-				return;
-			}
-
-			CompoundOp op;
-			bool isCompoundAssignment = true;
-
-			if (match(TOKEN_PLUS_EQUAL)) {
-				op = COMPOUND_OP_PLUS;
-			} else if (match(TOKEN_MINUS_EQUAL)) {
-				op = COMPOUND_OP_MINUS;
-			} else if (match(TOKEN_STAR_EQUAL)) {
-				op = COMPOUND_OP_STAR;
-			} else if (match(TOKEN_SLASH_EQUAL)) {
-				op = COMPOUND_OP_SLASH;
-			} else if (match(TOKEN_BACK_SLASH_EQUAL)) {
-				op = COMPOUND_OP_BACK_SLASH;
-			} else if (match(TOKEN_PERCENT_EQUAL)) {
-				op = COMPOUND_OP_PERCENT;
-			} else {
-				isCompoundAssignment = false;
-			}
-
-			if (isCompoundAssignment) {
-				expression();
-				const OpCode compoundOp =
-					get_compound_opcode(OP_SET_GLOBAL, op);
-				if (globalArg <= UINT8_MAX) {
-					emit_bytes(compoundOp,
-						   (uint8_t)globalArg);
-				} else {
-					if (globalArg <= UINT8_MAX) {
-						emit_bytes(OP_GET_GLOBAL,
-							   (uint8_t)globalArg);
-					} else {
-						emit_byte(OP_GET_GLOBAL_16);
-						emit_bytes(((globalArg >> 8) &
-							    0xff),
-							   (globalArg & 0xff));
-					}
-					switch (op) {
-					case COMPOUND_OP_PLUS:
-						emit_byte(OP_ADD);
-						break;
-					case COMPOUND_OP_MINUS:
-						emit_byte(OP_SUBTRACT);
-						break;
-					case COMPOUND_OP_STAR:
-						emit_byte(OP_MULTIPLY);
-						break;
-					case COMPOUND_OP_SLASH:
-						emit_byte(OP_DIVIDE);
-						break;
-					case COMPOUND_OP_BACK_SLASH:
-						emit_byte(OP_INT_DIVIDE);
-						break;
-					case COMPOUND_OP_PERCENT:
-						emit_byte(OP_MODULUS);
-						break;
-					}
-					if (globalArg <= UINT8_MAX) {
-						emit_bytes(OP_SET_GLOBAL,
-							   (uint8_t)globalArg);
-					} else {
-						emit_byte(OP_SET_GLOBAL_16);
-						emit_bytes(globalArg >> 8 &
-								   0xff,
-							   globalArg & 0xff);
-					}
-				}
-				return;
-			}
-		}
-
-		if (globalArg <= UINT8_MAX) {
-			emit_bytes(OP_GET_GLOBAL, (uint8_t)globalArg);
-		} else {
-			emit_byte(OP_GET_GLOBAL_16);
-			emit_bytes(((globalArg >> 8) & 0xff),
-				   (globalArg & 0xff));
-		}
-		return;
+		arg = identifier_constant(&name);
+		getOp = OP_GET_GLOBAL;
+		setOp = OP_SET_GLOBAL;
 	}
 
 	if (can_assign) {
 		if (match(TOKEN_EQUAL)) {
 			expression();
-			emit_bytes(setOp, arg);
+			emit_words(setOp, arg);
 			return;
 		}
 
@@ -997,11 +889,14 @@ static void named_variable(Token name, const bool can_assign)
 
 		if (isCompoundAssignment) {
 			expression();
-			emit_bytes(get_compound_opcode(setOp, op), arg);
+			const OpCode compoundOp = get_compound_opcode(setOp,
+								      op);
+			emit_words(compoundOp, arg);
 			return;
 		}
 	}
-	emit_bytes(getOp, arg);
+
+	emit_words(getOp, arg);
 }
 
 void struct_instance(const bool can_assign)
@@ -1016,7 +911,7 @@ void struct_instance(const bool can_assign)
 		return;
 	}
 	uint16_t fieldCount = 0;
-	emit_byte(OP_STRUCT_INSTANCE_START);
+	emit_word(OP_STRUCT_INSTANCE_START);
 
 	if (!match(TOKEN_RIGHT_BRACE)) {
 		do {
@@ -1037,14 +932,7 @@ void struct_instance(const bool can_assign)
 			expression();
 			const uint16_t fieldNameConstant = make_constant(
 				OBJECT_VAL(fieldName));
-			if (fieldNameConstant <= UINT8_MAX) {
-				emit_bytes(OP_STRUCT_NAMED_FIELD,
-					   (uint8_t)fieldNameConstant);
-			} else {
-				emit_byte(OP_STRUCT_NAMED_FIELD_16);
-				emit_bytes(fieldNameConstant >> 8 & 0xff,
-					   fieldNameConstant & 0xff);
-			}
+			emit_words(OP_STRUCT_NAMED_FIELD, fieldNameConstant);
 
 			fieldCount++;
 		} while (match(TOKEN_COMMA));
@@ -1054,7 +942,7 @@ void struct_instance(const bool can_assign)
 		consume(TOKEN_RIGHT_BRACE,
 			"Expected '}' after struct field list.");
 	}
-	emit_byte(OP_STRUCT_INSTANCE_END);
+	emit_word(OP_STRUCT_INSTANCE_END);
 }
 
 static void variable(const bool can_assign)
@@ -1082,14 +970,14 @@ static void function(const FunctionType type)
 	if (!check(TOKEN_RIGHT_PAREN)) {
 		do {
 			current->function->arity++;
-			if (current->function->arity > 255) {
+			if (current->function->arity > UINT8_MAX) {
 				compiler_panic(
 					&parser,
 					"Functions cannot have more than "
 					"255 arguments",
 					ARGUMENT_EXTENT);
 			}
-			const uint8_t constant = parse_variable(
+			const uint16_t constant = parse_variable(
 				"Expected parameter name");
 			define_variable(constant);
 		} while (match(TOKEN_COMMA));
@@ -1100,11 +988,11 @@ static void function(const FunctionType type)
 	block();
 
 	ObjectFunction *function = end_compiler();
-	emit_bytes(OP_CLOSURE, make_constant(OBJECT_VAL(function)));
+	emit_words(OP_CLOSURE, make_constant(OBJECT_VAL(function)));
 
 	for (int i = 0; i < function->upvalue_count; i++) {
-		emit_byte(compiler.upvalues[i].is_local ? 1 : 0);
-		emit_byte(compiler.upvalues[i].index);
+		emit_word(compiler.upvalues[i].is_local ? 1 : 0);
+		emit_word(compiler.upvalues[i].index);
 	}
 }
 
@@ -1126,14 +1014,14 @@ static void anonymous_function(bool can_assign)
 	if (!check(TOKEN_RIGHT_PAREN)) {
 		do {
 			current->function->arity++;
-			if (current->function->arity > 255) {
+			if (current->function->arity > UINT8_MAX) {
 				compiler_panic(
 					&parser,
 					"Functions cannot have more than "
 					"255 arguments",
 					ARGUMENT_EXTENT);
 			}
-			const uint8_t constant = parse_variable(
+			const uint16_t constant = parse_variable(
 				"Expected parameter name");
 			define_variable(constant);
 		} while (match(TOKEN_COMMA));
@@ -1144,16 +1032,11 @@ static void anonymous_function(bool can_assign)
 	ObjectFunction *function = end_compiler();
 
 	const uint16_t constantIndex = make_constant(OBJECT_VAL(function));
-	if (constantIndex > UINT8_MAX) {
-		emit_byte(OP_ANON_FUNCTION_16);
-		emit_bytes(constantIndex >> 8 & 0xff, constantIndex & 0xff);
-	} else {
-		emit_bytes(OP_ANON_FUNCTION, (uint8_t)constantIndex);
-	}
+	emit_words(OP_ANON_FUNCTION, constantIndex);
 
 	for (int i = 0; i < function->upvalue_count; i++) {
-		emit_byte(compiler.upvalues[i].is_local ? 1 : 0);
-		emit_byte(compiler.upvalues[i].index);
+		emit_word(compiler.upvalues[i].is_local ? 1 : 0);
+		emit_word(compiler.upvalues[i].index);
 	}
 }
 
@@ -1177,8 +1060,8 @@ static void create_array(const OpCode creationOpCode, const char *typeName)
 		consume(TOKEN_RIGHT_SQUARE,
 			"Expected ']' after array elements");
 	}
-	emit_byte(creationOpCode);
-	emit_bytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+	emit_word(creationOpCode);
+	emit_word(elementCount);
 }
 
 static void array_literal(bool can_assign)
@@ -1187,8 +1070,9 @@ static void array_literal(bool can_assign)
 	create_array(OP_ARRAY, "array");
 }
 
-static void create_table(const OpCode creationOpCode, const char *typeName)
+static void table_literal(bool can_assign)
 {
+	(void)can_assign;
 	uint16_t elementCount = 0;
 
 	if (!match(TOKEN_RIGHT_BRACE)) {
@@ -1197,27 +1081,18 @@ static void create_table(const OpCode creationOpCode, const char *typeName)
 			consume(TOKEN_COLON, "Expected ':' after <table> key");
 			expression();
 			if (elementCount >= UINT16_MAX) {
-				char buffer[64];
-				snprintf(buffer, sizeof(buffer),
-					 "Too many elements in %s literal.",
-					 typeName);
-				compiler_panic(&parser, buffer,
-					       COLLECTION_EXTENT);
+				compiler_panic(
+					&parser,
+					"Too many elements in 'table' literal.",
+					SYNTAX);
 			}
 			elementCount++;
 		} while (match(TOKEN_COMMA));
 		consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
 	}
-	emit_byte(creationOpCode);
-	emit_bytes(((elementCount >> 8) & 0xff), (elementCount & 0xff));
+	emit_word(OP_TABLE);
+	emit_word(elementCount);
 }
-
-static void table_literal(bool can_assign)
-{
-	(void)can_assign;
-	create_table(OP_TABLE, "table");
-}
-
 
 /**
  * Parses a collection index access expression (e.g., array[index]).
@@ -1232,9 +1107,9 @@ static void collection_index(const bool can_assign)
 
 	if (can_assign && match(TOKEN_EQUAL)) {
 		expression();
-		emit_byte(OP_SET_COLLECTION);
+		emit_word(OP_SET_COLLECTION);
 	} else {
-		emit_byte(OP_GET_COLLECTION);
+		emit_word(OP_GET_COLLECTION);
 	}
 }
 
@@ -1245,7 +1120,7 @@ static void var_declaration(void)
 	if (match(TOKEN_EQUAL)) {
 		expression();
 	} else {
-		emit_byte(OP_NIL);
+		emit_word(OP_NIL);
 	}
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 	define_variable(global);
@@ -1255,7 +1130,7 @@ static void expression_statement(void)
 {
 	expression();
 	consume(TOKEN_SEMICOLON, "Expected ';' after expression");
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 }
 
 static void while_statement(void)
@@ -1267,14 +1142,14 @@ static void while_statement(void)
 
 	expression();
 	const int exitJump = emit_jump(OP_JUMP_IF_FALSE);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 
 	statement();
 
 	emit_loop(loopStart);
 
 	patch_jump(exitJump);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 
 	pop_loop_context();
 	end_scope();
@@ -1301,7 +1176,7 @@ static void for_statement(void)
 
 		// Jump out of the loop if the condition is false
 		exitJump = emit_jump(OP_JUMP_IF_FALSE);
-		emit_byte(OP_POP); // condition
+		emit_word(OP_POP); // condition
 	}
 
 	const int bodyJump = emit_jump(OP_JUMP);
@@ -1310,7 +1185,7 @@ static void for_statement(void)
 	push_loop_context(LOOP_FOR, incrementStart);
 
 	expression();
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 
 	emit_loop(loopStart); // main loop that takes us back to the top of the
 			      // for loop
@@ -1322,7 +1197,7 @@ static void for_statement(void)
 
 	if (exitJump != -1) {
 		patch_jump(exitJump);
-		emit_byte(OP_POP);
+		emit_word(OP_POP);
 	}
 
 	pop_loop_context();
@@ -1333,12 +1208,12 @@ static void if_statement(void)
 {
 	expression();
 	const int thenJump = emit_jump(OP_JUMP_IF_FALSE);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 	statement();
 
 	const int elseJump = emit_jump(OP_JUMP);
 	patch_jump(thenJump);
-	emit_byte(OP_POP);
+	emit_word(OP_POP);
 
 	if (match(TOKEN_ELSE))
 		statement();
@@ -1358,7 +1233,7 @@ static void return_statement(void)
 	} else {
 		expression();
 		consume(TOKEN_SEMICOLON, "Expected ';' after return value");
-		emit_byte(OP_RETURN);
+		emit_word(OP_RETURN);
 	}
 }
 
@@ -1370,9 +1245,9 @@ static void use_statement(void)
 		hasParen = true;
 	}
 
-	uint8_t nameCount = 0;
-	uint8_t names[UINT8_MAX];
-	uint8_t aliases[UINT8_MAX];
+	uint16_t nameCount = 0;
+	uint16_t names[UINT8_MAX];
+	uint16_t aliases[UINT8_MAX];
 	bool aliasPresence[UINT8_MAX];
 
 	for (int i = 0; i < UINT8_MAX; i++) {
@@ -1391,14 +1266,14 @@ static void use_statement(void)
 		consume(TOKEN_IDENTIFIER,
 			"Expected name to import from module");
 
-		uint8_t name;
+		uint16_t name;
 		if (parser.current.type == TOKEN_AS) {
 			name = identifier_constant(&parser.previous);
 			consume(TOKEN_AS, "Expected 'as' keyword.");
 			consume(TOKEN_IDENTIFIER,
 				"Expected name to alias import from external "
 				"module.");
-			const uint8_t alias = identifier_constant(
+			const uint16_t alias = identifier_constant(
 				&parser.previous);
 			aliases[nameCount] = alias;
 			aliasPresence[nameCount] = true;
@@ -1422,38 +1297,38 @@ static void use_statement(void)
 		isNative = true;
 	}
 
-	uint8_t module;
+	uint16_t module;
 	if (isNative) {
 		module = make_constant(OBJECT_VAL(
 			copy_string(current->owner, parser.previous.start + 6,
 				    parser.previous.length - 7)));
-		emit_bytes(OP_USE_NATIVE, nameCount);
-		for (uint8_t i = 0; i < nameCount; i++) {
-			emit_byte(names[i]);
+		emit_words(OP_USE_NATIVE, nameCount);
+		for (uint16_t i = 0; i < nameCount; i++) {
+			emit_word(names[i]);
 		}
-		for (uint8_t i = 0; i < nameCount; i++) {
+		for (uint16_t i = 0; i < nameCount; i++) {
 			if (aliasPresence[i]) {
-				emit_byte(aliases[i]);
+				emit_word(aliases[i]);
 			} else {
-				emit_byte(names[i]);
+				emit_word(names[i]);
 			}
 		}
-		emit_byte(module);
+		emit_word(module);
 	} else {
 		module = make_constant(OBJECT_VAL(
 			copy_string(current->owner, parser.previous.start + 1,
 				    parser.previous.length - 2)));
-		emit_bytes(OP_USE_MODULE, module);
+		emit_words(OP_USE_MODULE, module);
 
-		emit_bytes(OP_FINISH_USE, nameCount);
-		for (uint8_t i = 0; i < nameCount; i++) {
-			emit_byte(names[i]);
+		emit_words(OP_FINISH_USE, nameCount);
+		for (uint16_t i = 0; i < nameCount; i++) {
+			emit_word(names[i]);
 		}
-		for (uint8_t i = 0; i < nameCount; i++) {
+		for (uint16_t i = 0; i < nameCount; i++) {
 			if (aliasPresence[i]) {
-				emit_byte(aliases[i]);
+				emit_word(aliases[i]);
 			} else {
-				emit_byte(names[i]);
+				emit_word(names[i]);
 			}
 		}
 	}
@@ -1480,13 +1355,7 @@ static void struct_declaration(void)
 	declare_variable();
 
 	const uint16_t structConstant = make_constant(OBJECT_VAL(structObject));
-	if (structConstant <= UINT8_MAX) {
-		emit_bytes(OP_STRUCT, (uint8_t)structConstant);
-	} else {
-		emit_byte(OP_STRUCT_16);
-		emit_bytes(((structConstant >> 8) & 0xff),
-			   (structConstant & 0xff));
-	}
+	emit_words(OP_STRUCT, structConstant);
 
 	define_variable(nameConstant);
 
@@ -1534,7 +1403,7 @@ static void struct_declaration(void)
 static void result_unwrap(bool can_assign)
 {
 	(void)can_assign;
-	emit_byte(OP_UNWRAP);
+	emit_word(OP_UNWRAP);
 }
 
 /**
@@ -1574,7 +1443,7 @@ static void public_declaration(void)
 			"Cannot declare public members in a local scope.",
 			SYNTAX);
 	}
-	emit_byte(OP_PUB);
+	emit_word(OP_PUB);
 	if (match(TOKEN_FN)) {
 		fn_declaration();
 	} else if (match(TOKEN_LET)) {
@@ -1613,13 +1482,13 @@ static void give_statement(void)
 	}
 
 	if (match(TOKEN_SEMICOLON)) {
-		emit_byte(OP_NIL);
+		emit_word(OP_NIL);
 	} else {
 		expression();
 		consume(TOKEN_SEMICOLON, "Expected ';' after give statement.");
 	}
 
-	emit_byte(OP_GIVE);
+	emit_word(OP_GIVE);
 }
 
 /**
@@ -1636,16 +1505,16 @@ static void match_expression(bool can_assign)
 	int jumpCount = 0;
 	int jumpCapacity = 8;
 
-	emit_byte(OP_MATCH);
+	emit_word(OP_MATCH);
 	bool hasDefault = false;
 	bool hasOkPattern = false;
 	bool hasErrPattern = false;
-	uint8_t bindingSlot = UINT8_MAX;
+	uint16_t bindingSlot = UINT16_MAX;
 	bool hasBinding = false;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		int jumpIfNotMatch = -1;
-		bindingSlot = UINT8_MAX;
+		bindingSlot = UINT16_MAX;
 		hasBinding = false;
 
 		if (match(TOKEN_DEFAULT)) {
@@ -1707,8 +1576,8 @@ static void match_expression(bool can_assign)
 
 		consume(TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
 
-		if (bindingSlot != UINT8_MAX) {
-			emit_bytes(OP_RESULT_BIND, bindingSlot);
+		if (bindingSlot != UINT16_MAX) {
+			emit_words(OP_RESULT_BIND, bindingSlot);
 		}
 
 		// Compile match arm body
@@ -1717,13 +1586,13 @@ static void match_expression(bool can_assign)
 			block();
 		} else if (match(TOKEN_GIVE)) {
 			if (match(TOKEN_SEMICOLON)) {
-				emit_byte(OP_NIL);
+				emit_word(OP_NIL);
 			} else {
 				expression();
 				consume(TOKEN_SEMICOLON,
 					"Expected ';' after give expression.");
 			}
-			emit_byte(OP_GIVE);
+			emit_word(OP_GIVE);
 		} else {
 			expression();
 			consume(TOKEN_SEMICOLON,
@@ -1773,7 +1642,7 @@ static void match_expression(bool can_assign)
 		patch_jump(endJumps[i]);
 	}
 
-	emit_byte(OP_MATCH_END);
+	emit_word(OP_MATCH_END);
 
 	FREE_ARRAY(current->owner, int, endJumps, jumpCapacity);
 	consume(TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
@@ -2045,10 +1914,10 @@ static void unary(bool can_assign)
 
 	switch (operatorType) {
 	case TOKEN_NOT:
-		emit_byte(OP_NOT);
+		emit_word(OP_NOT);
 		break;
 	case TOKEN_MINUS:
-		emit_byte(OP_NEGATE);
+		emit_word(OP_NEGATE);
 		break;
 	default:
 		return; // unreachable
@@ -2059,7 +1928,7 @@ static void typeof_expression(bool can_assign)
 {
 	(void)can_assign;
 	parse_precedence(PREC_UNARY);
-	emit_byte(OP_TYPEOF);
+	emit_word(OP_TYPEOF);
 }
 
 /**
