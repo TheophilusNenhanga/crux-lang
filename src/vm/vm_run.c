@@ -1248,8 +1248,7 @@ OP_STRUCT_INSTANCE_START: {
 	Value value = PEEK(currentModuleRecord, 0);
 	ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
 	ObjectStructInstance *structInstance = new_struct_instance(
-		vm, objectStruct, objectStruct->fields.count,
-		currentModuleRecord);
+		vm, objectStruct, objectStruct->fields.count);
 	pop(currentModuleRecord); // struct type
 	if (!pushStructStack(vm, structInstance)) {
 		runtime_panic(currentModuleRecord, false, RUNTIME,

@@ -754,8 +754,7 @@ bool object_table_contains_key(ObjectTable *table, Value key);
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
-					  uint16_t field_count,
-					  ObjectModuleRecord *module_record);
+					  uint16_t field_count);
 
 ObjectVector *new_vector(VM* vm, uint32_t dimensions);
 

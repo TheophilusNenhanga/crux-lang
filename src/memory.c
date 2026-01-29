@@ -153,6 +153,7 @@ void mark_object_array(VM *vm, const Value *values, const uint32_t size)
 void mark_object_table(VM *vm, const ObjectTableEntry *entries,
 		       const uint32_t capacity)
 {
+	if (!entries) return;
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
 			mark_value(vm, entries[i].value);

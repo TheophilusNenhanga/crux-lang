@@ -254,6 +254,10 @@ void runtime_panic(ObjectModuleRecord *module_record, const bool should_exit,
 	fprintf(stderr, "%s\n", RESET);
 	va_end(args);
 
+	if (module_record == NULL) {
+		return;
+	}
+
 	fprintf(stderr, "\n%sStack trace (most recent call last):%s", CYAN,
 		RESET);
 
@@ -353,9 +357,7 @@ void runtime_panic(ObjectModuleRecord *module_record, const bool should_exit,
 		details.hint);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
-	if (module_record != NULL) {
-		reset_stack(module_record);
-	}
+	reset_stack(module_record);
 
 	if (should_exit) {
 		exit(RUNTIME_EXIT_CODE);
