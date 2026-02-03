@@ -5,22 +5,19 @@
 
 #include "vm.h"
 
-typedef struct SlabSlot SlabSlot;
-
-struct SlabSlot
-{
-	void* memory;
-	SlabSlot* next;
-};
+typedef struct SlabAllocator SlabAllocator;
 
 struct SlabAllocator
 {
-	SlabSlot* slots;
-	uint16_t count;
-	uint16_t capacity;
-	uint16_t slot_size;
-	SlabSlot* free_slots;
-	SlabAllocator* next;
+    uint8_t* memory;
+    int16_t* next_indexes;
+
+    int16_t capacity;
+    int16_t slot_size;
+    int16_t free_head;
+    int16_t used_count;
+
+    SlabAllocator* next;
 };
 
 SlabAllocator * init_slab_allocator(uint16_t slot_size, uint16_t capacity);

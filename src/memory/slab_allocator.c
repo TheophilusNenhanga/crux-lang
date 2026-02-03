@@ -1,122 +1,101 @@
 #include "slab_allocator.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 
 SlabAllocator * init_slab_allocator(const uint16_t slot_size, const uint16_t capacity)
 {
-    SlabAllocator* slab_allocator = (SlabAllocator*)calloc(1, sizeof(SlabAllocator));
-    if (!slab_allocator) {
-        fprintf(stderr, "Error: Failed to allocate memory for slab allocator.\n");
+    SlabAllocator* slab = (SlabAllocator*)calloc(1, sizeof(SlabAllocator));
+    if (!slab) return NULL;
+
+    slab->slot_size = slot_size;
+    slab->capacity = capacity;
+    slab->used_count = 0;
+    slab->next = NULL;
+
+    slab->memory = malloc((size_t)slot_size * capacity);
+    slab->next_indexes = malloc(sizeof(int16_t) * capacity);
+
+    if (!slab->memory || !slab->next_indexes) {
+        if(slab->memory) free(slab->memory);
+        if(slab->next_indexes) free(slab->next_indexes);
+        free(slab);
+        fprintf(stderr, "Error: Failed to allocate slab memory.\n");
         return NULL;
     }
 
-    slab_allocator->slot_size = slot_size;
-    slab_allocator->capacity = capacity;
-    slab_allocator->slots = (SlabSlot*)calloc(capacity, sizeof(SlabSlot));
-
-    if (!slab_allocator->slots) {
-        fprintf(stderr, "Error: Failed to allocate memory for slab slots.\n");
-        free(slab_allocator);
-        return NULL;
+    for (int16_t i = 0; i < capacity - 1; i++) {
+        slab->next_indexes[i] = i + 1;
     }
+    slab->next_indexes[capacity - 1] = -1;
+    slab->free_head = 0;
 
-    for (uint16_t i = 0; i < capacity; i++) {
-        slab_allocator->slots[i].memory = malloc(slot_size);
-        if (!slab_allocator->slots[i].memory) {
-            for (uint16_t j = 0; j < i; j++) {
-                free(slab_allocator->slots[j].memory);
-            }
-            free(slab_allocator->slots);
-            free(slab_allocator);
-            return NULL;
-        }
-
-        if (i < capacity - 1) {
-            slab_allocator->slots[i].next = &slab_allocator->slots[i + 1];
-        } else {
-            slab_allocator->slots[i].next = NULL;
-        }
-    }
-
-    slab_allocator->free_slots = slab_allocator->slots;
-    slab_allocator->next = NULL;
-    return slab_allocator;
+    return slab;
 }
 
-bool is_slab_full(const SlabAllocator* slab_allocator) {
-    return slab_allocator->free_slots == NULL;
+bool is_slab_full(const SlabAllocator* slab) {
+    return slab->free_head == -1;
 }
 
-void destroy_slab_allocator(SlabAllocator * slab_allocator)
+void destroy_slab_allocator(SlabAllocator * slab)
 {
-    if (!slab_allocator) {
-        return;
-    }
-
-    SlabAllocator* curr_slab = slab_allocator;
-    while (curr_slab) {
-        SlabAllocator* next_slab = curr_slab->next;
-        for (uint16_t i = 0; i < curr_slab->capacity; i++) {
-            free(curr_slab->slots[i].memory);
-            curr_slab->slots[i].next = NULL;
-            curr_slab->slots[i].memory = NULL;
-        }
-        free(curr_slab->slots);
-        free(curr_slab);
-        curr_slab = next_slab;
+    while (slab) {
+        SlabAllocator* next = slab->next;
+        free(slab->memory);
+        free(slab->next_indexes);
+        free(slab);
+        slab = next;
     }
 }
 
-void* allocate_from_slab(SlabAllocator * slab_allocator)
+void* allocate_from_slab(SlabAllocator * head)
 {
-    if (!slab_allocator) {
-        return NULL;
-    }
+    if (!head) return NULL;
 
-    SlabAllocator* curr_slab = slab_allocator;
-    while (curr_slab && is_slab_full(curr_slab)) {
-        if (!curr_slab->next) {
-            SlabAllocator* new_allocator = init_slab_allocator(curr_slab->slot_size, curr_slab->capacity);
-            if (!new_allocator) {
-                fprintf(stderr, "Error: Failed to allocate new slab.\n");
-                return NULL;
-            }
-            curr_slab->next = new_allocator;
+    SlabAllocator* curr = head;
+
+    while (curr && is_slab_full(curr)) {
+        if (!curr->next) {
+            // create new slab
+            curr->next = init_slab_allocator(curr->slot_size, curr->capacity);
+            if (!curr->next) return NULL;
         }
-        curr_slab = curr_slab->next;
+        curr = curr->next;
     }
 
-    SlabSlot* free_slot = curr_slab->free_slots;
-    if (!free_slot) {
-        fprintf(stderr, "Error: No free slots available.\n");
-        return NULL;
-    }
 
-    curr_slab->free_slots = free_slot->next;
-    return free_slot->memory;
+    int16_t slot_index = curr->free_head;
+    // move free head to next slot
+    curr->free_head = curr->next_indexes[slot_index];
+    curr->used_count++;
+
+    return curr->memory + ((size_t)slot_index * curr->slot_size);
 }
 
-void free_from_slab(SlabAllocator * slab_allocator, void* ptr)
+void free_from_slab(SlabAllocator * head, void* ptr)
 {
-    if (!slab_allocator || !ptr) {
-        fprintf(stderr, "Error: NULL pointer given for slab allocator, or ptr.\n");
-        return;
-    }
+    if (!head || !ptr) return;
 
-    SlabAllocator* curr_slab = slab_allocator;
+    SlabAllocator* curr = head;
+    while (curr) {
+        uint8_t* start = curr->memory;
+        uint8_t* end = curr->memory + ((size_t)curr->capacity * curr->slot_size);
 
-    while (curr_slab) {
-        for (uint16_t i = 0; i < curr_slab->capacity; i++) {
-            if (curr_slab->slots[i].memory == ptr) {
-                SlabSlot* slot = &curr_slab->slots[i];
-                slot->next = curr_slab->free_slots;
-                curr_slab->free_slots = slot;
-                return;
-            }
+        if ((uint8_t*)ptr >= start && (uint8_t*)ptr < end) {
+            // page found
+
+            size_t offset = (uint8_t*)ptr - start;
+            int16_t index = (int16_t)(offset / curr->slot_size);
+
+            // add this slot to free list
+            curr->next_indexes[index] = curr->free_head;
+            curr->free_head = index;
+
+            curr->used_count--;
+
+            return;
         }
-        curr_slab = curr_slab->next;
+        curr = curr->next;
     }
 
-    fprintf(stderr, "Error: Pointer not found in any slab.\n");
+    fprintf(stderr, "Error: Pointer not found in any slab page.\n");
 }
