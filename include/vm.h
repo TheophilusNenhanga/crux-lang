@@ -9,6 +9,7 @@ typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 typedef struct ObjectResult ObjectResult;
 typedef struct ObjectStructInstance ObjectStructInstance;
+typedef struct SlabAllocator SlabAllocator;
 
 typedef enum {
 	INTERPRET_OK,
@@ -74,7 +75,12 @@ typedef struct {
 } ObjectPool;
 
 struct VM {
-	ObjectPool* object_pool;
+	ObjectPool* object_pool; // Global object pool
+
+	SlabAllocator* slab_16;
+	SlabAllocator* slab_24;
+	SlabAllocator* slab_32;
+	SlabAllocator* slab_48;
 
 	Table strings;
 
@@ -102,6 +108,7 @@ struct VM {
 	CruxObject **gray_stack;
 	int gray_capacity;
 	int gray_count;
+
 	GC_STATUS gc_status;
 
 	int import_count;

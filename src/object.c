@@ -11,7 +11,7 @@
 #include <unistd.h>
 #endif
 
-#include "memory.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 

@@ -1,78 +1,15 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "compiler.h"
-#include "memory.h"
+#include "alloc.h"
+#include "garbage_collector.h"
 #include "value.h"
 
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
 #include "debug.h"
 #endif
-
-#define GC_HEAP_GROW_FACTOR 1.5
-
-void *allocate_object_with_gc(VM *vm, const size_t size)
-{
-	vm->bytes_allocated += size;
-	if (vm->bytes_allocated > vm->next_gc) {
-		collect_garbage(vm);
-	}
-	void *result = malloc(size);
-	if (result == NULL) {
-		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to reallocate %zu "
-			"bytes.\n "
-			"Exiting!",
-			size);
-		exit(1);
-	}
-	return result;
-}
-
-void *allocate_object_without_gc(const size_t size)
-{
-	void *result = malloc(size);
-	if (result == NULL) {
-		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to allocate %zu "
-			"bytes.\n"
-			"Exiting!",
-			size);
-		exit(1);
-	}
-	return result;
-}
-
-void *reallocate(VM *vm, void *pointer, const size_t oldSize,
-		 const size_t newSize)
-{
-	vm->bytes_allocated += newSize - oldSize;
-	if (newSize > oldSize) {
-#ifdef DEBUG_STRESS_GC
-		collect_garbage(vm);
-#endif
-		if (vm->bytes_allocated > vm->next_gc) {
-			collect_garbage(vm);
-		}
-	}
-
-	if (newSize == 0) {
-		free(pointer);
-		return NULL;
-	}
-
-	void *result = realloc(pointer, newSize);
-	if (result == NULL) {
-		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to reallocate %zu "
-			"bytes.\n "
-			"Exiting!",
-			newSize);
-		exit(1);
-	}
-
-	return result;
-}
 
 void mark_object(VM *vm, CruxObject *object)
 {
@@ -474,34 +411,34 @@ static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
 	FREE_ARRAY(vm, char, string->chars, string->length + 1);
-	FREE(vm, ObjectString, object);
+	FREE_OBJECT(vm, ObjectString, object);
 }
 
 static void free_object_function(VM *vm, CruxObject *object)
 {
 	ObjectFunction *function = (ObjectFunction *)object;
 	free_chunk(vm, &function->chunk);
-	FREE(vm, ObjectFunction, object);
+	FREE_OBJECT(vm, ObjectFunction, object);
 }
 
 static void free_object_native_function(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectNativeFunction, object);
+	FREE_OBJECT(vm, ObjectNativeFunction, object);
 }
 
 static void free_object_native_method(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectNativeMethod, object);
+	FREE_OBJECT(vm, ObjectNativeMethod, object);
 }
 
 static void free_object_native_infallible_function(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectNativeInfallibleFunction, object);
+	FREE_OBJECT(vm, ObjectNativeInfallibleFunction, object);
 }
 
 static void free_object_native_infallible_method(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectNativeInfallibleMethod, object);
+	FREE_OBJECT(vm, ObjectNativeInfallibleMethod, object);
 }
 
 static void free_object_closure(VM *vm, CruxObject *object)
@@ -509,12 +446,12 @@ static void free_object_closure(VM *vm, CruxObject *object)
 	const ObjectClosure *closure = (ObjectClosure *)object;
 	FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues,
 		   closure->upvalue_count);
-	FREE(vm, ObjectClosure, object);
+	FREE_OBJECT(vm, ObjectClosure, object);
 }
 
 static void free_object_upvalue(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectUpvalue, object);
+	FREE_OBJECT(vm, ObjectUpvalue, object);
 }
 
 
@@ -522,29 +459,29 @@ static void free_object_array(VM *vm, CruxObject *object)
 {
 	const ObjectArray *array = (ObjectArray *)object;
 	FREE_ARRAY(vm, Value, array->values, array->capacity);
-	FREE(vm, ObjectArray, object);
+	FREE_OBJECT(vm, ObjectArray, object);
 }
 
 static void free_object_table_wrapper(VM *vm, CruxObject *object)
 {
 	ObjectTable *table = (ObjectTable *)object;
 	free_object_table(vm, table);
-	FREE(vm, ObjectTable, object);
+	FREE_OBJECT(vm, ObjectTable, object);
 }
 
 static void free_object_error(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectError, object);
+	FREE_OBJECT(vm, ObjectError, object);
 }
 
 static void free_object_result(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectResult, object);
+	FREE_OBJECT(vm, ObjectResult, object);
 }
 
 static void free_object_random(VM *vm, CruxObject *object)
 {
-	FREE(vm, ObjectRandom, object);
+	FREE_OBJECT(vm, ObjectRandom, object);
 }
 
 static void free_object_file(VM *vm, CruxObject *object)
@@ -553,7 +490,7 @@ static void free_object_file(VM *vm, CruxObject *object)
 	if (file->file != NULL) {
 		fclose(file->file);
 	}
-	FREE(vm, ObjectFile, object);
+	FREE_OBJECT(vm, ObjectFile, object);
 }
 
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object)
@@ -562,21 +499,21 @@ static void free_object_module_record_wrapper(VM *vm, CruxObject *object)
 	// First free the internal data
 	free_object_module_record(vm, moduleRecord);
 	// Then free the object itself
-	FREE(vm, ObjectModuleRecord, object);
+	FREE_OBJECT(vm, ObjectModuleRecord, object);
 }
 
 static void free_object_struct(VM *vm, CruxObject *object)
 {
 	ObjectStruct *structure = (ObjectStruct *)object;
 	free_table(vm, &structure->fields);
-	FREE(vm, ObjectStruct, object);
+	FREE_OBJECT(vm, ObjectStruct, object);
 }
 
 static void free_object_struct_instance(VM *vm, CruxObject *object)
 {
 	const ObjectStructInstance *instance = (ObjectStructInstance *)object;
 	FREE_ARRAY(vm, Value, instance->fields, instance->field_count);
-	FREE(vm, ObjectStructInstance, object);
+	FREE_OBJECT(vm, ObjectStructInstance, object);
 }
 
 static void free_object_vector(VM *vm, CruxObject *object)
@@ -585,7 +522,7 @@ static void free_object_vector(VM *vm, CruxObject *object)
 	if (vector->dimensions > 4) {
 		FREE(vm, double, vector->as.h_components);
 	}
-	FREE(vm, ObjectVector, object);
+	FREE_OBJECT(vm, ObjectVector, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
@@ -675,12 +612,6 @@ void mark_roots(VM *vm)
 
 /**
  * @brief Traces references from gray objects, blackening them.
- *
- * This function processes the gray stack, taking gray objects and blackening
- * them by calling `blackenObject`. This process continues until the gray stack
- * is empty, ensuring that all reachable objects and their references are
- * marked.
- *
  * @param vm The virtual machine.
  */
 static void trace_references(VM *vm)
@@ -693,11 +624,6 @@ static void trace_references(VM *vm)
 
 /**
  * @brief Sweeps unmarked objects, freeing their memory.
- *
- * This function performs the sweep phase of garbage collection. It iterates
- * through the VM's object list, frees any objects that are not marked (i.e.,
- * unreachable), and removes them from the linked list of objects.
- *
  * @param vm The virtual machine.
  */
 static void sweep(VM *vm)

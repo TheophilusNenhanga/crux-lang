@@ -1,6 +1,6 @@
 #include "chunk.h"
 #include <stdlib.h>
-#include "memory.h"
+#include "garbage_collector.h"
 #include "panic.h"
 
 void init_chunk(Chunk *chunk)

@@ -5,111 +5,118 @@
 
 SlabAllocator * init_slab_allocator(const uint16_t slot_size, const uint16_t capacity)
 {
-	SlabAllocator* slab_allocator = malloc(sizeof(SlabAllocator));
-	if (slab_allocator == NULL) {
-		fprintf(stderr, "Error: Failed to allocate memory for slab allocator");
-		return NULL;
-	}
-	slab_allocator->capacity = capacity;
-	slab_allocator->count = 0;
-	slab_allocator->next = NULL;
-	slab_allocator->slot_size = slot_size;
-	slab_allocator->slots = malloc(slab_allocator->slot_size * slab_allocator->capacity);
-	if (slab_allocator->slots == NULL) {
-		fprintf(stderr, "Error: Failed to allocate memory for slab allocator");
-		free(slab_allocator);
-		return NULL;
-	}
+    SlabAllocator* slab_allocator = (SlabAllocator*)calloc(1, sizeof(SlabAllocator));
+    if (!slab_allocator) {
+        fprintf(stderr, "Error: Failed to allocate memory for slab allocator.\n");
+        return NULL;
+    }
 
-	slab_allocator->freelist.capacity = capacity;
-	slab_allocator->freelist.count = 0;
-	slab_allocator->freelist.values = malloc(sizeof(uint16_t) * capacity);
-	if (slab_allocator->freelist.values == NULL) {
-		free(slab_allocator->slots);
-		free(slab_allocator);
-		fprintf(stderr, "Error: Failed to allocate memory for slab allocator");
-		return NULL;
-	}
-	slab_allocator->freelist.values_top = slab_allocator->freelist.values;
+    slab_allocator->slot_size = slot_size;
+    slab_allocator->capacity = capacity;
+    slab_allocator->slots = (SlabSlot*)calloc(capacity, sizeof(SlabSlot));
 
-	return slab_allocator;
+    if (!slab_allocator->slots) {
+        fprintf(stderr, "Error: Failed to allocate memory for slab slots.\n");
+        free(slab_allocator);
+        return NULL;
+    }
+
+    for (uint16_t i = 0; i < capacity; i++) {
+        slab_allocator->slots[i].memory = malloc(slot_size);
+        if (!slab_allocator->slots[i].memory) {
+            for (uint16_t j = 0; j < i; j++) {
+                free(slab_allocator->slots[j].memory);
+            }
+            free(slab_allocator->slots);
+            free(slab_allocator);
+            return NULL;
+        }
+
+        if (i < capacity - 1) {
+            slab_allocator->slots[i].next = &slab_allocator->slots[i + 1];
+        } else {
+            slab_allocator->slots[i].next = NULL;
+        }
+    }
+
+    slab_allocator->free_slots = slab_allocator->slots;
+    slab_allocator->next = NULL;
+    return slab_allocator;
 }
 
-static void push_free_list(SlabFreeList* list, uint16_t value)
-{
-	if (list == NULL) {
-		fprintf(stderr, "Error: Null slab free list provided.");
-		return;
-	}
-	if (list->count == list->capacity) {
-		fprintf(stderr, "Error: Slab free list is full.");
-		return;
-	}
-	*list->values_top++ = value;
-	list->count++;
+bool is_slab_full(const SlabAllocator* slab_allocator) {
+    return slab_allocator->free_slots == NULL;
 }
 
-static uint16_t pop_free_list(SlabFreeList* list, bool* success)
+void destroy_slab_allocator(SlabAllocator * slab_allocator)
 {
-	if (list == NULL) {
-		fprintf(stderr, "Error: Null slab free list provided.");
-		*success = false;
-		return 0;
-	}
-	if (list->count == 0) {
-		fprintf(stderr, "Error: Slab free list is empty.");
-		*success = false;
-		return 0;
-	}
-	*success = true;
-	list->count--;
-	return *--list->values_top;
+    if (!slab_allocator) {
+        return;
+    }
+
+    SlabAllocator* curr_slab = slab_allocator;
+    while (curr_slab) {
+        SlabAllocator* next_slab = curr_slab->next;
+        for (uint16_t i = 0; i < curr_slab->capacity; i++) {
+            free(curr_slab->slots[i].memory);
+            curr_slab->slots[i].next = NULL;
+            curr_slab->slots[i].memory = NULL;
+        }
+        free(curr_slab->slots);
+        free(curr_slab);
+        curr_slab = next_slab;
+    }
 }
 
-bool is_slab_full(const SlabAllocator * slab_allocator)
+void* allocate_from_slab(SlabAllocator * slab_allocator)
 {
-	return slab_allocator->count == slab_allocator->capacity;
+    if (!slab_allocator) {
+        return NULL;
+    }
+
+    SlabAllocator* curr_slab = slab_allocator;
+    while (curr_slab && is_slab_full(curr_slab)) {
+        if (!curr_slab->next) {
+            SlabAllocator* new_allocator = init_slab_allocator(curr_slab->slot_size, curr_slab->capacity);
+            if (!new_allocator) {
+                fprintf(stderr, "Error: Failed to allocate new slab.\n");
+                return NULL;
+            }
+            curr_slab->next = new_allocator;
+        }
+        curr_slab = curr_slab->next;
+    }
+
+    SlabSlot* free_slot = curr_slab->free_slots;
+    if (!free_slot) {
+        fprintf(stderr, "Error: No free slots available.\n");
+        return NULL;
+    }
+
+    curr_slab->free_slots = free_slot->next;
+    return free_slot->memory;
 }
 
-void* slab_allocate(SlabAllocator * slab_allocator)
+void free_from_slab(SlabAllocator * slab_allocator, void* ptr)
 {
-	SlabAllocator* curr_allocator = slab_allocator;
-	SlabAllocator* prev_allocator = NULL;
-	while (curr_allocator != NULL && is_slab_full(curr_allocator)) {
-		prev_allocator = curr_allocator;
-		curr_allocator = curr_allocator->next;
-	}
+    if (!slab_allocator || !ptr) {
+        fprintf(stderr, "Error: NULL pointer given for slab allocator, or ptr.\n");
+        return;
+    }
 
-	if (curr_allocator == NULL && prev_allocator == NULL) {
-		fprintf(stderr, "Error: Cannot allocate from NULL allocator");
-		return NULL;
-	}
+    SlabAllocator* curr_slab = slab_allocator;
 
-	if (curr_allocator == NULL) {
-		SlabAllocator* new_allocator = init_slab_allocator(slab_allocator->slot_size, slab_allocator->capacity);
-		if (new_allocator == NULL) {
-			fprintf(stderr, "Error: Failed to allocate memory for slab allocator");
-			return NULL;
-		}
-		prev_allocator->next = new_allocator;
-		new_allocator->count++;
-		return new_allocator->slots + new_allocator->count - 1;
+    while (curr_slab) {
+        for (uint16_t i = 0; i < curr_slab->capacity; i++) {
+            if (curr_slab->slots[i].memory == ptr) {
+                SlabSlot* slot = &curr_slab->slots[i];
+                slot->next = curr_slab->free_slots;
+                curr_slab->free_slots = slot;
+                return;
+            }
+        }
+        curr_slab = curr_slab->next;
+    }
 
-	}else {
-		bool success = false;
-		const uint16_t new_index = pop_free_list(&curr_allocator->freelist, &success);
-
-		if (success) {
-			curr_allocator->count++;
-			return curr_allocator->slots+new_index;
-		}else {
-			// there is no old spot to use, just use next spot
-			curr_allocator->count++;
-			return curr_allocator->slots+curr_allocator->count-1;
-		}
-	}
-}
-void slab_free(SlabAllocator * slab_allocator, void* ptr)
-{
-
+    fprintf(stderr, "Error: Pointer not found in any slab.\n");
 }

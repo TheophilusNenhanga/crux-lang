@@ -2,6 +2,7 @@
 #define MEMORY_H
 
 #include "object.h"
+#include "slab_allocator.h"
 
 #define TABLE_MAX_LOAD 0.65
 
@@ -59,11 +60,6 @@ void mark_object(VM *vm, CruxObject *object);
 
 /**
  * @brief Marks a Value as reachable during garbage collection.
- *
- * If the given `value` is an object, this function calls `markObject` to mark
- * it. Primitive values are ignored as they are not managed by the garbage
- * collector.
- *
  * @param vm The virtual machine.
  * @param value The Value to mark.
  */
