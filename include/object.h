@@ -135,12 +135,12 @@ typedef enum {
 	OBJECT_VECTOR,
 } ObjectType;
 
-struct CruxObject {
+struct CruxObject {//8
 	uint32_t pool_index;
 	ObjectType type;
 };
 
-struct PoolObject {
+struct PoolObject {//8
 	void *data;
 };
 
@@ -155,14 +155,14 @@ struct PoolObject {
 	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |            \
 				((marked) ? MARK_BIT : 0)))
 
-struct ObjectString {
+struct ObjectString { // 24
 	CruxObject object;
 	char *chars;
 	uint32_t length; // this is the length without the null terminator
 	uint32_t hash;
 };
 
-typedef struct {
+typedef struct {//72
 	CruxObject object;
 	int arity;
 	int upvalue_count;
@@ -171,28 +171,28 @@ typedef struct {
 	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
-typedef struct ObjectUpvalue {
+typedef struct ObjectUpvalue {//32
 	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct ObjectClosure {
+typedef struct ObjectClosure {//32
 	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
-typedef struct {
+typedef struct {//24
 	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
-typedef struct {
+typedef struct {//16
 	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
@@ -225,14 +225,14 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef struct {
+typedef struct {//24
 	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
-struct ObjectResult {
+struct ObjectResult {//24
 	CruxObject object;
 	bool is_ok;
 	union {
@@ -245,48 +245,48 @@ typedef ObjectResult *(*CruxCallable)(VM *vm, int arg_count, const Value *args);
 typedef Value (*CruxInfallibleCallable)(VM *vm, int arg_count,
 					const Value *args);
 
-typedef struct {
+typedef struct {//32
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeFunction;
 
-typedef struct {
+typedef struct {//32
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeMethod;
 
-typedef struct {
+typedef struct {//32
 	CruxObject object;
 	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeInfallibleFunction;
 
-typedef struct {
+typedef struct {//32
 	CruxObject object;
 	CruxInfallibleCallable function;
 	ObjectString *name;
 	int arity;
 } ObjectNativeInfallibleMethod;
 
-typedef struct {
+typedef struct {//24
 	Value key;
 	Value value;
 	bool is_occupied;
 } ObjectTableEntry;
 
-typedef struct {
+typedef struct {//24
 	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
-typedef struct {
+typedef struct {//48
 	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
@@ -295,13 +295,13 @@ typedef struct {
 	bool is_open;
 } ObjectFile;
 
-typedef struct {
+typedef struct {//32
 	CruxObject object;
 	ObjectString *name;
 	Table fields; // <field_name: index>
 } ObjectStruct;
 
-struct ObjectStructInstance {
+struct ObjectStructInstance {//32
 	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
@@ -312,7 +312,7 @@ struct ObjectStructInstance {
 #define VECTOR_COMPONENTS(vec) \
 ((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
 
-typedef struct {
+typedef struct {//48
 	CruxObject object;
 	uint32_t dimensions;
 	union {
@@ -327,7 +327,7 @@ typedef enum {
 	STATE_ERROR,
 } ModuleState;
 
-struct ObjectModuleRecord {
+struct ObjectModuleRecord {//112
 	CruxObject object;
 	ObjectString *path;
 	Table globals;
@@ -754,8 +754,7 @@ bool object_table_contains_key(ObjectTable *table, Value key);
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
-					  uint16_t field_count,
-					  ObjectModuleRecord *module_record);
+					  uint16_t field_count);
 
 ObjectVector *new_vector(VM* vm, uint32_t dimensions);
 

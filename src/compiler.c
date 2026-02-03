@@ -10,7 +10,7 @@
 #include "chunk.h"
 #include "debug.h"
 #include "file_handler.h"
-#include "memory.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"

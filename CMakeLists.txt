@@ -39,6 +39,7 @@ file(GLOB SOURCES
 				"src/*.c"
 				"src/stdlib/*.c"
 				"src/vm/*.c"
+				"src/memory/*.c"
 )
 
 file(GLOB HEADERS

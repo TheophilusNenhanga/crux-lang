@@ -5,7 +5,7 @@
 #include <unistd.h>
 #endif
 
-#include "memory.h"
+#include "garbage_collector.h"
 #include "panic.h"
 #include "stdlib/time.h"
 

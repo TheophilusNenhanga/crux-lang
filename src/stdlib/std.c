@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "memory.h"
+#include "garbage_collector.h"
 #include "panic.h"
 #include "stdlib/array.h"
 #include "stdlib/core.h"

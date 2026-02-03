@@ -1,5 +1,3 @@
-#include "vm_helpers.h"
-
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,7 +6,7 @@
 
 #include "common.h"
 #include "compiler.h"
-#include "memory.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 #include "stdlib/std.h"
@@ -16,6 +14,8 @@
 #include "value.h"
 #include "vm.h"
 #include "vm_run.h"
+#include "vm_helpers.h"
+#include "slab_allocator.h"
 
 void init_import_stack(VM *vm)
 {
@@ -114,7 +114,7 @@ bool is_in_import_stack(const VM *vm, const ObjectString *path)
 
 VM *new_vm(const int argc, const char **argv)
 {
-	VM *vm = malloc(sizeof(VM));
+	VM *vm = calloc(1, sizeof(VM));
 	if (vm == NULL) {
 		fprintf(stderr,
 			"Fatal Error: Could not allocate memory for VM\n");
@@ -606,7 +606,7 @@ void free_object_pool(ObjectPool *pool)
 
 ObjectPool *init_object_pool(const uint32_t initial_capacity)
 {
-	ObjectPool *pool = malloc(sizeof(ObjectPool));
+	ObjectPool *pool = calloc(1, sizeof(ObjectPool));
 	if (!pool)
 		return NULL;
 
@@ -637,6 +637,10 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	const bool is_repl = argc == 1 ? true : false;
 
 	vm->object_pool = init_object_pool(INITIAL_OBJECT_POOL_CAPACITY);
+	vm->slab_16 = init_slab_allocator(16, SLAB_CAPACITY);
+	vm->slab_24 = init_slab_allocator(24, SLAB_CAPACITY);
+	vm->slab_32 = init_slab_allocator(32, SLAB_CAPACITY);
+	vm->slab_48 = init_slab_allocator(48, SLAB_CAPACITY);
 
 	vm->gc_status = PAUSED;
 	vm->bytes_allocated = 0;
@@ -738,6 +742,10 @@ void free_vm(VM *vm)
 	free_module_record(vm, vm->current_module_record);
 
 	free_objects(vm);
+	destroy_slab_allocator(vm->slab_16);
+	destroy_slab_allocator(vm->slab_24);
+	destroy_slab_allocator(vm->slab_32);
+	destroy_slab_allocator(vm->slab_48);
 	free_object_pool(vm->object_pool);
 	free(vm->object_pool);
 

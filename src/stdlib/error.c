@@ -1,6 +1,6 @@
 #include "stdlib/error.h"
 
-#include "memory.h"
+#include "garbage_collector.h"
 #include "panic.h"
 
 ObjectResult *error_function(VM *vm, int arg_count, const Value *args)

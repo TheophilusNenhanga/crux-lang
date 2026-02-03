@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include "memory.h"
+#include "garbage_collector.h"
 #include "object.h"
 
 void init_value_array(ValueArray *array)
