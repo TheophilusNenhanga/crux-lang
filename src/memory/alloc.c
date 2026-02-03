@@ -6,29 +6,18 @@
 #include "garbage_collector.h"
 
 
-void* alloc_memory(VM* vm, const size_t size)
+void* alloc_memory(VM *vm, const size_t size)
 {
   SlabAllocator* slab = NULL;
 
-  switch (size) {
-    case 16: {
-        slab = vm->slab_16;
-        break;
-    }
-    case 24:{
-      slab = vm->slab_24;
-      break;
-    }
-
-    case 32: {
-      slab = vm->slab_32;
-      break;
-    }
-
-    case 48: {
-      slab = vm->slab_48;
-      break;
-    }
+  if (size <= 16) {
+    slab = vm->slab_16;
+  } else if (size <= 24) {
+    slab = vm->slab_24;
+  } else if (size <= 32) {
+    slab = vm->slab_32;
+  } else if (size <= 48) {
+    slab = vm->slab_48;
   }
 
   if (!slab) {
@@ -56,27 +45,18 @@ void free_memory(VM* vm, void* ptr, const size_t size) {
         return;
     }
 
-    switch (size) {
-        case 16: {
-            free_from_slab(vm->slab_16, ptr);
-            break;
-        }
-        case 24: {
-            free_from_slab(vm->slab_24, ptr);
-            break;
-        }
-        case 32: {
-            free_from_slab(vm->slab_32, ptr);
-            break;
-        }
-        case 48: {
-            free_from_slab(vm->slab_48, ptr);
-            break;
-        }
-        default: {
-            free(ptr);
-            break;
-        }
+    vm->bytes_allocated -= size;
+
+    if (size <= 16) {
+        free_from_slab(vm->slab_16, ptr);
+    } else if (size <= 24) {
+        free_from_slab(vm->slab_24, ptr);
+    } else if (size <= 32) {
+        free_from_slab(vm->slab_32, ptr);
+    } else if (size <= 48) {
+        free_from_slab(vm->slab_48, ptr);
+    } else {
+        free(ptr);
     }
 }
 
@@ -116,27 +96,18 @@ void free_slab_object(VM* vm, void* ptr, const size_t curr_size){
     if (!ptr)
         return;
 
-    switch (curr_size) {
-        case 16: {
-            free_from_slab(vm->slab_16, ptr);
-            break;
-        }
-        case 24: {
-            free_from_slab(vm->slab_24, ptr);
-            break;
-        }
-        case 32: {
-            free_from_slab(vm->slab_32, ptr);
-            break;
-        }
-        case 48: {
-            free_from_slab(vm->slab_48, ptr);
-            break;
-        }
-        default: {
-            free(ptr);
-            break;
-        }
+    vm->bytes_allocated -= curr_size;
+
+    if (curr_size <= 16) {
+        free_from_slab(vm->slab_16, ptr);
+    } else if (curr_size <= 24) {
+        free_from_slab(vm->slab_24, ptr);
+    } else if (curr_size <= 32) {
+        free_from_slab(vm->slab_32, ptr);
+    } else if (curr_size <= 48) {
+        free_from_slab(vm->slab_48, ptr);
+    } else {
+        free(ptr);
     }
 }
 

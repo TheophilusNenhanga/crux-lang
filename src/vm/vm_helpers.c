@@ -742,10 +742,10 @@ void free_vm(VM *vm)
 	free_module_record(vm, vm->current_module_record);
 
 	free_objects(vm);
-	destroy_slab_allocator(&vm->slab_16);
-	destroy_slab_allocator(&vm->slab_24);
-	destroy_slab_allocator(&vm->slab_32);
-	destroy_slab_allocator(&vm->slab_48);
+	destroy_slab_allocator(vm->slab_16);
+	destroy_slab_allocator(vm->slab_24);
+	destroy_slab_allocator(vm->slab_32);
+	destroy_slab_allocator(vm->slab_48);
 	free_object_pool(vm->object_pool);
 	free(vm->object_pool);
 
