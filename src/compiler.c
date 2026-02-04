@@ -557,6 +557,7 @@ static uint16_t argument_list(void)
 					       ARGUMENT_EXTENT);
 			}
 			arg_count++;
+			// TODO: consume type annotation
 		} while (match(TOKEN_COMMA));
 	}
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list");
@@ -980,6 +981,7 @@ static void function(const FunctionType type)
 			const uint16_t constant = parse_variable(
 				"Expected parameter name");
 			define_variable(constant);
+			// TODO: consume type annotation
 		} while (match(TOKEN_COMMA));
 	}
 
@@ -1117,9 +1119,15 @@ static void var_declaration(void)
 {
 	const uint16_t global = parse_variable("Expected Variable Name.");
 
+	if (match(TOKEN_COLON)) {
+		// TODO: handle type annotation
+
+	}
+
 	if (match(TOKEN_EQUAL)) {
 		expression();
 	} else {
+		// TODO: instead of NIL emit default value of given type
 		emit_word(OP_NIL);
 	}
 	consume(TOKEN_SEMICOLON, "Expected ';' after variable declaration.");

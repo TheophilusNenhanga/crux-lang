@@ -74,11 +74,9 @@ typedef enum {
 	TOKEN_TYPEOF, // typeof
 	TOKEN_NEW, // new
 
-	TOKEN_DOLLAR_LEFT_CURLY, // ${
-	TOKEN_DOLLAR_LEFT_SQUARE, // $[
 	TOKEN_STRUCT, // struct
-
-	TOKEN_QUESTION_MARK,
+	TOKEN_QUESTION_MARK, // ?
+	TOKEN_ARROW, // ->
 } CruxTokenType;
 
 typedef struct {
