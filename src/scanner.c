@@ -441,7 +441,13 @@ Token scan_token(void)
 	case '.':
 		return make_token(TOKEN_DOT);
 	case '-':
-		return make_token(match('=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS);
+		if (match('>')) {
+			return make_token(TOKEN_ARROW);
+		}
+		if (match('=')) {
+			return make_token(TOKEN_MINUS_EQUAL);
+		}
+		return make_token(TOKEN_MINUS);
 	case '+':
 		return make_token(match('=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
 	case '/':

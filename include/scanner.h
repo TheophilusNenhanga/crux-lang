@@ -78,8 +78,8 @@ typedef enum {
 	TOKEN_NEW, // new
 	TOKEN_PANIC, // panic
 	TOKEN_STRUCT, // struct
-
-	TOKEN_QUESTION_MARK,
+	TOKEN_QUESTION_MARK, // ?
+	TOKEN_ARROW, // ->
 } CruxTokenType;
 
 typedef struct {

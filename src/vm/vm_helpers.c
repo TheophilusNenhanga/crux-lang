@@ -1734,7 +1734,7 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
 
 	if (op == OP_SET_LOCAL_PLUS &&
 	    (IS_CRUX_STRING(*target) || IS_CRUX_STRING(operand))) {
-		// += is not defined for strings
+		runtime_panic(currentModuleRecord,false, TYPE, "'+=' is not defined for strings.");
 		return false;
 	}
 
