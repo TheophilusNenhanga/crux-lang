@@ -186,24 +186,24 @@ static uint32_t hashValue(const Value value)
 void print_type(const Value value)
 {
 	if (IS_INT(value)) {
-		printf("'int'");
+		printf("'Int'");
 		return;
 	}
 	if (IS_FLOAT(value)) {
-		printf("'float'");
+		printf("'Float'");
 		return;
 	}
 	if (IS_BOOL(value)) {
-		printf("'bool'");
+		printf("'Bool'");
 		return;
 	}
 	if (IS_NIL(value)) {
-		printf("'nil'");
+		printf("'Nil'");
 		return;
 	}
 	switch (OBJECT_TYPE(value)) {
 	case OBJECT_STRING:
-		printf("'string'");
+		printf("'String'");
 		break;
 	case OBJECT_FUNCTION:
 	case OBJECT_NATIVE_FUNCTION:
@@ -211,28 +211,30 @@ void print_type(const Value value)
 	case OBJECT_NATIVE_METHOD:
 	case OBJECT_NATIVE_INFALLIBLE_METHOD:
 	case OBJECT_CLOSURE:
-		printf("'function'");
+		printf("'Function'");
 		break;
-	case OBJECT_UPVALUE:
-		printf("'upvalue'");
+	case OBJECT_UPVALUE: {
+		const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+		print_type(upvalue->closed);
 		break;
+	}
 	case OBJECT_ARRAY:
-		printf("'array'");
+		printf("'Array'");
 		break;
 	case OBJECT_TABLE:
-		printf("'table'");
+		printf("'Table'");
 		break;
 	case OBJECT_ERROR:
-		printf("'error'");
+		printf("'Error'");
 		break;
 	case OBJECT_RESULT:
-		printf("'result'");
+		printf("'Result'");
 		break;
 	case OBJECT_RANDOM:
-		printf("'random'");
+		printf("'Random'");
 		break;
 	case OBJECT_FILE:
-		printf("'file'");
+		printf("'File'");
 		break;
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
@@ -252,6 +254,10 @@ void print_type(const Value value)
 	case OBJECT_STRUCT: {
 		const ObjectStruct *struct_ = AS_CRUX_STRUCT(value);
 		printf("'%s struct'", struct_->name->chars);
+		break;
+	}
+	case OBJECT_COMPLEX: {
+		printf("'Complex'");
 		break;
 	}
 	default:
@@ -1409,4 +1415,13 @@ ObjectVector *new_vector(VM *vm, const uint32_t dimensions)
 	}
 	pop(vm->current_module_record);
 	return vector;
+}
+
+ObjectComplex* new_complex_number(VM *vm, const double real, const double imaginary)
+{
+	ObjectComplex* complex_number = ALLOCATE_OBJECT(vm, ObjectComplex, OBJECT_COMPLEX);
+	complex_number->real = real;
+	complex_number->imag = imaginary;
+	return complex_number;
+
 }

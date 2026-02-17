@@ -663,6 +663,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
 	init_table(&vm->vector_type);
+	init_table(&vm->complex_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -727,6 +728,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
 	free_table(vm, &vm->vector_type);
+	free_table(vm, &vm->complex_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1245,13 +1247,13 @@ typedef Value (*TypeofHandler)(VM *vm, Value value);
 static Value typeof_string(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "string", 6));
+	return OBJECT_VAL(copy_string(vm, "String", 6));
 }
 
 static Value typeof_function(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "function", 8));
+	return OBJECT_VAL(copy_string(vm, "Function", 8));
 }
 
 static Value typeof_upvalue(VM *vm, const Value value)
@@ -1263,60 +1265,67 @@ static Value typeof_upvalue(VM *vm, const Value value)
 static Value typeof_array(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "array", 5));
+	return OBJECT_VAL(copy_string(vm, "Array", 5));
 }
 
 static Value typeof_table(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "table", 5));
+	return OBJECT_VAL(copy_string(vm, "Table", 5));
 }
 
 static Value typeof_error(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "error", 5));
+	return OBJECT_VAL(copy_string(vm, "Error", 5));
 }
 
 static Value typeof_result(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "result", 6));
+	return OBJECT_VAL(copy_string(vm, "Result", 6));
 }
 
 static Value typeof_random(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "random", 6));
+	return OBJECT_VAL(copy_string(vm, "Random", 6));
 }
 
 static Value typeof_file(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "file", 4));
+	return OBJECT_VAL(copy_string(vm, "File", 4));
 }
 
 static Value typeof_module_record(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "module", 6));
+	return OBJECT_VAL(copy_string(vm, "Module", 6));
 }
 
 static Value typeof_struct(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "struct", 6));
+	return OBJECT_VAL(copy_string(vm, "Struct", 6));
 }
 
 static Value typeof_struct_instance(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
+	return OBJECT_VAL(copy_string(vm, "Struct instance", 15));
 }
 
-static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_vector(VM *vm, const Value value)
 {
-	return OBJECT_VAL(copy_string(vm, "vec", 3));
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Vec", 3));
+}
+
+static Value typeof_complex(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Complex", 7));
 }
 
 // Dispatch table for object types
@@ -1338,7 +1347,9 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_MODULE_RECORD] = typeof_module_record,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
-	[OBJECT_VECTOR] = typeof_vector};
+	[OBJECT_VECTOR] = typeof_vector,
+	[OBJECT_COMPLEX] = typeof_complex,
+};
 
 /**
  * Performs a binary operation on the top two values of the stack.

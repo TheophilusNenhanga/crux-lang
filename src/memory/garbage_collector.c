@@ -145,6 +145,7 @@ static void blacken_module_record(VM *vm, CruxObject *object);
 static void blacken_struct(VM *vm, CruxObject *object);
 static void blacken_struct_instance(VM *vm, CruxObject *object);
 static void blacken_vector(VM *vm, CruxObject *object);
+static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
@@ -167,6 +168,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRUCT] = blacken_struct,
 	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
 	[OBJECT_VECTOR] = blacken_vector,
+	[OBJECT_COMPLEX] = blacken_complex,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -314,6 +316,12 @@ static void blacken_vector(VM *vm, CruxObject *object)
 	(void)object;
 }
 
+static void blacken_complex(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+
 static void blacken_string(VM *vm, CruxObject *object)
 {
 	(void)vm;
@@ -350,6 +358,7 @@ static void free_object_module_record_wrapper(VM *vm, CruxObject *object);
 static void free_object_struct(VM *vm, CruxObject *object);
 static void free_object_struct_instance(VM *vm, CruxObject *object);
 static void free_object_vector(VM *vm, CruxObject *object);
+static void free_object_complex(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -371,7 +380,8 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
 	[OBJECT_STRUCT] = free_object_struct,
 	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
-	[OBJECT_VECTOR] = free_object_vector
+	[OBJECT_VECTOR] = free_object_vector,
+	[OBJECT_COMPLEX] = free_object_complex,
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -523,6 +533,11 @@ static void free_object_vector(VM *vm, CruxObject *object)
 		FREE(vm, double, vector->as.h_components);
 	}
 	FREE_OBJECT(vm, ObjectVector, object);
+}
+
+static void free_object_complex(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectComplex, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
