@@ -286,6 +286,10 @@ void print_type_to(FILE *stream, const Value value)
 		fprintf(stream, "'Set'");
 		break;
 	}
+	case OBJECT_COMPLEX: {
+		printf("'Complex'");
+		break;
+	}
 	default:
 		fprintf(stream, "'unknown'");
 	}

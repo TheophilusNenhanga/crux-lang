@@ -146,6 +146,7 @@ static void blacken_module_record(VM *vm, CruxObject *object);
 static void blacken_struct(VM *vm, CruxObject *object);
 static void blacken_struct_instance(VM *vm, CruxObject *object);
 static void blacken_vector(VM *vm, CruxObject *object);
+static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 static void blacken_range(VM *vm, CruxObject *object);
 static void blacken_set(VM *vm, CruxObject *object);
