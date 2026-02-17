@@ -5,6 +5,7 @@
 #include "garbage_collector.h"
 #include "panic.h"
 #include "stdlib/array.h"
+#include "stdlib/complex.h"
 #include "stdlib/core.h"
 #include "stdlib/error.h"
 #include "stdlib/fs.h"
@@ -32,8 +33,7 @@ static const Callable stringMethods[] = {
 	{"replace", string_replace_method, 3},
 	{"split", string_split_method, 2},
 	{"substring", string_substring_method, 3},
-	{"concat", string_concat_method, 2}
-};
+	{"concat", string_concat_method, 2}};
 
 static const InfallibleCallable stringInfallibleMethods[] = {
 	{"_is_empty", string_is_empty_method, 1},
@@ -106,8 +106,7 @@ static const Callable coreFunctions[] = {
 	{"ok", ok_function, 1},		{"int", int_function, 1},
 	{"float", float_function, 1},	{"string", string_function, 1},
 	{"table", table_function, 1},	{"array", array_function, 1},
-	{"format", format_function, 2}
-};
+	{"format", format_function, 2}};
 
 static const InfallibleCallable coreInfallibleFunctions[] = {
 	{"_len", length_function_, 1},	{"println", println_function, 1},
@@ -185,6 +184,25 @@ static const Callable fileSystemFunctions[] = {
 	{"copy_file", copy_file_function, 2},
 	{"is_file_in", is_file_in_function, 2}};
 
+static const Callable complexFunctions[] = {
+	{"Complex", new_complex_function, 2}};
+
+static const Callable complexMethods[] = {
+	{"add", add_complex_number_method, 2},
+	{"sub", sub_complex_number_method, 2},
+	{"mul", mul_complex_number_method, 2},
+	{"div", div_complex_number_method, 2},
+	{"scale", scale_complex_number_method, 2},
+};
+
+static const InfallibleCallable complexInfallibleMethods[] = {
+	{"real", complex_real_method, 1},
+	{"imag", complex_imag_method, 1},
+	{"conjugate", conjugate_complex_number_method, 1},
+	{"mag", magnitude_complex_number_method, 1},
+	{"square_mag", square_magnitude_complex_number_method, 1},
+};
+
 static const Callable vectorFunctions[] = {{"Vec", new_vector_function, 2}};
 
 static const Callable vectorMethods[] = {
@@ -208,8 +226,7 @@ static const InfallibleCallable vectorInfallibleMethods[] = {
 	{"y", vector_y_method, 1},
 	{"z", vector_z_method, 1},
 	{"w", vector_w_method, 1},
-	{"dimension", vector_dimension_method, 1}
-};
+	{"dimension", vector_dimension_method, 1}};
 
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
@@ -445,6 +462,11 @@ bool initialize_std_lib(VM *vm)
 			    ARRAY_COUNT(vectorMethods), vectorInfallibleMethods,
 			    ARRAY_COUNT(vectorInfallibleMethods));
 
+	initTypeMethodTable(vm, &vm->complex_type, complexMethods,
+			    ARRAY_COUNT(complexMethods),
+			    complexInfallibleMethods,
+			    ARRAY_COUNT(complexInfallibleMethods));
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),
 			mathInfallibleFunctions,
@@ -481,6 +503,11 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "vectors", vectorFunctions,
 			ARRAY_COUNT(vectorFunctions), NULL, 0)) {
+		return false;
+	}
+
+	if (!initModule(vm, "complex", complexFunctions,
+			ARRAY_COUNT(complexFunctions), NULL, 0)) {
 		return false;
 	}
 

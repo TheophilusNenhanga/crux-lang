@@ -36,27 +36,6 @@
 		gcSafeErrorResult;                                             \
 	})
 
-#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue)                              \
-	({                                                                     \
-		GC_PROTECT_START((vm)->current_module_record);                 \
-		GC_PROTECT((vm)->current_module_record, alreadySafeValue);     \
-		ObjectResult *gcSafeResult = newOkResult((vm),                 \
-							 alreadySafeValue);    \
-		GC_PROTECT_END((vm)->current_module_record);                   \
-		gcSafeResult;                                                  \
-	})
-
-#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression)               \
-	({                                                                     \
-		GC_PROTECT_START((vm)->current_module_record);                 \
-		Value allocatedValue = (allocatingExpression);                 \
-		GC_PROTECT((vm)->current_module_record, allocatedValue);       \
-		ObjectResult *gcSafeResultWithAlloc =                          \
-			newOkResult((vm), allocatedValue);                     \
-		GC_PROTECT_END((vm)->current_module_record);                   \
-		gcSafeResultWithAlloc;                                         \
-	})
-
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
 #define OBJECT_SET_TYPE(obj, obj_type) ((obj)->type = (obj_type))
 
@@ -82,8 +61,9 @@
 #define IS_CRUX_STRUCT_INSTANCE(value)                                         \
 	is_object_type(value, OBJECT_STRUCT_INSTANCE)
 #define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
-#define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
+#define IS_CRUX_COMPLEX(value) is_object_type(value, OBJECT_COMPLEX)
 
+#define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_NATIVE_FUNCTION(value)                                         \
@@ -109,6 +89,7 @@
 #define AS_CRUX_STRUCT_INSTANCE(value)                                         \
 	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_COMPLEX(value) ((ObjectComplex *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -133,6 +114,7 @@ typedef enum {
 	OBJECT_STRUCT,
 	OBJECT_STRUCT_INSTANCE,
 	OBJECT_VECTOR,
+	OBJECT_COMPLEX,
 } ObjectType;
 
 struct CruxObject {//8
@@ -320,6 +302,13 @@ typedef struct {//48
 		double s_components[STATIC_VECTOR_SIZE]; /* static components */
 	} as;
 } ObjectVector;
+
+typedef struct // 32
+{
+	CruxObject object;
+	double real;
+	double imag;
+} ObjectComplex;
 
 typedef enum {
 	STATE_LOADING,
@@ -759,5 +748,7 @@ ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 ObjectVector *new_vector(VM* vm, uint32_t dimensions);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
+
+ObjectComplex* new_complex_number(VM *vm, double real, double imaginary);
 
 #endif
