@@ -1,0 +1,11 @@
+use println from "crux:io";
+use Matrix from "crux:matrix";
+
+println("===-=== START OF MATRIX MODULE TESTING ===-===");
+
+println("=== Testing Matrix Creation ===");
+let m = Matrix(3, 3)?;
+assert(typeof m == "Matrix", "Failed to create matrix.");
+
+
+println("===-=== END OF MATRIX MODULE TESTING ===-===");

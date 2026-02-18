@@ -120,8 +120,7 @@ ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
 			vm, "Size of resultant array out of bounds.", BOUNDS);
 	}
 
-	ObjectArray *resultArray = new_array(vm, combined_size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, combined_size);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < combined_size; i++) {
@@ -170,8 +169,7 @@ ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	const size_t sliceSize = end_index - start_index;
-	ObjectArray *slicedArray = new_array(vm, sliceSize,
-					     vm->current_module_record);
+	ObjectArray *slicedArray = new_array(vm, sliceSize);
 	push(vm->current_module_record, OBJECT_VAL(slicedArray));
 
 	for (size_t i = 0; i < sliceSize; i++) {
@@ -302,8 +300,7 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 			ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -346,7 +343,7 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 	if (!IS_CRUX_CLOSURE(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
-			"Expected value of type 'callable' for <func> argument",
+			"Expected value of type 'Function' for <func> argument",
 			TYPE);
 	}
 
@@ -358,8 +355,7 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 			ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
 
 	uint32_t addCount = 0;
@@ -494,7 +490,7 @@ static int compare_values(const Value a, const Value b)
 	return 0;
 }
 
-static bool are_all_elements_sortable(const ObjectArray *array)
+static bool all_elements_sortable(const ObjectArray *array)
 {
 	if (array->size == 0)
 		return true;
@@ -559,15 +555,14 @@ ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
 		return new_ok_result(vm, args[0]);
 	}
 
-	if (!are_all_elements_sortable(array)) {
+	if (!all_elements_sortable(array)) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
 			"Array contains unsortable or mixed incompatible types",
 			TYPE);
 	}
 
-	ObjectArray *sortedArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *sortedArray = new_array(vm, array->size);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	push(currentModuleRecord, OBJECT_VAL(sortedArray));
 

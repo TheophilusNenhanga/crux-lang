@@ -62,6 +62,7 @@
 	is_object_type(value, OBJECT_STRUCT_INSTANCE)
 #define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
 #define IS_CRUX_COMPLEX(value) is_object_type(value, OBJECT_COMPLEX)
+#define IS_CRUX_MATRIX(value) is_object_type(value, OBJECT_MATRIX)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -90,6 +91,7 @@
 	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_COMPLEX(value) ((ObjectComplex *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_MATRIX(value) ((ObjectMatrix *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -115,6 +117,7 @@ typedef enum {
 	OBJECT_STRUCT_INSTANCE,
 	OBJECT_VECTOR,
 	OBJECT_COMPLEX,
+	OBJECT_MATRIX,
 } ObjectType;
 
 struct CruxObject {//8
@@ -136,6 +139,9 @@ struct PoolObject {//8
 #define SET_MARKED(obj, marked)                                                \
 	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |            \
 				((marked) ? MARK_BIT : 0)))
+
+#define TO_DOUBLE(value)                                                       \
+(IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
 struct ObjectString { // 24
 	CruxObject object;
@@ -309,6 +315,15 @@ typedef struct // 32
 	double real;
 	double imag;
 } ObjectComplex;
+
+#define MATRIX_AT(m, i, j) ((m)->data[(i) * (m)->col_dim + (j)])
+typedef struct // 24
+{
+	CruxObject object;
+	uint16_t row_dim;
+	uint16_t col_dim;
+	double* data;
+} ObjectMatrix;
 
 typedef enum {
 	STATE_LOADING,
@@ -517,12 +532,10 @@ ObjectResult *new_error_result(VM *vm, ObjectError *error);
  * @param vm The virtual machine.
  * @param element_count Hint for initial array size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount`.
- * @param module_record
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *new_array(VM *vm, uint32_t element_count,
-		       ObjectModuleRecord *module_record);
+ObjectArray *new_array(VM *vm, uint32_t element_count);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -585,7 +598,11 @@ ObjectString *to_string(VM *vm, Value value);
  */
 void print_object(Value value, bool in_collection);
 
-void print_type(Value value);
+void print_type_to(FILE* stream, Value value);
+
+void print_value_to(FILE *stream,Value value, bool inCollection);
+
+void print_error_type_to(FILE* stream, ErrorType type);
 
 /**
  * @brief Frees the memory associated with an object table.
@@ -750,5 +767,7 @@ ObjectVector *new_vector(VM* vm, uint32_t dimensions);
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 
 ObjectComplex* new_complex_number(VM *vm, double real, double imaginary);
+
+ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
 
 #endif

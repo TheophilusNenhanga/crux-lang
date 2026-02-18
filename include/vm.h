@@ -97,6 +97,7 @@ struct VM {
 	Table result_type;
 	Table vector_type;
 	Table complex_type;
+	Table matrix_type;
 
 	StructInstanceStack struct_instance_stack;
 

@@ -6,10 +6,6 @@
 #include "stdlib/vectors.h"
 
 #define EPSILON 1e-10
-#define STATIC_VECTOR_SIZE 4
-
-#define TO_DOUBLE(value)                                                       \
-	IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value))
 
 #define IS_ZERO_SCALAR(scalar) ((scalar) < EPSILON && (scalar) > -EPSILON)
 

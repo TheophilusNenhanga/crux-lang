@@ -51,8 +51,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectArray *array = new_array(vm, string->length,
-					       vm->current_module_record);
+		ObjectArray *array = new_array(vm, string->length);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		for (uint32_t i = 0; i < string->length; i++) {
@@ -76,8 +75,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_TABLE(value)) {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		ObjectArray *array = new_array(vm, table->size * 2,
-					       vm->current_module_record);
+		ObjectArray *array = new_array(vm, table->size * 2);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		uint32_t index = 0;
@@ -103,7 +101,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 		return result;
 	}
 
-	ObjectArray *array = new_array(vm, 1, vm->current_module_record);
+	ObjectArray *array = new_array(vm, 1);
 	push(vm->current_module_record, OBJECT_VAL(array));
 	array_add(vm, array, value, 0);
 	const Value result = OBJECT_VAL(array);
