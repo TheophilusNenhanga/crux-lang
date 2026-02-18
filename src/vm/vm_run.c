@@ -481,7 +481,7 @@ OP_INVOKE: {
 
 OP_ARRAY: {
 	uint16_t elementCount = READ_SHORT();
-	ObjectArray *array = new_array(vm, elementCount, currentModuleRecord);
+	ObjectArray *array = new_array(vm, elementCount);
 	for (int i = elementCount - 1; i >= 0; i--) {
 		array_add(vm, array, pop(currentModuleRecord), i);
 	}

@@ -2,541 +2,428 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "file_handler.h"
-#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 #include "stdlib/io.h"
+
+#include "garbage_collector.h"
 #include "vm.h"
 
-#define MAX_LINE_LENGTH 4096
+/* ── Platform ──────────────────────────────────────────────────────────────── */
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#define ISATTY(fd) _isatty(fd)
+#else
+#include <unistd.h>
+#define ISATTY(fd) isatty(fd)
+#endif
+
+/* ── Internal helpers ──────────────────────────────────────────────────────── */
+
+#define SCANLN_BUFFER_SIZE 1024
+
+/*
+ * Resolves a channel name string to its FILE* handle.
+ * Returns NULL if the channel name is not recognised.
+ */
 static FILE *get_channel(const char *channel)
 {
-	if (strcmp(channel, "stdin") == 0)
-		return stdin;
-	if (strcmp(channel, "stdout") == 0)
-		return stdout;
-	if (strcmp(channel, "stderr") == 0)
-		return stderr;
+	if (strcmp(channel, "stdout") == 0) return stdout;
+	if (strcmp(channel, "stderr") == 0) return stderr;
+	if (strcmp(channel, "stdin")  == 0) return stdin;
 	return NULL;
 }
 
-Value print_function(VM *vm, int arg_count, const Value *args)
+/*
+ * Writes a string representation of <value> to <stream>.
+ * Returns false if the write fails.
+ */
+static bool write_value_to_stream(FILE *stream, Value value)
 {
-	(void)vm;
-	(void)arg_count;
-	print_value(args[0], false);
-	return NIL_VAL;
+	/* Delegate to the existing print_value infrastructure but capture
+	 * failures via ferror.  We clear the error flag first so we are
+	 * only testing this write. */
+	clearerr(stream);
+	print_value_to(stream, value, false);
+	return ferror(stream) == 0;
 }
 
-Value println_function(VM *vm, const int arg_count, const Value *args)
+/*
+ * Discards characters on <stream> up to and including the next '\n' or EOF.
+ * Used after bounded reads to leave the stream in a clean state.
+ */
+static void flush_line(FILE *stream)
 {
-	(void)vm;
-	(void)arg_count;
-	print_value(args[0], false);
-	printf("\n");
-	return NIL_VAL;
-}
-
-ObjectResult *print_to_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Channel and content must be strings.", TYPE);
-	}
-
-	const char *channel = AS_C_STRING(args[0]);
-	const char *content = AS_C_STRING(args[1]);
-
-	FILE *stream = get_channel(channel);
-	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Invalid channel specified.",
-					  VALUE);
-	}
-
-	if (fprintf(stream, "%s", content) < 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
-	}
-
-	return new_ok_result(vm, BOOL_VAL(true));
-}
-
-ObjectResult *scan_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	(void)args;
-	const int ch = getchar();
-	if (ch == EOF) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
-	}
-
-	int overflow;
-	while ((overflow = getchar()) != '\n' && overflow != EOF)
+	int ch;
+	while ((ch = fgetc(stream)) != '\n' && ch != EOF)
 		;
-
-	const char str[2] = {ch, '\0'};
-	ObjectString *result_str = copy_string(vm, str, 1);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	return res;
 }
 
-ObjectResult *scanln_function(VM *vm, int arg_count, const Value *args)
+/*
+ * Reads up to <max_len> characters from <stream> into a GC-managed buffer,
+ * stopping early on '\n' or EOF.  Does NOT include the '\n' in the result.
+ * If exactly <max_len> characters were read without hitting '\n', the
+ * remainder of the line is discarded via flush_line().
+ *
+ * On success writes the ObjectString* into *out and returns true.
+ * On allocation failure or read error returns false.
+ */
+static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
+			      ObjectString **out)
 {
-	(void)arg_count;
-	(void)args;
-	char buffer[1024];
-	if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
+	char *buffer = ALLOCATE(vm, char, max_len + 1);
+	if (buffer == NULL) return false;
+
+	size_t count = 0;
+	bool hit_newline = false;
+
+	while (count < max_len) {
+		const int ch = fgetc(stream);
+		if (ch == EOF) break;
+		if (ch == '\n') {
+			hit_newline = true;
+			break;
+		}
+		buffer[count++] = (char)ch;
+	}
+	buffer[count] = '\0';
+
+	/* Discard rest of line if we filled the buffer without a newline */
+	if (!hit_newline && count == max_len) {
+		flush_line(stream);
 	}
 
-	size_t len = strlen(buffer);
-	if (len > 0 && buffer[len - 1] == '\n') {
-		buffer[len - 1] = '\0';
-		len--;
-	}
-
-	ObjectString *result_str = copy_string(vm, buffer, len);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	return res;
+	/* take_string transfers ownership of buffer to the GC */
+	*out = take_string(vm, buffer, (uint32_t)count);
+	return true;
 }
 
-ObjectResult *scan_from_function(VM *vm, int arg_count, const Value *args)
+/* ── Output ────────────────────────────────────────────────────────────────── */
+
+/*
+ * print(value) — writes to stdout, no newline.
+ * Infallible from the language's perspective; we can't reasonably recover
+ * from a broken stdout, so we match the existing io module's behaviour.
+ */
+Value io_print_function(VM *vm, const int arg_count, const Value *args)
+{
+	(void)vm;
+	(void)arg_count;
+	print_value_to(stdout, args[0], false);
+	return NIL_VAL;
+}
+
+/*
+ * println(value) — writes to stdout followed by '\n'.
+ */
+Value io_println_function(VM *vm, const int arg_count, const Value *args)
+{
+	(void)vm;
+	(void)arg_count;
+	print_value_to(stdout, args[0], false);
+	fputc('\n', stdout);
+	return NIL_VAL;
+}
+
+/*
+ * print_to(channel: string, value) -> Result<nil>
+ * Writes to the named channel without a trailing newline.
+ */
+ObjectResult *io_print_to_function(VM *vm, const int arg_count,
+				   const Value *args)
 {
 	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<channel> must be of type 'string'.",
 					  TYPE);
 	}
 
-	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = get_channel(channel);
+	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Invalid channel specified.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Invalid channel. Expected \"stdout\", "
+			"\"stderr\", or \"stdin\".",
+			VALUE);
+	}
+
+	if (!write_value_to_stream(stream, args[1])) {
+		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
+	}
+
+	return new_ok_result(vm, NIL_VAL);
+}
+
+/*
+ * println_to(channel: string, value) -> Result<nil>
+ * Writes to the named channel followed by '\n'.
+ */
+ObjectResult *io_println_to_function(VM *vm, const int arg_count,
+				     const Value *args)
+{
+	(void)arg_count;
+
+	if (!IS_CRUX_STRING(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<channel> must be of type 'string'.",
+					  TYPE);
+	}
+
+	FILE *stream = get_channel(AS_C_STRING(args[0]));
+	if (stream == NULL) {
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Invalid channel. Expected \"stdout\", "
+			"\"stderr\", or \"stdin\".",
+			VALUE);
+	}
+
+	if (!write_value_to_stream(stream, args[1])) {
+		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
+	}
+
+	if (fputc('\n', stream) == EOF) {
+		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
+	}
+
+	return new_ok_result(vm, NIL_VAL);
+}
+
+/* ── Input — stdin ─────────────────────────────────────────────────────────── */
+
+/*
+ * scan() -> Result<string>
+ * Reads exactly one character from stdin, then discards the rest of the line.
+ */
+ObjectResult *io_scan_function(VM *vm, const int arg_count, const Value *args)
+{
+	(void)arg_count;
+	(void)args;
+
+	const int ch = fgetc(stdin);
+	if (ch == EOF) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Unexpected end of input on stdin.",
+					  IO);
+	}
+
+	/* Discard rest of line (including the Enter key) */
+	if (ch != '\n') {
+		flush_line(stdin);
+	}
+
+	const char str[2] = {(char)ch, '\0'};
+	ObjectString *s = copy_string(vm, str, 1);
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
+	pop(vm->current_module_record);
+	return res;
+}
+
+/*
+ * scanln() -> Result<string>
+ * Reads from stdin up to (and discarding) the next '\n'.
+ * Returns the line content without the newline.
+ */
+ObjectResult *io_scanln_function(VM *vm, const int arg_count, const Value *args)
+{
+	(void)arg_count;
+	(void)args;
+
+	ObjectString *s = NULL;
+	if (!read_bounded_line(vm, stdin, SCANLN_BUFFER_SIZE, &s)) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Failed to allocate buffer for input.", MEMORY);
+	}
+
+	/* read_bounded_line returns empty string on immediate EOF; treat as
+	 * an error so the caller can distinguish "no input" from "empty line" */
+	if (ferror(stdin)) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Error reading from stdin.", IO);
+	}
+
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
+	pop(vm->current_module_record);
+	return res;
+}
+
+/*
+ * nscan(n: int) -> Result<string>
+ * Reads up to <n> characters from stdin, stopping early at '\n'.
+ * Any remaining characters on the line are discarded.
+ */
+ObjectResult *io_nscan_function(VM *vm, const int arg_count, const Value *args)
+{
+	(void)arg_count;
+
+	if (!IS_INT(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<n> must be of type 'int'.", TYPE);
+	}
+
+	const int32_t n = AS_INT(args[0]);
+	if (n <= 0) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "<n> must be a positive integer.", VALUE);
+	}
+
+	ObjectString *s = NULL;
+	if (!read_bounded_line(vm, stdin, (size_t)n, &s)) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Failed to allocate buffer for input.", MEMORY);
+	}
+
+	if (ferror(stdin)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
+	}
+
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
+	pop(vm->current_module_record);
+	return res;
+}
+
+/* ── Input — named channel ─────────────────────────────────────────────────── */
+
+/*
+ * scan_from(channel: string) -> Result<string>
+ * Reads exactly one character from the named channel,
+ * then discards the rest of that line.
+ */
+ObjectResult *io_scan_from_function(VM *vm, const int arg_count,
+				    const Value *args)
+{
+	(void)arg_count;
+
+	if (!IS_CRUX_STRING(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<channel> must be of type 'string'.",
+					  TYPE);
+	}
+
+	FILE *stream = get_channel(AS_C_STRING(args[0]));
+	if (stream == NULL) {
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Invalid channel. Expected \"stdout\", "
+			"\"stderr\", or \"stdin\".",
+			VALUE);
 	}
 
 	const int ch = fgetc(stream);
 	if (ch == EOF) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stream.", IO);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Unexpected end of input on channel.",
+					  IO);
 	}
 
-	int overflow;
-	while ((overflow = fgetc(stream)) != '\n' && overflow != EOF)
-		;
+	if (ch != '\n') {
+		flush_line(stream);
+	}
 
-	const char str[2] = {ch, '\0'};
-	ObjectString *result_str = copy_string(vm, str, 1);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
+	const char str[2] = {(char)ch, '\0'};
+	ObjectString *s = copy_string(vm, str, 1);
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-
 	return res;
 }
 
-ObjectResult *scanln_from_function(VM *vm, int arg_count, const Value *args)
+/*
+ * scanln_from(channel: string) -> Result<string>
+ * Reads from the named channel up to (and discarding) the next '\n'.
+ */
+ObjectResult *io_scanln_from_function(VM *vm, const int arg_count,
+				      const Value *args)
 {
 	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<channel> must be of type 'string'.",
 					  TYPE);
 	}
 
-	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = get_channel(channel);
+	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Invalid channel specified.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Invalid channel. Expected \"stdout\", "
+			"\"stderr\", or \"stdin\".",
+			VALUE);
 	}
 
-	char buffer[1024];
-	if (fgets(buffer, sizeof(buffer), stream) == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stream.", IO);
+	ObjectString *s = NULL;
+	if (!read_bounded_line(vm, stream, SCANLN_BUFFER_SIZE, &s)) {
+		return MAKE_GC_SAFE_ERROR(
+			vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
-	size_t len = strlen(buffer);
-	// discard extra characters
-	if (len > 0 && buffer[len - 1] != '\n') {
-		int ch;
-		while ((ch = fgetc(stream)) != '\n' && ch != EOF)
-			;
+	if (ferror(stream)) {
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Error reading from channel.", IO);
 	}
 
-	// Removing trailing newline character
-	if (len > 0 && buffer[len - 1] == '\n') {
-		buffer[len - 1] = '\0';
-		len--;
-	}
-
-	ObjectString *result_str = copy_string(vm, buffer, len);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-
 	return res;
 }
 
-ObjectResult *nscan_function(VM *vm, int arg_count, const Value *args)
+/*
+ * nscan_from(channel: string, n: int) -> Result<string>
+ * Reads up to <n> characters from the named channel, stopping early at '\n'.
+ */
+ObjectResult *io_nscan_from_function(VM *vm, const int arg_count,
+				     const Value *args)
 {
 	(void)arg_count;
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Number of characters must be a number.", TYPE);
-	}
 
-	const size_t n = (size_t)AS_INT(args[0]);
-	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Number of characters must be positive.", VALUE);
-	}
-
-	char *buffer = ALLOCATE(vm, char, n + 1);
-	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate memory for input buffer.",
-			MEMORY);
-	}
-
-	size_t read = 0;
-	while (read < n) {
-		const int ch = getchar();
-		if (ch == EOF) {
-			FREE_ARRAY(vm, char, buffer, n + 1);
-			return MAKE_GC_SAFE_ERROR(vm,
-						  "Error reading from stdin.",
-						  IO);
-		}
-		buffer[read++] = ch;
-		if (ch == '\n') {
-			break;
-		}
-	}
-	buffer[read] = '\0';
-
-	if (read == n && buffer[read - 1] != '\n') {
-		int ch;
-		while ((ch = getchar()) != '\n' && ch != EOF)
-			;
-	}
-
-	ObjectString *result_str = copy_string(vm, buffer, read);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	FREE_ARRAY(vm, char, buffer, n + 1);
-	return res;
-}
-
-ObjectResult *nscan_from_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Channel must be a string.",
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "<channel> must be of type 'string'.",
 					  TYPE);
 	}
 
 	if (!IS_INT(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
-					  "<char_count> must be of type 'int'.",
-					  TYPE);
+					  "<n> must be of type 'int'.", TYPE);
 	}
 
-	const char *channel = AS_C_STRING(args[0]);
-	FILE *stream = get_channel(channel);
+	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Invalid channel specified.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Invalid channel. Expected \"stdout\", "
+			"\"stderr\", or \"stdin\".",
+			VALUE);
 	}
 
-	const size_t n = (size_t)AS_INT(args[1]);
+	const int32_t n = AS_INT(args[1]);
 	if (n <= 0) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Number of characters must be positive.", VALUE);
+			vm, "<n> must be a positive integer.", VALUE);
 	}
 
-	char *buffer = ALLOCATE(vm, char, n + 1);
-	if (buffer == NULL) {
+	ObjectString *s = NULL;
+	if (!read_bounded_line(vm, stream, (size_t)n, &s)) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate memory for input buffer.",
-			MEMORY);
+			vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
-	size_t read = 0;
-	while (read < n) {
-		const int ch = fgetc(stream);
-		if (ch == EOF) {
-			FREE_ARRAY(vm, char, buffer, n + 1);
-			return MAKE_GC_SAFE_ERROR(vm,
-						  "Error reading from stream.",
-						  IO);
-		}
-		buffer[read++] = ch;
-		if (ch == '\n') {
-			break;
-		}
-	}
-	buffer[read] = '\0';
-
-	if (read == n && buffer[read - 1] != '\n') {
-		int ch;
-		while ((ch = fgetc(stream)) != '\n' && ch != EOF)
-			;
-	}
-
-	ObjectString *result_str = copy_string(vm, buffer, read);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	FREE_ARRAY(vm, char, buffer, n + 1);
-	return res;
-}
-
-ObjectResult *open_file_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<file_path> must be of type 'string'.", IO);
-	}
-
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<file_mode> must be of type 'string'.", IO);
-	}
-
-	const ObjectString *path = AS_CRUX_STRING(args[0]);
-	ObjectString *mode = AS_CRUX_STRING(args[1]);
-
-	char *resolvedPath = resolve_path(
-		vm->current_module_record->path->chars, path->chars);
-	if (resolvedPath == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve path to file.",
-					  IO);
-	}
-
-	ObjectString *newPath = take_string(vm, resolvedPath,
-					    strlen(resolvedPath));
-	push(vm->current_module_record, OBJECT_VAL(newPath));
-
-	ObjectFile *file = new_object_file(vm, newPath, mode);
-	push(vm->current_module_record, OBJECT_VAL(file));
-
-	if (file->file == NULL) {
-		pop(vm->current_module_record); // pop file
-		pop(vm->current_module_record); // pop newPath
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
-	}
-
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(file));
-	pop(vm->current_module_record); // pop file
-	pop(vm->current_module_record); // pop newPath
-
-	return res;
-}
-
-static bool is_readable(const ObjectString *mode)
-{
-	return strcmp(mode->chars, "r") == 0 ||
-	       strcmp(mode->chars, "rb") == 0 ||
-	       strcmp(mode->chars, "r+") == 0 ||
-	       strcmp(mode->chars, "rb+") == 0 ||
-	       strcmp(mode->chars, "a+") == 0 ||
-	       strcmp(mode->chars, "ab+") == 0 ||
-	       strcmp(mode->chars, "w+") == 0 ||
-	       strcmp(mode->chars, "wb+") == 0;
-}
-
-static bool is_writable(const ObjectString *mode)
-{
-	return strcmp(mode->chars, "w") == 0 ||
-	       strcmp(mode->chars, "wb") == 0 ||
-	       strcmp(mode->chars, "w+") == 0 ||
-	       strcmp(mode->chars, "wb+") == 0 ||
-	       strcmp(mode->chars, "a") == 0 ||
-	       strcmp(mode->chars, "ab") == 0 ||
-	       strcmp(mode->chars, "a+") == 0 ||
-	       strcmp(mode->chars, "ab+") == 0 ||
-	       strcmp(mode->chars, "r+") == 0 ||
-	       strcmp(mode->chars, "rb+") == 0;
-}
-
-static bool is_appendable(const ObjectString *mode)
-{
-	return strcmp(mode->chars, "a") == 0 ||
-	       strcmp(mode->chars, "ab") == 0 ||
-	       strcmp(mode->chars, "a+") == 0 ||
-	       strcmp(mode->chars, "ab+") == 0 ||
-	       strcmp(mode->chars, "r+") == 0 ||
-	       strcmp(mode->chars, "rb+") == 0 ||
-	       strcmp(mode->chars, "w+") == 0 ||
-	       strcmp(mode->chars, "wb+") == 0 ||
-	       strcmp(mode->chars, "rb") == 0;
-}
-
-ObjectResult *readln_file_method(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	ObjectFile *file = AS_CRUX_FILE(args[0]);
-	if (file->file == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not read file.", IO);
-	}
-
-	if (!file->is_open) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open.", IO);
-	}
-
-	if (!is_readable(file->mode) && !is_appendable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not readable.", IO);
-	}
-
-	char *buffer = ALLOCATE(vm, char, MAX_LINE_LENGTH);
-	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate memory for file content.",
-			MEMORY);
-	}
-
-	int readCount = 0;
-	while (readCount < MAX_LINE_LENGTH) {
-		const int ch = fgetc(file->file);
-		if (ch == EOF || ch == '\n') {
-			break;
-		}
-		buffer[readCount++] = ch;
-	}
-	buffer[readCount] = '\0';
-	file->position += readCount;
-
-	ObjectString *result_str = take_string(vm, buffer, readCount);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	return res;
-}
-
-ObjectResult *read_all_file_method(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	const ObjectFile *file = AS_CRUX_FILE(args[0]);
-	if (file->file == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not read file.", IO);
-	}
-
-	if (!file->is_open) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open.", IO);
-	}
-
-	if (!is_readable(file->mode) && !is_appendable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not readable.", IO);
-	}
-
-	fseek(file->file, 0, SEEK_END);
-	const long fileSize = ftell(file->file);
-	fseek(file->file, 0, SEEK_SET);
-
-	char *buffer = ALLOCATE(vm, char, fileSize + 1);
-	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate memory for file content.",
-			MEMORY);
-	}
-
-	size_t _ = fread(buffer, 1, fileSize, file->file);
-	buffer[fileSize] = '\0';
-
-	ObjectString *result_str = take_string(vm, buffer, fileSize);
-	push(vm->current_module_record, OBJECT_VAL(result_str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
-	pop(vm->current_module_record);
-
-	return res;
-}
-
-ObjectResult *close_file_method(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	ObjectFile *file = AS_CRUX_FILE(args[0]);
-	if (file->file == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not close file.", IO);
-	}
-
-	if (!file->is_open) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open.", IO);
-	}
-
-	fclose(file->file);
-	file->file = NULL;
-	file->is_open = false;
-	file->position = 0;
-	return new_ok_result(vm, NIL_VAL);
-}
-
-ObjectResult *write_file_method(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	ObjectFile *file = AS_CRUX_FILE(args[0]);
-
-	if (file->file == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not write to file.", IO);
-	}
-
-	if (!IS_CRUX_STRING(args[1])) {
+	if (ferror(stream)) {
 		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  IO);
+					  "Error reading from channel.", IO);
 	}
 
-	if (!file->is_open) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open.", IO);
-	}
-
-	if (!is_writable(file->mode) && !is_appendable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not writable.", IO);
-	}
-
-	const ObjectString *content = AS_CRUX_STRING(args[1]);
-
-	fwrite(content->chars, sizeof(char), content->length, file->file);
-	file->position += content->length;
-	return new_ok_result(vm, NIL_VAL);
-}
-
-ObjectResult *writeln_file_method(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	ObjectFile *file = AS_CRUX_FILE(args[0]);
-
-	if (file->file == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not write to file.", IO);
-	}
-
-	if (!file->is_open) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open.", IO);
-	}
-
-	if (!is_writable(file->mode) && !is_appendable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not writable.", IO);
-	}
-
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  IO);
-	}
-
-	const ObjectString *content = AS_CRUX_STRING(args[1]);
-	fwrite(content->chars, sizeof(char), content->length, file->file);
-	fwrite("\n", sizeof(char), 1, file->file);
-	file->position += content->length + 1;
-	return new_ok_result(vm, NIL_VAL);
+	push(vm->current_module_record, OBJECT_VAL(s));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
+	pop(vm->current_module_record);
+	return res;
 }

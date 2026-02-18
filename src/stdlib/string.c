@@ -273,7 +273,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	if (string->length == 0) {
-		ObjectArray *resultArray = new_array(vm, 1, moduleRecord);
+		ObjectArray *resultArray = new_array(vm, 1);
 		push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 		ObjectString *empty_str = copy_string(vm, "", 0);
@@ -287,7 +287,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	if (delimiter->length > string->length) {
-		ObjectArray *resultArray = new_array(vm, 1, moduleRecord);
+		ObjectArray *resultArray = new_array(vm, 1);
 		push(vm->current_module_record, OBJECT_VAL(resultArray));
 		array_add(vm, resultArray, OBJECT_VAL(string), 0);
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
@@ -308,7 +308,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 
 	// initial guess of splits size
 	ObjectArray *resultArray = new_array(
-		vm, stringLength / (delimiterLength + 1) + 1, moduleRecord);
+		vm, stringLength / (delimiterLength + 1) + 1);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	uint32_t lastSplitIndex = 0;

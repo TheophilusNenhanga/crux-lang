@@ -664,6 +664,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->result_type);
 	init_table(&vm->vector_type);
 	init_table(&vm->complex_type);
+	init_table(&vm->matrix_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -729,6 +730,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->result_type);
 	free_table(vm, &vm->vector_type);
 	free_table(vm, &vm->complex_type);
+	free_table(vm, &vm->matrix_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1328,6 +1330,12 @@ static Value typeof_complex(VM *vm, const Value value)
 	return OBJECT_VAL(copy_string(vm, "Complex", 7));
 }
 
+static Value typeof_matrix(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Matrix", 6));
+}
+
 // Dispatch table for object types
 static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRING] = typeof_string,
@@ -1349,6 +1357,7 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
 	[OBJECT_VECTOR] = typeof_vector,
 	[OBJECT_COMPLEX] = typeof_complex,
+	[OBJECT_MATRIX] = typeof_matrix,
 };
 
 /**
@@ -1467,7 +1476,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		InterpretResult result = int_compound_ops[opcode](
+		const InterpretResult result = int_compound_ops[opcode](
 			current_module_record, name, operation, icurrent,
 			ioperand, &resultValue);
 		if (result != INTERPRET_OK) {
@@ -1601,7 +1610,7 @@ Value typeof_value(VM *vm, const Value value)
 	if (IS_NIL(value)) {
 		return OBJECT_VAL(copy_string(vm, "nil", 3));
 	}
-	__builtin_unreachable();
+	// unreachable
 	return OBJECT_VAL(copy_string(vm, "unknown", 7));
 }
 

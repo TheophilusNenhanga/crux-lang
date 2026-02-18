@@ -5,8 +5,7 @@ ObjectResult *table_values_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
-	ObjectArray *values = new_array(vm, table->size,
-					vm->current_module_record);
+	ObjectArray *values = new_array(vm, table->size);
 
 	if (values == NULL) {
 		return new_error_result(
@@ -38,8 +37,7 @@ ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args)
 	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *keys = new_array(vm, table->size,
-				      vm->current_module_record);
+	ObjectArray *keys = new_array(vm, table->size);
 
 	if (keys == NULL) {
 		return new_error_result(
@@ -72,8 +70,7 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
-	ObjectArray *pairs = new_array(vm, table->size,
-				       vm->current_module_record);
+	ObjectArray *pairs = new_array(vm, table->size);
 	push(module_record, OBJECT_VAL(pairs));
 
 	if (pairs == NULL) {
@@ -91,7 +88,7 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 		const ObjectTableEntry entry = table->entries[i];
 		if (entry.is_occupied) {
 			ObjectArray *pair =
-				new_array(vm, 2, vm->current_module_record);
+				new_array(vm, 2);
 			push(module_record, OBJECT_VAL(pair));
 			if (pair == NULL) {
 				ObjectResult *res = MAKE_GC_SAFE_ERROR(

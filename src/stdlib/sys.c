@@ -19,8 +19,8 @@ ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
 	(void)arg_count;
 	(void)args;
 	ObjectModuleRecord *module_record = vm->current_module_record;
-	ObjectArray *resultArray = new_array(vm, 2, module_record);
-	ObjectArray *argvArray = new_array(vm, vm->args.argc, module_record);
+	ObjectArray *resultArray = new_array(vm, 2);
+	ObjectArray *argvArray = new_array(vm, vm->args.argc);
 	push(module_record, OBJECT_VAL(resultArray));
 	push(module_record, OBJECT_VAL(argvArray));
 

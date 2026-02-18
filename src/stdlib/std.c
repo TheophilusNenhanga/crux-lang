@@ -11,6 +11,7 @@
 #include "stdlib/fs.h"
 #include "stdlib/io.h"
 #include "stdlib/math.h"
+#include "stdlib/matrix.h"
 #include "stdlib/random.h"
 #include "stdlib/string.h"
 #include "stdlib/sys.h"
@@ -90,27 +91,19 @@ static const Callable randomMethods[] = {{"seed", random_seed_method, 2},
 static const InfallibleCallable randomInfallibleMethods[] = {
 	{"_next", random_next_method, 1}};
 
-static const Callable fileMethods[] = {{"readln", readln_file_method, 1},
-				       {"read_all", read_all_file_method, 1},
-				       {"write", write_file_method, 2},
-				       {"writeln", writeln_file_method, 2},
-				       {"close", close_file_method, 1}};
-
 static const InfallibleCallable resultInfallibleMethods[] = {
 	{"_unwrap", unwrap_function, 1}};
 
 static const Callable coreFunctions[] = {
-	{"scanln", scanln_function, 0}, {"panic", panic_function, 1},
-	{"len", length_function, 1},	{"error", error_function, 1},
-	{"assert", assert_function, 2}, {"err", error_function, 1},
-	{"ok", ok_function, 1},		{"int", int_function, 1},
-	{"float", float_function, 1},	{"string", string_function, 1},
-	{"table", table_function, 1},	{"array", array_function, 1},
-	{"format", format_function, 2}};
+	{"panic", panic_function, 1},	{"len", length_function, 1},
+	{"error", error_function, 1},	{"assert", assert_function, 2},
+	{"err", error_function, 1},	{"ok", ok_function, 1},
+	{"int", int_function, 1},	{"float", float_function, 1},
+	{"string", string_function, 1}, {"table", table_function, 1},
+	{"array", array_function, 1},	{"format", format_function, 2}};
 
 static const InfallibleCallable coreInfallibleFunctions[] = {
-	{"_len", length_function_, 1},	{"println", println_function, 1},
-	{"_print", print_function, 1},	{"_int", int_function_, 1},
+	{"_len", length_function_, 1},	{"_int", int_function_, 1},
 	{"_float", float_function_, 1}, {"_string", string_function_, 1},
 	{"_table", table_function_, 1}, {"_array", array_function_, 1}};
 
@@ -126,17 +119,23 @@ static const Callable mathFunctions[] = {
 	{"max", max_function, 2}};
 
 static const InfallibleCallable mathInfallibleFunctions[] =
-	{{"_e", e_function, 0}, {"_pi", pi_function, 0}};
+	{{"e", e_function, 0}, {"pi", pi_function, 0}};
+
+static const InfallibleCallable ioInfallibleFunctions[] = {
+	{"print", io_print_function, 1},
+	{"println", io_println_function, 1},
+};
 
 static const Callable ioFunctions[] = {
-	{"print_to", print_to_function, 2},
-	{"scan", scan_function, 0},
-	{"scanln", scanln_function, 0},
-	{"scan_from", scan_from_function, 1},
-	{"scanln_from", scanln_from_function, 1},
-	{"nscan", nscan_function, 1},
-	{"nscan_from", nscan_from_function, 2},
-	{"open_file", open_file_function, 2},
+	{"print_to", io_print_to_function, 2},
+	{"println_to", io_println_to_function, 2},
+	{"scan", io_scan_function, 0},
+	{"scanln", io_scanln_function, 0},
+	{"nscan", io_nscan_function, 1},
+	{"scan_from", io_scan_from_function, 1},
+	{"scanln_from", io_scanln_from_function, 1},
+	{"nscan_from", io_nscan_from_function, 2}
+
 };
 
 static const Callable timeFunctions[] = {
@@ -174,15 +173,38 @@ static const InfallibleCallable systemInfallibleFunctions[] = {
 	{"_exit", exit_function, 1}};
 
 static const Callable fileSystemFunctions[] = {
-	{"lisr_dir", list_dir_function, 1},
-	{"is_file", is_file_function, 1},
-	{"is_dir", is_dir_function, 1},
-	{"make_dir", make_dir_function, 1},
-	{"delete_dir", make_dir_function, 1},
-	{"path_exists", path_exists_function, 1},
-	{"rename", rename_function, 2},
-	{"copy_file", copy_file_function, 2},
-	{"is_file_in", is_file_in_function, 2}};
+	{"open", fs_open_function, 2},
+	{"remove", fs_remove_function, 1},
+	{"size", fs_file_size_function, 1},
+	{"copy_file", fs_copy_file_function, 2},
+	{"mkdir", fs_mkdir_function, 1},
+	{"read_file", fs_read_file_function, 1},
+	{"write_file", fs_write_file_function, 2},
+	{"append_file", fs_append_file_function, 2},
+};
+
+static const Callable fileSystemMethods[] = {
+	{"close", fs_close_method, 1},
+	{"flush", fs_flush_method, 1},
+	{"read", fs_read_method, 2},
+	{"readln", fs_readln_method, 1},
+	{"read_all", fs_read_all_method, 1},
+	{"read_lines", fs_read_lines_method, 1},
+	{"write", fs_write_method, 1},
+	{"writeln", fs_writeln_method, 2},
+	{"seek", fs_seek_method, 3},
+	{"tell", fs_tell_method, 1},
+};
+
+static const InfallibleCallable fileSystemInfallibleMethods[] = {
+	{"is_open", fs_is_open_method, 1},
+};
+
+static const InfallibleCallable fileSystemInfallibleFunctions[] = {
+	{"exists", fs_exists_function, 1},
+	{"is_file", fs_is_file_function, 1},
+	{"is_dir", fs_is_dir_function, 1},
+};
 
 static const Callable complexFunctions[] = {
 	{"Complex", new_complex_function, 2}};
@@ -227,6 +249,36 @@ static const InfallibleCallable vectorInfallibleMethods[] = {
 	{"z", vector_z_method, 1},
 	{"w", vector_w_method, 1},
 	{"dimension", vector_dimension_method, 1}};
+
+static const Callable matrixFunctions[] = {
+	{"Matrix", new_matrix_function, 2},
+	{"IMatrix", new_matrix_identity_function, 1},
+	{"AMatrix", new_matrix_from_array_function, 3},
+};
+
+static const InfallibleCallable matrixInfallibleMethods[] = {
+	{"rows", matrix_rows_method, 1},
+	{"cols", matrix_cols_method, 1},
+};
+
+static const Callable matrixMethods[] = {
+	{"get", matrix_get_method, 3},
+	{"set", matrix_set_method, 3},
+	{"add", matrix_add_method, 2},
+	{"sub", matrix_subtract_method, 2},
+	{"mul", matrix_multiply_method, 2},
+	{"scale", matrix_scale_method, 2},
+	{"transpose", matrix_transpose_method, 1},
+	{"determinant", matrix_determinant_method, 1},
+	{"inverse", matrix_inverse_method, 1},
+	{"trace", matrix_trace_method, 1},
+	{"rank", matrix_rank_method, 1},
+	{"row", matrix_row_method, 2},
+	{"col", matrix_col_method, 2},
+	{"equals", matrix_equals_method, 2},
+	{"copy", matrix_copy_method, 1},
+	{"to_array", matrix_to_array_method, 1},
+	{"mul_vec", matrix_multiply_vector_method, 2}};
 
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
@@ -451,8 +503,10 @@ bool initialize_std_lib(VM *vm)
 			    ARRAY_COUNT(randomMethods), randomInfallibleMethods,
 			    ARRAY_COUNT(randomInfallibleMethods));
 
-	initTypeMethodTable(vm, &vm->file_type, fileMethods,
-			    ARRAY_COUNT(fileMethods), NULL, 0);
+	initTypeMethodTable(vm, &vm->file_type, fileSystemMethods,
+			    ARRAY_COUNT(fileSystemMethods),
+			    fileSystemInfallibleMethods,
+			    ARRAY_COUNT(fileSystemInfallibleMethods));
 
 	initTypeMethodTable(vm, &vm->result_type, NULL, 0,
 			    resultInfallibleMethods,
@@ -467,6 +521,10 @@ bool initialize_std_lib(VM *vm)
 			    complexInfallibleMethods,
 			    ARRAY_COUNT(complexInfallibleMethods));
 
+	initTypeMethodTable(vm, &vm->matrix_type, matrixMethods,
+			    ARRAY_COUNT(matrixMethods), matrixInfallibleMethods,
+			    ARRAY_COUNT(matrixInfallibleMethods));
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),
 			mathInfallibleFunctions,
@@ -474,8 +532,16 @@ bool initialize_std_lib(VM *vm)
 		return false;
 	}
 
-	if (!initModule(vm, "io", ioFunctions, ARRAY_COUNT(ioFunctions), NULL,
-			0)) {
+	if (!initModule(vm, "fs", fileSystemFunctions,
+			ARRAY_COUNT(fileSystemFunctions),
+			fileSystemInfallibleFunctions,
+			ARRAY_COUNT(fileSystemInfallibleFunctions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "io", ioFunctions, ARRAY_COUNT(ioFunctions),
+			ioInfallibleFunctions,
+			ARRAY_COUNT(ioInfallibleFunctions))) {
 		return false;
 	}
 
@@ -496,11 +562,6 @@ bool initialize_std_lib(VM *vm)
 		return false;
 	}
 
-	if (!initModule(vm, "fs", fileSystemFunctions,
-			ARRAY_COUNT(fileSystemFunctions), NULL, 0)) {
-		return false;
-	}
-
 	if (!initModule(vm, "vectors", vectorFunctions,
 			ARRAY_COUNT(vectorFunctions), NULL, 0)) {
 		return false;
@@ -508,6 +569,10 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "complex", complexFunctions,
 			ARRAY_COUNT(complexFunctions), NULL, 0)) {
+		return false;
+	}
+
+	if (!initModule(vm, "matrix", matrixFunctions, ARRAY_COUNT(matrixFunctions), NULL, 0)) {
 		return false;
 	}
 
