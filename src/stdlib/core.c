@@ -26,9 +26,9 @@ static Value get_length(const Value value)
 	return INT_VAL(-1);
 }
 
-Value length_function(VM *vm, int arg_count, const Value *args)
+Value length_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+	(void) vm;
 	const Value value = args[0];
 	const Value length = get_length(value);
 	return length;
@@ -223,9 +223,9 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 	return NIL_VAL;
 }
 
-Value int_function(VM *vm, int arg_count, const Value *args)
+Value int_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
@@ -236,9 +236,9 @@ Value int_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-Value float_function(VM *vm, int arg_count, const Value *args)
+Value float_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
@@ -248,9 +248,9 @@ Value float_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-Value string_function(VM *vm, int arg_count, const Value *args)
+Value string_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const Value value = args[0];
 	ObjectString *str = to_string(vm, value);
 	push(vm->current_module_record, OBJECT_VAL(str));
@@ -259,9 +259,9 @@ Value string_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value array_function(VM *vm, int arg_count, const Value *args)
+Value array_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -272,37 +272,37 @@ Value array_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, array));
 }
 
-Value table_function(VM *vm, int arg_count, const Value *args)
+Value table_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const Value table = cast_table(vm, args);
 	return OBJECT_VAL(new_ok_result(vm, table));
 }
 
-Value int_function_(VM *vm, int arg_count, const Value *args)
+Value int_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	const Value argument = args[0];
 	return OBJECT_VAL(cast_int(vm, argument, &success));
 }
 
-Value float_function_(VM *vm, int arg_count, const Value *args)
+Value float_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	return cast_float(vm, args, &success);
 }
 
-Value string_function_(VM *vm, int arg_count, const Value *args)
+Value string_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	return OBJECT_VAL(to_string(vm, args[0]));
 }
 
-Value array_function_(VM *vm, int arg_count, const Value *args)
+Value array_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -311,15 +311,15 @@ Value array_function_(VM *vm, int arg_count, const Value *args)
 	return array;
 }
 
-Value table_function_(VM *vm, int arg_count, const Value *args)
+Value table_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	return cast_table(vm, args);
 }
 
-Value format_function(VM *vm, int arg_count, const Value *args)
+Value format_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,

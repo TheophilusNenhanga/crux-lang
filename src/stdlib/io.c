@@ -115,10 +115,10 @@ static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
  * Infallible from the language's perspective; we can't reasonably recover
  * from a broken stdout, so we match the existing io module's behaviour.
  */
-Value io_print_function(VM *vm, const int arg_count, const Value *args)
+Value io_print_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	print_value_to(stdout, args[0], false);
 	return NIL_VAL;
 }
@@ -126,10 +126,10 @@ Value io_print_function(VM *vm, const int arg_count, const Value *args)
 /*
  * println(value) — writes to stdout followed by '\n'.
  */
-Value io_println_function(VM *vm, const int arg_count, const Value *args)
+Value io_println_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	print_value_to(stdout, args[0], false);
 	fputc('\n', stdout);
 	return NIL_VAL;
@@ -139,9 +139,9 @@ Value io_println_function(VM *vm, const int arg_count, const Value *args)
  * print_to(channel: string, value) -> Result<nil>
  * Writes to the named channel without a trailing newline.
  */
-Value io_print_to_function(VM *vm, const int arg_count, const Value *args)
+Value io_print_to_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -169,9 +169,9 @@ Value io_print_to_function(VM *vm, const int arg_count, const Value *args)
  * println_to(channel: string, value) -> Result<nil>
  * Writes to the named channel followed by '\n'.
  */
-Value io_println_to_function(VM *vm, const int arg_count, const Value *args)
+Value io_println_to_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -206,9 +206,9 @@ Value io_println_to_function(VM *vm, const int arg_count, const Value *args)
  * scan() -> Result<string>
  * Reads exactly one character from stdin, then discards the rest of the line.
  */
-Value io_scan_function(VM *vm, const int arg_count, const Value *args)
+Value io_scan_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 
 	const int ch = fgetc(stdin);
@@ -236,9 +236,9 @@ Value io_scan_function(VM *vm, const int arg_count, const Value *args)
  * Reads from stdin up to (and discarding) the next '\n'.
  * Returns the line content without the newline.
  */
-Value io_scanln_function(VM *vm, const int arg_count, const Value *args)
+Value io_scanln_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 
 	ObjectString *s = NULL;
@@ -265,9 +265,9 @@ Value io_scanln_function(VM *vm, const int arg_count, const Value *args)
  * Reads up to <n> characters from stdin, stopping early at '\n'.
  * Any remaining characters on the line are discarded.
  */
-Value io_nscan_function(VM *vm, const int arg_count, const Value *args)
+Value io_nscan_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
@@ -304,9 +304,9 @@ Value io_nscan_function(VM *vm, const int arg_count, const Value *args)
  * Reads exactly one character from the named channel,
  * then discards the rest of that line.
  */
-Value io_scan_from_function(VM *vm, const int arg_count, const Value *args)
+Value io_scan_from_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -346,9 +346,9 @@ Value io_scan_from_function(VM *vm, const int arg_count, const Value *args)
  * scanln_from(channel: string) -> Result<string>
  * Reads from the named channel up to (and discarding) the next '\n'.
  */
-Value io_scanln_from_function(VM *vm, const int arg_count, const Value *args)
+Value io_scanln_from_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -386,9 +386,9 @@ Value io_scanln_from_function(VM *vm, const int arg_count, const Value *args)
  * nscan_from(channel: string, n: int) -> Result<string>
  * Reads up to <n> characters from the named channel, stopping early at '\n'.
  */
-Value io_nscan_from_function(VM *vm, const int arg_count, const Value *args)
+Value io_nscan_from_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,

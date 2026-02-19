@@ -12,6 +12,7 @@
 #include "slab_allocator.h"
 #include "stdlib/std.h"
 #include "table.h"
+#include "type_system.h"
 #include "value.h"
 #include "vm.h"
 #include "vm_helpers.h"
@@ -196,9 +197,21 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		Value result_value = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
+		Value *args = current_module_record->stack_top - arg_count;
+		for (int i = 0; i < arg_count; i++) {
+			if (!runtime_types_compatible(native->arg_types[i],
+						      args[i])) {
+				runtime_panic(current_module_record, false,
+					      TYPE,
+					      "Expected type %s, but got %s",
+					      type_name(native->arg_types[i]),
+					      value_type_name(args[i]));
+				return false;
+			}
+		}
+
+		const Value result_value = native->function(
+			vm, current_module_record->stack_top - arg_count);
 
 		current_module_record->stack_top -= arg_count + 1;
 
@@ -210,9 +223,21 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		Value result_value = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
+		Value *args = current_module_record->stack_top - arg_count;
+		for (int i = 0; i < arg_count; i++) {
+			if (!runtime_types_compatible(native->arg_types[i],
+						      args[i])) {
+				runtime_panic(current_module_record, false,
+					      TYPE,
+					      "Expected type %s, but got %s",
+					      type_name(native->arg_types[i]),
+					      value_type_name(args[i]));
+				return false;
+			}
+		}
+
+		const Value result_value = native->function(
+			vm, current_module_record->stack_top - arg_count);
 		current_module_record->stack_top -= arg_count + 1;
 
 		push(current_module_record, result_value);

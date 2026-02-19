@@ -9,6 +9,8 @@
 #include "table.h"
 #include "vm.h"
 
+#define NATIVE_FUNCTION_MAX_ARGS 8
+
 #define GC_PROTECT_START(current_module_record)                                \
 	Value *gc_stack_start = (current_module_record)->stack_top
 #define GC_PROTECT(current_module_record, value)                               \
@@ -50,10 +52,6 @@
 #define IS_CRUX_TABLE(value) is_object_type(value, OBJECT_TABLE)
 #define IS_CRUX_ERROR(value) is_object_type(value, OBJECT_ERROR)
 #define IS_CRUX_RESULT(value) is_object_type(value, OBJECT_RESULT)
-#define IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
-#define IS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
 #define IS_CRUX_RANDOM(value) is_object_type(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) is_object_type(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) is_object_type(value, OBJECT_MODULE_RECORD)
@@ -223,13 +221,14 @@ struct ObjectResult {//24
 	} as;
 };
 
-typedef Value (*CruxCallable)(VM *vm, int arg_count, const Value *args);
+typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
 typedef struct {//32
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
+	ValueType arg_types[NATIVE_FUNCTION_MAX_ARGS];
 } ObjectNativeFunction;
 
 typedef struct {//32
@@ -237,6 +236,7 @@ typedef struct {//32
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
+	ValueType arg_types[NATIVE_FUNCTION_MAX_ARGS];
 } ObjectNativeMethod;
 
 typedef struct {//24
@@ -390,11 +390,13 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  * @param arity The expected number of arguments for the native function.
  * @param name The name of the native function as an ObjectString (for
  * debugging).
+ * @param arg_types The types of the arguments. This array must be owned
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
 ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
-					  int arity, ObjectString *name);
+					  int arity, ObjectString *name
+					  ,const ValueType* arg_types);
 
 /**
  * @brief Creates a new native method object.
@@ -407,11 +409,12 @@ ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
  * implementation.
  * @param arity The expected number of arguments for the native method.
  * @param name The name of the native method as an ObjectString (for debugging).
+ * @param arg_types the types of the arguments. This array must be owned
  *
  * @return A pointer to the newly created ObjectNativeMethod.
  */
 ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
-				      ObjectString *name);
+				      ObjectString *name, const ValueType* arg_types);
 
 /**
  * @brief Creates a new function object.

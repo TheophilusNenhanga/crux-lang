@@ -24,9 +24,9 @@ static void build_prefix_table(const char *pattern,
 	}
 }
 
-Value string_first_method(VM *vm, int arg_count, const Value *args)
+Value string_first_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 
@@ -46,9 +46,9 @@ Value string_first_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_last_method(VM *vm, int arg_count, const Value *args)
+Value string_last_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (string->length == 0) {
@@ -67,9 +67,9 @@ Value string_last_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_get_method(VM *vm, int arg_count, const Value *args)
+Value string_get_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const Value value = args[0];
 	const Value index = args[1];
 	if (!IS_INT(index)) {
@@ -103,9 +103,9 @@ Value string_get_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_upper_method(VM *vm, int arg_count, const Value *args)
+Value string_upper_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -140,9 +140,9 @@ Value string_upper_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_lower_method(VM *vm, int arg_count, const Value *args)
+Value string_lower_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -177,9 +177,9 @@ Value string_lower_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_strip_method(VM *vm, int arg_count, const Value *args)
+Value string_strip_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -209,9 +209,9 @@ Value string_strip_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_substring_method(VM *vm, int arg_count, const Value *args)
+Value string_substring_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_INT(args[1])) {
@@ -255,9 +255,9 @@ Value string_substring_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_split_method(VM *vm, int arg_count, const Value *args)
+Value string_split_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	ObjectModuleRecord *moduleRecord = vm->current_module_record;
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -358,9 +358,9 @@ Value string_split_method(VM *vm, int arg_count, const Value *args)
 }
 
 // KMP string-matching algorithm
-Value string_contains_method(VM *vm, int arg_count, const Value *args)
+Value string_contains_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (!IS_CRUX_STRING(args[1])) {
@@ -412,9 +412,9 @@ Value string_contains_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
-Value string_replace_method(VM *vm, int arg_count, const Value *args)
+Value string_replace_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) ||
 	    !IS_CRUX_STRING(args[2])) {
 		return MAKE_GC_SAFE_ERROR(vm, "All arguments must be strings.",
@@ -534,9 +534,9 @@ Value string_replace_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value string_starts_with_method(VM *vm, int arg_count, const Value *args)
+Value string_starts_with_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -564,9 +564,9 @@ Value string_starts_with_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
-Value string_ends_with_method(VM *vm, int arg_count, const Value *args)
+Value string_ends_with_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -594,9 +594,9 @@ Value string_ends_with_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
-Value string_is_al_num_method(VM *vm, int arg_count, const Value *args)
+Value string_is_al_num_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -607,9 +607,9 @@ Value string_is_al_num_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_alpha_method(VM *vm, int arg_count, const Value *args)
+Value string_is_alpha_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -620,9 +620,9 @@ Value string_is_alpha_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_digit_method(VM *vm, int arg_count, const Value *args)
+Value string_is_digit_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -633,9 +633,9 @@ Value string_is_digit_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_lower_method(VM *vm, int arg_count, const Value *args)
+Value string_is_lower_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -646,9 +646,9 @@ Value string_is_lower_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_upper_method(VM *vm, int arg_count, const Value *args)
+Value string_is_upper_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -659,9 +659,9 @@ Value string_is_upper_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_space_method(VM *vm, int arg_count, const Value *args)
+Value string_is_space_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -672,9 +672,9 @@ Value string_is_space_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-Value string_is_empty_method(VM *vm, int arg_count, const Value *args)
+Value string_is_empty_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	return BOOL_VAL(string->length == 0);
@@ -684,9 +684,9 @@ Value string_is_empty_method(VM *vm, int arg_count, const Value *args)
  * arg0 -> the string this is called on
  * arg1 -> the string that will be concatenated
  */
-Value string_concat_method(VM *vm, int arg_count, const Value *args)
+Value string_concat_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(

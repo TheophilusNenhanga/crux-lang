@@ -69,6 +69,28 @@ typedef struct {
 	int count;
 } ValueArray;
 
+typedef enum
+{
+	ANY_TYPE,
+	INT_TYPE,
+	FLOAT_TYPE,
+	NIL_TYPE,
+	BOOL_TYPE,
+	STRING_TYPE,
+	FUNCTION_TYPE,
+	ARRAY_TYPE,
+	TABLE_TYPE,
+	ERROR_TYPE,
+	RESULT_TYPE,
+	RANDOM_TYPE,
+	FILE_TYPE,
+	STRUCT_TYPE,
+	VECTOR_TYPE,
+	COMPLEX_TYPE,
+	MATRIX_TYPE,
+} ValueType;
+
+
 /**
  * @brief Compares two values for equality
  *

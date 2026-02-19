@@ -7,9 +7,8 @@
 #include "stdlib/array.h"
 #include "vm_helpers.h"
 
-Value array_push_method(VM *vm, int arg_count, const Value *args)
+Value array_push_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value to_add = args[1];
 
@@ -21,9 +20,8 @@ Value array_push_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-Value array_pop_method(VM *vm, int arg_count, const Value *args)
+Value array_pop_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
@@ -39,19 +37,18 @@ Value array_pop_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, popped));
 }
 
-Value array_insert_method(VM *vm, int arg_count, const Value *args)
+Value array_insert_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	if (!IS_INT(args[2])) {
+	if (!IS_INT(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<index> must be of type 'number'.",
 					  TYPE);
 	}
 
-	const Value toInsert = args[1];
-	const uint32_t insert_at = AS_INT(args[2]);
+	const Value toInsert = args[2];
+	const uint32_t insert_at = AS_INT(args[1]);
 
 	if (insert_at > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.",
@@ -73,9 +70,8 @@ Value array_insert_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-Value array_remove_at_method(VM *vm, int arg_count, const Value *args)
+Value array_remove_at_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
@@ -101,9 +97,8 @@ Value array_remove_at_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, removed_element));
 }
 
-Value array_concat_method(VM *vm, int arg_count, const Value *args)
+Value array_concat_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_CRUX_ARRAY(args[1])) {
@@ -136,9 +131,8 @@ Value array_concat_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value array_slice_method(VM *vm, int arg_count, const Value *args)
+Value array_slice_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (!IS_INT(args[1])) {
@@ -182,9 +176,8 @@ Value array_slice_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value array_reverse_method(VM *vm, int arg_count, const Value *args)
+Value array_reverse_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	Value *values = ALLOCATE(vm, Value, array->size);
@@ -208,9 +201,8 @@ Value array_reverse_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-Value array_index_of_method(VM *vm, int arg_count, const Value *args)
+Value array_index_of_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
 
@@ -223,9 +215,8 @@ Value array_index_of_method(VM *vm, int arg_count, const Value *args)
 				  VALUE);
 }
 
-Value array_contains_method(VM *vm, int arg_count, const Value *args)
+Value array_contains_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
@@ -238,9 +229,8 @@ Value array_contains_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(false);
 }
 
-Value array_clear_method(VM *vm, int arg_count, const Value *args)
+Value array_clear_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -253,9 +243,8 @@ Value array_clear_method(VM *vm, int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
+Value arrayEqualsMethod(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	if (!IS_CRUX_ARRAY(args[1])) {
 		return BOOL_VAL(false);
@@ -279,9 +268,8 @@ Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
 
 // arg0 - array
 // arg1 - function
-Value array_map_method(VM *vm, int arg_count, const Value *args)
+Value array_map_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
@@ -334,9 +322,8 @@ Value array_map_method(VM *vm, int arg_count, const Value *args)
 
 // arg0 - array
 // arg1 - function
-Value array_filter_method(VM *vm, int arg_count, const Value *args)
+Value array_filter_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
@@ -392,9 +379,8 @@ Value array_filter_method(VM *vm, int arg_count, const Value *args)
 // arg0 - array
 // arg1 - function
 // arg2 - initial value
-Value array_reduce_method(VM *vm, int arg_count, const Value *args)
+Value array_reduce_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
@@ -546,9 +532,8 @@ static void quick_sort(Value *arr, const int low, const int high)
 }
 
 // arg0 - array
-Value array_sort_method(VM *vm, int arg_count, const Value *args)
+Value array_sort_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
@@ -580,9 +565,8 @@ Value array_sort_method(VM *vm, int arg_count, const Value *args)
 
 // arg0 - array
 // arg1 - separator string
-Value array_join_method(VM *vm, int arg_count, const Value *args)
+Value array_join_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	if (!IS_CRUX_STRING(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Expected arg <separator> to be of type 'string'.",

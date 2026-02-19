@@ -3,46 +3,16 @@
 #include "panic.h"
 #include "value.h"
 
-static bool numberArgs(const Value *args, const int arg_count)
+Value pow_function(VM *vm, const Value *args)
 {
-	for (int i = 0; i < arg_count; i++) {
-		if (!IS_INT(args[i]) && !IS_FLOAT(args[i])) {
-			return false;
-		}
-	}
-	return true;
-}
-
-#define NUMBER_ERROR_MESSAGE "Arguments must be of type 'Int' | 'Float'."
-
-Value check_args(VM *vm, const Value *args, const int arg_count)
-{
-	if (!numberArgs(args, arg_count)) {
-		return MAKE_GC_SAFE_ERROR(vm, NUMBER_ERROR_MESSAGE, TYPE);
-	}
-	return NIL_VAL;
-}
-
-Value pow_function(VM *vm, const int arg_count, const Value *args)
-{
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
-
 	const double base = AS_FLOAT(args[0]);
 	const double exponent = AS_FLOAT(args[1]);
 
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(pow(base, exponent))));
 }
 
-Value sqrt_function(VM *vm, const int arg_count, const Value *args)
+Value sqrt_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
-
 	const double number = TO_DOUBLE(args[0]);
 	if (number < 0) {
 		return MAKE_GC_SAFE_ERROR(
@@ -62,12 +32,8 @@ static int32_t absolute_value(const int32_t x)
 	return x;
 }
 
-Value abs_function(VM *vm, const int arg_count, const Value *args)
+Value abs_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	if (IS_INT(args[0])) {
 		return OBJECT_VAL(new_ok_result(vm, INT_VAL(absolute_value(
 							    AS_INT(args[0])))));
@@ -76,40 +42,23 @@ Value abs_function(VM *vm, const int arg_count, const Value *args)
 		new_ok_result(vm, FLOAT_VAL(fabs(AS_FLOAT(args[0])))));
 }
 
-Value sin_function(VM *vm, const int arg_count, const Value *args)
+Value sin_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(sin(AS_FLOAT(args[0])))));
 }
 
-Value cos_function(VM *vm, const int arg_count, const Value *args)
+Value cos_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(cos(AS_FLOAT(args[0])))));
 }
 
-Value tan_function(VM *vm, const int arg_count, const Value *args)
+Value tan_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(tan(AS_FLOAT(args[0])))));
 }
 
-Value asin_function(VM *vm, const int arg_count, const Value *args)
+Value asin_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
-
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -120,12 +69,8 @@ Value asin_function(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(asin(num))));
 }
 
-Value acos_function(VM *vm, const int arg_count, const Value *args)
+Value acos_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	const double num = AS_FLOAT(args[0]);
 	if (num < -1 || num > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -135,32 +80,19 @@ Value acos_function(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(acos(num))));
 }
 
-Value atan_function(VM *vm, const int arg_count, const Value *args)
+Value atan_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(
 		new_ok_result(vm, FLOAT_VAL(atan(AS_FLOAT(args[0])))));
 }
 
-Value exp_function(VM *vm, const int arg_count, const Value *args)
+Value exp_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(exp(AS_FLOAT(args[0])))));
 }
 
-Value ln_function(VM *vm, const int arg_count, const Value *args)
+Value ln_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
-
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -171,13 +103,8 @@ Value ln_function(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(log(AS_FLOAT(args[0])))));
 }
 
-Value log10_function(VM *vm, const int arg_count, const Value *args)
+Value log10_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
-
 	const double number = AS_FLOAT(args[0]);
 	if (number < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -190,74 +117,54 @@ Value log10_function(VM *vm, const int arg_count, const Value *args)
 		new_ok_result(vm, FLOAT_VAL(log10(AS_FLOAT(args[0])))));
 }
 
-Value ceil_function(VM *vm, const int arg_count, const Value *args)
+Value ceil_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(
 		new_ok_result(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0])))));
 }
 
-Value floor_function(VM *vm, const int arg_count, const Value *args)
+Value floor_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(
 		new_ok_result(vm, FLOAT_VAL(floor(AS_FLOAT(args[0])))));
 }
 
-Value round_function(VM *vm, const int arg_count, const Value *args)
+Value round_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	return OBJECT_VAL(
 		new_ok_result(vm, FLOAT_VAL(round(AS_FLOAT(args[0])))));
 }
 
-Value pi_function(VM *vm, int arg_count, const Value *args)
+Value pi_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	return FLOAT_VAL(M_PI);
 }
 
-Value e_function(VM *vm, int arg_count, const Value *args)
+Value e_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	return FLOAT_VAL(M_E);
 }
 
-Value nan_function(VM *vm, int arg_count, const Value *args)
+Value nan_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	return FLOAT_VAL(NAN);
 }
 
-Value inf_function(VM *vm, int arg_count, const Value *args)
+Value inf_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	return FLOAT_VAL(INFINITY);
 }
 
-Value min_function(VM *vm, const int arg_count, const Value *args)
+Value min_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
 					   : (double)AS_INT(args[0]);
 	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])
@@ -266,12 +173,8 @@ Value min_function(VM *vm, const int arg_count, const Value *args)
 				: new_ok_result(vm, args[1]));
 }
 
-Value max_function(VM *vm, const int arg_count, const Value *args)
+Value max_function(VM *vm, const Value *args)
 {
-	Value res;
-	if ((res = check_args(vm, args, arg_count)) != NIL_VAL) {
-		return res;
-	}
 	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
 					   : (double)AS_INT(args[0]);
 	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])

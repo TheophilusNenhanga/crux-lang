@@ -9,18 +9,18 @@
 #include "panic.h"
 #include "stdlib/time.h"
 
-Value time_seconds_function_(VM *vm, int arg_count, const Value *args)
+Value time_seconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	(void)args;
 	return FLOAT_VAL((double)time(NULL));
 }
 
-Value time_milliseconds_function_(VM *vm, int arg_count, const Value *args)
+Value time_milliseconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	(void)args;
 #ifdef _WIN32
 	SYSTEMTIME st;
@@ -40,9 +40,9 @@ Value time_milliseconds_function_(VM *vm, int arg_count, const Value *args)
 	return FLOAT_VAL((double)ms);
 }
 
-Value sleep_seconds_function(VM *vm, int arg_count, const Value *args)
+Value sleep_seconds_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -65,9 +65,9 @@ Value sleep_seconds_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-Value sleep_milliseconds_function(VM *vm, int arg_count, const Value *args)
+Value sleep_milliseconds_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -96,9 +96,9 @@ static time_t get_current_time(void)
 	return time(NULL);
 }
 
-Value year_function_(VM *vm, int arg_count, const Value *args)
+Value year_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -106,9 +106,9 @@ Value year_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_year + 1900);
 }
 
-Value month_function_(VM *vm, int arg_count, const Value *args)
+Value month_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -116,9 +116,9 @@ Value month_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_mon + 1);
 }
 
-Value day_function_(VM *vm, int arg_count, const Value *args)
+Value day_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -126,9 +126,9 @@ Value day_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_mday);
 }
 
-Value hour_function_(VM *vm, int arg_count, const Value *args)
+Value hour_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -136,9 +136,9 @@ Value hour_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_hour);
 }
 
-Value minute_function_(VM *vm, int arg_count, const Value *args)
+Value minute_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -146,9 +146,9 @@ Value minute_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_min);
 }
 
-Value second_function_(VM *vm, int arg_count, const Value *args)
+Value second_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -156,9 +156,9 @@ Value second_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(timeInfo->tm_sec);
 }
 
-Value weekday_function_(VM *vm, int arg_count, const Value *args)
+Value weekday_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -168,9 +168,9 @@ Value weekday_function_(VM *vm, int arg_count, const Value *args)
 	return INT_VAL(weekday);
 }
 
-Value day_of_year_function_(VM *vm, int arg_count, const Value *args)
+Value day_of_year_function_(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
