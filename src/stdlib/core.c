@@ -16,29 +16,22 @@ static Value get_length(const Value value)
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
 	}
-	return NIL_VAL;
+	if (IS_CRUX_VECTOR(value)) {
+		return INT_VAL(AS_CRUX_VECTOR(value)->dimensions);
+	}
+	if (IS_CRUX_MATRIX(value)) {
+		return INT_VAL(AS_CRUX_MATRIX(value)->col_dim *
+			       AS_CRUX_MATRIX(value)->row_dim);
+	}
+	return INT_VAL(-1);
 }
 
-ObjectResult *length_function(VM *vm, int arg_count, const Value *args)
+Value length_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value value = args[0];
 	const Value length = get_length(value);
-	if (IS_NIL(length)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Expected either a collection type "
-					  "('string', 'array', 'table').",
-					  TYPE);
-	}
-	return new_ok_result(vm, length);
-}
-
-Value length_function_(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	(void)vm;
-	const Value value = args[0];
-	return get_length(value);
+	return length;
 }
 
 static Value cast_array(VM *vm, const Value *args, bool *success)
@@ -230,7 +223,7 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 	return NIL_VAL;
 }
 
-ObjectResult *int_function(VM *vm, int arg_count, const Value *args)
+Value int_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	bool success = true;
@@ -240,10 +233,10 @@ ObjectResult *int_function(VM *vm, int arg_count, const Value *args)
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
 					  TYPE);
 	}
-	return new_ok_result(vm, value);
+	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-ObjectResult *float_function(VM *vm, int arg_count, const Value *args)
+Value float_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	bool success = true;
@@ -252,10 +245,10 @@ ObjectResult *float_function(VM *vm, int arg_count, const Value *args)
 		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
 					  TYPE);
 	}
-	return new_ok_result(vm, value);
+	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-ObjectResult *string_function(VM *vm, int arg_count, const Value *args)
+Value string_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value value = args[0];
@@ -263,10 +256,10 @@ ObjectResult *string_function(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(str));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *array_function(VM *vm, int arg_count, const Value *args)
+Value array_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	bool success = true;
@@ -276,14 +269,14 @@ ObjectResult *array_function(VM *vm, int arg_count, const Value *args)
 					  "Failed to convert value to array.",
 					  RUNTIME);
 	}
-	return new_ok_result(vm, array);
+	return OBJECT_VAL(new_ok_result(vm, array));
 }
 
-ObjectResult *table_function(VM *vm, int arg_count, const Value *args)
+Value table_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value table = cast_table(vm, args);
-	return new_ok_result(vm, table);
+	return OBJECT_VAL(new_ok_result(vm, table));
 }
 
 Value int_function_(VM *vm, int arg_count, const Value *args)
@@ -291,7 +284,7 @@ Value int_function_(VM *vm, int arg_count, const Value *args)
 	(void)arg_count;
 	bool success = true;
 	const Value argument = args[0];
-	return cast_int(vm, argument, &success);
+	return OBJECT_VAL(cast_int(vm, argument, &success));
 }
 
 Value float_function_(VM *vm, int arg_count, const Value *args)
@@ -324,7 +317,7 @@ Value table_function_(VM *vm, int arg_count, const Value *args)
 	return cast_table(vm, args);
 }
 
-ObjectResult *format_function(VM *vm, int arg_count, const Value *args)
+Value format_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
@@ -444,5 +437,5 @@ ObjectResult *format_function(VM *vm, int arg_count, const Value *args)
 	}
 
 	free(tokens);
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }

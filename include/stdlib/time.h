@@ -9,8 +9,8 @@ Value time_seconds_function_(VM *vm, int arg_count, const Value *args);
 Value time_milliseconds_function_(VM *vm, int arg_count, const Value *args);
 
 // Sleep functions
-ObjectResult *sleep_seconds_function(VM *vm, int arg_count, const Value *args);
-ObjectResult *sleep_milliseconds_function(VM *vm, int arg_count,
+Value sleep_seconds_function(VM *vm, int arg_count, const Value *args);
+Value sleep_milliseconds_function(VM *vm, int arg_count,
 					  const Value *args);
 
 // Date/Time functions

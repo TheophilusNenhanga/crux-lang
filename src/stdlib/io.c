@@ -9,18 +9,20 @@
 #include "garbage_collector.h"
 #include "vm.h"
 
-/* ── Platform ──────────────────────────────────────────────────────────────── */
+/* ── Platform ────────────────────────────────────────────────────────────────
+ */
 
 #ifdef _WIN32
-#include <io.h>
 #include <fcntl.h>
+#include <io.h>
 #define ISATTY(fd) _isatty(fd)
 #else
 #include <unistd.h>
 #define ISATTY(fd) isatty(fd)
 #endif
 
-/* ── Internal helpers ──────────────────────────────────────────────────────── */
+/* ── Internal helpers ────────────────────────────────────────────────────────
+ */
 
 #define SCANLN_BUFFER_SIZE 1024
 
@@ -30,9 +32,12 @@
  */
 static FILE *get_channel(const char *channel)
 {
-	if (strcmp(channel, "stdout") == 0) return stdout;
-	if (strcmp(channel, "stderr") == 0) return stderr;
-	if (strcmp(channel, "stdin")  == 0) return stdin;
+	if (strcmp(channel, "stdout") == 0)
+		return stdout;
+	if (strcmp(channel, "stderr") == 0)
+		return stderr;
+	if (strcmp(channel, "stdin") == 0)
+		return stdin;
 	return NULL;
 }
 
@@ -74,14 +79,16 @@ static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
 			      ObjectString **out)
 {
 	char *buffer = ALLOCATE(vm, char, max_len + 1);
-	if (buffer == NULL) return false;
+	if (buffer == NULL)
+		return false;
 
 	size_t count = 0;
 	bool hit_newline = false;
 
 	while (count < max_len) {
 		const int ch = fgetc(stream);
-		if (ch == EOF) break;
+		if (ch == EOF)
+			break;
 		if (ch == '\n') {
 			hit_newline = true;
 			break;
@@ -100,7 +107,8 @@ static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
 	return true;
 }
 
-/* ── Output ────────────────────────────────────────────────────────────────── */
+/* ── Output ──────────────────────────────────────────────────────────────────
+ */
 
 /*
  * print(value) — writes to stdout, no newline.
@@ -131,8 +139,7 @@ Value io_println_function(VM *vm, const int arg_count, const Value *args)
  * print_to(channel: string, value) -> Result<nil>
  * Writes to the named channel without a trailing newline.
  */
-ObjectResult *io_print_to_function(VM *vm, const int arg_count,
-				   const Value *args)
+Value io_print_to_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -155,15 +162,14 @@ ObjectResult *io_print_to_function(VM *vm, const int arg_count,
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
 	}
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
 /*
  * println_to(channel: string, value) -> Result<nil>
  * Writes to the named channel followed by '\n'.
  */
-ObjectResult *io_println_to_function(VM *vm, const int arg_count,
-				     const Value *args)
+Value io_println_to_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -190,16 +196,17 @@ ObjectResult *io_println_to_function(VM *vm, const int arg_count,
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to stream.", IO);
 	}
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/* ── Input — stdin ─────────────────────────────────────────────────────────── */
+/* ── Input — stdin ───────────────────────────────────────────────────────────
+ */
 
 /*
  * scan() -> Result<string>
  * Reads exactly one character from stdin, then discards the rest of the line.
  */
-ObjectResult *io_scan_function(VM *vm, const int arg_count, const Value *args)
+Value io_scan_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	(void)args;
@@ -221,7 +228,7 @@ ObjectResult *io_scan_function(VM *vm, const int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
@@ -229,7 +236,7 @@ ObjectResult *io_scan_function(VM *vm, const int arg_count, const Value *args)
  * Reads from stdin up to (and discarding) the next '\n'.
  * Returns the line content without the newline.
  */
-ObjectResult *io_scanln_function(VM *vm, const int arg_count, const Value *args)
+Value io_scanln_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	(void)args;
@@ -241,16 +248,16 @@ ObjectResult *io_scanln_function(VM *vm, const int arg_count, const Value *args)
 	}
 
 	/* read_bounded_line returns empty string on immediate EOF; treat as
-	 * an error so the caller can distinguish "no input" from "empty line" */
+	 * an error so the caller can distinguish "no input" from "empty line"
+	 */
 	if (ferror(stdin)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Error reading from stdin.", IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from stdin.", IO);
 	}
 
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
@@ -258,19 +265,19 @@ ObjectResult *io_scanln_function(VM *vm, const int arg_count, const Value *args)
  * Reads up to <n> characters from stdin, stopping early at '\n'.
  * Any remaining characters on the line are discarded.
  */
-ObjectResult *io_nscan_function(VM *vm, const int arg_count, const Value *args)
+Value io_nscan_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
 	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<n> must be of type 'int'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
+					  TYPE);
 	}
 
 	const int32_t n = AS_INT(args[0]);
 	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<n> must be a positive integer.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
+					  VALUE);
 	}
 
 	ObjectString *s = NULL;
@@ -286,18 +293,18 @@ ObjectResult *io_nscan_function(VM *vm, const int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-/* ── Input — named channel ─────────────────────────────────────────────────── */
+/* ── Input — named channel ───────────────────────────────────────────────────
+ */
 
 /*
  * scan_from(channel: string) -> Result<string>
  * Reads exactly one character from the named channel,
  * then discards the rest of that line.
  */
-ObjectResult *io_scan_from_function(VM *vm, const int arg_count,
-				    const Value *args)
+Value io_scan_from_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -332,15 +339,14 @@ ObjectResult *io_scan_from_function(VM *vm, const int arg_count,
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * scanln_from(channel: string) -> Result<string>
  * Reads from the named channel up to (and discarding) the next '\n'.
  */
-ObjectResult *io_scanln_from_function(VM *vm, const int arg_count,
-				      const Value *args)
+Value io_scanln_from_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -366,22 +372,21 @@ ObjectResult *io_scanln_from_function(VM *vm, const int arg_count,
 	}
 
 	if (ferror(stream)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Error reading from channel.", IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.",
+					  IO);
 	}
 
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * nscan_from(channel: string, n: int) -> Result<string>
  * Reads up to <n> characters from the named channel, stopping early at '\n'.
  */
-ObjectResult *io_nscan_from_function(VM *vm, const int arg_count,
-				     const Value *args)
+Value io_nscan_from_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -392,8 +397,8 @@ ObjectResult *io_nscan_from_function(VM *vm, const int arg_count,
 	}
 
 	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<n> must be of type 'int'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
+					  TYPE);
 	}
 
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
@@ -407,8 +412,8 @@ ObjectResult *io_nscan_from_function(VM *vm, const int arg_count,
 
 	const int32_t n = AS_INT(args[1]);
 	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<n> must be a positive integer.", VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
+					  VALUE);
 	}
 
 	ObjectString *s = NULL;
@@ -418,12 +423,12 @@ ObjectResult *io_nscan_from_function(VM *vm, const int arg_count,
 	}
 
 	if (ferror(stream)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Error reading from channel.", IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.",
+					  IO);
 	}
 
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }

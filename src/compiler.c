@@ -1676,6 +1676,13 @@ static void break_statement(void)
 	add_break_jump(emit_jump(OP_JUMP));
 }
 
+static void panic_statement(void)
+{
+	expression();
+	consume(TOKEN_SEMICOLON, "Expected ';' after 'panic'.");
+	emit_word(OP_PANIC);
+}
+
 /**
  * Parses a declaration, which can be a variable, function, or class
  * declaration.
@@ -1723,6 +1730,8 @@ static void statement(void)
 		break_statement();
 	} else if (match(TOKEN_CONTINUE)) {
 		continue_statement();
+	} else if (match(TOKEN_PANIC)) {
+		panic_statement();
 	} else {
 		expression_statement();
 	}
@@ -1995,6 +2004,7 @@ ParseRule rules[] = {
 	[TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
 	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
+	[TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
 };
 
 /**

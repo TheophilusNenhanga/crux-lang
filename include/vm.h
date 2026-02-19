@@ -75,12 +75,12 @@ typedef struct {
 } ObjectPool;
 
 struct VM {
-	ObjectPool* object_pool; // Global object pool
+	ObjectPool *object_pool; // Global object pool
 
-	SlabAllocator* slab_16;
-	SlabAllocator* slab_24;
-	SlabAllocator* slab_32;
-	SlabAllocator* slab_48;
+	SlabAllocator *slab_16;
+	SlabAllocator *slab_24;
+	SlabAllocator *slab_32;
+	SlabAllocator *slab_48;
 
 	Table strings;
 
@@ -114,6 +114,7 @@ struct VM {
 	GC_STATUS gc_status;
 
 	int import_count;
+	bool panicking;
 };
 
 #define push(module_record, value)                                             \

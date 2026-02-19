@@ -134,8 +134,7 @@ static double vector_magnitude(const ObjectVector *vec)
 }
 
 /* arg_count = 2; arg0 -> dimension, arg1 -> components array */
-ObjectResult *new_vector_function(VM *vm, const int arg_count,
-				  const Value *args)
+Value new_vector_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -179,12 +178,12 @@ ObjectResult *new_vector_function(VM *vm, const int arg_count,
 		components[i] = 0.0;
 	}
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_dot_method(VM *vm, const int arg_count, const Value *args)
+Value vector_dot_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -210,10 +209,10 @@ ObjectResult *vector_dot_method(VM *vm, const int arg_count, const Value *args)
 	const double result = compute_dot_product(comp1, comp2,
 						  vec1->dimensions);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-ObjectResult *vector_add_method(VM *vm, const int arg_count, const Value *args)
+Value vector_add_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -242,13 +241,12 @@ ObjectResult *vector_add_method(VM *vm, const int arg_count, const Value *args)
 
 	compute_vector_add(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_subtract_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value vector_subtract_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -278,13 +276,12 @@ ObjectResult *vector_subtract_method(VM *vm, const int arg_count,
 
 	compute_vector_subtract(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value vector_multiply_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -306,14 +303,13 @@ ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
 
 	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_divide_method(VM *vm, const int arg_count,
-				   const Value *args)
+Value vector_divide_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -338,11 +334,10 @@ ObjectResult *vector_divide_method(VM *vm, const int arg_count,
 
 	compute_scalar_divide(result_comp, comp, scalar, vec->dimensions);
 
-	return new_ok_result(vm, OBJECT_VAL(result_vector));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-ObjectResult *vector_magnitude_method(VM *vm, const int arg_count,
-				      const Value *args)
+Value vector_magnitude_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -357,11 +352,10 @@ ObjectResult *vector_magnitude_method(VM *vm, const int arg_count,
 
 	const double magnitude = vector_magnitude(vec);
 
-	return new_ok_result(vm, FLOAT_VAL(magnitude));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(magnitude)));
 }
 
-ObjectResult *vector_normalize_method(VM *vm, const int arg_count,
-				      const Value *args)
+Value vector_normalize_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -388,11 +382,10 @@ ObjectResult *vector_normalize_method(VM *vm, const int arg_count,
 
 	compute_normalize(result_comp, comp, magnitude, vec->dimensions);
 
-	return new_ok_result(vm, OBJECT_VAL(result_vector));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-ObjectResult *vector_distance_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value vector_distance_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -419,11 +412,10 @@ ObjectResult *vector_distance_method(VM *vm, const int arg_count,
 	const double distance = compute_distance(comp1, comp2,
 						 vec1->dimensions);
 
-	return new_ok_result(vm, FLOAT_VAL(distance));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(distance)));
 }
 
-ObjectResult *vector_cross_method(VM *vm, const int arg_count,
-				  const Value *args)
+Value vector_cross_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -455,11 +447,11 @@ ObjectResult *vector_cross_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_angle_between_method(VM *vm, const int arg_count,
-					  const Value *args)
+Value vector_angle_between_method(VM *vm, const int arg_count,
+				  const Value *args)
 {
 	(void)arg_count;
 
@@ -494,10 +486,10 @@ ObjectResult *vector_angle_between_method(VM *vm, const int arg_count,
 	const double clampedCos = fmax(-1.0, fmin(1.0, cosTheta));
 	const double result = acos(clampedCos);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-ObjectResult *vector_lerp_method(VM *vm, const int arg_count, const Value *args)
+Value vector_lerp_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -530,11 +522,10 @@ ObjectResult *vector_lerp_method(VM *vm, const int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_reflect_method(VM *vm, const int arg_count,
-				    const Value *args)
+Value vector_reflect_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -574,11 +565,10 @@ ObjectResult *vector_reflect_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_equals_method(VM *vm, const int arg_count,
-				   const Value *args)
+Value vector_equals_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -592,7 +582,7 @@ ObjectResult *vector_equals_method(VM *vm, const int arg_count,
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
 	if (vec1->dimensions != vec2->dimensions) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
@@ -600,7 +590,7 @@ ObjectResult *vector_equals_method(VM *vm, const int arg_count,
 
 	const bool equal = compute_equals(comp1, comp2, vec1->dimensions);
 
-	return new_ok_result(vm, BOOL_VAL(equal));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(equal)));
 }
 
 Value vector_x_method(VM *vm, const int arg_count, const Value *args)

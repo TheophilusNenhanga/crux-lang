@@ -20,7 +20,7 @@ Value complex_imag_method(VM *vm, int arg_count, const Value *args)
 	return FLOAT_VAL(complex_number->imag);
 }
 
-ObjectResult *new_complex_function(VM *vm, int arg_count, const Value *args)
+Value new_complex_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!(IS_FLOAT(args[0]) || IS_INT(args[0]))) {
@@ -39,11 +39,10 @@ ObjectResult *new_complex_function(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(comp));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(comp));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
-ObjectResult *add_complex_number_method(VM *vm, int arg_count,
-					const Value *args)
+Value add_complex_number_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_COMPLEX(args[1])) {
@@ -60,11 +59,10 @@ ObjectResult *add_complex_number_method(VM *vm, int arg_count,
 	push(vm->current_module_record, OBJECT_VAL(result_complex));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_complex));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
-ObjectResult *sub_complex_number_method(VM *vm, int arg_count,
-					const Value *args)
+Value sub_complex_number_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_COMPLEX(args[1])) {
@@ -75,17 +73,15 @@ ObjectResult *sub_complex_number_method(VM *vm, int arg_count,
 	const ObjectComplex *self = AS_CRUX_COMPLEX(args[0]);
 	const ObjectComplex *other = AS_CRUX_COMPLEX(args[1]);
 
-	ObjectComplex *result_complex =
-		new_complex_number(vm, self->real - other->real,
-				   self->imag - other->imag);
+	ObjectComplex *result_complex = new_complex_number(
+		vm, self->real - other->real, self->imag - other->imag);
 	push(vm->current_module_record, OBJECT_VAL(result_complex));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_complex));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
-ObjectResult *mul_complex_number_method(VM *vm, int arg_count,
-					const Value *args)
+Value mul_complex_number_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_COMPLEX(args[1])) {
@@ -103,11 +99,10 @@ ObjectResult *mul_complex_number_method(VM *vm, int arg_count,
 	push(vm->current_module_record, OBJECT_VAL(result_complex));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_complex));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
-ObjectResult *div_complex_number_method(VM *vm, int arg_count,
-					const Value *args)
+Value div_complex_number_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_COMPLEX(args[1])) {
@@ -131,11 +126,10 @@ ObjectResult *div_complex_number_method(VM *vm, int arg_count,
 	push(vm->current_module_record, OBJECT_VAL(result_complex));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_complex));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
-ObjectResult *scale_complex_number_method(VM *vm, int arg_count,
-					  const Value *args)
+Value scale_complex_number_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!(IS_FLOAT(args[1]) || IS_INT(args[1]))) {
@@ -155,7 +149,7 @@ ObjectResult *scale_complex_number_method(VM *vm, int arg_count,
 	push(vm->current_module_record, OBJECT_VAL(result_complex));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_complex));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(result);
 }
 
 Value magnitude_complex_number_method(VM *vm, int arg_count, const Value *args)

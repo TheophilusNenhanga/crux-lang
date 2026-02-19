@@ -16,7 +16,7 @@
 #define DISPATCH() goto *dispatchTable[endIndex]
 #else
 #define DISPATCH()                                                             \
-	instruction = READ_SHORT();                                             \
+	instruction = READ_SHORT();                                            \
 	goto *dispatchTable[instruction]
 #endif
 
@@ -119,13 +119,14 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 					&&OP_STRUCT_INSTANCE_END,
 					&&OP_NIL_RETURN,
 					&&OP_UNWRAP,
+					&&OP_PANIC,
 					&&end};
 
 	uint16_t instruction;
 #ifdef DEBUG_TRACE_EXECUTION
 	static uint16_t endIndex = sizeof(dispatchTable) /
-					  sizeof(dispatchTable[0]) -
-				  1;
+					   sizeof(dispatchTable[0]) -
+				   1;
 #endif
 	DISPATCH();
 OP_RETURN: {
@@ -1323,6 +1324,15 @@ OP_UNWRAP: {
 	} else {
 		push(currentModuleRecord, OBJECT_VAL(result->as.error));
 	}
+	DISPATCH();
+}
+
+OP_PANIC: {
+	Value value = pop(currentModuleRecord);
+	ObjectString *message = to_string(vm, value);
+	// TODO: Don't hard exit, cleanup first
+	runtime_panic(vm->current_module_record, true, RUNTIME, "Panic: %s",
+		      message->chars);
 	DISPATCH();
 }
 

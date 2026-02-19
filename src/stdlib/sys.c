@@ -14,7 +14,7 @@
 #endif
 
 /* TODO: Split this into two functions argv and argc */
-ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
+Value args_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	(void)args;
@@ -27,7 +27,7 @@ ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
 	for (int i = 0; i < vm->args.argc; i++) {
 		char *arg = strdup(vm->args.argv[i]);
 		if (arg == NULL) {
-			ObjectResult *error_result = MAKE_GC_SAFE_ERROR(
+			Value error_result = MAKE_GC_SAFE_ERROR(
 				vm, "Failed to allocate memory for argument.",
 				MEMORY);
 			pop(module_record);
@@ -46,7 +46,7 @@ ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
 	pop(module_record);
 	pop(module_record);
 
-	return new_ok_result(vm, OBJECT_VAL(resultArray));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(resultArray)));
 }
 
 /* TODO: This can fail if out of memory */
@@ -113,7 +113,7 @@ Value pid_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-ObjectResult *get_env_function(VM *vm, int arg_count, const Value *args)
+Value get_env_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0])) {
@@ -138,10 +138,10 @@ ObjectResult *get_env_function(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(valueString));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(valueString));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *sleep_function(VM *vm, int arg_count, const Value *args)
+Value sleep_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_INT(args[0])) {
@@ -154,7 +154,7 @@ ObjectResult *sleep_function(VM *vm, int arg_count, const Value *args)
 #else
 	sleep(AS_INT(args[0]));
 #endif
-	return new_ok_result(vm, BOOL_VAL(true));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 }
 
 Value exit_function(VM *vm, int arg_count, const Value *args)

@@ -102,8 +102,7 @@ static int lu_decompose(double *restrict m, const uint16_t n, uint16_t *perm)
  * new_matrix_function(rows: int, cols: int) -> Result<Matrix>
  * Creates a zero-initialised rows×cols matrix.
  */
-ObjectResult *new_matrix_function(VM *vm, const int arg_count,
-				  const Value *args)
+Value new_matrix_function(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 
@@ -130,17 +129,17 @@ ObjectResult *new_matrix_function(VM *vm, const int arg_count,
 
 	memset(mat->data, 0, sizeof(double) * rows * cols);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(mat));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(mat));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
 /*
  * new_matrix_identity_function(n: int) -> Result<Matrix>
  * Creates an n×n identity matrix.
  */
-ObjectResult *new_matrix_identity_function(VM *vm, const int arg_count,
-					   const Value *args)
+Value new_matrix_identity_function(VM *vm, const int arg_count,
+				   const Value *args)
 {
 	(void)arg_count;
 
@@ -164,9 +163,9 @@ ObjectResult *new_matrix_identity_function(VM *vm, const int arg_count,
 		MATRIX_AT(mat, i, i) = 1.0;
 	}
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(mat));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(mat));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
 /*
@@ -174,8 +173,8 @@ ObjectResult *new_matrix_identity_function(VM *vm, const int arg_count,
  * Result<Matrix> Constructs a matrix from a flat Array of numbers (row-major).
  * Elements beyond rows*cols are ignored; missing elements are zero-filled.
  */
-ObjectResult *new_matrix_from_array_function(VM *vm, const int arg_count,
-					     const Value *args)
+Value new_matrix_from_array_function(VM *vm, const int arg_count,
+				     const Value *args)
 {
 	(void)arg_count;
 
@@ -225,9 +224,9 @@ ObjectResult *new_matrix_from_array_function(VM *vm, const int arg_count,
 		mat->data[i] = 0.0;
 	}
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(mat));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(mat));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
 /* ── Element access ──────────────────────────────────────────────────────────
@@ -237,7 +236,7 @@ ObjectResult *new_matrix_from_array_function(VM *vm, const int arg_count,
  * get(row: int, col: int) -> Result<float>
  * Returns the element at (row, col), 0-indexed.
  */
-ObjectResult *matrix_get_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_get_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -257,14 +256,15 @@ ObjectResult *matrix_get_method(VM *vm, const int arg_count, const Value *args)
 					  BOUNDS);
 	}
 
-	return new_ok_result(vm, FLOAT_VAL(MATRIX_AT(mat, row, col)));
+	return OBJECT_VAL(
+		new_ok_result(vm, FLOAT_VAL(MATRIX_AT(mat, row, col))));
 }
 
 /*
  * set(row: int, col: int, value: int|float) -> Result<nil>
  * Sets the element at (row, col).
  */
-ObjectResult *matrix_set_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_set_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -289,7 +289,7 @@ ObjectResult *matrix_set_method(VM *vm, const int arg_count, const Value *args)
 	}
 
 	MATRIX_AT(mat, row, col) = TO_DOUBLE(args[3]);
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
 /* ── Infallible property accessors ───────────────────────────────────────────
@@ -318,7 +318,7 @@ Value matrix_cols_method(VM *vm, const int arg_count, const Value *args)
  * add(other: Matrix) -> Result<Matrix>
  * Element-wise addition. Matrices must be the same shape.
  */
-ObjectResult *matrix_add_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_add_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -338,15 +338,14 @@ ObjectResult *matrix_add_method(VM *vm, const int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * subtract(other: Matrix) -> Result<Matrix>
  * Element-wise subtraction. Matrices must be the same shape.
  */
-ObjectResult *matrix_subtract_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value matrix_subtract_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -366,15 +365,14 @@ ObjectResult *matrix_subtract_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * multiply(other: Matrix) -> Result<Matrix>
  * Standard matrix multiplication. a.cols must equal b.rows.
  */
-ObjectResult *matrix_multiply_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value matrix_multiply_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -410,15 +408,14 @@ ObjectResult *matrix_multiply_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * scale(scalar: int|float) -> Result<Matrix>
  * Multiplies every element by scalar.
  */
-ObjectResult *matrix_scale_method(VM *vm, const int arg_count,
-				  const Value *args)
+Value matrix_scale_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -441,7 +438,7 @@ ObjectResult *matrix_scale_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /* ── Linear-algebra operations ───────────────────────────────────────────────
@@ -451,8 +448,7 @@ ObjectResult *matrix_scale_method(VM *vm, const int arg_count,
  * transpose() -> Result<Matrix>
  * Returns the transposed matrix (rows become columns).
  */
-ObjectResult *matrix_transpose_method(VM *vm, const int arg_count,
-				      const Value *args)
+Value matrix_transpose_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -470,7 +466,7 @@ ObjectResult *matrix_transpose_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
@@ -478,8 +474,7 @@ ObjectResult *matrix_transpose_method(VM *vm, const int arg_count,
  * Computes the determinant via LU decomposition.
  * Only defined for square matrices.
  */
-ObjectResult *matrix_determinant_method(VM *vm, const int arg_count,
-					const Value *args)
+Value matrix_determinant_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -511,7 +506,7 @@ ObjectResult *matrix_determinant_method(VM *vm, const int arg_count,
 	FREE_ARRAY(vm, double, tmp, (uint32_t)n *n);
 	FREE_ARRAY(vm, uint16_t, perm, n);
 
-	return new_ok_result(vm, FLOAT_VAL(det));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(det)));
 }
 
 /*
@@ -519,8 +514,7 @@ ObjectResult *matrix_determinant_method(VM *vm, const int arg_count,
  * Computes the matrix inverse via Gauss-Jordan elimination.
  * Returns an error for non-square or singular matrices.
  */
-ObjectResult *matrix_inverse_method(VM *vm, const int arg_count,
-				    const Value *args)
+Value matrix_inverse_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -606,15 +600,14 @@ ObjectResult *matrix_inverse_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * trace() -> Result<float>
  * Sum of the main diagonal elements. Square matrices only.
  */
-ObjectResult *matrix_trace_method(VM *vm, const int arg_count,
-				  const Value *args)
+Value matrix_trace_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -631,14 +624,14 @@ ObjectResult *matrix_trace_method(VM *vm, const int arg_count,
 		trace += MATRIX_AT(mat, i, i);
 	}
 
-	return new_ok_result(vm, FLOAT_VAL(trace));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(trace)));
 }
 
 /*
  * rank() -> Result<int>
  * Computes the rank via Gaussian elimination on a copy.
  */
-ObjectResult *matrix_rank_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_rank_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -692,7 +685,7 @@ ObjectResult *matrix_rank_method(VM *vm, const int arg_count, const Value *args)
 	}
 
 	FREE_ARRAY(vm, double, tmp, total);
-	return new_ok_result(vm, INT_VAL((int32_t)rank));
+	return OBJECT_VAL(new_ok_result(vm, INT_VAL((int32_t)rank)));
 }
 
 /* ── Row / column extraction ─────────────────────────────────────────────────
@@ -702,7 +695,7 @@ ObjectResult *matrix_rank_method(VM *vm, const int arg_count, const Value *args)
  * row(i: int) -> Result<Array>
  * Returns the i-th row as a flat Array of floats.
  */
-ObjectResult *matrix_row_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_row_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -726,19 +719,18 @@ ObjectResult *matrix_row_method(VM *vm, const int arg_count, const Value *args)
 	for (uint16_t j = 0; j < mat->col_dim; j++) {
 		const Value v = FLOAT_VAL(MATRIX_AT(mat, row, j));
 		array_add_back(vm, arr, v);
-
 	}
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(arr));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * col(j: int) -> Result<Array>
  * Returns the j-th column as a flat Array of floats.
  */
-ObjectResult *matrix_col_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_col_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -766,7 +758,7 @@ ObjectResult *matrix_col_method(VM *vm, const int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(arr));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /* ── Utilities ───────────────────────────────────────────────────────────────
@@ -776,8 +768,7 @@ ObjectResult *matrix_col_method(VM *vm, const int arg_count, const Value *args)
  * equals(other: Matrix) -> Result<bool>
  * Element-wise comparison with epsilon tolerance.
  */
-ObjectResult *matrix_equals_method(VM *vm, const int arg_count,
-				   const Value *args)
+Value matrix_equals_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -787,24 +778,24 @@ ObjectResult *matrix_equals_method(VM *vm, const int arg_count,
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 
 	if (a->row_dim != b->row_dim || a->col_dim != b->col_dim) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	const uint32_t total = (uint32_t)a->row_dim * a->col_dim;
 	for (uint32_t i = 0; i < total; i++) {
 		if (fabs(a->data[i] - b->data[i]) >= EPSILON) {
-			return new_ok_result(vm, BOOL_VAL(false));
+			return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 		}
 	}
 
-	return new_ok_result(vm, BOOL_VAL(true));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 }
 
 /*
  * copy() -> Result<Matrix>
  * Returns a deep copy of the matrix.
  */
-ObjectResult *matrix_copy_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_copy_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -815,15 +806,14 @@ ObjectResult *matrix_copy_method(VM *vm, const int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(dst));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(dst));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /*
  * to_array() -> Result<Array<Array<float>>>
  * Returns the matrix as an Array of row Arrays.
  */
-ObjectResult *matrix_to_array_method(VM *vm, const int arg_count,
-				     const Value *args)
+Value matrix_to_array_method(VM *vm, const int arg_count, const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -839,7 +829,7 @@ ObjectResult *matrix_to_array_method(VM *vm, const int arg_count,
 
 		for (uint16_t j = 0; j < mat->col_dim; j++) {
 			array_add_back(vm, row_arr,
-				   FLOAT_VAL(MATRIX_AT(mat, i, j)));
+				       FLOAT_VAL(MATRIX_AT(mat, i, j)));
 		}
 
 		array_add_back(vm, outer, OBJECT_VAL(row_arr));
@@ -848,7 +838,7 @@ ObjectResult *matrix_to_array_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(outer));
 	pop(vm->current_module_record); /* outer */
-	return res;
+	return OBJECT_VAL(res);
 }
 
 /* ── Vector interop ──────────────────────────────────────────────────────────
@@ -859,8 +849,8 @@ ObjectResult *matrix_to_array_method(VM *vm, const int arg_count,
  * Multiplies the matrix (m×n) by a column vector of dimension n,
  * producing a Vector of dimension m.
  */
-ObjectResult *matrix_multiply_vector_method(VM *vm, const int arg_count,
-					    const Value *args)
+Value matrix_multiply_vector_method(VM *vm, const int arg_count,
+				    const Value *args)
 {
 	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
@@ -897,5 +887,5 @@ ObjectResult *matrix_multiply_vector_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vec));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }

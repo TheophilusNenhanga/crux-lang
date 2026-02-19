@@ -24,7 +24,7 @@ static void build_prefix_table(const char *pattern,
 	}
 }
 
-ObjectResult *string_first_method(VM *vm, int arg_count, const Value *args)
+Value string_first_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value value = args[0];
@@ -43,10 +43,10 @@ ObjectResult *string_first_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_last_method(VM *vm, int arg_count, const Value *args)
+Value string_last_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value value = args[0];
@@ -64,10 +64,10 @@ ObjectResult *string_last_method(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(str));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_get_method(VM *vm, int arg_count, const Value *args)
+Value string_get_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value value = args[0];
@@ -100,10 +100,10 @@ ObjectResult *string_get_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_upper_method(VM *vm, int arg_count, const Value *args)
+Value string_upper_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -113,7 +113,7 @@ ObjectResult *string_upper_method(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
@@ -137,10 +137,10 @@ ObjectResult *string_upper_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_lower_method(VM *vm, int arg_count, const Value *args)
+Value string_lower_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -150,7 +150,7 @@ ObjectResult *string_lower_method(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	char *buffer = ALLOCATE(vm, char, string->length + 1);
@@ -174,10 +174,10 @@ ObjectResult *string_lower_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_strip_method(VM *vm, int arg_count, const Value *args)
+Value string_strip_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -187,7 +187,7 @@ ObjectResult *string_strip_method(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(empty_str));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(empty_str));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	uint32_t start = 0;
@@ -206,10 +206,10 @@ ObjectResult *string_strip_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_str));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_substring_method(VM *vm, int arg_count, const Value *args)
+Value string_substring_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -252,10 +252,10 @@ ObjectResult *string_substring_method(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(newSubstring));
 	pop(vm->current_module_record);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
+Value string_split_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectModuleRecord *moduleRecord = vm->current_module_record;
@@ -283,7 +283,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 		pop(vm->current_module_record); // pop resultArray
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	if (delimiter->length > string->length) {
@@ -292,7 +292,7 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 		array_add(vm, resultArray, OBJECT_VAL(string), 0);
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	const uint32_t stringLength = string->length;
@@ -307,8 +307,8 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 	build_prefix_table(delimiter->chars, delimiterLength, prefixTable);
 
 	// initial guess of splits size
-	ObjectArray *resultArray = new_array(
-		vm, stringLength / (delimiterLength + 1) + 1);
+	ObjectArray *resultArray =
+		new_array(vm, stringLength / (delimiterLength + 1) + 1);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	uint32_t lastSplitIndex = 0;
@@ -354,11 +354,11 @@ ObjectResult *string_split_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 // KMP string-matching algorithm
-ObjectResult *string_contains_method(VM *vm, int arg_count, const Value *args)
+Value string_contains_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -370,15 +370,15 @@ ObjectResult *string_contains_method(VM *vm, int arg_count, const Value *args)
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
 
 	if (goal->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(true));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 	}
 
 	if (string->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	if (goal->length > string->length) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	const uint32_t stringLength = string->length;
@@ -404,15 +404,15 @@ ObjectResult *string_contains_method(VM *vm, int arg_count, const Value *args)
 		}
 		if (j == goalLength) {
 			FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-			return new_ok_result(vm, BOOL_VAL(true));
+			return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 		}
 	}
 
 	FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
-	return new_ok_result(vm, BOOL_VAL(false));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
-ObjectResult *string_replace_method(VM *vm, int arg_count, const Value *args)
+Value string_replace_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) ||
@@ -436,7 +436,7 @@ ObjectResult *string_replace_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	if (goal->length > string->length) {
-		return new_ok_result(vm, OBJECT_VAL(string));
+		return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(string)));
 	}
 
 	const uint32_t stringLength = string->length;
@@ -476,7 +476,7 @@ ObjectResult *string_replace_method(VM *vm, int arg_count, const Value *args)
 	if (matchCount == 0) {
 		FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 		FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
-		return new_ok_result(vm, OBJECT_VAL(string));
+		return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(string)));
 	}
 
 	const int64_t lengthDiff = (int64_t)replacementLength -
@@ -531,11 +531,10 @@ ObjectResult *string_replace_method(VM *vm, int arg_count, const Value *args)
 	FREE_ARRAY(vm, uint32_t, prefixTable, goalLength);
 	FREE_ARRAY(vm, uint32_t, matchIndices, stringLength);
 
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *string_starts_with_method(VM *vm, int arg_count,
-					const Value *args)
+Value string_starts_with_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -548,24 +547,24 @@ ObjectResult *string_starts_with_method(VM *vm, int arg_count,
 	const ObjectString *prefix = AS_CRUX_STRING(args[1]);
 
 	if (prefix->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(true));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 	}
 
 	if (string->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	if (prefix->length > string->length) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	if (memcmp(string->chars, prefix->chars, prefix->length) == 0) {
-		return new_ok_result(vm, BOOL_VAL(true));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 	}
-	return new_ok_result(vm, BOOL_VAL(false));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
-ObjectResult *string_ends_with_method(VM *vm, int arg_count, const Value *args)
+Value string_ends_with_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -576,23 +575,23 @@ ObjectResult *string_ends_with_method(VM *vm, int arg_count, const Value *args)
 	const ObjectString *suffix = AS_CRUX_STRING(args[1]);
 
 	if (suffix->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(true));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 	}
 
 	if (string->length == 0) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 	if (suffix->length > string->length) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 	}
 
 	const uint32_t stringStart = string->length - suffix->length;
 
 	if (memcmp(string->chars + stringStart, suffix->chars,
 		   suffix->length) == 0) {
-		return new_ok_result(vm, BOOL_VAL(true));
+		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 	}
-	return new_ok_result(vm, BOOL_VAL(false));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
 Value string_is_al_num_method(VM *vm, int arg_count, const Value *args)
@@ -685,27 +684,31 @@ Value string_is_empty_method(VM *vm, int arg_count, const Value *args)
  * arg0 -> the string this is called on
  * arg1 -> the string that will be concatenated
  */
-ObjectResult* string_concat_method(VM *vm, int arg_count, const Value *args)
+Value string_concat_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "First argument must be of type 'string'.", TYPE);
+		return MAKE_GC_SAFE_ERROR(
+			vm, "First argument must be of type 'string'.", TYPE);
 	}
 	const ObjectString *current = AS_CRUX_STRING(args[0]);
 	const ObjectString *string = AS_CRUX_STRING(args[1]);
 
 	const uint32_t length = string->length + current->length;
 	if (length < current->length) {
-		return MAKE_GC_SAFE_ERROR(vm, "Resultant string is too greater than the supported length.", LIMIT);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Resultant string is too greater "
+					  "than the supported length.",
+					  LIMIT);
 	}
 
-	char* result_string = malloc(length + 1);
+	char *result_string = malloc(length + 1);
 	memcpy(result_string, current->chars, current->length);
 	memcpy(result_string + current->length, string->chars, string->length);
 	result_string[length] = '\0';
 	/* take string will free length + 1 --- which is what we allocated */
-	ObjectString* res = take_string(vm, result_string, length);
+	ObjectString *res = take_string(vm, result_string, length);
 
-	return new_ok_result(vm, OBJECT_VAL(res));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(res)));
 }

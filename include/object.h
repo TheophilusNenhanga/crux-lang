@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "../include/value.h"
+#include "value.h"
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
@@ -33,7 +33,7 @@
 			new_error_result((vm), gc_safe_error);                 \
 		pop((vm)->current_module_record);                              \
 		pop((vm)->current_module_record);                              \
-		gcSafeErrorResult;                                             \
+		OBJECT_VAL(gcSafeErrorResult);                                             \
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
@@ -77,10 +77,6 @@
 #define AS_CRUX_TABLE(value) ((ObjectTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ERROR(value) ((ObjectError *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RESULT(value) ((ObjectResult *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-	((ObjectNativeInfallibleFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-	((ObjectNativeInfallibleMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANDOM(value) ((ObjectRandom *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_FILE(value) ((ObjectFile *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MODULE_RECORD(value)                                           \
@@ -108,8 +104,6 @@ typedef enum {
 	OBJECT_TABLE,
 	OBJECT_ERROR,
 	OBJECT_RESULT,
-	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
-	OBJECT_NATIVE_INFALLIBLE_METHOD,
 	OBJECT_RANDOM,
 	OBJECT_FILE,
 	OBJECT_MODULE_RECORD,
@@ -229,9 +223,7 @@ struct ObjectResult {//24
 	} as;
 };
 
-typedef ObjectResult *(*CruxCallable)(VM *vm, int arg_count, const Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int arg_count,
-					const Value *args);
+typedef Value (*CruxCallable)(VM *vm, int arg_count, const Value *args);
 
 typedef struct {//32
 	CruxObject object;
@@ -246,20 +238,6 @@ typedef struct {//32
 	ObjectString *name;
 	int arity;
 } ObjectNativeMethod;
-
-typedef struct {//32
-	CruxObject object;
-	CruxInfallibleCallable function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeInfallibleFunction;
-
-typedef struct {//32
-	CruxObject object;
-	CruxInfallibleCallable function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeInfallibleMethod;
 
 typedef struct {//24
 	Value key;
@@ -434,37 +412,6 @@ ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
  */
 ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
 				      ObjectString *name);
-
-/**
- * @brief Creates a new native infallible function object.
- *
- * Native infallible functions are implemented in C, callable from crux code,
- * and guaranteed not to return errors. This function allocates and initializes
- * a new ObjectNativeInfallibleFunction.
- *
- * @param vm The virtual machine.
- * @param function The C function pointer representing the native function's
- * implementation.
- * @param arity The expected number of arguments for the native function.
- * @param name The name of the native function as an ObjectString (for
- * debugging).
- *
- * @return A pointer to the newly created ObjectNativeInfallibleFunction.
- */
-ObjectNativeInfallibleFunction *
-new_native_infallible_function(VM *vm, CruxInfallibleCallable function,
-			       int arity, ObjectString *name);
-
-/**
- * @brief Creates a new native infallible method object.
- *
- * Native infallible methods are similar to native infallible functions but are
- * associated with classes. This function allocates and initializes a new
- * ObjectNativeInfallibleMethod.
- */
-ObjectNativeInfallibleMethod *
-new_native_infallible_method(VM *vm, CruxInfallibleCallable function, int arity,
-			     ObjectString *name);
 
 /**
  * @brief Creates a new function object.
