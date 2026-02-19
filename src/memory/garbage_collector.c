@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "compiler.h"
 #include "alloc.h"
+#include "compiler.h"
 #include "garbage_collector.h"
 #include "value.h"
 
@@ -90,7 +90,8 @@ void mark_object_array(VM *vm, const Value *values, const uint32_t size)
 void mark_object_table(VM *vm, const ObjectTableEntry *entries,
 		       const uint32_t capacity)
 {
-	if (!entries) return;
+	if (!entries)
+		return;
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
 			mark_value(vm, entries[i].value);
@@ -159,9 +160,6 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_TABLE] = blacken_table,
 	[OBJECT_ERROR] = blacken_error,
 	[OBJECT_RESULT] = blacken_result,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] =
-		blacken_native_infallible_function,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] = blacken_native_infallible_method,
 	[OBJECT_RANDOM] = blacken_random,
 	[OBJECT_FILE] = blacken_file,
 	[OBJECT_MODULE_RECORD] = blacken_module_record,
@@ -208,7 +206,6 @@ static void blacken_upvalue(VM *vm, CruxObject *object)
 	mark_value(vm, ((ObjectUpvalue *)object)->closed);
 }
 
-
 static void blacken_array(VM *vm, CruxObject *object)
 {
 	const ObjectArray *array = (ObjectArray *)object;
@@ -236,20 +233,6 @@ static void blacken_native_function(VM *vm, CruxObject *object)
 static void blacken_native_method(VM *vm, CruxObject *object)
 {
 	const ObjectNativeMethod *native = (ObjectNativeMethod *)object;
-	mark_object(vm, (CruxObject *)native->name);
-}
-
-static void blacken_native_infallible_function(VM *vm, CruxObject *object)
-{
-	const ObjectNativeInfallibleFunction *native =
-		(ObjectNativeInfallibleFunction *)object;
-	mark_object(vm, (CruxObject *)native->name);
-}
-
-static void blacken_native_infallible_method(VM *vm, CruxObject *object)
-{
-	const ObjectNativeInfallibleMethod *native =
-		(ObjectNativeInfallibleMethod *)object;
 	mark_object(vm, (CruxObject *)native->name);
 }
 
@@ -371,10 +354,6 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_TABLE] = free_object_table_wrapper,
 	[OBJECT_ERROR] = free_object_error,
 	[OBJECT_RESULT] = free_object_result,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] =
-		free_object_native_infallible_function,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] =
-		free_object_native_infallible_method,
 	[OBJECT_RANDOM] = free_object_random,
 	[OBJECT_FILE] = free_object_file,
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
@@ -408,7 +387,7 @@ static void free_object(VM *vm, CruxObject *object)
 		free_dispatch[type](vm, object);
 	}
 
-	PoolObject* pool_object = &pool->objects[index];
+	PoolObject *pool_object = &pool->objects[index];
 
 	SET_DATA(pool_object, NULL);
 	SET_MARKED(pool_object, false);
@@ -441,16 +420,6 @@ static void free_object_native_method(VM *vm, CruxObject *object)
 	FREE_OBJECT(vm, ObjectNativeMethod, object);
 }
 
-static void free_object_native_infallible_function(VM *vm, CruxObject *object)
-{
-	FREE_OBJECT(vm, ObjectNativeInfallibleFunction, object);
-}
-
-static void free_object_native_infallible_method(VM *vm, CruxObject *object)
-{
-	FREE_OBJECT(vm, ObjectNativeInfallibleMethod, object);
-}
-
 static void free_object_closure(VM *vm, CruxObject *object)
 {
 	const ObjectClosure *closure = (ObjectClosure *)object;
@@ -463,7 +432,6 @@ static void free_object_upvalue(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectUpvalue, object);
 }
-
 
 static void free_object_array(VM *vm, CruxObject *object)
 {

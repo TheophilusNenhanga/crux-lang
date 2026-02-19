@@ -7,7 +7,7 @@
 #include "stdlib/array.h"
 #include "vm_helpers.h"
 
-ObjectResult *array_push_method(VM *vm, int arg_count, const Value *args)
+Value array_push_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -18,10 +18,10 @@ ObjectResult *array_push_method(VM *vm, int arg_count, const Value *args)
 					  RUNTIME);
 	}
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_pop_method(VM *vm, int arg_count, const Value *args)
+Value array_pop_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -36,10 +36,10 @@ ObjectResult *array_pop_method(VM *vm, int arg_count, const Value *args)
 	array->values[array->size - 1] = NIL_VAL;
 	array->size--;
 
-	return new_ok_result(vm, popped);
+	return OBJECT_VAL(new_ok_result(vm, popped));
 }
 
-ObjectResult *array_insert_method(VM *vm, int arg_count, const Value *args)
+Value array_insert_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -70,10 +70,10 @@ ObjectResult *array_insert_method(VM *vm, int arg_count, const Value *args)
 			vm, "Failed to allocate enough memory for new array.",
 			MEMORY);
 	}
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_remove_at_method(VM *vm, int arg_count, const Value *args)
+Value array_remove_at_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -98,10 +98,10 @@ ObjectResult *array_remove_at_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	array->size--;
-	return new_ok_result(vm, removed_element);
+	return OBJECT_VAL(new_ok_result(vm, removed_element));
 }
 
-ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
+Value array_concat_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -133,10 +133,10 @@ ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
+Value array_slice_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -179,10 +179,10 @@ ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(slicedArray));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *array_reverse_method(VM *vm, int arg_count, const Value *args)
+Value array_reverse_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -205,10 +205,10 @@ ObjectResult *array_reverse_method(VM *vm, int arg_count, const Value *args)
 
 	free(values);
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_index_of_method(VM *vm, int arg_count, const Value *args)
+Value array_index_of_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -216,7 +216,7 @@ ObjectResult *array_index_of_method(VM *vm, int arg_count, const Value *args)
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		if (values_equal(target, array->values[i])) {
-			return new_ok_result(vm, INT_VAL(i));
+			return OBJECT_VAL(new_ok_result(vm, INT_VAL(i)));
 		}
 	}
 	return MAKE_GC_SAFE_ERROR(vm, "Value could not be found in the array.",
@@ -279,7 +279,7 @@ Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
 
 // arg0 - array
 // arg1 - function
-ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
+Value array_map_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -314,7 +314,7 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
 				pop(currentModuleRecord); // resultArray
-				return result;
+				return OBJECT_VAL(result);
 			}
 		}
 
@@ -329,12 +329,12 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(currentModuleRecord); // resultArray
-	return res;
+	return OBJECT_VAL(res);
 }
 
 // arg0 - array
 // arg1 - function
-ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
+Value array_filter_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
@@ -370,7 +370,7 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
 				pop(currentModuleRecord); // resultArray
-				return result;
+				return OBJECT_VAL(result);
 			}
 		}
 
@@ -386,13 +386,13 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 	resultArray->size = addCount;
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(currentModuleRecord); // resultArray
-	return res;
+	return OBJECT_VAL(res);
 }
 
 // arg0 - array
 // arg1 - function
 // arg2 - initial value
-ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
+Value array_reduce_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -429,7 +429,7 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // accumulator
 				pop(currentModuleRecord); // arrayValue
-				return result;
+				return OBJECT_VAL(result);
 			}
 		}
 
@@ -438,14 +438,14 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
 		} else {
 			pop(currentModuleRecord); // accumulator
 			pop(currentModuleRecord); // arrayValue
-			return result;
+			return OBJECT_VAL(result);
 		}
 
 		pop(currentModuleRecord); // accumulator
 		pop(currentModuleRecord); // arrayValue
 	}
 
-	return new_ok_result(vm, accumulator);
+	return OBJECT_VAL(new_ok_result(vm, accumulator));
 }
 
 static int compare_values(const Value a, const Value b)
@@ -546,13 +546,13 @@ static void quick_sort(Value *arr, const int low, const int high)
 }
 
 // arg0 - array
-ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
+Value array_sort_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
-		return new_ok_result(vm, args[0]);
+		return OBJECT_VAL(new_ok_result(vm, args[0]));
 	}
 
 	if (!all_elements_sortable(array)) {
@@ -575,12 +575,12 @@ ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(sortedArray));
 	pop(currentModuleRecord);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 // arg0 - array
 // arg1 - separator string
-ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
+Value array_join_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_CRUX_STRING(args[1])) {
@@ -597,7 +597,7 @@ ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(emptyResult));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(emptyResult));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	// estimate: 3 chars per element + separators
@@ -667,5 +667,5 @@ ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(result));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }

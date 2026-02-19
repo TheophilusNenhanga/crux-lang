@@ -183,7 +183,7 @@ static uint32_t hashValue(const Value value)
 	return 0u;
 }
 
-void print_type_to(FILE* stream, const Value value)
+void print_type_to(FILE *stream, const Value value)
 {
 	if (IS_INT(value)) {
 		fprintf(stream, "'Int'");
@@ -207,9 +207,7 @@ void print_type_to(FILE* stream, const Value value)
 		break;
 	case OBJECT_FUNCTION:
 	case OBJECT_NATIVE_FUNCTION:
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
 	case OBJECT_NATIVE_METHOD:
-	case OBJECT_NATIVE_INFALLIBLE_METHOD:
 	case OBJECT_CLOSURE:
 		fprintf(stream, "'Function'");
 		break;
@@ -248,7 +246,8 @@ void print_type_to(FILE* stream, const Value value)
 	case OBJECT_STRUCT_INSTANCE: {
 		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
 			value);
-		fprintf(stream, "'%s instance'", instance->struct_type->name->chars);
+		fprintf(stream, "'%s instance'",
+			instance->struct_type->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT: {
@@ -262,7 +261,8 @@ void print_type_to(FILE* stream, const Value value)
 	}
 	case OBJECT_MATRIX: {
 		const ObjectMatrix *matrix = AS_CRUX_MATRIX(value);
-		fprintf(stream, "'Matrix<%d, %d>'", matrix->row_dim, matrix->col_dim);
+		fprintf(stream, "'Matrix<%d, %d>'", matrix->row_dim,
+			matrix->col_dim);
 		break;
 	}
 	default:
@@ -366,7 +366,7 @@ ObjectString *copy_string(VM *vm, const char *chars, const uint32_t length)
 	return allocateString(vm, heapChars, length, hash);
 }
 
-void print_error_type_to(FILE* stream, const ErrorType type)
+void print_error_type_to(FILE *stream, const ErrorType type)
 {
 	switch (type) {
 	case SYNTAX:
@@ -575,17 +575,6 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		}
 		break;
 	}
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
-		if (native->name != NULL) {
-			fprintf(stream, "<native infallible fn %s>",
-				native->name->chars);
-		} else {
-			fprintf(stream, "<native infallible fn>");
-		}
-		break;
-	}
 	case OBJECT_CLOSURE: {
 		print_function_to(stream, AS_CRUX_CLOSURE(value)->function);
 		break;
@@ -621,10 +610,6 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_FILE: {
 		fprintf(stream, "<file>");
-		break;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		fprintf(stream, "<native infallible method>");
 		break;
 	}
 	case OBJECT_MODULE_RECORD: {
@@ -787,48 +772,6 @@ ObjectString *to_string(VM *vm, const Value value)
 			return result;
 		}
 		return copy_string(vm, "<native method>", 15);
-	}
-
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
-		if (native->name != NULL) {
-			const char *start = "<native infallible fn ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native infallible fn>", 21);
-	}
-
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		const ObjectNativeInfallibleMethod *native =
-			AS_CRUX_NATIVE_INFALLIBLE_METHOD(value);
-		if (native->name != NULL) {
-			const char *start = "<native infallible method ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native infallible method>", 25);
 	}
 
 	case OBJECT_CLOSURE: {
@@ -1002,36 +945,6 @@ ObjectNativeMethod *new_native_method(VM *vm, const CruxCallable function,
 	push(vm->current_module_record, OBJECT_VAL(name));
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod,
 						     OBJECT_NATIVE_METHOD);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	return native;
-}
-
-ObjectNativeInfallibleFunction *
-new_native_infallible_function(VM *vm, const CruxInfallibleCallable function,
-			       const int arity, ObjectString *name)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeInfallibleFunction *native =
-		ALLOCATE_OBJECT(vm, ObjectNativeInfallibleFunction,
-				OBJECT_NATIVE_INFALLIBLE_FUNCTION);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	return native;
-}
-
-ObjectNativeInfallibleMethod *
-new_native_infallible_method(VM *vm, const CruxInfallibleCallable function,
-			     const int arity, ObjectString *name)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeInfallibleMethod *native =
-		ALLOCATE_OBJECT(vm, ObjectNativeInfallibleMethod,
-				OBJECT_NATIVE_INFALLIBLE_METHOD);
 	pop(vm->current_module_record);
 	native->function = function;
 	native->arity = arity;

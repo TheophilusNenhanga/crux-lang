@@ -73,6 +73,7 @@ typedef enum {
 	TOKEN_GIVE, // give
 	TOKEN_TYPEOF, // typeof
 	TOKEN_NEW, // new
+	TOKEN_PANIC, // panic
 
 	TOKEN_STRUCT, // struct
 	TOKEN_QUESTION_MARK, // ?

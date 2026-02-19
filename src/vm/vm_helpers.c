@@ -9,13 +9,13 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
+#include "slab_allocator.h"
 #include "stdlib/std.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
-#include "vm_run.h"
 #include "vm_helpers.h"
-#include "slab_allocator.h"
+#include "vm_run.h"
 
 void init_import_stack(VM *vm)
 {
@@ -196,19 +196,13 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		ObjectResult *result = native->function(
+		Value result_value = native->function(
 			vm, arg_count,
 			current_module_record->stack_top - arg_count);
 
 		current_module_record->stack_top -= arg_count + 1;
 
-		if (!result->is_ok && result->as.error->is_panic) {
-			runtime_panic(current_module_record, false,
-				      result->as.error->type,
-				      result->as.error->message->chars);
-			return false;
-		}
-		push(current_module_record, OBJECT_VAL(result));
+		push(current_module_record, OBJECT_VAL(result_value));
 		return true;
 	}
 	case OBJECT_NATIVE_FUNCTION: {
@@ -216,44 +210,12 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		ObjectResult *result = native->function(
+		Value result_value = native->function(
 			vm, arg_count,
 			current_module_record->stack_top - arg_count);
 		current_module_record->stack_top -= arg_count + 1;
 
-		if (!result->is_ok && result->as.error->is_panic) {
-			runtime_panic(current_module_record, false,
-				      result->as.error->type,
-				      result->as.error->message->chars);
-			return false;
-		}
-
-		push(current_module_record, OBJECT_VAL(result));
-		return true;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(callee);
-		check_native_arity(arg_count, native);
-
-		const Value result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
-		current_module_record->stack_top -= arg_count + 1;
-
-		push(current_module_record, result);
-		return true;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		const ObjectNativeInfallibleMethod *native =
-			AS_CRUX_NATIVE_INFALLIBLE_METHOD(callee);
-		check_native_arity(arg_count, native);
-
-		const Value result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
-		current_module_record->stack_top -= arg_count + 1;
-		push(current_module_record, result);
+		push(current_module_record, result_value);
 		return true;
 	}
 	default: {
@@ -427,8 +389,6 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_TABLE] = handle_table_invoke,
 	[OBJECT_ERROR] = handle_error_invoke,
 	[OBJECT_RESULT] = handle_result_invoke,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] = handle_undefined_invoke,
 	[OBJECT_RANDOM] = handle_random_invoke,
 	[OBJECT_FILE] = handle_file_invoke,
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
@@ -715,6 +675,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	table_set(vm, &vm->module_cache, vm->current_module_record->path,
 		  OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
+	vm->panicking = false;
 }
 
 void free_vm(VM *vm)
@@ -1348,8 +1309,6 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_TABLE] = typeof_table,
 	[OBJECT_ERROR] = typeof_error,
 	[OBJECT_RESULT] = typeof_result,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] = typeof_function,
 	[OBJECT_RANDOM] = typeof_random,
 	[OBJECT_FILE] = typeof_file,
 	[OBJECT_MODULE_RECORD] = typeof_module_record,

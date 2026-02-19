@@ -3,7 +3,7 @@
 #include "garbage_collector.h"
 #include "panic.h"
 
-ObjectResult *error_function(VM *vm, int arg_count, const Value *args)
+Value error_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
@@ -15,30 +15,10 @@ ObjectResult *error_function(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(error));
 	pop(module_record);
 	pop(module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *panic_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	const Value value = args[0];
-
-	if (IS_CRUX_ERROR(value)) {
-		ObjectError *error = AS_CRUX_ERROR(value);
-		error->is_panic = true;
-		return new_error_result(vm, error);
-	}
-	ObjectString *errorMessage = to_string(vm, value);
-	push(vm->current_module_record, OBJECT_VAL(errorMessage));
-	ObjectError *error = new_error(vm, errorMessage, RUNTIME, true);
-	push(vm->current_module_record, OBJECT_VAL(error));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(error));
-	pop(vm->current_module_record);
-	pop(vm->current_module_record);
-	return res;
-}
-
-ObjectResult *assert_function(VM *vm, int arg_count, const Value *args)
+Value assert_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (!IS_BOOL(args[0])) {
@@ -62,11 +42,11 @@ ObjectResult *assert_function(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(error));
 		ObjectResult *res = new_error_result(vm, error);
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	ObjectResult *res = new_ok_result(vm, NIL_VAL);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 Value error_message_method(VM *vm, int arg_count, const Value *args)
@@ -77,7 +57,7 @@ Value error_message_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(error->message);
 }
 
-ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
+Value error_type_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
@@ -89,7 +69,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case MATH: {
@@ -97,7 +77,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case BOUNDS: {
@@ -105,14 +85,14 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case RUNTIME: {
 		ObjectString *type = copy_string(vm, "<runtime error>", 14);
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case TYPE: {
@@ -120,7 +100,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case LOOP_EXTENT: {
@@ -128,7 +108,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case LIMIT: {
@@ -136,7 +116,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case BRANCH_EXTENT: {
@@ -145,7 +125,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case CLOSURE_EXTENT: {
 		ObjectString *type = copy_string(vm, "<closure extent error>",
@@ -153,7 +133,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case LOCAL_EXTENT: {
@@ -162,7 +142,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case ARGUMENT_EXTENT: {
 		ObjectString *type = copy_string(vm, "<argument extent error>",
@@ -170,7 +150,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case NAME: {
@@ -178,7 +158,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case COLLECTION_EXTENT: {
@@ -188,7 +168,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case VARIABLE_EXTENT: {
 		ObjectString *type = copy_string(vm, "<variable extent error>",
@@ -196,7 +176,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case RETURN_EXTENT: {
@@ -205,7 +185,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case ARGUMENT_MISMATCH: {
@@ -215,7 +195,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case STACK_OVERFLOW: {
@@ -224,7 +204,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case COLLECTION_GET: {
 		ObjectString *type = copy_string(vm, "<collection get error>",
@@ -232,7 +212,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case COLLECTION_SET: {
@@ -241,7 +221,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case MEMORY: {
@@ -249,7 +229,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case VALUE: {
@@ -257,7 +237,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case ASSERT: {
@@ -265,7 +245,7 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	case IMPORT_EXTENT: {
@@ -274,21 +254,21 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case IMPORT: {
 		ObjectString *type = copy_string(vm, "<import error>", 14);
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	case IO: {
 		ObjectString *type = copy_string(vm, "<io error>", 10);
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	default: {
@@ -296,16 +276,16 @@ ObjectResult *error_type_method(VM *vm, int arg_count, const Value *args)
 		push(module_record, OBJECT_VAL(type));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(type));
 		pop(module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 	}
 }
 
-ObjectResult *err_function(VM *vm, int arg_count, const Value *args)
+Value err_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
-		return new_error_result(vm, AS_CRUX_ERROR(args[0]));
+		return OBJECT_VAL(new_error_result(vm, AS_CRUX_ERROR(args[0])));
 	}
 
 	ObjectString *message = to_string(vm, args[0]);
@@ -315,13 +295,13 @@ ObjectResult *err_function(VM *vm, int arg_count, const Value *args)
 	ObjectResult *res = new_error_result(vm, error);
 	pop(vm->current_module_record);
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *ok_function(VM *vm, int arg_count, const Value *args)
+Value ok_function(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
-	return new_ok_result(vm, args[0]);
+	return OBJECT_VAL(new_ok_result(vm, args[0]));
 }
 
 // arg0 - Result

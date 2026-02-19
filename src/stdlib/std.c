@@ -34,16 +34,14 @@ static const Callable stringMethods[] = {
 	{"replace", string_replace_method, 3},
 	{"split", string_split_method, 2},
 	{"substring", string_substring_method, 3},
-	{"concat", string_concat_method, 2}};
-
-static const InfallibleCallable stringInfallibleMethods[] = {
-	{"_is_empty", string_is_empty_method, 1},
-	{"_is_alpha", string_is_alpha_method, 1},
-	{"_is_digit", string_is_digit_method, 1},
-	{"_is_lower", string_is_lower_method, 1},
-	{"_is_upper", string_is_upper_method, 1},
-	{"_is_space", string_is_space_method, 1},
-	{"_is_alnum", string_is_al_num_method, 1}};
+	{"concat", string_concat_method, 2},
+	{"is_empty", string_is_empty_method, 1},
+	{"is_alpha", string_is_alpha_method, 1},
+	{"is_digit", string_is_digit_method, 1},
+	{"is_lower", string_is_lower_method, 1},
+	{"is_upper", string_is_upper_method, 1},
+	{"is_space", string_is_space_method, 1},
+	{"is_alnum", string_is_al_num_method, 1}};
 
 static const Callable arrayMethods[] = {{"pop", array_pop_method, 1},
 					{"push", array_push_method, 2},
@@ -57,28 +55,22 @@ static const Callable arrayMethods[] = {{"pop", array_pop_method, 1},
 					{"filter", array_filter_method, 2},
 					{"reduce", array_reduce_method, 3},
 					{"sort", array_sort_method, 1},
-					{"join", array_join_method, 2}};
-
-static const InfallibleCallable arrayInfallibleMethods[] = {
-	{"_contains", array_contains_method, 2},
-	{"_clear", array_clear_method, 1},
-	{"_equals", arrayEqualsMethod, 2}};
+					{"join", array_join_method, 2},
+					{"contains", array_contains_method, 2},
+					{"clear", array_clear_method, 1},
+					{"equals", arrayEqualsMethod, 2}};
 
 static const Callable tableMethods[] = {{"values", table_values_method, 1},
 					{"keys", table_keys_method, 1},
 					{"pairs", table_pairs_method, 1},
 					{"remove", table_remove_method, 2},
-					{"get", table_get_method, 2}};
-
-static const InfallibleCallable tableInfallibleMethods[] = {
-	{"_has_key", table_has_key_method, 2},
-	{"_get_or_else", table_get_or_else_method, 3}};
+					{"get", table_get_method, 2},
+					{"has_key", table_has_key_method, 2},
+					{"get_or_else",
+					 table_get_or_else_method, 3}};
 
 static const Callable errorMethods[] = {
 	{"type", error_type_method, 1},
-};
-
-static const InfallibleCallable errorInfallibleMethods[] = {
 	{"message", error_message_method, 1},
 };
 
@@ -86,24 +78,18 @@ static const Callable randomMethods[] = {{"seed", random_seed_method, 2},
 					 {"int", random_int_method, 3},
 					 {"double", random_double_method, 3},
 					 {"bool", random_bool_method, 2},
-					 {"choice", random_choice_method, 2}};
+					 {"choice", random_choice_method, 2},
+					 {"_next", random_next_method, 1}};
 
-static const InfallibleCallable randomInfallibleMethods[] = {
-	{"_next", random_next_method, 1}};
-
-static const InfallibleCallable resultInfallibleMethods[] = {
-	{"_unwrap", unwrap_function, 1}};
+static const Callable resultMethods[] = {{"_unwrap", unwrap_function, 1}};
 
 static const Callable coreFunctions[] = {
-	{"panic", panic_function, 1},	{"len", length_function, 1},
-	{"error", error_function, 1},	{"assert", assert_function, 2},
-	{"err", error_function, 1},	{"ok", ok_function, 1},
-	{"int", int_function, 1},	{"float", float_function, 1},
-	{"string", string_function, 1}, {"table", table_function, 1},
-	{"array", array_function, 1},	{"format", format_function, 2}};
-
-static const InfallibleCallable coreInfallibleFunctions[] = {
-	{"_len", length_function_, 1},	{"_int", int_function_, 1},
+	{"len", length_function, 1},	{"error", error_function, 1},
+	{"assert", assert_function, 2}, {"err", error_function, 1},
+	{"ok", ok_function, 1},		{"int", int_function, 1},
+	{"float", float_function, 1},	{"string", string_function, 1},
+	{"table", table_function, 1},	{"array", array_function, 1},
+	{"format", format_function, 2}, {"_int", int_function_, 1},
 	{"_float", float_function_, 1}, {"_string", string_function_, 1},
 	{"_table", table_function_, 1}, {"_array", array_function_, 1}};
 
@@ -116,17 +102,13 @@ static const Callable mathFunctions[] = {
 	{"asin", asin_function, 1},   {"exp", exp_function, 1},
 	{"ln", ln_function, 1},	      {"log", log10_function, 1},
 	{"round", round_function, 1}, {"min", min_function, 2},
-	{"max", max_function, 2}};
-
-static const InfallibleCallable mathInfallibleFunctions[] =
-	{{"e", e_function, 0}, {"pi", pi_function, 0}};
-
-static const InfallibleCallable ioInfallibleFunctions[] = {
-	{"print", io_print_function, 1},
-	{"println", io_println_function, 1},
-};
+	{"max", max_function, 2},     {"e", e_function, 0},
+	{"pi", pi_function, 0},	      {"nan", nan_function, 0},
+	{"inf", inf_function, 0}};
 
 static const Callable ioFunctions[] = {
+	{"print", io_print_function, 1},
+	{"println", io_println_function, 1},
 	{"print_to", io_print_to_function, 2},
 	{"println_to", io_println_to_function, 2},
 	{"scan", io_scan_function, 0},
@@ -141,9 +123,6 @@ static const Callable ioFunctions[] = {
 static const Callable timeFunctions[] = {
 	{"sleep_s", sleep_seconds_function, 1},
 	{"sleep_ms", sleep_milliseconds_function, 1},
-};
-
-static const InfallibleCallable timeInfallibleFunctions[] = {
 	{"_time_s", time_seconds_function_, 0},
 	{"_time_ms", time_milliseconds_function_, 0},
 	{"_year", year_function_, 0},
@@ -156,21 +135,17 @@ static const InfallibleCallable timeInfallibleFunctions[] = {
 	{"_day_of_year", day_of_year_function_, 0},
 };
 
-static const InfallibleCallable randomInfallibleFunctions[] = {
+static const Callable randomFunctions[] = {
 	{"Random", random_init_function, 0},
 };
 
-static const Callable systemFunctions[] = {
-	{"args", args_function, 0},
-	{"get_env", get_env_function, 1},
-	{"sleep", sleep_function, 1},
-};
-
-static const InfallibleCallable systemInfallibleFunctions[] = {
-	{"_platform", platform_function, 0},
-	{"_arch", arch_function, 0},
-	{"_pid", pid_function, 0},
-	{"_exit", exit_function, 1}};
+static const Callable systemFunctions[] = {{"args", args_function, 0},
+					   {"get_env", get_env_function, 1},
+					   {"sleep", sleep_function, 1},
+					   {"_platform", platform_function, 0},
+					   {"_arch", arch_function, 0},
+					   {"_pid", pid_function, 0},
+					   {"_exit", exit_function, 1}};
 
 static const Callable fileSystemFunctions[] = {
 	{"open", fs_open_function, 2},
@@ -181,6 +156,9 @@ static const Callable fileSystemFunctions[] = {
 	{"read_file", fs_read_file_function, 1},
 	{"write_file", fs_write_file_function, 2},
 	{"append_file", fs_append_file_function, 2},
+	{"exists", fs_exists_function, 1},
+	{"is_file", fs_is_file_function, 1},
+	{"is_dir", fs_is_dir_function, 1},
 };
 
 static const Callable fileSystemMethods[] = {
@@ -194,16 +172,7 @@ static const Callable fileSystemMethods[] = {
 	{"writeln", fs_writeln_method, 2},
 	{"seek", fs_seek_method, 3},
 	{"tell", fs_tell_method, 1},
-};
-
-static const InfallibleCallable fileSystemInfallibleMethods[] = {
 	{"is_open", fs_is_open_method, 1},
-};
-
-static const InfallibleCallable fileSystemInfallibleFunctions[] = {
-	{"exists", fs_exists_function, 1},
-	{"is_file", fs_is_file_function, 1},
-	{"is_dir", fs_is_dir_function, 1},
 };
 
 static const Callable complexFunctions[] = {
@@ -215,9 +184,6 @@ static const Callable complexMethods[] = {
 	{"mul", mul_complex_number_method, 2},
 	{"div", div_complex_number_method, 2},
 	{"scale", scale_complex_number_method, 2},
-};
-
-static const InfallibleCallable complexInfallibleMethods[] = {
 	{"real", complex_real_method, 1},
 	{"imag", complex_imag_method, 1},
 	{"conjugate", conjugate_complex_number_method, 1},
@@ -241,9 +207,6 @@ static const Callable vectorMethods[] = {
 	{"lerp", vector_lerp_method, 3},
 	{"reflect", vector_reflect_method, 2},
 	{"equals", vector_equals_method, 2},
-};
-
-static const InfallibleCallable vectorInfallibleMethods[] = {
 	{"x", vector_x_method, 1},
 	{"y", vector_y_method, 1},
 	{"z", vector_z_method, 1},
@@ -254,11 +217,6 @@ static const Callable matrixFunctions[] = {
 	{"Matrix", new_matrix_function, 2},
 	{"IMatrix", new_matrix_identity_function, 1},
 	{"AMatrix", new_matrix_from_array_function, 3},
-};
-
-static const InfallibleCallable matrixInfallibleMethods[] = {
-	{"rows", matrix_rows_method, 1},
-	{"cols", matrix_cols_method, 1},
 };
 
 static const Callable matrixMethods[] = {
@@ -278,7 +236,10 @@ static const Callable matrixMethods[] = {
 	{"equals", matrix_equals_method, 2},
 	{"copy", matrix_copy_method, 1},
 	{"to_array", matrix_to_array_method, 1},
-	{"mul_vec", matrix_multiply_vector_method, 2}};
+	{"mul_vec", matrix_multiply_vector_method, 2},
+	{"rows", matrix_rows_method, 1},
+	{"cols", matrix_cols_method, 1},
+};
 
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
@@ -292,18 +253,6 @@ bool register_native_method(VM *vm, Table *method_table,
 	return true;
 }
 
-bool register_native_infallible_method(
-	VM *vm, Table *method_table, const char *method_name,
-	const CruxInfallibleCallable method_function, const int arity)
-{
-	ObjectString *name = copy_string(vm, method_name,
-					 (int)strlen(method_name));
-	table_set(vm, method_table, name,
-		  OBJECT_VAL(new_native_infallible_method(vm, method_function,
-							  arity, name)));
-	return true;
-}
-
 static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
 			    const int count)
 {
@@ -311,19 +260,6 @@ static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
 		const Callable method = methods[i];
 		register_native_method(vm, methodTable, method.name,
 				       method.function, method.arity);
-	}
-	return true;
-}
-
-static bool registerInfallibleMethods(VM *vm, Table *methodTable,
-				      const InfallibleCallable *methods,
-				      const int count)
-{
-	for (int i = 0; i < count; i++) {
-		const InfallibleCallable method = methods[i];
-		register_native_infallible_method(vm, methodTable, method.name,
-						  method.function,
-						  method.arity);
 	}
 	return true;
 }
@@ -350,28 +286,6 @@ static bool registerNativeFunction(VM *vm, Table *functionTable,
 	return true;
 }
 
-static bool registerNativeInfallibleFunction(
-	VM *vm, Table *functionTable, const char *functionName,
-	const CruxInfallibleCallable function, const int arity)
-{
-	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-	ObjectString *name = copy_string(vm, functionName,
-					 (int)strlen(functionName));
-	push(currentModuleRecord, OBJECT_VAL(name));
-	const Value func = OBJECT_VAL(
-		new_native_infallible_function(vm, function, arity, name));
-	push(currentModuleRecord, func);
-
-	const bool success = table_set(vm, functionTable, name, func);
-	if (!success) {
-		return false;
-	}
-	pop(currentModuleRecord);
-	pop(currentModuleRecord);
-
-	return true;
-}
-
 static bool registerNativeFunctions(VM *vm, Table *functionTable,
 				    const Callable *functions, const int count)
 {
@@ -386,27 +300,8 @@ static bool registerNativeFunctions(VM *vm, Table *functionTable,
 	return true;
 }
 
-static bool
-registerNativeInfallibleFunctions(VM *vm, Table *functionTable,
-				  const InfallibleCallable *functions,
-				  const int count)
-{
-	for (int i = 0; i < count; i++) {
-		const InfallibleCallable function = functions[i];
-		if (!registerNativeInfallibleFunction(vm, functionTable,
-						      function.name,
-						      function.function,
-						      function.arity)) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool initModule(VM *vm, const char *moduleName,
-		       const Callable *functions, const int functionsCount,
-		       const InfallibleCallable *infallibles,
-		       const int infalliblesCount)
+		       const Callable *functions, const int functionsCount)
 {
 	Table *moduleTable = ALLOCATE(vm, Table, 1);
 	if (moduleTable == NULL)
@@ -417,14 +312,6 @@ static bool initModule(VM *vm, const char *moduleName,
 	if (functions != NULL) {
 		if (!registerNativeFunctions(vm, moduleTable, functions,
 					     functionsCount)) {
-			return false;
-		}
-	}
-
-	if (infallibles != NULL) {
-		if (!registerNativeInfallibleFunctions(vm, moduleTable,
-						       infallibles,
-						       infalliblesCount)) {
 			return false;
 		}
 	}
@@ -452,17 +339,10 @@ static bool initModule(VM *vm, const char *moduleName,
 }
 
 static bool initTypeMethodTable(VM *vm, Table *methodTable,
-				const Callable *methods, const int methodCount,
-				const InfallibleCallable *infallibleMethods,
-				const int infallibleCount)
+				const Callable *methods, const int methodCount)
 {
 	if (methods != NULL) {
 		registerMethods(vm, methodTable, methods, methodCount);
-	}
-
-	if (infallibleMethods != NULL) {
-		registerInfallibleMethods(vm, methodTable, infallibleMethods,
-					  infallibleCount);
 	}
 
 	return true;
@@ -476,103 +356,78 @@ bool initialize_std_lib(VM *vm)
 		return false;
 	}
 
-	if (!registerNativeInfallibleFunctions(
-		    vm, &vm->current_module_record->globals,
-		    coreInfallibleFunctions,
-		    ARRAY_COUNT(coreInfallibleFunctions))) {
-		return false;
-	}
-
 	initTypeMethodTable(vm, &vm->string_type, stringMethods,
-			    ARRAY_COUNT(stringMethods), stringInfallibleMethods,
-			    ARRAY_COUNT(stringInfallibleMethods));
+			    ARRAY_COUNT(stringMethods));
 
 	initTypeMethodTable(vm, &vm->array_type, arrayMethods,
-			    ARRAY_COUNT(arrayMethods), arrayInfallibleMethods,
-			    ARRAY_COUNT(arrayInfallibleMethods));
+			    ARRAY_COUNT(arrayMethods));
 
 	initTypeMethodTable(vm, &vm->table_type, tableMethods,
-			    ARRAY_COUNT(tableMethods), tableInfallibleMethods,
-			    ARRAY_COUNT(tableInfallibleMethods));
+			    ARRAY_COUNT(tableMethods));
 
 	initTypeMethodTable(vm, &vm->error_type, errorMethods,
-			    ARRAY_COUNT(errorMethods), errorInfallibleMethods,
-			    ARRAY_COUNT(errorInfallibleMethods));
+			    ARRAY_COUNT(errorMethods));
 
 	initTypeMethodTable(vm, &vm->random_type, randomMethods,
-			    ARRAY_COUNT(randomMethods), randomInfallibleMethods,
-			    ARRAY_COUNT(randomInfallibleMethods));
+			    ARRAY_COUNT(randomMethods));
 
 	initTypeMethodTable(vm, &vm->file_type, fileSystemMethods,
-			    ARRAY_COUNT(fileSystemMethods),
-			    fileSystemInfallibleMethods,
-			    ARRAY_COUNT(fileSystemInfallibleMethods));
+			    ARRAY_COUNT(fileSystemMethods));
 
-	initTypeMethodTable(vm, &vm->result_type, NULL, 0,
-			    resultInfallibleMethods,
-			    ARRAY_COUNT(resultInfallibleMethods));
+	initTypeMethodTable(vm, &vm->result_type, resultMethods,
+			    ARRAY_COUNT(resultMethods));
 
 	initTypeMethodTable(vm, &vm->vector_type, vectorMethods,
-			    ARRAY_COUNT(vectorMethods), vectorInfallibleMethods,
-			    ARRAY_COUNT(vectorInfallibleMethods));
+			    ARRAY_COUNT(vectorMethods));
 
 	initTypeMethodTable(vm, &vm->complex_type, complexMethods,
-			    ARRAY_COUNT(complexMethods),
-			    complexInfallibleMethods,
-			    ARRAY_COUNT(complexInfallibleMethods));
+			    ARRAY_COUNT(complexMethods));
 
 	initTypeMethodTable(vm, &vm->matrix_type, matrixMethods,
-			    ARRAY_COUNT(matrixMethods), matrixInfallibleMethods,
-			    ARRAY_COUNT(matrixInfallibleMethods));
+			    ARRAY_COUNT(matrixMethods));
 
 	// Initialize standard library modules
-	if (!initModule(vm, "math", mathFunctions, ARRAY_COUNT(mathFunctions),
-			mathInfallibleFunctions,
-			ARRAY_COUNT(mathInfallibleFunctions))) {
+	if (!initModule(vm, "math", mathFunctions,
+			ARRAY_COUNT(mathFunctions))) {
 		return false;
 	}
 
 	if (!initModule(vm, "fs", fileSystemFunctions,
-			ARRAY_COUNT(fileSystemFunctions),
-			fileSystemInfallibleFunctions,
-			ARRAY_COUNT(fileSystemInfallibleFunctions))) {
+			ARRAY_COUNT(fileSystemFunctions))) {
 		return false;
 	}
 
-	if (!initModule(vm, "io", ioFunctions, ARRAY_COUNT(ioFunctions),
-			ioInfallibleFunctions,
-			ARRAY_COUNT(ioInfallibleFunctions))) {
+	if (!initModule(vm, "io", ioFunctions, ARRAY_COUNT(ioFunctions))) {
 		return false;
 	}
 
-	if (!initModule(vm, "time", timeFunctions, ARRAY_COUNT(timeFunctions),
-			timeInfallibleFunctions,
-			ARRAY_COUNT(timeInfallibleFunctions))) {
+	if (!initModule(vm, "time", timeFunctions,
+			ARRAY_COUNT(timeFunctions))) {
 		return false;
 	}
 
-	if (!initModule(vm, "random", NULL, 0, randomInfallibleFunctions,
-			ARRAY_COUNT(randomInfallibleFunctions))) {
+	if (!initModule(vm, "random", randomFunctions,
+			ARRAY_COUNT(randomFunctions))) {
 		return false;
 	}
 
 	if (!initModule(vm, "sys", systemFunctions,
-			ARRAY_COUNT(systemFunctions), systemInfallibleFunctions,
-			ARRAY_COUNT(systemInfallibleFunctions))) {
+			ARRAY_COUNT(systemFunctions))) {
 		return false;
 	}
 
 	if (!initModule(vm, "vectors", vectorFunctions,
-			ARRAY_COUNT(vectorFunctions), NULL, 0)) {
+			ARRAY_COUNT(vectorFunctions))) {
 		return false;
 	}
 
 	if (!initModule(vm, "complex", complexFunctions,
-			ARRAY_COUNT(complexFunctions), NULL, 0)) {
+			ARRAY_COUNT(complexFunctions))) {
 		return false;
 	}
 
-	if (!initModule(vm, "matrix", matrixFunctions, ARRAY_COUNT(matrixFunctions), NULL, 0)) {
+	if (!initModule(vm, "matrix", matrixFunctions,
+			ARRAY_COUNT(matrixFunctions))) {
 		return false;
 	}
 

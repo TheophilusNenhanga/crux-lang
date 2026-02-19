@@ -1,20 +1,18 @@
 #include "stdlib/tables.h"
+#include "object.h"
 #include "panic.h"
 
-ObjectResult *table_values_method(VM *vm, int arg_count, const Value *args)
+Value table_values_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	ObjectArray *values = new_array(vm, table->size);
 
 	if (values == NULL) {
-		return new_error_result(
-			vm, new_error(vm,
-				      copy_string(vm,
-						  "Failed to allocate enough "
-						  "memory for <values> array.",
-						  52),
-				      MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Failed to allocate enough memory for <values> array.",
+			MEMORY);
 	}
 
 	uint16_t lastInsert = 0;
@@ -29,10 +27,10 @@ ObjectResult *table_values_method(VM *vm, int arg_count, const Value *args)
 
 	values->size = lastInsert;
 
-	return new_ok_result(vm, OBJECT_VAL(values));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(values)));
 }
 
-ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args)
+Value table_keys_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
@@ -40,13 +38,10 @@ ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args)
 	ObjectArray *keys = new_array(vm, table->size);
 
 	if (keys == NULL) {
-		return new_error_result(
-			vm, new_error(vm,
-				      copy_string(vm,
-						  "Failed to allocate enough "
-						  "memory for <keys> array.",
-						  50),
-				      MEMORY, false));
+		return MAKE_GC_SAFE_ERROR(
+			vm,
+			"Failed to allocate enough memory for <keys> array.",
+			MEMORY);
 	}
 
 	uint16_t lastInsert = 0;
@@ -61,10 +56,10 @@ ObjectResult *table_keys_method(VM *vm, int arg_count, const Value *args)
 
 	keys->size = lastInsert;
 
-	return new_ok_result(vm, OBJECT_VAL(keys));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(keys)));
 }
 
-ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
+Value table_pairs_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectModuleRecord *module_record = vm->current_module_record;
@@ -74,7 +69,7 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 	push(module_record, OBJECT_VAL(pairs));
 
 	if (pairs == NULL) {
-		ObjectResult *res = MAKE_GC_SAFE_ERROR(
+		Value res = MAKE_GC_SAFE_ERROR(
 			vm,
 			"Failed to allocate enough memory for <pairs> array.",
 			MEMORY);
@@ -87,11 +82,10 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 	for (uint32_t i = 0; i < table->capacity; i++) {
 		const ObjectTableEntry entry = table->entries[i];
 		if (entry.is_occupied) {
-			ObjectArray *pair =
-				new_array(vm, 2);
+			ObjectArray *pair = new_array(vm, 2);
 			push(module_record, OBJECT_VAL(pair));
 			if (pair == NULL) {
-				ObjectResult *res = MAKE_GC_SAFE_ERROR(
+				Value res = MAKE_GC_SAFE_ERROR(
 					vm,
 					"Failed to allocate enough memory for "
 					"pair array",
@@ -114,12 +108,12 @@ ObjectResult *table_pairs_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(pairs));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
 // arg0 - table
 // arg1 - key
-ObjectResult *table_remove_method(VM *vm, int arg_count, const Value *args)
+Value table_remove_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
@@ -132,7 +126,7 @@ ObjectResult *table_remove_method(VM *vm, int arg_count, const Value *args)
 				"Failed to remove key: value pair from table.",
 				VALUE);
 		}
-		return new_ok_result(vm, NIL_VAL);
+		return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 	}
 	return MAKE_GC_SAFE_ERROR(vm, "Unhashable type given as table key.",
 				  TYPE);
@@ -140,7 +134,7 @@ ObjectResult *table_remove_method(VM *vm, int arg_count, const Value *args)
 
 // arg0 - table
 // arg1 - key
-ObjectResult *table_get_method(VM *vm, int arg_count, const Value *args)
+Value table_get_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
@@ -155,7 +149,7 @@ ObjectResult *table_get_method(VM *vm, int arg_count, const Value *args)
 			return MAKE_GC_SAFE_ERROR(
 				vm, "Failed to get value from table.", VALUE);
 		}
-		return new_ok_result(vm, value);
+		return OBJECT_VAL(new_ok_result(vm, value));
 	}
 	return MAKE_GC_SAFE_ERROR(vm, "Unhashable type given as table key.",
 				  TYPE);

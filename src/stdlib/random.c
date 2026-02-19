@@ -8,7 +8,7 @@
 // Adapted from
 // https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
-ObjectResult *random_seed_method(VM *vm, int arg_count, const Value *args)
+Value random_seed_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value seed = args[1];
@@ -21,7 +21,7 @@ ObjectResult *random_seed_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	random->seed = seedInt;
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
 int next(uint64_t *seed, const int bits)
@@ -60,7 +60,7 @@ Value random_init_function(VM *vm, int arg_count, const Value *args)
 }
 
 // Returns a random integer in the range [min, max] inclusive
-ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args)
+Value random_int_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value min = args[1];
@@ -85,11 +85,11 @@ ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args)
 	const uint64_t range = (uint64_t)maxInt - (uint64_t)minInt + 1;
 	const int32_t result = minInt + (int32_t)(r * range);
 
-	return new_ok_result(vm, INT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, INT_VAL(result)));
 }
 
 // Returns a random double in the range [min, max]
-ObjectResult *random_double_method(VM *vm, int arg_count, const Value *args)
+Value random_double_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value min = args[1];
@@ -123,11 +123,11 @@ ObjectResult *random_double_method(VM *vm, int arg_count, const Value *args)
 	const double r = get_next(random);
 	const double result = minDouble + r * (maxDouble - minDouble);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
 // Returns true with probability p (0 <= p <= 1)
-ObjectResult *random_bool_method(VM *vm, int arg_count, const Value *args)
+Value random_bool_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value p = args[1];
@@ -148,11 +148,11 @@ ObjectResult *random_bool_method(VM *vm, int arg_count, const Value *args)
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	const double r = get_next(random);
 
-	return new_ok_result(vm, BOOL_VAL(r < prob));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(r < prob)));
 }
 
 // Returns a random element from the array
-ObjectResult *random_choice_method(VM *vm, int arg_count, const Value *args)
+Value random_choice_method(VM *vm, int arg_count, const Value *args)
 {
 	(void)arg_count;
 	const Value array = args[1];
@@ -170,5 +170,5 @@ ObjectResult *random_choice_method(VM *vm, int arg_count, const Value *args)
 	const double r = get_next(random);
 	const uint32_t index = (uint32_t)(r * arr->size);
 
-	return new_ok_result(vm, arr->values[index]);
+	return OBJECT_VAL(new_ok_result(vm, arr->values[index]));
 }
