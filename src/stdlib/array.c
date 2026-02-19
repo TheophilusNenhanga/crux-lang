@@ -239,6 +239,7 @@ Value array_map_method(VM *vm, const Value *args)
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
+	// TODO: Ensure that this works for native functions as well
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
 	if (closure->function->arity != 1) {
@@ -252,6 +253,7 @@ Value array_map_method(VM *vm, const Value *args)
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
 		ObjectResult *result = execute_user_function(vm, closure, 1,
@@ -300,6 +302,7 @@ Value array_filter_method(VM *vm, const Value *args)
 	uint32_t addCount = 0;
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
 		ObjectResult *result = execute_user_function(vm, closure, 1,
@@ -348,6 +351,7 @@ Value array_reduce_method(VM *vm, const Value *args)
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
 
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		push(currentModuleRecord, accumulator);
 
@@ -360,6 +364,7 @@ Value array_reduce_method(VM *vm, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // accumulator
 				pop(currentModuleRecord); // arrayValue
+				pop(currentModuleRecord); // closure
 				return OBJECT_VAL(result);
 			}
 		}
@@ -367,13 +372,11 @@ Value array_reduce_method(VM *vm, const Value *args)
 		if (result->is_ok) {
 			accumulator = result->as.value;
 		} else {
-			pop(currentModuleRecord); // accumulator
-			pop(currentModuleRecord); // arrayValue
+			pop(currentModuleRecord); // result
 			return OBJECT_VAL(result);
 		}
 
-		pop(currentModuleRecord); // accumulator
-		pop(currentModuleRecord); // arrayValue
+		pop(currentModuleRecord); // result
 	}
 
 	return OBJECT_VAL(new_ok_result(vm, accumulator));
