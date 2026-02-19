@@ -72,11 +72,6 @@ Value string_get_method(VM *vm, const Value *args)
 
 	const Value value = args[0];
 	const Value index = args[1];
-	if (!IS_INT(index)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<index> must be of type 'number'.",
-					  TYPE);
-	}
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (AS_INT(index) < 0 || (uint32_t)AS_INT(index) >= string->length) {
 		return MAKE_GC_SAFE_ERROR(
@@ -214,16 +209,6 @@ Value string_substring_method(VM *vm, const Value *args)
 
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<start> index must be of type 'int'.", VALUE);
-	}
-	if (!IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<end> index must be of type 'int'.",
-					  VALUE);
-	}
-
 	const int rawStartIndex = AS_INT(args[1]);
 	const int rawEndIndex = AS_INT(args[2]);
 
@@ -257,13 +242,6 @@ Value string_substring_method(VM *vm, const Value *args)
 
 Value string_split_method(VM *vm, const Value *args)
 {
-
-	ObjectModuleRecord *moduleRecord = vm->current_module_record;
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<delimiter> must be of type 'string'.", TYPE);
-	}
-
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *delimiter = AS_CRUX_STRING(args[1]);
 
@@ -362,11 +340,6 @@ Value string_contains_method(VM *vm, const Value *args)
 {
 
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
-
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument 'goal' must be of type 'string'.", TYPE);
-	}
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
 
 	if (goal->length == 0) {
@@ -414,12 +387,6 @@ Value string_contains_method(VM *vm, const Value *args)
 
 Value string_replace_method(VM *vm, const Value *args)
 {
-
-	if (!IS_CRUX_STRING(args[0]) || !IS_CRUX_STRING(args[1]) ||
-	    !IS_CRUX_STRING(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm, "All arguments must be strings.",
-					  TYPE);
-	}
 
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
@@ -538,12 +505,6 @@ Value string_starts_with_method(VM *vm, const Value *args)
 {
 
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "First argument <char> must be of type 'string'.",
-			TYPE);
-	}
-
 	const ObjectString *prefix = AS_CRUX_STRING(args[1]);
 
 	if (prefix->length == 0) {
@@ -568,10 +529,6 @@ Value string_ends_with_method(VM *vm, const Value *args)
 {
 
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "First argument must be of type 'string'.", TYPE);
-	}
 	const ObjectString *suffix = AS_CRUX_STRING(args[1]);
 
 	if (suffix->length == 0) {
@@ -686,12 +643,6 @@ Value string_is_empty_method(VM *vm, const Value *args)
  */
 Value string_concat_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "First argument must be of type 'string'.", TYPE);
-	}
 	const ObjectString *current = AS_CRUX_STRING(args[0]);
 	const ObjectString *string = AS_CRUX_STRING(args[1]);
 

@@ -11,10 +11,8 @@ Value string_function(VM *vm, const Value *args);
 Value array_function(VM *vm, const Value *args);
 Value table_function(VM *vm, const Value *args);
 
-Value length_function_(VM *vm, const Value *args);
 Value int_function_(VM *vm, const Value *args);
 Value float_function_(VM *vm, const Value *args);
-Value string_function_(VM *vm, const Value *args);
 Value array_function_(VM *vm, const Value *args);
 Value table_function_(VM *vm, const Value *args);
 

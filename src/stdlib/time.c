@@ -12,7 +12,6 @@
 Value time_seconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
-
 	(void)args;
 	return FLOAT_VAL((double)time(NULL));
 }
@@ -20,7 +19,6 @@ Value time_seconds_function_(VM *vm, const Value *args)
 Value time_milliseconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
-
 	(void)args;
 #ifdef _WIN32
 	SYSTEMTIME st;
@@ -34,7 +32,7 @@ Value time_milliseconds_function_(VM *vm, const Value *args)
 #else
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
-	uint64_t ms = (uint64_t)ts.tv_sec * 1000 +
+	const uint64_t ms = (uint64_t)ts.tv_sec * 1000 +
 		      (uint64_t)ts.tv_nsec / 1000000;
 #endif
 	return FLOAT_VAL((double)ms);
@@ -42,15 +40,7 @@ Value time_milliseconds_function_(VM *vm, const Value *args)
 
 Value sleep_seconds_function(VM *vm, const Value *args)
 {
-
-	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Parameter <duration> must be of type 'int' | 'float'.",
-			TYPE);
-	}
-
-	const double seconds = AS_FLOAT(args[0]);
+	const double seconds = TO_DOUBLE(args[0]);
 	if (seconds < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Sleep duration cannot be negative.",
@@ -67,15 +57,7 @@ Value sleep_seconds_function(VM *vm, const Value *args)
 
 Value sleep_milliseconds_function(VM *vm, const Value *args)
 {
-
-	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Parameter <duration> must be of type 'int' | 'float'.",
-			TYPE);
-	}
-
-	const double milliseconds = AS_FLOAT(args[0]);
+	const double milliseconds = TO_DOUBLE(args[0]);
 	if (milliseconds < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Sleep duration cannot be negative.",
@@ -98,7 +80,6 @@ static time_t get_current_time(void)
 
 Value year_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -108,7 +89,6 @@ Value year_function_(VM *vm, const Value *args)
 
 Value month_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -118,7 +98,6 @@ Value month_function_(VM *vm, const Value *args)
 
 Value day_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -128,7 +107,6 @@ Value day_function_(VM *vm, const Value *args)
 
 Value hour_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -138,7 +116,6 @@ Value hour_function_(VM *vm, const Value *args)
 
 Value minute_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -148,7 +125,6 @@ Value minute_function_(VM *vm, const Value *args)
 
 Value second_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -158,7 +134,6 @@ Value second_function_(VM *vm, const Value *args)
 
 Value weekday_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();
@@ -170,7 +145,6 @@ Value weekday_function_(VM *vm, const Value *args)
 
 Value day_of_year_function_(VM *vm, const Value *args)
 {
-
 	(void)args;
 	(void)vm;
 	const time_t t = get_current_time();

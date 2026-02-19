@@ -115,11 +115,6 @@ Value pid_function(VM *vm, const Value *args)
 
 Value get_env_function(VM *vm, const Value *args)
 {
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument <name> must be of type 'string'.", TYPE);
-	}
 	const char *value = getenv(AS_C_STRING(args[0]));
 	if (value == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.",
@@ -143,18 +138,12 @@ Value get_env_function(VM *vm, const Value *args)
 
 Value sleep_function(VM *vm, const Value *args)
 {
-
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument <seconds> must be of type 'int'.", TYPE);
-	}
-
 #ifdef _WIN32
 	Sleep(AS_INT(args[0]));
 #else
 	sleep(AS_INT(args[0]));
 #endif
-	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
+	return NIL_TYPE;
 }
 
 Value exit_function(VM *vm, const Value *args)

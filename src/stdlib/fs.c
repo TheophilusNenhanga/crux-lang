@@ -57,11 +57,6 @@ typedef off_t fs_off_t;
  */
 #define REQUIRE_OPEN_FILE(args, op)                                            \
 	do {                                                                   \
-		if (!IS_CRUX_FILE((args)[0])) {                                \
-			return OBJECT_VAL(MAKE_GC_SAFE_ERROR(                  \
-				vm, "Receiver must be of type 'file'.",        \
-				TYPE));                                        \
-		}                                                              \
 		const ObjectFile *_f = AS_CRUX_FILE((args)[0]);                \
 		if (!_f->is_open || _f->file == NULL) {                        \
 			return OBJECT_VAL(MAKE_GC_SAFE_ERROR(                  \
@@ -158,19 +153,6 @@ static bool read_remaining(VM *vm, FILE *fp, ObjectString **out_str)
  */
 Value fs_open_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<mode> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const ObjectString *path_str = AS_CRUX_STRING(args[0]);
 	ObjectString *mode_str = AS_CRUX_STRING(args[1]);
 
@@ -596,9 +578,6 @@ Value fs_tell_method(VM *vm, const Value *args)
 Value fs_is_open_method(VM *vm, const Value *args)
 {
 	(void)vm;
-
-	if (!IS_CRUX_FILE(args[0]))
-		return BOOL_VAL(false);
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
 	return BOOL_VAL(file->is_open && file->file != NULL);
 }
@@ -613,9 +592,6 @@ Value fs_exists_function(VM *vm, const Value *args)
 {
 	(void)vm;
 
-	if (!IS_CRUX_STRING(args[0]))
-		return BOOL_VAL(false);
-
 	FS_STAT_T st;
 	return BOOL_VAL(FS_STAT(AS_C_STRING(args[0]), &st) == 0);
 }
@@ -626,10 +602,6 @@ Value fs_exists_function(VM *vm, const Value *args)
 Value fs_is_file_function(VM *vm, const Value *args)
 {
 	(void)vm;
-
-	if (!IS_CRUX_STRING(args[0]))
-		return BOOL_VAL(false);
-
 	FS_STAT_T st;
 	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0)
 		return BOOL_VAL(false);
@@ -642,10 +614,6 @@ Value fs_is_file_function(VM *vm, const Value *args)
 Value fs_is_dir_function(VM *vm, const Value *args)
 {
 	(void)vm;
-
-	if (!IS_CRUX_STRING(args[0]))
-		return BOOL_VAL(false);
-
 	FS_STAT_T st;
 	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0)
 		return BOOL_VAL(false);
@@ -657,14 +625,6 @@ Value fs_is_dir_function(VM *vm, const Value *args)
  */
 Value fs_file_size_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-
 	FS_STAT_T st;
 	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "File not found or inaccessible.",
@@ -687,14 +647,6 @@ Value fs_file_size_function(VM *vm, const Value *args)
  */
 Value fs_remove_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *path = AS_C_STRING(args[0]);
 
 	/* Reject directories explicitly for a clear error message */
@@ -719,18 +671,6 @@ Value fs_remove_function(VM *vm, const Value *args)
  */
 Value fs_rename_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<from> must be of type 'string'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<to> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *from = AS_C_STRING(args[0]);
 	const char *to = AS_C_STRING(args[1]);
 
@@ -758,17 +698,6 @@ Value fs_rename_function(VM *vm, const Value *args)
  */
 Value fs_copy_file_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<from> must be of type 'string'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<to> must be of type 'string'.",
-					  TYPE);
-	}
 
 	const char *from = AS_C_STRING(args[0]);
 	const char *to = AS_C_STRING(args[1]);
@@ -834,14 +763,6 @@ Value fs_copy_file_function(VM *vm, const Value *args)
  */
 Value fs_mkdir_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *path = AS_C_STRING(args[0]);
 
 	if (FS_MKDIR(path) != 0) {
@@ -874,14 +795,6 @@ Value fs_mkdir_function(VM *vm, const Value *args)
  */
 Value fs_read_file_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *path = AS_C_STRING(args[0]);
 
 	FILE *fp = fopen(path, "rb");
@@ -910,19 +823,6 @@ Value fs_read_file_function(VM *vm, const Value *args)
  */
 Value fs_write_file_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *path = AS_C_STRING(args[0]);
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
 
@@ -948,19 +848,6 @@ Value fs_write_file_function(VM *vm, const Value *args)
  */
 Value fs_append_file_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<path> must be of type 'string'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  TYPE);
-	}
-
 	const char *path = AS_C_STRING(args[0]);
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
 

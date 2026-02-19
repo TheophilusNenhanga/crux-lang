@@ -10,17 +10,11 @@
 
 Value random_seed_method(VM *vm, const Value *args)
 {
-	const Value seed = args[1];
-	if (!IS_INT(seed)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.",
-					  RUNTIME);
-	}
-
-	const uint64_t seedInt = (uint64_t)AS_INT(seed);
-
+	(void)vm;
+	const uint64_t seedInt = (uint64_t)AS_INT(args[1]);
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	random->seed = seedInt;
-	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
+	return NIL_VAL;
 }
 
 int next(uint64_t *seed, const int bits)
@@ -50,10 +44,7 @@ Value random_init_function(VM *vm, const Value *args)
 {
 	(void)args;
 	ObjectRandom *random_obj = new_random(vm);
-	push(vm->current_module_record, OBJECT_VAL(random_obj));
-	Value result = OBJECT_VAL(random_obj);
-	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(random_obj);
 }
 
 // Returns a random integer in the range [min, max] inclusive
@@ -61,12 +52,6 @@ Value random_int_method(VM *vm, const Value *args)
 {
 	const Value min = args[1];
 	const Value max = args[2];
-
-	if (!IS_INT(min) || !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Arguments must be of type 'int'.",
-					  TYPE);
-	}
 
 	const int32_t minInt = AS_INT(min);
 	const int32_t maxInt = AS_INT(max);
@@ -90,18 +75,6 @@ Value random_float_method(VM *vm, const Value *args)
 	const Value min = args[1];
 	const Value max = args[2];
 
-	if (!IS_FLOAT(min) && !IS_INT(min)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Parameter <min> must be a number.",
-					  RUNTIME);
-	}
-
-	if (!IS_FLOAT(max) && !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Parameter <max> must be a number.",
-					  RUNTIME);
-	}
-
 	const double minDouble = IS_FLOAT(min) ? AS_FLOAT(min)
 					       : (double)AS_INT(min);
 	const double maxDouble = IS_FLOAT(max) ? AS_FLOAT(max)
@@ -124,14 +97,7 @@ Value random_float_method(VM *vm, const Value *args)
 // Returns true with probability p (0 <= p <= 1)
 Value random_bool_method(VM *vm, const Value *args)
 {
-	const Value p = args[1];
-	if (!IS_FLOAT(p) && !IS_INT(p)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument must be of type 'int' | 'float'.",
-			RUNTIME);
-	}
-
-	const double prob = TO_DOUBLE(p);
+	const double prob = TO_DOUBLE(args[1]);
 
 	if (prob < 0 || prob > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -148,13 +114,7 @@ Value random_bool_method(VM *vm, const Value *args)
 // Returns a random element from the array
 Value random_choice_method(VM *vm, const Value *args)
 {
-	const Value array = args[1];
-	if (!IS_CRUX_ARRAY(array)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array",
-					  RUNTIME);
-	}
-
-	const ObjectArray *arr = AS_CRUX_ARRAY(array);
+	const ObjectArray *arr = AS_CRUX_ARRAY(args[1]);
 	if (arr->size == 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "Array cannot be empty", RUNTIME);
 	}

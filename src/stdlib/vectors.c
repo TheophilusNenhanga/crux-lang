@@ -1,5 +1,4 @@
 #include <math.h>
-#include <stdlib.h>
 
 #include "object.h"
 #include "panic.h"
@@ -137,17 +136,6 @@ static double vector_magnitude(const ObjectVector *vec)
 Value new_vector_function(VM *vm, const Value *args)
 {
 
-
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<dimension> must be of type 'int'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<components> must be of type 'array'.", TYPE);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[1]);
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -185,14 +173,6 @@ Value new_vector_function(VM *vm, const Value *args)
 
 Value vector_dot_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "dot method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -214,14 +194,6 @@ Value vector_dot_method(VM *vm, const Value *args)
 
 Value vector_add_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "add method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -248,15 +220,6 @@ Value vector_add_method(VM *vm, const Value *args)
 
 Value vector_subtract_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"subtract method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -283,15 +246,6 @@ Value vector_subtract_method(VM *vm, const Value *args)
 
 Value vector_multiply_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "multiply method can only be used on "
-					  "Vector objects and numbers.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
@@ -302,24 +256,13 @@ Value vector_multiply_method(VM *vm, const Value *args)
 	double *result_comp = VECTOR_COMPONENTS(result_vector);
 
 	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
-
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 
-	return OBJECT_VAL(res);
+	return OBJECT_VAL(result_vector);
 }
 
 Value vector_divide_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "divide method can only be used on "
-					  "Vector objects and numbers.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
@@ -339,33 +282,15 @@ Value vector_divide_method(VM *vm, const Value *args)
 
 Value vector_magnitude_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"magnitude method can only be used on Vector objects.",
-			TYPE);
-	}
-
+	(void) vm;
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
-
 	const double magnitude = vector_magnitude(vec);
 
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(magnitude)));
+	return FLOAT_VAL(magnitude);
 }
 
 Value vector_normalize_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"normalize method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 
 	const double magnitude = vector_magnitude(vec);
@@ -387,15 +312,6 @@ Value vector_normalize_method(VM *vm, const Value *args)
 
 Value vector_distance_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"distance method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -417,20 +333,12 @@ Value vector_distance_method(VM *vm, const Value *args)
 
 Value vector_cross_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "cross method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
 	if (vec1->dimensions != 3 || vec2->dimensions != 3) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "cross product is only defined for 3D vectors.",
+			vm, "cross product is only defined for 3-D vectors.",
 			TYPE);
 	}
 
@@ -453,15 +361,6 @@ Value vector_cross_method(VM *vm, const Value *args)
 Value vector_angle_between_method(VM *vm,
 				  const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "angleBetween method can only be "
-					  "used on Vector objects.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -492,15 +391,6 @@ Value vector_angle_between_method(VM *vm,
 Value vector_lerp_method(VM *vm, const Value *args)
 {
 
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1]) ||
-	    !IS_NUMERIC(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"lerp method requires two Vector objects and a number.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 	const double t = TO_DOUBLE(args[2]);
@@ -527,15 +417,6 @@ Value vector_lerp_method(VM *vm, const Value *args)
 
 Value vector_reflect_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"reflect method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *incident = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *normal = AS_CRUX_VECTOR(args[1]);
 
@@ -570,19 +451,12 @@ Value vector_reflect_method(VM *vm, const Value *args)
 
 Value vector_equals_method(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "equals method can only be used on Vector objects.",
-			TYPE);
-	}
-
+	(void) vm;
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
 	if (vec1->dimensions != vec2->dimensions) {
-		return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
+		return BOOL_VAL(false);
 	}
 
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
@@ -590,7 +464,7 @@ Value vector_equals_method(VM *vm, const Value *args)
 
 	const bool equal = compute_equals(comp1, comp2, vec1->dimensions);
 
-	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(equal)));
+	return BOOL_VAL(equal);
 }
 
 Value vector_x_method(VM *vm, const Value *args)

@@ -5,10 +5,11 @@
 
 Value pow_function(VM *vm, const Value *args)
 {
-	const double base = AS_FLOAT(args[0]);
-	const double exponent = AS_FLOAT(args[1]);
+	(void) vm;
+	const double base = TO_DOUBLE(args[0]);
+	const double exponent = TO_DOUBLE(args[1]);
 
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(pow(base, exponent))));
+	return FLOAT_VAL(pow(base, exponent));
 }
 
 Value sqrt_function(VM *vm, const Value *args)
@@ -24,7 +25,15 @@ Value sqrt_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(sqrt(number))));
 }
 
-static int32_t absolute_value(const int32_t x)
+static int32_t absolute_int(const int32_t x)
+{
+	if (x < 0) {
+		return -x;
+	}
+	return x;
+}
+
+static double absolute_float(const double x)
 {
 	if (x < 0) {
 		return -x;
@@ -34,32 +43,33 @@ static int32_t absolute_value(const int32_t x)
 
 Value abs_function(VM *vm, const Value *args)
 {
-	if (IS_INT(args[0])) {
-		return OBJECT_VAL(new_ok_result(vm, INT_VAL(absolute_value(
-							    AS_INT(args[0])))));
-	}
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(fabs(AS_FLOAT(args[0])))));
+	(void) vm;
+	return IS_INT(args[0])
+	? INT_VAL(absolute_int(AS_INT(args[0])))
+	: FLOAT_VAL(absolute_float(AS_FLOAT(args[0])));
 }
 
 Value sin_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(sin(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(sin(TO_DOUBLE(args[0])));
 }
 
 Value cos_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(cos(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(cos(TO_DOUBLE(args[0])));
 }
 
 Value tan_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(tan(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(tan(TO_DOUBLE(args[0])));
 }
 
 Value asin_function(VM *vm, const Value *args)
 {
-	const double num = AS_FLOAT(args[0]);
+	const double num = TO_DOUBLE(args[0]);
 	if (num < -1 || num > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Argument must be between -1 and 1.",
@@ -71,7 +81,7 @@ Value asin_function(VM *vm, const Value *args)
 
 Value acos_function(VM *vm, const Value *args)
 {
-	const double num = AS_FLOAT(args[0]);
+	const double num = TO_DOUBLE(args[0]);
 	if (num < -1 || num > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Argument must be between -1 and 1.",
@@ -82,18 +92,19 @@ Value acos_function(VM *vm, const Value *args)
 
 Value atan_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(atan(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(atan(TO_DOUBLE(args[0])));
 }
 
 Value exp_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(exp(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(exp(TO_DOUBLE(args[0])));
 }
 
 Value ln_function(VM *vm, const Value *args)
 {
-	const double number = AS_FLOAT(args[0]);
+	const double number = TO_DOUBLE(args[0]);
 	if (number < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Cannot calculate natural logarithm "
@@ -105,7 +116,7 @@ Value ln_function(VM *vm, const Value *args)
 
 Value log10_function(VM *vm, const Value *args)
 {
-	const double number = AS_FLOAT(args[0]);
+	const double number = TO_DOUBLE(args[0]);
 	if (number < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Cannot calculate base 10 logarithm "
@@ -119,20 +130,20 @@ Value log10_function(VM *vm, const Value *args)
 
 Value ceil_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(ceil(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(ceil(TO_DOUBLE(args[0])));
 }
 
 Value floor_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(floor(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(floor(TO_DOUBLE(args[0])));
 }
 
 Value round_function(VM *vm, const Value *args)
 {
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(round(AS_FLOAT(args[0])))));
+	(void) vm;
+	return FLOAT_VAL(round(TO_DOUBLE(args[0])));
 }
 
 Value pi_function(VM *vm, const Value *args)
@@ -165,20 +176,18 @@ Value inf_function(VM *vm, const Value *args)
 
 Value min_function(VM *vm, const Value *args)
 {
-	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
-					   : (double)AS_INT(args[0]);
-	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])
-					   : (double)AS_INT(args[1]);
-	return OBJECT_VAL(a < b ? new_ok_result(vm, args[0])
-				: new_ok_result(vm, args[1]));
+	(void) vm;
+	const double a = TO_DOUBLE(args[0]);
+	const double b = TO_DOUBLE(args[1]);
+	return FLOAT_VAL(a < b ? args[0]
+				: args[1]);
 }
 
 Value max_function(VM *vm, const Value *args)
 {
-	const double a = IS_FLOAT(args[0]) ? AS_FLOAT(args[0])
-					   : (double)AS_INT(args[0]);
-	const double b = IS_FLOAT(args[1]) ? AS_FLOAT(args[1])
-					   : (double)AS_INT(args[1]);
-	return OBJECT_VAL(a > b ? new_ok_result(vm, args[0])
-				: new_ok_result(vm, args[1]));
+	(void) vm;
+	const double a = TO_DOUBLE(args[0]);
+	const double b = TO_DOUBLE(args[1]);
+	return FLOAT_VAL(a > b ? args[0]
+				: args[1]);
 }
