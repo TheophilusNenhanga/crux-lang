@@ -3,12 +3,12 @@
 
 #include "../object.h"
 
-Value args_function(VM *vm, int arg_count, const Value *args);
-Value platform_function(VM *vm, int arg_count, const Value *args);
-Value arch_function(VM *vm, int arg_count, const Value *args);
-Value pid_function(VM *vm, int arg_count, const Value *args);
-Value get_env_function(VM *vm, int arg_count, const Value *args);
-Value sleep_function(VM *vm, int arg_count, const Value *args);
-Value exit_function(VM *vm, int arg_count, const Value *args);
+Value args_function(VM *vm, const Value *args);
+Value platform_function(VM *vm, const Value *args);
+Value arch_function(VM *vm, const Value *args);
+Value pid_function(VM *vm, const Value *args);
+Value get_env_function(VM *vm, const Value *args);
+Value sleep_function(VM *vm, const Value *args);
+Value exit_function(VM *vm, const Value *args);
 
 #endif // SYS_H

@@ -156,9 +156,9 @@ static bool read_remaining(VM *vm, FILE *fp, ObjectString **out_str)
 /*
  * open(path: string, mode: string) -> Result<File>
  */
-Value fs_open_function(VM *vm, const int arg_count, const Value *args)
+Value fs_open_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -205,9 +205,9 @@ Value fs_open_function(VM *vm, const int arg_count, const Value *args)
 /*
  * close() -> Result<nil>
  */
-Value fs_close_method(VM *vm, const int arg_count, const Value *args)
+Value fs_close_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "close");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -224,9 +224,9 @@ Value fs_close_method(VM *vm, const int arg_count, const Value *args)
 /*
  * flush() -> Result<nil>
  */
-Value fs_flush_method(VM *vm, const int arg_count, const Value *args)
+Value fs_flush_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "flush");
 
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -243,9 +243,9 @@ Value fs_flush_method(VM *vm, const int arg_count, const Value *args)
  * Reads up to <n> bytes from the current position.
  * Returns an empty string on EOF.
  */
-Value fs_read_method(VM *vm, const int arg_count, const Value *args)
+Value fs_read_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "read");
 
 	if (!IS_INT(args[1])) {
@@ -293,9 +293,9 @@ Value fs_read_method(VM *vm, const int arg_count, const Value *args)
  * Reads up to the next '\n' (exclusive) or EOF.
  * Returns an empty string on EOF.
  */
-Value fs_readln_method(VM *vm, const int arg_count, const Value *args)
+Value fs_readln_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -346,9 +346,9 @@ Value fs_readln_method(VM *vm, const int arg_count, const Value *args)
  * read_all() -> Result<string>
  * Reads everything from the current position to EOF.
  */
-Value fs_read_all_method(VM *vm, const int arg_count, const Value *args)
+Value fs_read_all_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -377,9 +377,9 @@ Value fs_read_all_method(VM *vm, const int arg_count, const Value *args)
  * Reads all remaining lines into an Array; newlines are stripped.
  * CRLF line endings are normalised on all platforms.
  */
-Value fs_read_lines_method(VM *vm, const int arg_count, const Value *args)
+Value fs_read_lines_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -457,9 +457,9 @@ Value fs_read_lines_method(VM *vm, const int arg_count, const Value *args)
 /*
  * write(content: string) -> Result<nil>
  */
-Value fs_write_method(VM *vm, const int arg_count, const Value *args)
+Value fs_write_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
@@ -490,9 +490,9 @@ Value fs_write_method(VM *vm, const int arg_count, const Value *args)
 /*
  * writeln(content: string) -> Result<nil>
  */
-Value fs_writeln_method(VM *vm, const int arg_count, const Value *args)
+Value fs_writeln_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
@@ -528,9 +528,9 @@ Value fs_writeln_method(VM *vm, const int arg_count, const Value *args)
  * seek(offset: int, whence: string) -> Result<nil>
  * whence: "start" | "current" | "end"
  */
-Value fs_seek_method(VM *vm, const int arg_count, const Value *args)
+Value fs_seek_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "seek");
 
 	if (!IS_INT(args[1])) {
@@ -572,9 +572,9 @@ Value fs_seek_method(VM *vm, const int arg_count, const Value *args)
 /*
  * tell() -> Result<int>
  */
-Value fs_tell_method(VM *vm, const int arg_count, const Value *args)
+Value fs_tell_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	REQUIRE_OPEN_FILE(args, "tell");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -593,10 +593,10 @@ Value fs_tell_method(VM *vm, const int arg_count, const Value *args)
 /*
  * is_open() -> bool  (infallible)
  */
-Value fs_is_open_method(VM *vm, const int arg_count, const Value *args)
+Value fs_is_open_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	if (!IS_CRUX_FILE(args[0]))
 		return BOOL_VAL(false);
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -609,10 +609,10 @@ Value fs_is_open_method(VM *vm, const int arg_count, const Value *args)
 /*
  * exists(path: string) -> bool  (infallible)
  */
-Value fs_exists_function(VM *vm, const int arg_count, const Value *args)
+Value fs_exists_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0]))
 		return BOOL_VAL(false);
 
@@ -623,10 +623,10 @@ Value fs_exists_function(VM *vm, const int arg_count, const Value *args)
 /*
  * is_file(path: string) -> bool  (infallible)
  */
-Value fs_is_file_function(VM *vm, const int arg_count, const Value *args)
+Value fs_is_file_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0]))
 		return BOOL_VAL(false);
 
@@ -639,10 +639,10 @@ Value fs_is_file_function(VM *vm, const int arg_count, const Value *args)
 /*
  * is_dir(path: string) -> bool  (infallible)
  */
-Value fs_is_dir_function(VM *vm, const int arg_count, const Value *args)
+Value fs_is_dir_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0]))
 		return BOOL_VAL(false);
 
@@ -655,9 +655,9 @@ Value fs_is_dir_function(VM *vm, const int arg_count, const Value *args)
 /*
  * file_size(path: string) -> Result<Float>
  */
-Value fs_file_size_function(VM *vm, const int arg_count, const Value *args)
+Value fs_file_size_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -685,9 +685,9 @@ Value fs_file_size_function(VM *vm, const int arg_count, const Value *args)
 /*
  * remove(path: string) -> Result<nil>
  */
-Value fs_remove_function(VM *vm, const int arg_count, const Value *args)
+Value fs_remove_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -717,9 +717,9 @@ Value fs_remove_function(VM *vm, const int arg_count, const Value *args)
 /*
  * rename(from: string, to: string) -> Result<nil>
  */
-Value fs_rename_function(VM *vm, const int arg_count, const Value *args)
+Value fs_rename_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -756,9 +756,9 @@ Value fs_rename_function(VM *vm, const int arg_count, const Value *args)
  * copy_file(from: string, to: string) -> Result<nil>
  * Copies in COPY_BUFFER_SIZE chunks; does not require the file to be seekable.
  */
-Value fs_copy_file_function(VM *vm, const int arg_count, const Value *args)
+Value fs_copy_file_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -832,9 +832,9 @@ Value fs_copy_file_function(VM *vm, const int arg_count, const Value *args)
 /*
  * mkdir(path: string) -> Result<nil>
  */
-Value fs_mkdir_function(VM *vm, const int arg_count, const Value *args)
+Value fs_mkdir_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -872,9 +872,9 @@ Value fs_mkdir_function(VM *vm, const int arg_count, const Value *args)
  * Opens in binary mode so the byte count matches the file size exactly.
  * CRLF normalisation (if desired) is the caller's responsibility.
  */
-Value fs_read_file_function(VM *vm, const int arg_count, const Value *args)
+Value fs_read_file_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -908,9 +908,9 @@ Value fs_read_file_function(VM *vm, const int arg_count, const Value *args)
  * write_file(path: string, content: string) -> Result<nil>
  * Creates or truncates <path> and writes <content>.
  */
-Value fs_write_file_function(VM *vm, const int arg_count, const Value *args)
+Value fs_write_file_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -946,9 +946,9 @@ Value fs_write_file_function(VM *vm, const int arg_count, const Value *args)
  * append_file(path: string, content: string) -> Result<nil>
  * Opens <path> in append mode and writes <content>.
  */
-Value fs_append_file_function(VM *vm, const int arg_count, const Value *args)
+Value fs_append_file_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,

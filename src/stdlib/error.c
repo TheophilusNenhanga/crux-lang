@@ -3,9 +3,9 @@
 #include "garbage_collector.h"
 #include "panic.h"
 
-Value error_function(VM *vm, int arg_count, const Value *args)
+Value error_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const Value message = args[0];
 	ObjectString *errorMessage = to_string(vm, message);
@@ -18,9 +18,9 @@ Value error_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value assert_function(VM *vm, int arg_count, const Value *args)
+Value assert_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_BOOL(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
@@ -49,17 +49,17 @@ Value assert_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value error_message_method(VM *vm, int arg_count, const Value *args)
+Value error_message_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	return OBJECT_VAL(error->message);
 }
 
-Value error_type_method(VM *vm, int arg_count, const Value *args)
+Value error_type_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
 	ObjectModuleRecord *module_record = vm->current_module_record;
 
@@ -281,9 +281,9 @@ Value error_type_method(VM *vm, int arg_count, const Value *args)
 	}
 }
 
-Value err_function(VM *vm, int arg_count, const Value *args)
+Value err_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (IS_CRUX_OBJECT(args[0]) && IS_CRUX_ERROR(args[0])) {
 		return OBJECT_VAL(new_error_result(vm, AS_CRUX_ERROR(args[0])));
 	}
@@ -298,16 +298,16 @@ Value err_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value ok_function(VM *vm, int arg_count, const Value *args)
+Value ok_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	return OBJECT_VAL(new_ok_result(vm, args[0]));
 }
 
 // arg0 - Result
-Value unwrap_function(VM *vm, int arg_count, const Value *args)
+Value unwrap_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectResult *result = AS_CRUX_RESULT(args[0]);
 	if (result->is_ok) {

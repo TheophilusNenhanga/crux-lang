@@ -8,9 +8,8 @@
 // Adapted from
 // https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
-Value random_seed_method(VM *vm, int arg_count, const Value *args)
+Value random_seed_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value seed = args[1];
 	if (!IS_INT(seed)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.",
@@ -40,17 +39,15 @@ double get_next(ObjectRandom *random)
 	return result;
 }
 
-Value random_next_method(VM *vm, int arg_count, const Value *args)
+Value random_next_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	return FLOAT_VAL(get_next(random));
 }
 
-Value random_init_function(VM *vm, int arg_count, const Value *args)
+Value random_init_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	ObjectRandom *random_obj = new_random(vm);
 	push(vm->current_module_record, OBJECT_VAL(random_obj));
@@ -60,9 +57,8 @@ Value random_init_function(VM *vm, int arg_count, const Value *args)
 }
 
 // Returns a random integer in the range [min, max] inclusive
-Value random_int_method(VM *vm, int arg_count, const Value *args)
+Value random_int_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value min = args[1];
 	const Value max = args[2];
 
@@ -89,9 +85,8 @@ Value random_int_method(VM *vm, int arg_count, const Value *args)
 }
 
 // Returns a random double in the range [min, max]
-Value random_double_method(VM *vm, int arg_count, const Value *args)
+Value random_float_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value min = args[1];
 	const Value max = args[2];
 
@@ -127,9 +122,8 @@ Value random_double_method(VM *vm, int arg_count, const Value *args)
 }
 
 // Returns true with probability p (0 <= p <= 1)
-Value random_bool_method(VM *vm, int arg_count, const Value *args)
+Value random_bool_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value p = args[1];
 	if (!IS_FLOAT(p) && !IS_INT(p)) {
 		return MAKE_GC_SAFE_ERROR(
@@ -137,7 +131,7 @@ Value random_bool_method(VM *vm, int arg_count, const Value *args)
 			RUNTIME);
 	}
 
-	const double prob = IS_FLOAT(p) ? AS_FLOAT(p) : (double)AS_INT(p);
+	const double prob = TO_DOUBLE(p);
 
 	if (prob < 0 || prob > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -152,9 +146,8 @@ Value random_bool_method(VM *vm, int arg_count, const Value *args)
 }
 
 // Returns a random element from the array
-Value random_choice_method(VM *vm, int arg_count, const Value *args)
+Value random_choice_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value array = args[1];
 	if (!IS_CRUX_ARRAY(array)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array",

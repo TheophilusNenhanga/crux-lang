@@ -2,9 +2,9 @@
 #include "object.h"
 #include "panic.h"
 
-Value table_values_method(VM *vm, int arg_count, const Value *args)
+Value table_values_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	ObjectArray *values = new_array(vm, table->size);
 
@@ -30,9 +30,9 @@ Value table_values_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(values)));
 }
 
-Value table_keys_method(VM *vm, int arg_count, const Value *args)
+Value table_keys_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
 	ObjectArray *keys = new_array(vm, table->size);
@@ -59,9 +59,9 @@ Value table_keys_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(keys)));
 }
 
-Value table_pairs_method(VM *vm, int arg_count, const Value *args)
+Value table_pairs_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 
@@ -113,9 +113,9 @@ Value table_pairs_method(VM *vm, int arg_count, const Value *args)
 
 // arg0 - table
 // arg1 - key
-Value table_remove_method(VM *vm, int arg_count, const Value *args)
+Value table_remove_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
@@ -134,9 +134,9 @@ Value table_remove_method(VM *vm, int arg_count, const Value *args)
 
 // arg0 - table
 // arg1 - key
-Value table_get_method(VM *vm, int arg_count, const Value *args)
+Value table_get_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
 	if (IS_CRUX_HASHABLE(key)) {
@@ -157,9 +157,9 @@ Value table_get_method(VM *vm, int arg_count, const Value *args)
 
 // args[0] - table
 // args[1] - key
-Value table_has_key_method(VM *vm, int arg_count, const Value *args)
+Value table_has_key_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];
@@ -173,9 +173,9 @@ Value table_has_key_method(VM *vm, int arg_count, const Value *args)
 // args[0] - table
 // args[1] - key
 // args[2] - default value
-Value table_get_or_else_method(VM *vm, int arg_count, const Value *args)
+Value table_get_or_else_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectTable *table = AS_CRUX_TABLE(args[0]);
 	const Value key = args[1];

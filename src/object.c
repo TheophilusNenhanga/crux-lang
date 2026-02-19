@@ -926,8 +926,20 @@ ObjectFunction *new_function(VM *vm)
 	return function;
 }
 
+/**
+ *
+ * @param vm The Virtual Machine
+ * @param function The executable function
+ * @param arity The number of arguments
+ * @param name The name of the function
+ * @param arg_types The types of the function arguments. This should be an owned
+ * array
+ * @return The GC owned object
+ */
 ObjectNativeFunction *new_native_function(VM *vm, const CruxCallable function,
-					  const int arity, ObjectString *name)
+					  const int arity, ObjectString *name,
+					  const ValueType * arg_types
+					  )
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
 	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction,
@@ -936,11 +948,13 @@ ObjectNativeFunction *new_native_function(VM *vm, const CruxCallable function,
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
+	memcpy(native->arg_types, arg_types, arity * sizeof(ValueType));
 	return native;
 }
 
 ObjectNativeMethod *new_native_method(VM *vm, const CruxCallable function,
-				      const int arity, ObjectString *name)
+				      const int arity, ObjectString *name
+				      ,const ValueType* arg_types)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
 	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod,
@@ -949,6 +963,7 @@ ObjectNativeMethod *new_native_method(VM *vm, const CruxCallable function,
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
+	memcpy(native->arg_types, arg_types, arity * sizeof(ValueType));
 	return native;
 }
 

@@ -14,9 +14,9 @@
 #endif
 
 /* TODO: Split this into two functions argv and argc */
-Value args_function(VM *vm, int arg_count, const Value *args)
+Value args_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectArray *resultArray = new_array(vm, 2);
@@ -50,9 +50,9 @@ Value args_function(VM *vm, int arg_count, const Value *args)
 }
 
 /* TODO: This can fail if out of memory */
-Value platform_function(VM *vm, int arg_count, const Value *args)
+Value platform_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 #ifdef _WIN32
 	return OBJECT_VAL(copy_string(vm, "windows", 7));
@@ -66,9 +66,9 @@ Value platform_function(VM *vm, int arg_count, const Value *args)
 }
 
 /* TODO: This can fail if Out of Memory */
-Value arch_function(VM *vm, int arg_count, const Value *args)
+Value arch_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)args;
 #if defined(__x86_64__) || defined(_M_X64)
 	return OBJECT_VAL(copy_string(vm, "x86_64", 6));
@@ -101,9 +101,9 @@ Value arch_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-Value pid_function(VM *vm, int arg_count, const Value *args)
+Value pid_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	(void)args;
 #ifdef _WIN32
@@ -113,9 +113,9 @@ Value pid_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-Value get_env_function(VM *vm, int arg_count, const Value *args)
+Value get_env_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_STRING(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Argument <name> must be of type 'string'.", TYPE);
@@ -141,9 +141,9 @@ Value get_env_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value sleep_function(VM *vm, int arg_count, const Value *args)
+Value sleep_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "Argument <seconds> must be of type 'int'.", TYPE);
@@ -157,10 +157,10 @@ Value sleep_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 }
 
-Value exit_function(VM *vm, int arg_count, const Value *args)
+Value exit_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	/* TODO: exit the vm gracefully */
 	if (!IS_INT(args[0])) {
 		exit(1);

@@ -1,5 +1,6 @@
 #include "stdlib/std.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "garbage_collector.h"
@@ -18,238 +19,294 @@
 #include "stdlib/tables.h"
 #include "stdlib/time.h"
 #include "stdlib/vectors.h"
+#include "value.h"
 
 #define ARRAY_COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 static const Callable stringMethods[] = {
-	{"first", string_first_method, 1},
-	{"last", string_last_method, 1},
-	{"get", string_get_method, 2},
-	{"upper", string_upper_method, 1},
-	{"lower", string_lower_method, 1},
-	{"strip", string_strip_method, 1},
-	{"starts_with", string_starts_with_method, 2},
-	{"ends_with", string_ends_with_method, 2},
-	{"contains", string_contains_method, 2},
-	{"replace", string_replace_method, 3},
-	{"split", string_split_method, 2},
-	{"substring", string_substring_method, 3},
-	{"concat", string_concat_method, 2},
-	{"is_empty", string_is_empty_method, 1},
-	{"is_alpha", string_is_alpha_method, 1},
-	{"is_digit", string_is_digit_method, 1},
-	{"is_lower", string_is_lower_method, 1},
-	{"is_upper", string_is_upper_method, 1},
-	{"is_space", string_is_space_method, 1},
-	{"is_alnum", string_is_al_num_method, 1}};
+	{"first", string_first_method, 1, {STRING_TYPE}},
+	{"last", string_last_method, 1, {STRING_TYPE}},
+	{"get", string_get_method, 2, {STRING_TYPE, INT_TYPE}},
+	{"upper", string_upper_method, 1, {STRING_TYPE}},
+	{"lower", string_lower_method, 1, {STRING_TYPE}},
+	{"strip", string_strip_method, 1, {STRING_TYPE}},
+	{"starts_with",
+	 string_starts_with_method,
+	 2,
+	 {STRING_TYPE, STRING_TYPE}},
+	{"ends_with", string_ends_with_method, 2, {STRING_TYPE, STRING_TYPE}},
+	{"contains", string_contains_method, 2, {STRING_TYPE, STRING_TYPE}},
+	{"replace",
+	 string_replace_method,
+	 3,
+	 {STRING_TYPE, STRING_TYPE, STRING_TYPE}},
+	{"split", string_split_method, 2, {STRING_TYPE, INT_TYPE}},
+	{"substring",
+	 string_substring_method,
+	 3,
+	 {STRING_TYPE, INT_TYPE, INT_TYPE}},
+	{"concat", string_concat_method, 2, {STRING_TYPE, STRING_TYPE}},
+	{"is_empty", string_is_empty_method, 1, {STRING_TYPE}},
+	{"is_alpha", string_is_alpha_method, 1, {STRING_TYPE}},
+	{"is_digit", string_is_digit_method, 1, {STRING_TYPE}},
+	{"is_lower", string_is_lower_method, 1, {STRING_TYPE}},
+	{"is_upper", string_is_upper_method, 1, {STRING_TYPE}},
+	{"is_space", string_is_space_method, 1, {STRING_TYPE}},
+	{"is_alnum", string_is_al_num_method, 1, {STRING_TYPE}}};
 
-static const Callable arrayMethods[] = {{"pop", array_pop_method, 1},
-					{"push", array_push_method, 2},
-					{"insert", array_insert_method, 3},
-					{"remove", array_remove_at_method, 2},
-					{"concat", array_concat_method, 2},
-					{"slice", array_slice_method, 3},
-					{"reverse", array_reverse_method, 1},
-					{"index", array_index_of_method, 2},
-					{"map", array_map_method, 2},
-					{"filter", array_filter_method, 2},
-					{"reduce", array_reduce_method, 3},
-					{"sort", array_sort_method, 1},
-					{"join", array_join_method, 2},
-					{"contains", array_contains_method, 2},
-					{"clear", array_clear_method, 1},
-					{"equals", arrayEqualsMethod, 2}};
+static const Callable arrayMethods[] = {
+	{"pop", array_pop_method, 1, {ARRAY_TYPE}},
+	{"push", array_push_method, 2, {ARRAY_TYPE, ANY_TYPE}},
+	{"insert", array_insert_method, 3, {ARRAY_TYPE, INT_TYPE, ANY_TYPE}},
+	{"remove", array_remove_at_method, 2, {ARRAY_TYPE, INT_TYPE}},
+	{"concat", array_concat_method, 2, {ARRAY_TYPE, ARRAY_TYPE}},
+	{"slice", array_slice_method, 3, {ARRAY_TYPE, INT_TYPE, INT_TYPE}},
+	{"reverse", array_reverse_method, 1, {ARRAY_TYPE}},
+	{"index", array_index_of_method, 2, {ARRAY_TYPE, ANY_TYPE}},
+	{"map", array_map_method, 2, {ARRAY_TYPE, FUNCTION_TYPE}},
+	{"filter", array_filter_method, 2, {ARRAY_TYPE, FUNCTION_TYPE}},
+	{"reduce",
+	 array_reduce_method,
+	 3,
+	 {ARRAY_TYPE, FUNCTION_TYPE, ANY_TYPE}},
+	{"sort", array_sort_method, 1, {ARRAY_TYPE}},
+	{"join", array_join_method, 2, {ARRAY_TYPE, STRING_TYPE}},
+	{"contains", array_contains_method, 2, {ARRAY_TYPE, ANY_TYPE}},
+	{"clear", array_clear_method, 1, {ARRAY_TYPE}},
+	{"equals", arrayEqualsMethod, 2, {ARRAY_TYPE, ARRAY_TYPE}}};
 
-static const Callable tableMethods[] = {{"values", table_values_method, 1},
-					{"keys", table_keys_method, 1},
-					{"pairs", table_pairs_method, 1},
-					{"remove", table_remove_method, 2},
-					{"get", table_get_method, 2},
-					{"has_key", table_has_key_method, 2},
-					{"get_or_else",
-					 table_get_or_else_method, 3}};
+static const Callable tableMethods[] = {
+	// TODO: Add hashable type which consists of Int, Float, String, Bool
+	{"values", table_values_method, 1, {TABLE_TYPE}},
+	{"keys", table_keys_method, 1, {TABLE_TYPE}},
+	{"pairs", table_pairs_method, 1, {TABLE_TYPE}},
+	{"remove", table_remove_method, 2, {TABLE_TYPE, ANY_TYPE}},
+	{"get", table_get_method, 2, {TABLE_TYPE, ANY_TYPE}},
+	{"has_key", table_has_key_method, 2, {TABLE_TYPE, ANY_TYPE}},
+	{"get_or_else",
+	 table_get_or_else_method,
+	 3,
+	 {TABLE_TYPE, ANY_TYPE, ANY_TYPE}}};
 
 static const Callable errorMethods[] = {
-	{"type", error_type_method, 1},
-	{"message", error_message_method, 1},
+	{"type", error_type_method, 1, {ERROR_TYPE}},
+	{"message", error_message_method, 1, {ERROR_TYPE}},
 };
 
-static const Callable randomMethods[] = {{"seed", random_seed_method, 2},
-					 {"int", random_int_method, 3},
-					 {"double", random_double_method, 3},
-					 {"bool", random_bool_method, 2},
-					 {"choice", random_choice_method, 2},
-					 {"_next", random_next_method, 1}};
+static const Callable randomMethods[] = {
+	{"seed", random_seed_method, 2, {RANDOM_TYPE, INT_TYPE}},
+	{"int", random_int_method, 3, {RANDOM_TYPE, INT_TYPE, INT_TYPE}},
+	{"float",
+	 random_float_method,
+	 3,
+	 {RANDOM_TYPE, FLOAT_TYPE, FLOAT_TYPE}},
+	{"bool", random_bool_method, 2, {RANDOM_TYPE, FLOAT_TYPE}},
+	{"choice", random_choice_method, 2, {RANDOM_TYPE, ARRAY_TYPE}},
+	{"_next", random_next_method, 1, {RANDOM_TYPE}}};
 
-static const Callable resultMethods[] = {{"_unwrap", unwrap_function, 1}};
+static const Callable resultMethods[] = {
+	{"_unwrap", unwrap_function, 1, {RESULT_TYPE}}};
 
 static const Callable coreFunctions[] = {
-	{"len", length_function, 1},	{"error", error_function, 1},
-	{"assert", assert_function, 2}, {"err", error_function, 1},
-	{"ok", ok_function, 1},		{"int", int_function, 1},
-	{"float", float_function, 1},	{"string", string_function, 1},
-	{"table", table_function, 1},	{"array", array_function, 1},
-	{"format", format_function, 2}, {"_int", int_function_, 1},
-	{"_float", float_function_, 1}, {"_string", string_function_, 1},
-	{"_table", table_function_, 1}, {"_array", array_function_, 1}};
+	{"len", length_function, 1, {ANY_TYPE}},
+	{"error", error_function, 1, {ANY_TYPE}},
+	{"assert", assert_function, 2, {BOOL_TYPE, ANY_TYPE}},
+	{"err", error_function, 1, {STRING_TYPE}},
+	{"ok", ok_function, 1, {ANY_TYPE}},
+	{"int", int_function, 1, {ANY_TYPE}},
+	{"float", float_function, 1, {ANY_TYPE}},
+	{"string", string_function, 1, {ANY_TYPE}},
+	{"table", table_function, 1, {ANY_TYPE}},
+	{"array", array_function, 1, {ANY_TYPE}},
+	{"format", format_function, 2, {STRING_TYPE, TABLE_TYPE}},
+	{"_int", int_function_, 1, {ANY_TYPE}},
+	{"_float", float_function_, 1, {ANY_TYPE}},
+	{"_string", string_function_, 1, {ANY_TYPE}},
+	{"_table", table_function_, 1, {ANY_TYPE}},
+	{"_array", array_function_, 1, {ANY_TYPE}}};
 
 static const Callable mathFunctions[] = {
-	{"pow", pow_function, 2},     {"sqrt", sqrt_function, 1},
-	{"ceil", ceil_function, 1},   {"floor", floor_function, 1},
-	{"abs", abs_function, 1},     {"sin", sin_function, 1},
-	{"cos", cos_function, 1},     {"tan", tan_function, 1},
-	{"atan", atan_function, 1},   {"acos", acos_function, 1},
-	{"asin", asin_function, 1},   {"exp", exp_function, 1},
-	{"ln", ln_function, 1},	      {"log", log10_function, 1},
-	{"round", round_function, 1}, {"min", min_function, 2},
-	{"max", max_function, 2},     {"e", e_function, 0},
-	{"pi", pi_function, 0},	      {"nan", nan_function, 0},
-	{"inf", inf_function, 0}};
+	{"pow", pow_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
+	{"sqrt", sqrt_function, 1, {FLOAT_TYPE}},
+	{"ceil", ceil_function, 1, {FLOAT_TYPE}},
+	{"floor", floor_function, 1, {FLOAT_TYPE}},
+	{"abs", abs_function, 1, {FLOAT_TYPE}},
+	{"sin", sin_function, 1, {FLOAT_TYPE}},
+	{"cos", cos_function, 1, {FLOAT_TYPE}},
+	{"tan", tan_function, 1, {FLOAT_TYPE}},
+	{"atan", atan_function, 1, {FLOAT_TYPE}},
+	{"acos", acos_function, 1, {FLOAT_TYPE}},
+	{"asin", asin_function, 1, {FLOAT_TYPE}},
+	{"exp", exp_function, 1, {FLOAT_TYPE}},
+	{"ln", ln_function, 1, {FLOAT_TYPE}},
+	{"log", log10_function, 1, {FLOAT_TYPE}},
+	{"round", round_function, 1, {FLOAT_TYPE}},
+	{"min", min_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
+	{"max", max_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
+	{"e", e_function, 0, {}},
+	{"pi", pi_function, 0, {}},
+	{"nan", nan_function, 0, {}},
+	{"inf", inf_function, 0, {}}};
 
 static const Callable ioFunctions[] = {
-	{"print", io_print_function, 1},
-	{"println", io_println_function, 1},
-	{"print_to", io_print_to_function, 2},
-	{"println_to", io_println_to_function, 2},
-	{"scan", io_scan_function, 0},
-	{"scanln", io_scanln_function, 0},
-	{"nscan", io_nscan_function, 1},
-	{"scan_from", io_scan_from_function, 1},
-	{"scanln_from", io_scanln_from_function, 1},
-	{"nscan_from", io_nscan_from_function, 2}
+	{"print", io_print_function, 1, {ANY_TYPE}},
+	{"println", io_println_function, 1, {ANY_TYPE}},
+	{"print_to", io_print_to_function, 2, {STRING_TYPE, ANY_TYPE}},
+	{"println_to", io_println_to_function, 2, {STRING_TYPE, ANY_TYPE}},
+	{"scan", io_scan_function, 0, {}},
+	{"scanln", io_scanln_function, 0, {}},
+	{"nscan", io_nscan_function, 1, {INT_TYPE}},
+	{"scan_from", io_scan_from_function, 1, {STRING_TYPE}},
+	{"scanln_from", io_scanln_from_function, 1, {STRING_TYPE}},
+	{"nscan_from", io_nscan_from_function, 2, {STRING_TYPE, INT_TYPE}},
 
 };
 
 static const Callable timeFunctions[] = {
-	{"sleep_s", sleep_seconds_function, 1},
-	{"sleep_ms", sleep_milliseconds_function, 1},
-	{"_time_s", time_seconds_function_, 0},
-	{"_time_ms", time_milliseconds_function_, 0},
-	{"_year", year_function_, 0},
-	{"_month", month_function_, 0},
-	{"_day", day_function_, 0},
-	{"_hour", hour_function_, 0},
-	{"_minute", minute_function_, 0},
-	{"_second", second_function_, 0},
-	{"_weekday", weekday_function_, 0},
-	{"_day_of_year", day_of_year_function_, 0},
+	{"sleep_s", sleep_seconds_function, 1, {FLOAT_TYPE}},
+	{"sleep_ms", sleep_milliseconds_function, 1, {FLOAT_TYPE}},
+	{"_time_s", time_seconds_function_, 0, {}},
+	{"_time_ms", time_milliseconds_function_, 0, {}},
+	{"_year", year_function_, 0, {}},
+	{"_month", month_function_, 0, {}},
+	{"_day", day_function_, 0, {}},
+	{"_hour", hour_function_, 0, {}},
+	{"_minute", minute_function_, 0, {}},
+	{"_second", second_function_, 0, {}},
+	{"_weekday", weekday_function_, 0, {}},
+	{"_day_of_year", day_of_year_function_, 0, {}},
 };
 
 static const Callable randomFunctions[] = {
-	{"Random", random_init_function, 0},
+	{"Random", random_init_function, 0, {}},
 };
 
-static const Callable systemFunctions[] = {{"args", args_function, 0},
-					   {"get_env", get_env_function, 1},
-					   {"sleep", sleep_function, 1},
-					   {"_platform", platform_function, 0},
-					   {"_arch", arch_function, 0},
-					   {"_pid", pid_function, 0},
-					   {"_exit", exit_function, 1}};
+static const Callable systemFunctions[] = {
+	{"args", args_function, 0, {}},
+	{"get_env", get_env_function, 1, {STRING_TYPE}},
+	{"sleep", sleep_function, 1, {FLOAT_TYPE}},
+	{"_platform", platform_function, 0, {}},
+	{"_arch", arch_function, 0, {}},
+	{"_pid", pid_function, 0, {}},
+	{"_exit", exit_function, 1, {INT_TYPE}}};
 
 static const Callable fileSystemFunctions[] = {
-	{"open", fs_open_function, 2},
-	{"remove", fs_remove_function, 1},
-	{"size", fs_file_size_function, 1},
-	{"copy_file", fs_copy_file_function, 2},
-	{"mkdir", fs_mkdir_function, 1},
-	{"read_file", fs_read_file_function, 1},
-	{"write_file", fs_write_file_function, 2},
-	{"append_file", fs_append_file_function, 2},
-	{"exists", fs_exists_function, 1},
-	{"is_file", fs_is_file_function, 1},
-	{"is_dir", fs_is_dir_function, 1},
+	{"open", fs_open_function, 2, {STRING_TYPE, STRING_TYPE}},
+	{"remove", fs_remove_function, 1, {STRING_TYPE}},
+	{"size", fs_file_size_function, 1, {STRING_TYPE}},
+	{"copy_file", fs_copy_file_function, 2, {STRING_TYPE, STRING_TYPE}},
+	{"mkdir", fs_mkdir_function, 1, {STRING_TYPE}},
+	{"read_file", fs_read_file_function, 1, {STRING_TYPE}},
+	{"write_file", fs_write_file_function, 2, {STRING_TYPE, STRING_TYPE}},
+	{"append_file", fs_append_file_function, 2, {STRING_TYPE, STRING_TYPE}},
+	{"exists", fs_exists_function, 1, {STRING_TYPE}},
+	{"is_file", fs_is_file_function, 1, {STRING_TYPE}},
+	{"is_dir", fs_is_dir_function, 1, {STRING_TYPE}},
 };
 
 static const Callable fileSystemMethods[] = {
-	{"close", fs_close_method, 1},
-	{"flush", fs_flush_method, 1},
-	{"read", fs_read_method, 2},
-	{"readln", fs_readln_method, 1},
-	{"read_all", fs_read_all_method, 1},
-	{"read_lines", fs_read_lines_method, 1},
-	{"write", fs_write_method, 1},
-	{"writeln", fs_writeln_method, 2},
-	{"seek", fs_seek_method, 3},
-	{"tell", fs_tell_method, 1},
-	{"is_open", fs_is_open_method, 1},
+	{"close", fs_close_method, 1, {FILE_TYPE}},
+	{"flush", fs_flush_method, 1, {FILE_TYPE}},
+	{"read", fs_read_method, 2, {FILE_TYPE, INT_TYPE}},
+	{"readln", fs_readln_method, 1, {FILE_TYPE}},
+	{"read_all", fs_read_all_method, 1, {FILE_TYPE}},
+	{"read_lines", fs_read_lines_method, 1, {FILE_TYPE}},
+	{"write", fs_write_method, 2, {FILE_TYPE, STRING_TYPE}},
+	{"writeln", fs_writeln_method, 2, {FILE_TYPE, STRING_TYPE}},
+	{"seek", fs_seek_method, 3, {FILE_TYPE, INT_TYPE, STRING_TYPE}},
+	{"tell", fs_tell_method, 1, {FILE_TYPE}},
+	{"is_open", fs_is_open_method, 1, {FILE_TYPE}},
 };
 
 static const Callable complexFunctions[] = {
-	{"Complex", new_complex_function, 2}};
+	{"Complex", new_complex_function, 2, {FLOAT_TYPE, FLOAT_TYPE}}};
 
 static const Callable complexMethods[] = {
-	{"add", add_complex_number_method, 2},
-	{"sub", sub_complex_number_method, 2},
-	{"mul", mul_complex_number_method, 2},
-	{"div", div_complex_number_method, 2},
-	{"scale", scale_complex_number_method, 2},
-	{"real", complex_real_method, 1},
-	{"imag", complex_imag_method, 1},
-	{"conjugate", conjugate_complex_number_method, 1},
-	{"mag", magnitude_complex_number_method, 1},
-	{"square_mag", square_magnitude_complex_number_method, 1},
+	{"add", add_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
+	{"sub", sub_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
+	{"mul", mul_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
+	{"div", div_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
+	{"scale", scale_complex_number_method, 2, {COMPLEX_TYPE, FLOAT_TYPE}},
+	{"real", complex_real_method, 1, {COMPLEX_TYPE}},
+	{"imag", complex_imag_method, 1, {COMPLEX_TYPE}},
+	{"conjugate", conjugate_complex_number_method, 1, {COMPLEX_TYPE}},
+	{"mag", magnitude_complex_number_method, 1, {COMPLEX_TYPE}},
+	{"square_mag",
+	 square_magnitude_complex_number_method,
+	 1,
+	 {COMPLEX_TYPE}},
 };
 
-static const Callable vectorFunctions[] = {{"Vec", new_vector_function, 2}};
+static const Callable vectorFunctions[] = {
+	{"Vec", new_vector_function, 2, {FLOAT_TYPE, FLOAT_TYPE}}};
 
 static const Callable vectorMethods[] = {
-	{"dot", vector_dot_method, 2},
-	{"add", vector_add_method, 2},
-	{"subtract", vector_subtract_method, 2},
-	{"multiply", vector_multiply_method, 2},
-	{"divide", vector_divide_method, 2},
-	{"magnitude", vector_magnitude_method, 1},
-	{"normalize", vector_normalize_method, 1},
-	{"distance", vector_distance_method, 2},
-	{"angle_between", vector_angle_between_method, 2},
-	{"cross", vector_cross_method, 2},
-	{"lerp", vector_lerp_method, 3},
-	{"reflect", vector_reflect_method, 2},
-	{"equals", vector_equals_method, 2},
-	{"x", vector_x_method, 1},
-	{"y", vector_y_method, 1},
-	{"z", vector_z_method, 1},
-	{"w", vector_w_method, 1},
-	{"dimension", vector_dimension_method, 1}};
+	{"dot", vector_dot_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"add", vector_add_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"subtract", vector_subtract_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"multiply", vector_multiply_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"divide", vector_divide_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"magnitude", vector_magnitude_method, 1, {VECTOR_TYPE}},
+	{"normalize", vector_normalize_method, 1, {VECTOR_TYPE}},
+	{"distance", vector_distance_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"angle_between",
+	 vector_angle_between_method,
+	 2,
+	 {VECTOR_TYPE, VECTOR_TYPE}},
+	{"cross", vector_cross_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"lerp", vector_lerp_method, 3, {VECTOR_TYPE, VECTOR_TYPE, FLOAT_TYPE}},
+	{"reflect", vector_reflect_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"equals", vector_equals_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"x", vector_x_method, 1, {VECTOR_TYPE}},
+	{"y", vector_y_method, 1, {VECTOR_TYPE}},
+	{"z", vector_z_method, 1, {VECTOR_TYPE}},
+	{"w", vector_w_method, 1, {VECTOR_TYPE}},
+	{"dimension", vector_dimension_method, 1, {VECTOR_TYPE}}};
 
 static const Callable matrixFunctions[] = {
-	{"Matrix", new_matrix_function, 2},
-	{"IMatrix", new_matrix_identity_function, 1},
-	{"AMatrix", new_matrix_from_array_function, 3},
+	{"Matrix", new_matrix_function, 2, {INT_TYPE, INT_TYPE}},
+	{"IMatrix", new_matrix_identity_function, 1, {INT_TYPE}},
+	{"AMatrix",
+	 new_matrix_from_array_function,
+	 3,
+	 {INT_TYPE, INT_TYPE, ARRAY_TYPE}},
 };
 
 static const Callable matrixMethods[] = {
-	{"get", matrix_get_method, 3},
-	{"set", matrix_set_method, 3},
-	{"add", matrix_add_method, 2},
-	{"sub", matrix_subtract_method, 2},
-	{"mul", matrix_multiply_method, 2},
-	{"scale", matrix_scale_method, 2},
-	{"transpose", matrix_transpose_method, 1},
-	{"determinant", matrix_determinant_method, 1},
-	{"inverse", matrix_inverse_method, 1},
-	{"trace", matrix_trace_method, 1},
-	{"rank", matrix_rank_method, 1},
-	{"row", matrix_row_method, 2},
-	{"col", matrix_col_method, 2},
-	{"equals", matrix_equals_method, 2},
-	{"copy", matrix_copy_method, 1},
-	{"to_array", matrix_to_array_method, 1},
-	{"mul_vec", matrix_multiply_vector_method, 2},
-	{"rows", matrix_rows_method, 1},
-	{"cols", matrix_cols_method, 1},
+	{"get", matrix_get_method, 3, {MATRIX_TYPE, INT_TYPE, INT_TYPE}},
+	{"set", matrix_set_method, 3, {MATRIX_TYPE, INT_TYPE, INT_TYPE}},
+	{"add", matrix_add_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
+	{"sub", matrix_subtract_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
+	{"mul", matrix_multiply_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
+	{"scale", matrix_scale_method, 2, {MATRIX_TYPE, FLOAT_TYPE}},
+	{"transpose", matrix_transpose_method, 1, {MATRIX_TYPE}},
+	{"determinant", matrix_determinant_method, 1, {MATRIX_TYPE}},
+	{"inverse", matrix_inverse_method, 1, {MATRIX_TYPE}},
+	{"trace", matrix_trace_method, 1, {MATRIX_TYPE}},
+	{"rank", matrix_rank_method, 1, {MATRIX_TYPE}},
+	{"row", matrix_row_method, 2, {MATRIX_TYPE, INT_TYPE}},
+	{"col", matrix_col_method, 2, {MATRIX_TYPE, INT_TYPE}},
+	{"equals", matrix_equals_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
+	{"copy", matrix_copy_method, 1, {MATRIX_TYPE}},
+	{"to_array", matrix_to_array_method, 1, {MATRIX_TYPE}},
+	{"mul_vec",
+	 matrix_multiply_vector_method,
+	 2,
+	 {MATRIX_TYPE, VECTOR_TYPE}},
+	{"rows", matrix_rows_method, 1, {MATRIX_TYPE}},
+	{"cols", matrix_cols_method, 1, {MATRIX_TYPE}},
 };
 
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
-			    const CruxCallable method_function, const int arity)
+			    const CruxCallable method_function, const int arity,
+			    const ValueType *arg_types)
 {
 	ObjectString *name = copy_string(vm, method_name,
 					 (int)strlen(method_name));
 	table_set(vm, method_table, name,
-		  OBJECT_VAL(
-			  new_native_method(vm, method_function, arity, name)));
+		  OBJECT_VAL(new_native_method(vm, method_function, arity, name,
+					       arg_types)));
 	return true;
 }
 
@@ -259,21 +316,23 @@ static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
 	for (int i = 0; i < count; i++) {
 		const Callable method = methods[i];
 		register_native_method(vm, methodTable, method.name,
-				       method.function, method.arity);
+				       method.function, method.arity,
+				       method.arg_types);
 	}
 	return true;
 }
 
 static bool registerNativeFunction(VM *vm, Table *functionTable,
 				   const char *functionName,
-				   const CruxCallable function, const int arity)
+				   const CruxCallable function, const int arity,
+				   const ValueType *arg_types)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
 					 (int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
 	const Value func = OBJECT_VAL(
-		new_native_function(vm, function, arity, name));
+		new_native_function(vm, function, arity, name, arg_types));
 	push(currentModuleRecord, func);
 	const bool success = table_set(vm, functionTable, name, func);
 
@@ -292,8 +351,8 @@ static bool registerNativeFunctions(VM *vm, Table *functionTable,
 	for (int i = 0; i < count; i++) {
 		const Callable function = functions[i];
 		if (!registerNativeFunction(vm, functionTable, function.name,
-					    function.function,
-					    function.arity)) {
+					    function.function, function.arity,
+					    function.arg_types)) {
 			return false;
 		}
 	}

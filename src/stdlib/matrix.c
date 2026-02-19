@@ -102,10 +102,8 @@ static int lu_decompose(double *restrict m, const uint16_t n, uint16_t *perm)
  * new_matrix_function(rows: int, cols: int) -> Result<Matrix>
  * Creates a zero-initialised rows×cols matrix.
  */
-Value new_matrix_function(VM *vm, const int arg_count, const Value *args)
+Value new_matrix_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "<rows> must be of type 'int'.",
 					  TYPE);
@@ -138,11 +136,8 @@ Value new_matrix_function(VM *vm, const int arg_count, const Value *args)
  * new_matrix_identity_function(n: int) -> Result<Matrix>
  * Creates an n×n identity matrix.
  */
-Value new_matrix_identity_function(VM *vm, const int arg_count,
-				   const Value *args)
+Value new_matrix_identity_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
 					  TYPE);
@@ -173,11 +168,8 @@ Value new_matrix_identity_function(VM *vm, const int arg_count,
  * Result<Matrix> Constructs a matrix from a flat Array of numbers (row-major).
  * Elements beyond rows*cols are ignored; missing elements are zero-filled.
  */
-Value new_matrix_from_array_function(VM *vm, const int arg_count,
-				     const Value *args)
+Value new_matrix_from_array_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm, "<rows> must be of type 'int'.",
 					  TYPE);
@@ -236,9 +228,8 @@ Value new_matrix_from_array_function(VM *vm, const int arg_count,
  * get(row: int, col: int) -> Result<float>
  * Returns the element at (row, col), 0-indexed.
  */
-Value matrix_get_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_get_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_INT(args[1]) || !IS_INT(args[2])) {
@@ -264,9 +255,8 @@ Value matrix_get_method(VM *vm, const int arg_count, const Value *args)
  * set(row: int, col: int, value: int|float) -> Result<nil>
  * Sets the element at (row, col).
  */
-Value matrix_set_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_set_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_INT(args[1]) || !IS_INT(args[2])) {
@@ -295,18 +285,18 @@ Value matrix_set_method(VM *vm, const int arg_count, const Value *args)
 /* ── Infallible property accessors ───────────────────────────────────────────
  */
 
-Value matrix_rows_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_rows_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	return INT_VAL(mat->row_dim);
 }
 
-Value matrix_cols_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_cols_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	return INT_VAL(mat->col_dim);
 }
@@ -318,9 +308,8 @@ Value matrix_cols_method(VM *vm, const int arg_count, const Value *args)
  * add(other: Matrix) -> Result<Matrix>
  * Element-wise addition. Matrices must be the same shape.
  */
-Value matrix_add_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_add_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 	REQUIRE_MATRIX(args[1], "<other>");
 
@@ -345,9 +334,8 @@ Value matrix_add_method(VM *vm, const int arg_count, const Value *args)
  * subtract(other: Matrix) -> Result<Matrix>
  * Element-wise subtraction. Matrices must be the same shape.
  */
-Value matrix_subtract_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_subtract_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 	REQUIRE_MATRIX(args[1], "<other>");
 
@@ -372,9 +360,8 @@ Value matrix_subtract_method(VM *vm, const int arg_count, const Value *args)
  * multiply(other: Matrix) -> Result<Matrix>
  * Standard matrix multiplication. a.cols must equal b.rows.
  */
-Value matrix_multiply_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_multiply_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 	REQUIRE_MATRIX(args[1], "<other>");
 
@@ -415,9 +402,8 @@ Value matrix_multiply_method(VM *vm, const int arg_count, const Value *args)
  * scale(scalar: int|float) -> Result<Matrix>
  * Multiplies every element by scalar.
  */
-Value matrix_scale_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_scale_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_NUMERIC(args[1])) {
@@ -448,9 +434,8 @@ Value matrix_scale_method(VM *vm, const int arg_count, const Value *args)
  * transpose() -> Result<Matrix>
  * Returns the transposed matrix (rows become columns).
  */
-Value matrix_transpose_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_transpose_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -474,9 +459,8 @@ Value matrix_transpose_method(VM *vm, const int arg_count, const Value *args)
  * Computes the determinant via LU decomposition.
  * Only defined for square matrices.
  */
-Value matrix_determinant_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_determinant_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -514,9 +498,8 @@ Value matrix_determinant_method(VM *vm, const int arg_count, const Value *args)
  * Computes the matrix inverse via Gauss-Jordan elimination.
  * Returns an error for non-square or singular matrices.
  */
-Value matrix_inverse_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_inverse_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -607,9 +590,8 @@ Value matrix_inverse_method(VM *vm, const int arg_count, const Value *args)
  * trace() -> Result<float>
  * Sum of the main diagonal elements. Square matrices only.
  */
-Value matrix_trace_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_trace_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -631,9 +613,8 @@ Value matrix_trace_method(VM *vm, const int arg_count, const Value *args)
  * rank() -> Result<int>
  * Computes the rank via Gaussian elimination on a copy.
  */
-Value matrix_rank_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_rank_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -695,9 +676,8 @@ Value matrix_rank_method(VM *vm, const int arg_count, const Value *args)
  * row(i: int) -> Result<Array>
  * Returns the i-th row as a flat Array of floats.
  */
-Value matrix_row_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_row_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_INT(args[1])) {
@@ -730,9 +710,8 @@ Value matrix_row_method(VM *vm, const int arg_count, const Value *args)
  * col(j: int) -> Result<Array>
  * Returns the j-th column as a flat Array of floats.
  */
-Value matrix_col_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_col_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_INT(args[1])) {
@@ -768,9 +747,8 @@ Value matrix_col_method(VM *vm, const int arg_count, const Value *args)
  * equals(other: Matrix) -> Result<bool>
  * Element-wise comparison with epsilon tolerance.
  */
-Value matrix_equals_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_equals_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 	REQUIRE_MATRIX(args[1], "<other>");
 
@@ -795,9 +773,8 @@ Value matrix_equals_method(VM *vm, const int arg_count, const Value *args)
  * copy() -> Result<Matrix>
  * Returns a deep copy of the matrix.
  */
-Value matrix_copy_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_copy_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -813,9 +790,8 @@ Value matrix_copy_method(VM *vm, const int arg_count, const Value *args)
  * to_array() -> Result<Array<Array<float>>>
  * Returns the matrix as an Array of row Arrays.
  */
-Value matrix_to_array_method(VM *vm, const int arg_count, const Value *args)
+Value matrix_to_array_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
@@ -849,10 +825,8 @@ Value matrix_to_array_method(VM *vm, const int arg_count, const Value *args)
  * Multiplies the matrix (m×n) by a column vector of dimension n,
  * producing a Vector of dimension m.
  */
-Value matrix_multiply_vector_method(VM *vm, const int arg_count,
-				    const Value *args)
+Value matrix_multiply_vector_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	REQUIRE_MATRIX(args[0], "receiver");
 
 	if (!IS_CRUX_VECTOR(args[1])) {

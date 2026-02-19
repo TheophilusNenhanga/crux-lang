@@ -4,25 +4,25 @@
 #include "panic.h"
 #include "stdlib/complex.h"
 
-Value complex_real_method(VM *vm, int arg_count, const Value *args)
+Value complex_real_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
 	return FLOAT_VAL(complex_number->real);
 }
 
-Value complex_imag_method(VM *vm, int arg_count, const Value *args)
+Value complex_imag_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
 	return FLOAT_VAL(complex_number->imag);
 }
 
-Value new_complex_function(VM *vm, int arg_count, const Value *args)
+Value new_complex_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!(IS_FLOAT(args[0]) || IS_INT(args[0]))) {
 		return MAKE_GC_SAFE_ERROR(
 			vm, "<real> should be of type 'Int' | 'Float'.", TYPE);
@@ -42,9 +42,9 @@ Value new_complex_function(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value add_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value add_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_COMPLEX(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<other> must be of type 'Complex'.'",
@@ -62,9 +62,9 @@ Value add_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value sub_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value sub_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_COMPLEX(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<other> must be of type 'Complex'.'",
@@ -81,9 +81,9 @@ Value sub_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value mul_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value mul_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_COMPLEX(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<other> must be of type 'Complex'.'",
@@ -102,9 +102,9 @@ Value mul_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value div_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value div_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!IS_CRUX_COMPLEX(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<other> must be of type 'Complex'.'",
@@ -129,9 +129,9 @@ Value div_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value scale_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value scale_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	if (!(IS_FLOAT(args[1]) || IS_INT(args[1]))) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "<other> must be of type 'Complex'.'",
@@ -152,9 +152,9 @@ Value scale_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return OBJECT_VAL(result);
 }
 
-Value magnitude_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value magnitude_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
 
@@ -165,10 +165,9 @@ Value magnitude_complex_number_method(VM *vm, int arg_count, const Value *args)
 	return FLOAT_VAL(magnitude);
 }
 
-Value square_magnitude_complex_number_method(VM *vm, int arg_count,
-					     const Value *args)
+Value square_magnitude_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	(void)vm;
 	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
 
@@ -179,9 +178,9 @@ Value square_magnitude_complex_number_method(VM *vm, int arg_count,
 	return FLOAT_VAL(magnitude);
 }
 
-Value conjugate_complex_number_method(VM *vm, int arg_count, const Value *args)
+Value conjugate_complex_number_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
 	ObjectComplex *conjugate = new_complex_number(vm, complex_number->real,
 						      -complex_number->imag);

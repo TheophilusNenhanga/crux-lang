@@ -134,9 +134,9 @@ static double vector_magnitude(const ObjectVector *vec)
 }
 
 /* arg_count = 2; arg0 -> dimension, arg1 -> components array */
-Value new_vector_function(VM *vm, const int arg_count, const Value *args)
+Value new_vector_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_INT(args[0])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -183,9 +183,9 @@ Value new_vector_function(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_dot_method(VM *vm, const int arg_count, const Value *args)
+Value vector_dot_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -212,9 +212,9 @@ Value vector_dot_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-Value vector_add_method(VM *vm, const int arg_count, const Value *args)
+Value vector_add_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -246,9 +246,9 @@ Value vector_add_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_subtract_method(VM *vm, const int arg_count, const Value *args)
+Value vector_subtract_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -281,9 +281,9 @@ Value vector_subtract_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_multiply_method(VM *vm, const int arg_count, const Value *args)
+Value vector_multiply_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -309,9 +309,9 @@ Value vector_multiply_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_divide_method(VM *vm, const int arg_count, const Value *args)
+Value vector_divide_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -337,9 +337,9 @@ Value vector_divide_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-Value vector_magnitude_method(VM *vm, const int arg_count, const Value *args)
+Value vector_magnitude_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -355,9 +355,9 @@ Value vector_magnitude_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(magnitude)));
 }
 
-Value vector_normalize_method(VM *vm, const int arg_count, const Value *args)
+Value vector_normalize_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -385,9 +385,9 @@ Value vector_normalize_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-Value vector_distance_method(VM *vm, const int arg_count, const Value *args)
+Value vector_distance_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -415,9 +415,9 @@ Value vector_distance_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(distance)));
 }
 
-Value vector_cross_method(VM *vm, const int arg_count, const Value *args)
+Value vector_cross_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -450,10 +450,10 @@ Value vector_cross_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_angle_between_method(VM *vm, const int arg_count,
+Value vector_angle_between_method(VM *vm,
 				  const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -489,9 +489,9 @@ Value vector_angle_between_method(VM *vm, const int arg_count,
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-Value vector_lerp_method(VM *vm, const int arg_count, const Value *args)
+Value vector_lerp_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1]) ||
 	    !IS_NUMERIC(args[2])) {
@@ -525,9 +525,9 @@ Value vector_lerp_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_reflect_method(VM *vm, const int arg_count, const Value *args)
+Value vector_reflect_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -568,9 +568,9 @@ Value vector_reflect_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_equals_method(VM *vm, const int arg_count, const Value *args)
+Value vector_equals_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
+
 
 	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
 		return MAKE_GC_SAFE_ERROR(
@@ -593,10 +593,10 @@ Value vector_equals_method(VM *vm, const int arg_count, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(equal)));
 }
 
-Value vector_x_method(VM *vm, const int arg_count, const Value *args)
+Value vector_x_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 1) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -605,10 +605,10 @@ Value vector_x_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_y_method(VM *vm, const int arg_count, const Value *args)
+Value vector_y_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 2) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -617,10 +617,10 @@ Value vector_y_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_z_method(VM *vm, const int arg_count, const Value *args)
+Value vector_z_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 3) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -629,10 +629,10 @@ Value vector_z_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_w_method(VM *vm, const int arg_count, const Value *args)
+Value vector_w_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 4) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -641,10 +641,10 @@ Value vector_w_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_dimension_method(VM *vm, const int arg_count, const Value *args)
+Value vector_dimension_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	return INT_VAL(vector->dimensions);
 }
