@@ -76,7 +76,7 @@ static ValueType get_value_type(Value value)
 		return STRING_TYPE;
 	}
 	if (IS_CRUX_FUNCTION(value) || IS_CRUX_NATIVE_FUNCTION(value) ||
-	    IS_CRUX_NATIVE_METHOD(value)) {
+	    IS_CRUX_NATIVE_METHOD(value) || IS_CRUX_CLOSURE(value)) {
 		return FUNCTION_TYPE;
 	}
 	if (IS_CRUX_ARRAY(value)) {

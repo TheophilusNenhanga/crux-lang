@@ -197,13 +197,14 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		Value *args = current_module_record->stack_top - arg_count;
+		const Value *args = current_module_record->stack_top - arg_count;
 		for (int i = 0; i < arg_count; i++) {
 			if (!runtime_types_compatible(native->arg_types[i],
 						      args[i])) {
 				runtime_panic(current_module_record, false,
 					      TYPE,
-					      "Expected type %s, but got %s",
+					      "arg %d: expected type %s, but got %s",
+					      i+1,
 					      type_name(native->arg_types[i]),
 					      value_type_name(args[i]));
 				return false;
@@ -212,6 +213,13 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 
 		const Value result_value = native->function(
 			vm, current_module_record->stack_top - arg_count);
+
+		// only happens for assert functions
+		if (vm->panicking) {
+			vm->panicking = false;
+			const ObjectError * error = AS_CRUX_ERROR(result_value);
+			runtime_panic(current_module_record, true, error->type, error->message->chars);
+		}
 
 		current_module_record->stack_top -= arg_count + 1;
 
@@ -223,13 +231,14 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 			callee);
 		check_native_arity(arg_count, native);
 
-		Value *args = current_module_record->stack_top - arg_count;
+		const Value *args = current_module_record->stack_top - arg_count;
 		for (int i = 0; i < arg_count; i++) {
 			if (!runtime_types_compatible(native->arg_types[i],
 						      args[i])) {
 				runtime_panic(current_module_record, false,
 					      TYPE,
-					      "Expected type %s, but got %s",
+					      "arg %d: expected type %s, but got %s",
+					      i+1,
 					      type_name(native->arg_types[i]),
 					      value_type_name(args[i]));
 				return false;
@@ -239,6 +248,13 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 		const Value result_value = native->function(
 			vm, current_module_record->stack_top - arg_count);
 		current_module_record->stack_top -= arg_count + 1;
+
+		// only happens for assert functions
+		if (vm->panicking) {
+			vm->panicking = false;
+			const ObjectError * error = AS_CRUX_ERROR(result_value);
+			runtime_panic(current_module_record, true, error->type, error->message->chars);
+		}
 
 		push(current_module_record, result_value);
 		return true;

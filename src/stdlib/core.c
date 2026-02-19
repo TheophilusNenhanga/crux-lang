@@ -28,7 +28,7 @@ static Value get_length(const Value value)
 
 Value length_function(VM *vm, const Value *args)
 {
-	(void) vm;
+	(void)vm;
 	const Value value = args[0];
 	const Value length = get_length(value);
 	return length;
@@ -225,7 +225,6 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 
 Value int_function(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
@@ -238,7 +237,6 @@ Value int_function(VM *vm, const Value *args)
 
 Value float_function(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
@@ -250,18 +248,13 @@ Value float_function(VM *vm, const Value *args)
 
 Value string_function(VM *vm, const Value *args)
 {
-
 	const Value value = args[0];
 	ObjectString *str = to_string(vm, value);
-	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
-	pop(vm->current_module_record);
-	return OBJECT_VAL(res);
+	return OBJECT_VAL(str);
 }
 
 Value array_function(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -274,14 +267,12 @@ Value array_function(VM *vm, const Value *args)
 
 Value table_function(VM *vm, const Value *args)
 {
-
 	const Value table = cast_table(vm, args);
 	return OBJECT_VAL(new_ok_result(vm, table));
 }
 
 Value int_function_(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	const Value argument = args[0];
 	return OBJECT_VAL(cast_int(vm, argument, &success));
@@ -289,20 +280,12 @@ Value int_function_(VM *vm, const Value *args)
 
 Value float_function_(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	return cast_float(vm, args, &success);
 }
 
-Value string_function_(VM *vm, const Value *args)
-{
-
-	return OBJECT_VAL(to_string(vm, args[0]));
-}
-
 Value array_function_(VM *vm, const Value *args)
 {
-
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -313,25 +296,11 @@ Value array_function_(VM *vm, const Value *args)
 
 Value table_function_(VM *vm, const Value *args)
 {
-
 	return cast_table(vm, args);
 }
 
 Value format_function(VM *vm, const Value *args)
 {
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"argument <format_string> must be of type 'string'.",
-			TYPE);
-	}
-	if (!IS_CRUX_TABLE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "argument <format_table> must be of type 'table'.",
-			TYPE);
-	}
-
 	const ObjectString *str = AS_CRUX_STRING(args[0]);
 	const ObjectTable *table = AS_CRUX_TABLE(args[1]);
 

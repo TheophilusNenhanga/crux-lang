@@ -41,12 +41,6 @@ Value array_insert_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<index> must be of type 'number'.",
-					  TYPE);
-	}
-
 	const Value toInsert = args[2];
 	const uint32_t insert_at = AS_INT(args[1]);
 
@@ -74,12 +68,6 @@ Value array_remove_at_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<index> must be of type 'number'.",
-					  TYPE);
-	}
-
 	const uint32_t removeAt = AS_INT(args[1]);
 
 	if (removeAt >= array->size) {
@@ -100,13 +88,6 @@ Value array_remove_at_method(VM *vm, const Value *args)
 Value array_concat_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<target> must be of type 'array'.",
-					  TYPE);
-	}
-
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
 	const uint32_t combined_size = targetArray->size + array->size;
@@ -134,19 +115,8 @@ Value array_concat_method(VM *vm, const Value *args)
 Value array_slice_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<start_index> must be of type 'number'.", TYPE);
-	}
-
-	if (!IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<end_index> must be of type 'number'.", TYPE);
-	}
-
-	const uint32_t start_index = AS_INT(args[1]);
-	const uint32_t end_index = AS_INT(args[2]);
+	const int32_t start_index = AS_INT(args[1]);
+	const int32_t end_index = AS_INT(args[2]);
 
 	if (start_index > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.",
@@ -196,7 +166,7 @@ Value array_reverse_method(VM *vm, const Value *args)
 		array->values[i] = values[array->size - 1 - i];
 	}
 
-	free(values);
+	FREE(vm, Value, values);
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
@@ -246,10 +216,6 @@ Value array_clear_method(VM *vm, const Value *args)
 Value arrayEqualsMethod(VM *vm, const Value *args)
 {
 	(void)vm;
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return BOOL_VAL(false);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
@@ -272,13 +238,6 @@ Value array_map_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'callable' for <func> argument",
-			TYPE);
-	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
@@ -326,13 +285,6 @@ Value array_filter_method(VM *vm, const Value *args)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'Function' for <func> argument",
-			TYPE);
-	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
@@ -383,13 +335,6 @@ Value array_reduce_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'callable' for <func> argument",
-			TYPE);
-	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 	if (closure->function->arity != 2) {
@@ -567,12 +512,6 @@ Value array_sort_method(VM *vm, const Value *args)
 // arg1 - separator string
 Value array_join_method(VM *vm, const Value *args)
 {
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Expected arg <separator> to be of type 'string'.",
-			TYPE);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const ObjectString *separator = AS_CRUX_STRING(args[1]);
 

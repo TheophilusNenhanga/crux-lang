@@ -69,7 +69,7 @@ Value table_pairs_method(VM *vm, const Value *args)
 	push(module_record, OBJECT_VAL(pairs));
 
 	if (pairs == NULL) {
-		Value res = MAKE_GC_SAFE_ERROR(
+		const Value res = MAKE_GC_SAFE_ERROR(
 			vm,
 			"Failed to allocate enough memory for <pairs> array.",
 			MEMORY);

@@ -10,14 +10,6 @@
 #define EPSILON 1e-10
 #define MATRIX_AT(m, i, j) ((m)->data[(i) * (m)->col_dim + (j)])
 
-/* Validate that a Value holds a Matrix object. */
-#define REQUIRE_MATRIX(val, name)                                              \
-	if (!IS_CRUX_MATRIX((val))) {                                          \
-		return MAKE_GC_SAFE_ERROR(vm,                                  \
-					  name " must be of type 'matrix'.",   \
-					  TYPE);                               \
-	}
-
 /* Validate that two matrices have the same shape. */
 #define REQUIRE_SAME_SHAPE(m1, m2, op)                                         \
 	if ((m1)->row_dim != (m2)->row_dim ||                                  \
@@ -104,14 +96,6 @@ static int lu_decompose(double *restrict m, const uint16_t n, uint16_t *perm)
  */
 Value new_matrix_function(VM *vm, const Value *args)
 {
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<rows> must be of type 'int'.",
-					  TYPE);
-	}
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<cols> must be of type 'int'.",
-					  TYPE);
-	}
 
 	const int32_t rows = AS_INT(args[0]);
 	const int32_t cols = AS_INT(args[1]);
@@ -138,11 +122,6 @@ Value new_matrix_function(VM *vm, const Value *args)
  */
 Value new_matrix_identity_function(VM *vm, const Value *args)
 {
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
-					  TYPE);
-	}
-
 	const int32_t n = AS_INT(args[0]);
 	if (n <= 0) {
 		return MAKE_GC_SAFE_ERROR(
@@ -170,19 +149,6 @@ Value new_matrix_identity_function(VM *vm, const Value *args)
  */
 Value new_matrix_from_array_function(VM *vm, const Value *args)
 {
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<rows> must be of type 'int'.",
-					  TYPE);
-	}
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<cols> must be of type 'int'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_ARRAY(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<data> must be of type 'array'.",
-					  TYPE);
-	}
-
 	const int32_t rows = AS_INT(args[0]);
 	const int32_t cols = AS_INT(args[1]);
 
@@ -230,12 +196,6 @@ Value new_matrix_from_array_function(VM *vm, const Value *args)
  */
 Value matrix_get_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_INT(args[1]) || !IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<row> and <col> must be of type 'int'.", TYPE);
-	}
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const int32_t row = AS_INT(args[1]);
@@ -257,18 +217,7 @@ Value matrix_get_method(VM *vm, const Value *args)
  */
 Value matrix_set_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_INT(args[1]) || !IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<row> and <col> must be of type 'int'.", TYPE);
-	}
-	if (!IS_NUMERIC(args[3])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<value> must be of type 'int' | 'float'.", TYPE);
-	}
-
-	ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
+	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const int32_t row = AS_INT(args[1]);
 	const int32_t col = AS_INT(args[2]);
 
@@ -288,7 +237,6 @@ Value matrix_set_method(VM *vm, const Value *args)
 Value matrix_rows_method(VM *vm, const Value *args)
 {
 	(void)vm;
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	return INT_VAL(mat->row_dim);
 }
@@ -310,8 +258,6 @@ Value matrix_cols_method(VM *vm, const Value *args)
  */
 Value matrix_add_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-	REQUIRE_MATRIX(args[1], "<other>");
 
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
@@ -336,8 +282,6 @@ Value matrix_add_method(VM *vm, const Value *args)
  */
 Value matrix_subtract_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-	REQUIRE_MATRIX(args[1], "<other>");
 
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
@@ -362,8 +306,6 @@ Value matrix_subtract_method(VM *vm, const Value *args)
  */
 Value matrix_multiply_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-	REQUIRE_MATRIX(args[1], "<other>");
 
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
@@ -404,13 +346,6 @@ Value matrix_multiply_method(VM *vm, const Value *args)
  */
 Value matrix_scale_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_NUMERIC(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<scalar> must be of type 'int' | 'float'.", TYPE);
-	}
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
@@ -436,8 +371,6 @@ Value matrix_scale_method(VM *vm, const Value *args)
  */
 Value matrix_transpose_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	ObjectMatrix *result = new_matrix(vm, mat->col_dim, mat->row_dim);
@@ -461,7 +394,6 @@ Value matrix_transpose_method(VM *vm, const Value *args)
  */
 Value matrix_determinant_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
@@ -500,7 +432,6 @@ Value matrix_determinant_method(VM *vm, const Value *args)
  */
 Value matrix_inverse_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
@@ -592,7 +523,6 @@ Value matrix_inverse_method(VM *vm, const Value *args)
  */
 Value matrix_trace_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
@@ -615,7 +545,6 @@ Value matrix_trace_method(VM *vm, const Value *args)
  */
 Value matrix_rank_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
 
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const uint16_t rows = mat->row_dim;
@@ -678,13 +607,6 @@ Value matrix_rank_method(VM *vm, const Value *args)
  */
 Value matrix_row_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<i> must be of type 'int'.",
-					  TYPE);
-	}
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const int32_t row = AS_INT(args[1]);
 
@@ -712,13 +634,6 @@ Value matrix_row_method(VM *vm, const Value *args)
  */
 Value matrix_col_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<j> must be of type 'int'.",
-					  TYPE);
-	}
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const int32_t col = AS_INT(args[1]);
 
@@ -749,8 +664,6 @@ Value matrix_col_method(VM *vm, const Value *args)
  */
 Value matrix_equals_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-	REQUIRE_MATRIX(args[1], "<other>");
 
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
@@ -775,8 +688,6 @@ Value matrix_equals_method(VM *vm, const Value *args)
  */
 Value matrix_copy_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	ObjectMatrix *dst = matrix_copy_internal(vm, mat);
@@ -792,8 +703,6 @@ Value matrix_copy_method(VM *vm, const Value *args)
  */
 Value matrix_to_array_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	ObjectArray *outer = new_array(vm, mat->row_dim);
@@ -827,13 +736,6 @@ Value matrix_to_array_method(VM *vm, const Value *args)
  */
 Value matrix_multiply_vector_method(VM *vm, const Value *args)
 {
-	REQUIRE_MATRIX(args[0], "receiver");
-
-	if (!IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<v> must be of type 'vector'.",
-					  TYPE);
-	}
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[1]);
 

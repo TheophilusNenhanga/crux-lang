@@ -118,7 +118,6 @@ static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
 Value io_print_function(VM *vm, const Value *args)
 {
 	(void)vm;
-
 	print_value_to(stdout, args[0], false);
 	return NIL_VAL;
 }
@@ -141,14 +140,6 @@ Value io_println_function(VM *vm, const Value *args)
  */
 Value io_print_to_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<channel> must be of type 'string'.",
-					  TYPE);
-	}
-
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
 		return MAKE_GC_SAFE_ERROR(
@@ -171,14 +162,6 @@ Value io_print_to_function(VM *vm, const Value *args)
  */
 Value io_println_to_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<channel> must be of type 'string'.",
-					  TYPE);
-	}
-
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
 		return MAKE_GC_SAFE_ERROR(
@@ -208,9 +191,7 @@ Value io_println_to_function(VM *vm, const Value *args)
  */
 Value io_scan_function(VM *vm, const Value *args)
 {
-
 	(void)args;
-
 	const int ch = fgetc(stdin);
 	if (ch == EOF) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -267,13 +248,6 @@ Value io_scanln_function(VM *vm, const Value *args)
  */
 Value io_nscan_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
-					  TYPE);
-	}
-
 	const int32_t n = AS_INT(args[0]);
 	if (n <= 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
@@ -306,13 +280,6 @@ Value io_nscan_function(VM *vm, const Value *args)
  */
 Value io_scan_from_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<channel> must be of type 'string'.",
-					  TYPE);
-	}
 
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
@@ -348,14 +315,6 @@ Value io_scan_from_function(VM *vm, const Value *args)
  */
 Value io_scanln_from_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<channel> must be of type 'string'.",
-					  TYPE);
-	}
-
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
 		return MAKE_GC_SAFE_ERROR(
@@ -388,19 +347,6 @@ Value io_scanln_from_function(VM *vm, const Value *args)
  */
 Value io_nscan_from_function(VM *vm, const Value *args)
 {
-
-
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<channel> must be of type 'string'.",
-					  TYPE);
-	}
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
-					  TYPE);
-	}
-
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
 		return MAKE_GC_SAFE_ERROR(

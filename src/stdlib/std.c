@@ -110,7 +110,7 @@ static const Callable resultMethods[] = {
 static const Callable coreFunctions[] = {
 	{"len", length_function, 1, {ANY_TYPE}},
 	{"error", error_function, 1, {ANY_TYPE}},
-	{"assert", assert_function, 2, {BOOL_TYPE, ANY_TYPE}},
+	{"assert", assert_function, 2, {BOOL_TYPE, STRING_TYPE}},
 	{"err", error_function, 1, {STRING_TYPE}},
 	{"ok", ok_function, 1, {ANY_TYPE}},
 	{"int", int_function, 1, {ANY_TYPE}},
@@ -121,7 +121,6 @@ static const Callable coreFunctions[] = {
 	{"format", format_function, 2, {STRING_TYPE, TABLE_TYPE}},
 	{"_int", int_function_, 1, {ANY_TYPE}},
 	{"_float", float_function_, 1, {ANY_TYPE}},
-	{"_string", string_function_, 1, {ANY_TYPE}},
 	{"_table", table_function_, 1, {ANY_TYPE}},
 	{"_array", array_function_, 1, {ANY_TYPE}}};
 
@@ -184,11 +183,11 @@ static const Callable randomFunctions[] = {
 static const Callable systemFunctions[] = {
 	{"args", args_function, 0, {}},
 	{"get_env", get_env_function, 1, {STRING_TYPE}},
-	{"sleep", sleep_function, 1, {FLOAT_TYPE}},
+	{"sleep", sleep_function, 1, {INT_TYPE}},
 	{"_platform", platform_function, 0, {}},
 	{"_arch", arch_function, 0, {}},
 	{"_pid", pid_function, 0, {}},
-	{"_exit", exit_function, 1, {INT_TYPE}}};
+	{"exit", exit_function, 1, {INT_TYPE}}};
 
 static const Callable fileSystemFunctions[] = {
 	{"open", fs_open_function, 2, {STRING_TYPE, STRING_TYPE}},
