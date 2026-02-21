@@ -1,11 +1,12 @@
-println("=== START OF RAY TRACER ===");
-
 use Random from "crux:random";
 use Vec from "crux:vectors";
 use _time_ms from "crux:time";
-use open_file from "crux:io";
 use sqrt, min from "crux:math";
-use _exit from "crux:sys";
+use exit from "crux:sys";
+use println from "crux:io";
+use open from "crux:fs";
+
+println("=== START OF RAY TRACER ===");
 
 let g_random = Random();
 
@@ -56,35 +57,31 @@ fn reflect(vector, normal) {
     let dotted = vector.dot(normal);
     let d = match dotted {
         Ok(v) => give v;
-        Err => panic("Error calculating dot product");
+        Err(e) => {panic "Error calculating dot product";}
     };
     let multiplied = normal.multiply(2 * d);
     let m = match multiplied {
         Ok(val) => give val;
-        Err => panic("Error multiplying normal vector");
+        Err(e) => {panic "Error multiplying normal vector";}
     };
     let result = vector.subtract(m);
     let res =match result {
         Ok(v) => give v;
-        Err => panic("Error subtracting vectors");
+        Err(e) => {panic "Error subtracting vectors";}
     };
     return res;
 }
 
 fn random_in_unit_sphere() {
     while true {
-        let p_result = Vec(3,[g_random.double(-1, 1)?, g_random.double(-1, 1)?, g_random.double(-1, 1)?]);
+        let p_result = Vec(3,[g_random.float(-1, 1)?, g_random.float(-1, 1)?, g_random.float(-1, 1)?]);
 
         let p = match p_result {
             Ok(v) => give v;
-            Err => panic("Error creating random vector");
+            Err(e) => {panic "Error creating random vector";}
         };
 
-        let magnitude_squared_result = p.dot(p);
-        let magnitude_squared = match magnitude_squared_result {
-            Ok(mag_sq) => give mag_sq;
-            Err => panic("Error calculating magnitude squared");
-        };
+        let magnitude_squared = p.dot(p)?;
         if magnitude_squared < 1 {
             return p;
         }
@@ -96,7 +93,7 @@ fn random_unit_vector() {
     let normalized_result = p.normalize();
     let normalized = match normalized_result {
         Ok(v) => give v;
-        Err => panic("Error normalizing vector");
+        Err(e) => {panic "Error normalizing vector";}
     };
     return normalized;
 }
@@ -147,7 +144,7 @@ fn hit_sphere(sphere, ray, t_min, t_max) {
 fn hit_world(ray, world, t_min, t_max) {
    let closest_so_far = t_max;
    let final_rec = nil;
-   for let i = 0; i < len(world)?; i += 1 {
+   for let i = 0; i < len(world); i += 1 {
         let temp_rec = hit_sphere(world[i], ray, t_min, closest_so_far);
         if temp_rec != nil {
             closest_so_far = temp_rec.t;
@@ -183,13 +180,13 @@ fn ray_color(ray, depth, world) {
     let unit_direction_result = ray.direction.normalize();
         let unit_direction = match unit_direction_result {
             Ok(v) => give v;
-            Err => panic("Error normalizing ray direction");
+            Err(e) => {panic "Error normalizing ray direction";}
         };
         let t = 0.5 * (unit_direction.y() + 1.0);
         let sky_result = VEC3_WHITE.multiply(1.0 - t)?.add(VEC3_BLUE.multiply(t)?);
         let sky = match sky_result {
             Ok(v) => give v;
-            Err => panic("Error calculating sky color");
+            Err(e) => {panic "Error calculating sky color";}
         };
         return sky;
 }
@@ -218,7 +215,7 @@ fn newMetal(albedo, fuzz) {
         let normalized_direction_result = ray_in.direction.normalize();
         let normalized_direction = match normalized_direction_result {
             Ok(v) => give v;
-            Err => panic("Error normalizing ray direction");
+            Err(e) => {panic "Error normalizing ray direction";}
         };
 
         let reflected = reflect(normalized_direction, rec.normal);
@@ -236,7 +233,7 @@ fn newMetal(albedo, fuzz) {
     let metal = new Material {
         scatter: scatter,
         albedo: albedo,
-        fuzz: min(fuzz, 1.0)?
+        fuzz: min(fuzz, 1.0)
     };
     return metal;
 }
@@ -248,13 +245,13 @@ fn newLambertian(albedo) {
         let scatter_direction_result = rec.normal.add(random_unit_vector());
         let scatter_direction = match scatter_direction_result {
            Ok(v) => give v;
-           Err => panic("Error calculating scatter direction");
+           Err(e) => {panic "Error calculating scatter direction";}
         };
 
         let scatter_magnitude_result = scatter_direction.magnitude();
         let scatter_magnitude = match scatter_magnitude_result {
             Ok(mag) => give mag;
-            Err => panic("Error calculating magnitude of scatter direction");
+            Err(e) => {panic "Error calculating magnitude of scatter direction";}
         };
 
         if scatter_magnitude < 0.001 {
@@ -301,7 +298,7 @@ fn main() {
 
     let viewport_height = 2.0;
     let viewport_width = IMAGE_ASPECT_RATIO * viewport_height;
-    let focal_length = (camera_origin.subtract(camera_target)?).magnitude()?;
+    let focal_length = (camera_origin.subtract(camera_target)?).magnitude();
 
     let w = (camera_origin.subtract(camera_target)?).normalize()?;
     let u = camera_vup.cross(w)?.cross(w)?;
@@ -311,32 +308,32 @@ fn main() {
     let vertical = v.multiply(viewport_height)?;
     let lower_left_corner = camera_origin.subtract(horizontal.multiply(0.5)?)?.subtract(vertical.multiply(0.5)?)?.subtract(w.multiply(focal_length)?)?;
 
-    println("Rendering image (" + _string(IMAGE_WIDTH) + "x" + _string(IMAGE_HEIGHT) + ")...");
-    println("Samples per pixel: " + _string(SAMPLES_PER_PIXEL));
-    println("Max ray depth: " + _string(MAX_DEPTH));
+    println("Rendering image (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
+    println("Samples per pixel: " + string(SAMPLES_PER_PIXEL));
+    println("Max ray depth: " + string(MAX_DEPTH));
 
     let start_time = _time_ms();
 
-    let file_open_result = open_file("render.ppm", "w");
+    let file_open_result = open("render.ppm", "w");
     let file = match file_open_result {
         Ok(f) => give f;
-        Err => panic("Error opening file for writing");
+        Err(e) => {panic "Error opening file for writing";}
     };
     file.write("P3\n");
-    file.write(_string(IMAGE_WIDTH) + " " + _string(IMAGE_HEIGHT) + "\n");
+    file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
     file.write("255\n");
 
     for let j = IMAGE_HEIGHT - 1; j >= 0; j -= 1 {
         if j % 10 == 0 {
-            println("Scanlines remaining: " + _string(j));
+            println("Scanlines remaining: " + string(j));
         }
 
         for let i = 0; i < IMAGE_WIDTH; i += 1 {
             let pixel_color = VEC3_ZERO;
 
             for let s = 0; s < SAMPLES_PER_PIXEL; s += 1 {
-                let u_offset = (i + g_random.double(0, 1)?) * INV_WIDTH;
-                let v_offset = (j + g_random.double(0, 1)?) * INV_HEIGHT;
+                let u_offset = (i + g_random.float(0, 1)?) * INV_WIDTH;
+                let v_offset = (j + g_random.float(0, 1)?) * INV_HEIGHT;
 
                 let r = newRay(camera_origin, lower_left_corner.add(horizontal.multiply(u_offset)?)?.add(vertical.multiply(v_offset)?)?.subtract(camera_origin)?);
 
@@ -348,16 +345,16 @@ fn main() {
             let g = sqrt(pixel_color.y() * SCALE)?;
             let b = sqrt(pixel_color.z() * SCALE)?;
 
-            let ir = _int(COLOR_SCALE * r);
-            let ig = _int(COLOR_SCALE * g);
-            let ib = _int(COLOR_SCALE * b);
+            let ir = int(COLOR_SCALE * r)?;
+            let ig = int(COLOR_SCALE * g)?;
+            let ib = int(COLOR_SCALE * b)?;
 
-            file.write(_string(ir) + " " + _string(ig) + " " + _string(ib) + "\n");
+            file.write(string(ir) + " " + string(ig) + " " + string(ib) + "\n");
         }
     }
     let end_time = _time_ms();
     let elapsed_time = end_time - start_time;
-    println("Rendering completed in " + _string(elapsed_time) + " ms");
+    println("Rendering completed in " + string(elapsed_time) + " ms");
     file.close();
 }
 

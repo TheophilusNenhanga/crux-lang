@@ -43,9 +43,7 @@
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
-#define IS_CRUX_NATIVE_FUNCTION(value)                                         \
-	is_object_type(value, OBJECT_NATIVE_FUNCTION)
-#define IS_CRUX_NATIVE_METHOD(value) is_object_type(value, OBJECT_NATIVE_METHOD)
+#define IS_CRUX_NATIVE_CALLABLE(value) is_object_type(value, OBJECT_NATIVE_CALLABLE)
 #define IS_CRUX_CLOSURE(value) is_object_type(value, OBJECT_CLOSURE)
 #define IS_CRUX_BOUND_METHOD(value) is_object_type(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) is_object_type(value, OBJECT_ARRAY)
@@ -65,10 +63,7 @@
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_FUNCTION(value)                                         \
-	((ObjectNativeFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_METHOD(value)                                           \
-	((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_CALLABLE(value) ((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
@@ -94,8 +89,7 @@
 typedef enum {
 	OBJECT_STRING,
 	OBJECT_FUNCTION,
-	OBJECT_NATIVE_FUNCTION,
-	OBJECT_NATIVE_METHOD,
+	OBJECT_NATIVE_CALLABLE,
 	OBJECT_CLOSURE,
 	OBJECT_UPVALUE,
 	OBJECT_ARRAY,
@@ -223,21 +217,13 @@ struct ObjectResult {//24
 
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct {//32
+typedef struct {//64
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
-	ValueType arg_types[NATIVE_FUNCTION_MAX_ARGS];
-} ObjectNativeFunction;
-
-typedef struct {//32
-	CruxObject object;
-	CruxCallable function;
-	ObjectString *name;
-	int arity;
-	ValueType arg_types[NATIVE_FUNCTION_MAX_ARGS];
-} ObjectNativeMethod;
+	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
+} ObjectNativeCallable;
 
 typedef struct {//24
 	Value key;
@@ -394,27 +380,9 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
-ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
+ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function,
 					  int arity, ObjectString *name
-					  ,const ValueType* arg_types);
-
-/**
- * @brief Creates a new native method object.
- *
- * Native methods are similar to native functions but are associated with
- * classes. This function allocates and initializes a new ObjectNativeMethod.
- *
- * @param vm The virtual machine.
- * @param function The C function pointer representing the native method's
- * implementation.
- * @param arity The expected number of arguments for the native method.
- * @param name The name of the native method as an ObjectString (for debugging).
- * @param arg_types the types of the arguments. This array must be owned
- *
- * @return A pointer to the newly created ObjectNativeMethod.
- */
-ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
-				      ObjectString *name, const ValueType* arg_types);
+					  ,const TypeMask* arg_types);
 
 /**
  * @brief Creates a new function object.

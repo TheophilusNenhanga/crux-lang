@@ -4,6 +4,7 @@
 #include "alloc.h"
 #include "compiler.h"
 #include "garbage_collector.h"
+#include "object.h"
 #include "value.h"
 
 #ifdef DEBUG_LOG_GC
@@ -135,8 +136,7 @@ static void blacken_upvalue(VM *vm, CruxObject *object);
 static void blacken_array(VM *vm, CruxObject *object);
 static void blacken_table(VM *vm, CruxObject *object);
 static void blacken_error(VM *vm, CruxObject *object);
-static void blacken_native_function(VM *vm, CruxObject *object);
-static void blacken_native_method(VM *vm, CruxObject *object);
+static void blacken_native_callable(VM *vm, CruxObject *object);
 static void blacken_result(VM *vm, CruxObject *object);
 static void blacken_random(VM *vm, CruxObject *object);
 static void blacken_file(VM *vm, CruxObject *object);
@@ -150,8 +150,7 @@ static void blacken_string(VM *vm, CruxObject *object);
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
 	[OBJECT_FUNCTION] = blacken_function,
-	[OBJECT_NATIVE_FUNCTION] = blacken_native_function,
-	[OBJECT_NATIVE_METHOD] = blacken_native_method,
+	[OBJECT_NATIVE_CALLABLE] = blacken_native_callable,
 	[OBJECT_CLOSURE] = blacken_closure,
 	[OBJECT_UPVALUE] = blacken_upvalue,
 	[OBJECT_ARRAY] = blacken_array,
@@ -222,15 +221,9 @@ static void blacken_error(VM *vm, CruxObject *object)
 	mark_object(vm, (CruxObject *)error->message);
 }
 
-static void blacken_native_function(VM *vm, CruxObject *object)
+static void blacken_native_callable(VM *vm, CruxObject *object)
 {
-	const ObjectNativeFunction *native = (ObjectNativeFunction *)object;
-	mark_object(vm, (CruxObject *)native->name);
-}
-
-static void blacken_native_method(VM *vm, CruxObject *object)
-{
-	const ObjectNativeMethod *native = (ObjectNativeMethod *)object;
+	const ObjectNativeCallable *native = (ObjectNativeCallable *)object;
 	mark_object(vm, (CruxObject *)native->name);
 }
 
@@ -323,8 +316,7 @@ static void blacken_string(VM *vm, CruxObject *object)
 
 static void free_object_string(VM *vm, CruxObject *object);
 static void free_object_function(VM *vm, CruxObject *object);
-static void free_object_native_function(VM *vm, CruxObject *object);
-static void free_object_native_method(VM *vm, CruxObject *object);
+static void free_object_native_callable(VM *vm, CruxObject *object);
 static void free_object_closure(VM *vm, CruxObject *object);
 static void free_object_upvalue(VM *vm, CruxObject *object);
 static void free_object_array(VM *vm, CruxObject *object);
@@ -342,8 +334,7 @@ static void free_object_complex(VM *vm, CruxObject *object);
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
 	[OBJECT_FUNCTION] = free_object_function,
-	[OBJECT_NATIVE_FUNCTION] = free_object_native_function,
-	[OBJECT_NATIVE_METHOD] = free_object_native_method,
+	[OBJECT_NATIVE_CALLABLE] = free_object_native_callable,
 	[OBJECT_CLOSURE] = free_object_closure,
 	[OBJECT_UPVALUE] = free_object_upvalue,
 	[OBJECT_ARRAY] = free_object_array,
@@ -406,14 +397,9 @@ static void free_object_function(VM *vm, CruxObject *object)
 	FREE_OBJECT(vm, ObjectFunction, object);
 }
 
-static void free_object_native_function(VM *vm, CruxObject *object)
+static void free_object_native_callable(VM *vm, CruxObject *object)
 {
-	FREE_OBJECT(vm, ObjectNativeFunction, object);
-}
-
-static void free_object_native_method(VM *vm, CruxObject *object)
-{
-	FREE_OBJECT(vm, ObjectNativeMethod, object);
+	FREE_OBJECT(vm, ObjectNativeCallable, object);
 }
 
 static void free_object_closure(VM *vm, CruxObject *object)
@@ -494,7 +480,8 @@ static void free_object_vector(VM *vm, CruxObject *object)
 {
 	const ObjectVector *vector = (ObjectVector *)object;
 	if (vector->dimensions > 4) {
-		FREE(vm, double, vector->as.h_components);
+		FREE_ARRAY(vm, double, vector->as.h_components,
+			   vector->dimensions);
 	}
 	FREE_OBJECT(vm, ObjectVector, object);
 }

@@ -1,6 +1,3 @@
-#include "stdlib/std.h"
-
-#include <stdio.h>
 #include <string.h>
 
 #include "garbage_collector.h"
@@ -14,6 +11,7 @@
 #include "stdlib/math.h"
 #include "stdlib/matrix.h"
 #include "stdlib/random.h"
+#include "stdlib/stdlib.h"
 #include "stdlib/string.h"
 #include "stdlib/sys.h"
 #include "stdlib/tables.h"
@@ -99,8 +97,8 @@ static const Callable randomMethods[] = {
 	{"float",
 	 random_float_method,
 	 3,
-	 {RANDOM_TYPE, FLOAT_TYPE, FLOAT_TYPE}},
-	{"bool", random_bool_method, 2, {RANDOM_TYPE, FLOAT_TYPE}},
+	 {RANDOM_TYPE, NUMERIC_TYPE, NUMERIC_TYPE}},
+	{"bool", random_bool_method, 2, {RANDOM_TYPE, NUMERIC_TYPE}},
 	{"choice", random_choice_method, 2, {RANDOM_TYPE, ARRAY_TYPE}},
 	{"_next", random_next_method, 1, {RANDOM_TYPE}}};
 
@@ -119,29 +117,26 @@ static const Callable coreFunctions[] = {
 	{"table", table_function, 1, {ANY_TYPE}},
 	{"array", array_function, 1, {ANY_TYPE}},
 	{"format", format_function, 2, {STRING_TYPE, TABLE_TYPE}},
-	{"_int", int_function_, 1, {ANY_TYPE}},
-	{"_float", float_function_, 1, {ANY_TYPE}},
-	{"_table", table_function_, 1, {ANY_TYPE}},
-	{"_array", array_function_, 1, {ANY_TYPE}}};
+};
 
 static const Callable mathFunctions[] = {
-	{"pow", pow_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
-	{"sqrt", sqrt_function, 1, {FLOAT_TYPE}},
-	{"ceil", ceil_function, 1, {FLOAT_TYPE}},
-	{"floor", floor_function, 1, {FLOAT_TYPE}},
-	{"abs", abs_function, 1, {FLOAT_TYPE}},
-	{"sin", sin_function, 1, {FLOAT_TYPE}},
-	{"cos", cos_function, 1, {FLOAT_TYPE}},
-	{"tan", tan_function, 1, {FLOAT_TYPE}},
-	{"atan", atan_function, 1, {FLOAT_TYPE}},
-	{"acos", acos_function, 1, {FLOAT_TYPE}},
-	{"asin", asin_function, 1, {FLOAT_TYPE}},
-	{"exp", exp_function, 1, {FLOAT_TYPE}},
-	{"ln", ln_function, 1, {FLOAT_TYPE}},
-	{"log", log10_function, 1, {FLOAT_TYPE}},
-	{"round", round_function, 1, {FLOAT_TYPE}},
-	{"min", min_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
-	{"max", max_function, 2, {FLOAT_TYPE, FLOAT_TYPE}},
+	{"pow", pow_function, 2, {NUMERIC_TYPE, NUMERIC_TYPE}},
+	{"sqrt", sqrt_function, 1, {NUMERIC_TYPE}},
+	{"ceil", ceil_function, 1, {NUMERIC_TYPE}},
+	{"floor", floor_function, 1, {NUMERIC_TYPE}},
+	{"abs", abs_function, 1, {NUMERIC_TYPE}},
+	{"sin", sin_function, 1, {NUMERIC_TYPE}},
+	{"cos", cos_function, 1, {NUMERIC_TYPE}},
+	{"tan", tan_function, 1, {NUMERIC_TYPE}},
+	{"atan", atan_function, 1, {NUMERIC_TYPE}},
+	{"acos", acos_function, 1, {NUMERIC_TYPE}},
+	{"asin", asin_function, 1, {NUMERIC_TYPE}},
+	{"exp", exp_function, 1, {NUMERIC_TYPE}},
+	{"ln", ln_function, 1, {NUMERIC_TYPE}},
+	{"log", log10_function, 1, {NUMERIC_TYPE}},
+	{"round", round_function, 1, {NUMERIC_TYPE}},
+	{"min", min_function, 2, {NUMERIC_TYPE, NUMERIC_TYPE}},
+	{"max", max_function, 2, {NUMERIC_TYPE, NUMERIC_TYPE}},
 	{"e", e_function, 0, {}},
 	{"pi", pi_function, 0, {}},
 	{"nan", nan_function, 0, {}},
@@ -162,8 +157,8 @@ static const Callable ioFunctions[] = {
 };
 
 static const Callable timeFunctions[] = {
-	{"sleep_s", sleep_seconds_function, 1, {FLOAT_TYPE}},
-	{"sleep_ms", sleep_milliseconds_function, 1, {FLOAT_TYPE}},
+	{"sleep_s", sleep_seconds_function, 1, {NUMERIC_TYPE}},
+	{"sleep_ms", sleep_milliseconds_function, 1, {NUMERIC_TYPE}},
 	{"_time_s", time_seconds_function_, 0, {}},
 	{"_time_ms", time_milliseconds_function_, 0, {}},
 	{"_year", year_function_, 0, {}},
@@ -218,14 +213,14 @@ static const Callable fileSystemMethods[] = {
 };
 
 static const Callable complexFunctions[] = {
-	{"Complex", new_complex_function, 2, {FLOAT_TYPE, FLOAT_TYPE}}};
+	{"Complex", new_complex_function, 2, {NUMERIC_TYPE, NUMERIC_TYPE}}};
 
 static const Callable complexMethods[] = {
 	{"add", add_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
 	{"sub", sub_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
 	{"mul", mul_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
 	{"div", div_complex_number_method, 2, {COMPLEX_TYPE, COMPLEX_TYPE}},
-	{"scale", scale_complex_number_method, 2, {COMPLEX_TYPE, FLOAT_TYPE}},
+	{"scale", scale_complex_number_method, 2, {COMPLEX_TYPE, NUMERIC_TYPE}},
 	{"real", complex_real_method, 1, {COMPLEX_TYPE}},
 	{"imag", complex_imag_method, 1, {COMPLEX_TYPE}},
 	{"conjugate", conjugate_complex_number_method, 1, {COMPLEX_TYPE}},
@@ -237,14 +232,14 @@ static const Callable complexMethods[] = {
 };
 
 static const Callable vectorFunctions[] = {
-	{"Vec", new_vector_function, 2, {FLOAT_TYPE, FLOAT_TYPE}}};
+	{"Vec", new_vector_function, 2, {INT_TYPE, ARRAY_TYPE}}};
 
 static const Callable vectorMethods[] = {
 	{"dot", vector_dot_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
 	{"add", vector_add_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
 	{"subtract", vector_subtract_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
-	{"multiply", vector_multiply_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
-	{"divide", vector_divide_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
+	{"multiply", vector_multiply_method, 2, {VECTOR_TYPE, NUMERIC_TYPE}},
+	{"divide", vector_divide_method, 2, {VECTOR_TYPE, NUMERIC_TYPE}},
 	{"magnitude", vector_magnitude_method, 1, {VECTOR_TYPE}},
 	{"normalize", vector_normalize_method, 1, {VECTOR_TYPE}},
 	{"distance", vector_distance_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
@@ -253,7 +248,10 @@ static const Callable vectorMethods[] = {
 	 2,
 	 {VECTOR_TYPE, VECTOR_TYPE}},
 	{"cross", vector_cross_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
-	{"lerp", vector_lerp_method, 3, {VECTOR_TYPE, VECTOR_TYPE, FLOAT_TYPE}},
+	{"lerp",
+	 vector_lerp_method,
+	 3,
+	 {VECTOR_TYPE, VECTOR_TYPE, NUMERIC_TYPE}},
 	{"reflect", vector_reflect_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
 	{"equals", vector_equals_method, 2, {VECTOR_TYPE, VECTOR_TYPE}},
 	{"x", vector_x_method, 1, {VECTOR_TYPE}},
@@ -277,7 +275,7 @@ static const Callable matrixMethods[] = {
 	{"add", matrix_add_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
 	{"sub", matrix_subtract_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
 	{"mul", matrix_multiply_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
-	{"scale", matrix_scale_method, 2, {MATRIX_TYPE, FLOAT_TYPE}},
+	{"scale", matrix_scale_method, 2, {MATRIX_TYPE, NUMERIC_TYPE}},
 	{"transpose", matrix_transpose_method, 1, {MATRIX_TYPE}},
 	{"determinant", matrix_determinant_method, 1, {MATRIX_TYPE}},
 	{"inverse", matrix_inverse_method, 1, {MATRIX_TYPE}},
@@ -299,13 +297,13 @@ static const Callable matrixMethods[] = {
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
 			    const CruxCallable method_function, const int arity,
-			    const ValueType *arg_types)
+			    const TypeMask *arg_types)
 {
 	ObjectString *name = copy_string(vm, method_name,
 					 (int)strlen(method_name));
 	table_set(vm, method_table, name,
-		  OBJECT_VAL(new_native_method(vm, method_function, arity, name,
-					       arg_types)));
+		  OBJECT_VAL(new_native_callable(vm, method_function, arity,
+						 name, arg_types)));
 	return true;
 }
 
@@ -324,14 +322,14 @@ static bool registerMethods(VM *vm, Table *methodTable, const Callable *methods,
 static bool registerNativeFunction(VM *vm, Table *functionTable,
 				   const char *functionName,
 				   const CruxCallable function, const int arity,
-				   const ValueType *arg_types)
+				   const TypeMask *arg_types)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	ObjectString *name = copy_string(vm, functionName,
 					 (int)strlen(functionName));
 	push(currentModuleRecord, OBJECT_VAL(name));
 	const Value func = OBJECT_VAL(
-		new_native_function(vm, function, arity, name, arg_types));
+		new_native_callable(vm, function, arity, name, arg_types));
 	push(currentModuleRecord, func);
 	const bool success = table_set(vm, functionTable, name, func);
 

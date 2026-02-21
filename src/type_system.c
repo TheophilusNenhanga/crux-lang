@@ -2,130 +2,96 @@
 #include "object.h"
 #include "value.h"
 
-const char *type_name(ValueType value_type)
+TypeMask get_type_mask(Value value)
 {
-	switch (value_type) {
-	case ANY_TYPE: {
-		return "Any";
-	}
-	case INT_TYPE: {
-		return "Int";
-	}
-	case FLOAT_TYPE: {
-		return "Float";
-	}
-	case NIL_TYPE: {
-		return "Nil";
-	}
-	case BOOL_TYPE: {
-		return "Bool";
-	}
-	case STRING_TYPE: {
-		return "String";
-	}
-	case FUNCTION_TYPE: {
-		return "Function";
-	}
-	case ARRAY_TYPE: {
-		return "Array";
-	}
-	case TABLE_TYPE: {
-		return "Table";
-	}
-	case ERROR_TYPE: {
-		return "Error";
-	}
-	case RESULT_TYPE: {
-		return "Result";
-	}
-	case RANDOM_TYPE: {
-		return "Random";
-	}
-	case FILE_TYPE: {
-		return "File";
-	}
-	case STRUCT_TYPE: {
-		return "Struct";
-	}
-	case VECTOR_TYPE: {
-		return "Vector";
-	}
-	case COMPLEX_TYPE: {
-		return "Complex";
-	}
-	case MATRIX_TYPE: {
-		return "Matrix";
-	}
-	default:
-		return "unknown";
-	}
-}
-
-static ValueType get_value_type(Value value)
-{
-	if (IS_BOOL(value)) {
+	if (IS_BOOL(value))
 		return BOOL_TYPE;
-	}
-	if (IS_INT(value)) {
+	if (IS_INT(value))
 		return INT_TYPE;
-	}
-	if (IS_FLOAT(value)) {
+	if (IS_FLOAT(value))
 		return FLOAT_TYPE;
-	}
-	if (IS_CRUX_STRING(value)) {
-		return STRING_TYPE;
-	}
-	if (IS_CRUX_FUNCTION(value) || IS_CRUX_NATIVE_FUNCTION(value) ||
-	    IS_CRUX_NATIVE_METHOD(value) || IS_CRUX_CLOSURE(value)) {
-		return FUNCTION_TYPE;
-	}
-	if (IS_CRUX_ARRAY(value)) {
-		return ARRAY_TYPE;
-	}
-	if (IS_CRUX_TABLE(value)) {
-		return TABLE_TYPE;
-	}
-	if (IS_CRUX_ERROR(value)) {
-		return ERROR_TYPE;
-	}
-	if (IS_CRUX_RESULT(value)) {
-		return RESULT_TYPE;
-	}
-	if (IS_CRUX_RANDOM(value)) {
-		return RANDOM_TYPE;
-	}
-	if (IS_CRUX_FILE(value)) {
-		return FILE_TYPE;
-	}
-	if (IS_CRUX_STRUCT(value)) {
-		return STRUCT_TYPE;
-	}
-	if (IS_CRUX_VECTOR(value)) {
-		return VECTOR_TYPE;
-	}
-	if (IS_CRUX_COMPLEX(value)) {
-		return COMPLEX_TYPE;
-	}
-	if (IS_CRUX_MATRIX(value)) {
-		return MATRIX_TYPE;
+	if (IS_NIL(value))
+		return NIL_TYPE;
+
+	if (IS_CRUX_OBJECT(value)) {
+		switch (OBJECT_TYPE(value)) {
+		case OBJECT_STRING:
+			return STRING_TYPE;
+		case OBJECT_ARRAY:
+			return ARRAY_TYPE;
+		case OBJECT_TABLE:
+			return TABLE_TYPE;
+		case OBJECT_ERROR:
+			return ERROR_TYPE;
+		case OBJECT_RESULT:
+			return RESULT_TYPE;
+		case OBJECT_RANDOM:
+			return RANDOM_TYPE;
+		case OBJECT_FILE:
+			return FILE_TYPE;
+		case OBJECT_STRUCT:
+		case OBJECT_STRUCT_INSTANCE:
+			return STRUCT_TYPE;
+		case OBJECT_VECTOR:
+			return VECTOR_TYPE;
+		case OBJECT_COMPLEX:
+			return COMPLEX_TYPE;
+		case OBJECT_MATRIX:
+			return MATRIX_TYPE;
+		case OBJECT_MODULE_RECORD:
+			return MODULE_TYPE;
+		case OBJECT_UPVALUE: {
+			ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+			return get_type_mask(upvalue->closed);
+		}
+		case OBJECT_CLOSURE:
+		case OBJECT_NATIVE_CALLABLE:
+		case OBJECT_FUNCTION:
+			return FUNCTION_TYPE;
+		default:
+			return ANY_TYPE;
+		}
 	}
 	return ANY_TYPE;
 }
 
-const char *value_type_name(Value value)
+void type_mask_name(TypeMask mask, char *buf, int buf_size)
 {
-	ValueType type = get_value_type(value);
-	return type_name(type);
+	if (mask == ANY_TYPE) {
+		snprintf(buf, buf_size, "Any");
+		return;
+	}
+
+	static const struct {
+		TypeMask bit;
+		const char *name;
+	} entries[] = {{NIL_TYPE, "Nil"},	  {BOOL_TYPE, "Bool"},
+		       {INT_TYPE, "Int"},	  {FLOAT_TYPE, "Float"},
+		       {STRING_TYPE, "String"},	  {ARRAY_TYPE, "Array"},
+		       {TABLE_TYPE, "Table"},	  {FUNCTION_TYPE, "Function"},
+		       {ERROR_TYPE, "Error"},	  {RESULT_TYPE, "Result"},
+		       {FILE_TYPE, "File"},	  {VECTOR_TYPE, "Vector"},
+		       {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
+		       {STRUCT_TYPE, "Struct"},	  {MODULE_TYPE, "Module"}};
+
+	int offset = 0;
+	bool first = true;
+	for (int i = 0; i < (int)(sizeof(entries) / sizeof(entries[0])); i++) {
+		if (mask & entries[i].bit) {
+			if (!first)
+				offset += snprintf(buf + offset,
+						   buf_size - offset, " | ");
+			offset += snprintf(buf + offset, buf_size - offset,
+					   "%s", entries[i].name);
+			first = false;
+		}
+	}
 }
 
-bool runtime_types_compatible(ValueType expected, Value actual)
+bool runtime_types_compatible(TypeMask expected, Value actual)
 {
-	ValueType actual_type = get_value_type(actual);
-	if (expected == ANY_TYPE) {
+	if (expected == ANY_TYPE)
 		return true;
-	}
-	if (expected == FLOAT_TYPE && actual_type == INT_TYPE) {
-		return true;
-	}
-	return expected == actual_type;
+	TypeMask actual_mask = get_type_mask(actual);
+	return (expected & actual_mask) != 0;
 }
