@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "stdlib/core.h"
 #include "vm.h"
 #include "vm_helpers.h"
 
@@ -108,8 +106,9 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 				      "Cannot allocate more memory."};
 	}
 	case ASSERT: {
-		return (ErrorDetails){"Assert Error",
-				      "Double check your program's expectations;"};
+		return (ErrorDetails){
+			"Assert Error",
+			"Double check your program's expectations;"};
 	}
 	case IMPORT_EXTENT: {
 		return (ErrorDetails){"Import Extent Error",
@@ -128,16 +127,14 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 			"the module path and name."};
 	}
 	case BRANCH_EXTENT: {
-		return (ErrorDetails){
-		"Branch Extent Error",
-			"You have exceeded the allowed number of branches. Use less branches."
-		};
+		return (ErrorDetails){"Branch Extent Error",
+				      "You have exceeded the allowed number of "
+				      "branches. Use less branches."};
 	}
 	case VALUE: {
-		return (ErrorDetails){
-		"Value Error",
-		"Check the value and whether it's correct for the usage context."
-		};
+		return (ErrorDetails){"Value Error",
+				      "Check the value and whether it's "
+				      "correct for the usage context."};
 	}
 	case RUNTIME:
 	default:

@@ -13,10 +13,13 @@
 #include <unistd.h>
 #endif
 
-/* TODO: Split this into two functions argv and argc */
+/**
+ * Returns the command line arguments as an array
+ * TODO:CHNANGE TYPE TO {} (no arguments)
+ * Returns Result<Array>
+ */
 Value args_function(VM *vm, const Value *args)
 {
-
 	(void)args;
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectArray *resultArray = new_array(vm, 2);
@@ -49,10 +52,13 @@ Value args_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(resultArray)));
 }
 
-/* TODO: This can fail if out of memory */
+/**
+ * Returns the current operating system platform
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns String
+ */
 Value platform_function(VM *vm, const Value *args)
 {
-
 	(void)args;
 #ifdef _WIN32
 	return OBJECT_VAL(copy_string(vm, "windows", 7));
@@ -65,10 +71,13 @@ Value platform_function(VM *vm, const Value *args)
 #endif
 }
 
-/* TODO: This can fail if Out of Memory */
+/**
+ * Returns the CPU architecture
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns String
+ */
 Value arch_function(VM *vm, const Value *args)
 {
-
 	(void)args;
 #if defined(__x86_64__) || defined(_M_X64)
 	return OBJECT_VAL(copy_string(vm, "x86_64", 6));
@@ -101,9 +110,13 @@ Value arch_function(VM *vm, const Value *args)
 #endif
 }
 
+/**
+ * Returns the current process ID
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value pid_function(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	(void)args;
 #ifdef _WIN32
@@ -113,6 +126,11 @@ Value pid_function(VM *vm, const Value *args)
 #endif
 }
 
+/**
+ * Gets the value of an environment variable
+ * arg0 -> name: String
+ * Returns Result<String>
+ */
 Value get_env_function(VM *vm, const Value *args)
 {
 	const char *value = getenv(AS_C_STRING(args[0]));
@@ -136,6 +154,11 @@ Value get_env_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Pauses execution for the specified number of seconds
+ * arg0 -> seconds: Int
+ * Returns Nil
+ */
 Value sleep_function(VM *vm, const Value *args)
 {
 #ifdef _WIN32
@@ -146,6 +169,11 @@ Value sleep_function(VM *vm, const Value *args)
 	return NIL_TYPE;
 }
 
+/**
+ * Exits the program with the given exit code
+ * arg0 -> code: Int
+ * Returns (never returns)
+ */
 Value exit_function(VM *vm, const Value *args)
 {
 	(void)vm;

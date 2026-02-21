@@ -24,9 +24,13 @@ static void build_prefix_table(const char *pattern,
 	}
 }
 
+/**
+ * Returns the first character of a string
+ * arg0 -> string: String
+ * Returns Result<String>
+ */
 Value string_first_method(VM *vm, const Value *args)
 {
-
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 
@@ -46,9 +50,13 @@ Value string_first_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Returns the last character of a string
+ * arg0 -> string: String
+ * Returns Result<String>
+ */
 Value string_last_method(VM *vm, const Value *args)
 {
-
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (string->length == 0) {
@@ -67,9 +75,14 @@ Value string_last_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Returns the character at the specified index
+ * arg0 -> string: String
+ * arg1 -> index: Int
+ * Returns Result<String>
+ */
 Value string_get_method(VM *vm, const Value *args)
 {
-
 	const Value value = args[0];
 	const Value index = args[1];
 	const ObjectString *string = AS_CRUX_STRING(value);
@@ -98,9 +111,13 @@ Value string_get_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Converts a string to uppercase
+ * arg0 -> string: String
+ * Returns Result<String>
+ */
 Value string_upper_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -135,9 +152,13 @@ Value string_upper_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Converts a string to lowercase
+ * arg0 -> string: String
+ * Returns Result<String>
+ */
 Value string_lower_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -172,9 +193,13 @@ Value string_lower_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Removes leading and trailing whitespace from a string
+ * arg0 -> string: String
+ * Returns Result<String>
+ */
 Value string_strip_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	if (string->length == 0) {
@@ -204,9 +229,15 @@ Value string_strip_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Extracts a substring from a string between start and end indices (exclusive)
+ * arg0 -> string: String
+ * arg1 -> start: Int
+ * arg2 -> end: Int
+ * Returns Result<String>
+ */
 Value string_substring_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 
 	const int rawStartIndex = AS_INT(args[1]);
@@ -240,6 +271,12 @@ Value string_substring_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Splits a string into an array of substrings using a delimiter
+ * arg0 -> string: String
+ * arg1 -> delimiter: String
+ * Returns Result<Array>
+ */
 Value string_split_method(VM *vm, const Value *args)
 {
 	ObjectString *string = AS_CRUX_STRING(args[0]);
@@ -336,9 +373,14 @@ Value string_split_method(VM *vm, const Value *args)
 }
 
 // KMP string-matching algorithm
+/**
+ * Checks if a string contains a substring
+ * arg0 -> string: String
+ * arg1 -> substring: String
+ * Returns Result<Bool>
+ */
 Value string_contains_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
 
@@ -385,9 +427,15 @@ Value string_contains_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
+/**
+ * Replaces all occurrences of a substring with another string
+ * arg0 -> string: String
+ * arg1 -> target: String
+ * arg2 -> replacement: String
+ * Returns Result<String>
+ */
 Value string_replace_method(VM *vm, const Value *args)
 {
-
 	ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *goal = AS_CRUX_STRING(args[1]);
 	const ObjectString *replacement = AS_CRUX_STRING(args[2]);
@@ -501,9 +549,14 @@ Value string_replace_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Checks if a string starts with a given prefix
+ * arg0 -> string: String
+ * arg1 -> prefix: String
+ * Returns Result<Bool>
+ */
 Value string_starts_with_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *prefix = AS_CRUX_STRING(args[1]);
 
@@ -525,9 +578,14 @@ Value string_starts_with_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
+/**
+ * Checks if a string ends with a given suffix
+ * arg0 -> string: String
+ * arg1 -> suffix: String
+ * Returns Result<Bool>
+ */
 Value string_ends_with_method(VM *vm, const Value *args)
 {
-
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	const ObjectString *suffix = AS_CRUX_STRING(args[1]);
 
@@ -551,9 +609,13 @@ Value string_ends_with_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(false)));
 }
 
+/**
+ * Checks if all characters in a string are alphanumeric
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_al_num_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -564,9 +626,13 @@ Value string_is_al_num_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if all characters in a string are alphabetic
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_alpha_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -577,9 +643,13 @@ Value string_is_alpha_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if all characters in a string are digits
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_digit_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -590,9 +660,13 @@ Value string_is_digit_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if all characters in a string are lowercase
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_lower_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -603,9 +677,13 @@ Value string_is_lower_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if all characters in a string are uppercase
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_upper_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -616,9 +694,13 @@ Value string_is_upper_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if all characters in a string are whitespace
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_space_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	for (uint32_t i = 0; i < string->length; i++) {
@@ -629,9 +711,13 @@ Value string_is_space_method(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
+/**
+ * Checks if a string is empty
+ * arg0 -> string: String
+ * Returns Bool
+ */
 Value string_is_empty_method(VM *vm, const Value *args)
 {
-
 	(void)vm;
 	const ObjectString *string = AS_CRUX_STRING(args[0]);
 	return BOOL_VAL(string->length == 0);
@@ -640,6 +726,12 @@ Value string_is_empty_method(VM *vm, const Value *args)
 /*
  * arg0 -> the string this is called on
  * arg1 -> the string that will be concatenated
+ */
+/**
+ * Concatenates two strings together
+ * arg0 -> string: String
+ * arg1 -> other: String
+ * Returns Result<String>
  */
 Value string_concat_method(VM *vm, const Value *args)
 {

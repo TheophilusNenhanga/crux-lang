@@ -114,7 +114,6 @@ struct VM {
 	GC_STATUS gc_status;
 
 	int import_count;
-	bool panicking;
 };
 
 #define push(module_record, value)                                             \

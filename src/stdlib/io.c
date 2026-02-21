@@ -115,6 +115,11 @@ static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
  * Infallible from the language's perspective; we can't reasonably recover
  * from a broken stdout, so we match the existing io module's behaviour.
  */
+/**
+ * Writes a string representation of a value to stdout without a newline
+ * arg0 -> value: Any
+ * Returns Nil
+ */
 Value io_print_function(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -124,6 +129,11 @@ Value io_print_function(VM *vm, const Value *args)
 
 /*
  * println(value) — writes to stdout followed by '\n'.
+ */
+/**
+ * Writes a string representation of a value to stdout followed by a newline
+ * arg0 -> value: Any
+ * Returns Nil
  */
 Value io_println_function(VM *vm, const Value *args)
 {
@@ -137,6 +147,11 @@ Value io_println_function(VM *vm, const Value *args)
 /*
  * print_to(channel: string, value) -> Result<nil>
  * Writes to the named channel without a trailing newline.
+ */
+/**
+ * Writes a string representation of a value to a specified channel ("stdout" or
+ * "stderr") without a newline arg0 -> channel: String arg1 -> value: Any
+ * Returns Result<Nil>
  */
 Value io_print_to_function(VM *vm, const Value *args)
 {
@@ -160,6 +175,11 @@ Value io_print_to_function(VM *vm, const Value *args)
  * println_to(channel: string, value) -> Result<nil>
  * Writes to the named channel followed by '\n'.
  */
+/**
+ * Writes a string representation of a value to a specified channel ("stdout" or
+ * "stderr") followed by a newline arg0 -> channel: String arg1 -> value: Any
+ * Returns Result<Nil>
+ */
 Value io_println_to_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
@@ -182,12 +202,9 @@ Value io_println_to_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/* ── Input — stdin ───────────────────────────────────────────────────────────
- */
-
-/*
- * scan() -> Result<string>
- * Reads exactly one character from stdin, then discards the rest of the line.
+/**
+ * Reads exactly one character from stdin, discarding the rest of the line
+ * Returns Result<String>
  */
 Value io_scan_function(VM *vm, const Value *args)
 {
@@ -212,14 +229,12 @@ Value io_scan_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * scanln() -> Result<string>
- * Reads from stdin up to (and discarding) the next '\n'.
- * Returns the line content without the newline.
+/**
+ * Reads a line from stdin up to (and excluding) the newline character
+ * Returns Result<String>
  */
 Value io_scanln_function(VM *vm, const Value *args)
 {
-
 	(void)args;
 
 	ObjectString *s = NULL;
@@ -241,10 +256,10 @@ Value io_scanln_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * nscan(n: int) -> Result<string>
- * Reads up to <n> characters from stdin, stopping early at '\n'.
- * Any remaining characters on the line are discarded.
+/**
+ * Reads up to n characters from stdin, stopping early at newline
+ * arg0 -> n: Int
+ * Returns Result<String>
  */
 Value io_nscan_function(VM *vm, const Value *args)
 {
@@ -270,17 +285,14 @@ Value io_nscan_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/* ── Input — named channel ───────────────────────────────────────────────────
- */
-
-/*
- * scan_from(channel: string) -> Result<string>
- * Reads exactly one character from the named channel,
- * then discards the rest of that line.
+/**
+ * Reads exactly one character from a specified channel, discarding the rest of
+ * the line
+ * arg0 -> channel: String
+ * Returns Result<String>
  */
 Value io_scan_from_function(VM *vm, const Value *args)
 {
-
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
 		return MAKE_GC_SAFE_ERROR(
@@ -313,6 +325,10 @@ Value io_scan_from_function(VM *vm, const Value *args)
  * scanln_from(channel: string) -> Result<string>
  * Reads from the named channel up to (and discarding) the next '\n'.
  */
+/**
+ * Reads a line from a specified channel up to (and excluding) the newline
+ * character arg0 -> channel: String Returns Result<String>
+ */
 Value io_scanln_from_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
@@ -344,6 +360,12 @@ Value io_scanln_from_function(VM *vm, const Value *args)
 /*
  * nscan_from(channel: string, n: int) -> Result<string>
  * Reads up to <n> characters from the named channel, stopping early at '\n'.
+ */
+/**
+ * Reads up to n characters from a specified channel, stopping early at newline
+ * arg0 -> channel: String
+ * arg1 -> n: Int
+ * Returns Result<String>
  */
 Value io_nscan_from_function(VM *vm, const Value *args)
 {

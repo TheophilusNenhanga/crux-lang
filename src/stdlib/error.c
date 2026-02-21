@@ -2,10 +2,15 @@
 
 #include "garbage_collector.h"
 #include "panic.h"
+#include "value.h"
 
+/**
+ * Creates an error value with a message
+ * arg0 -> message: Any
+ * Returns Error
+ */
 Value error_function(VM *vm, const Value *args)
 {
-
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	const Value message = args[0];
 	ObjectString *errorMessage = to_string(vm, message);
@@ -15,20 +20,31 @@ Value error_function(VM *vm, const Value *args)
 	return OBJECT_VAL(error);
 }
 
+/**
+ * Asserts that a condition is true, creates an error with message if false
+ * arg0 -> condition: Bool
+ * arg1 -> message: String
+ * Returns Nil
+ */
 Value assert_function(VM *vm, const Value *args)
 {
 	const bool result = AS_BOOL(args[0]);
 	ObjectString *message = AS_CRUX_STRING(args[1]);
 
 	if (result == false) {
-		vm->panicking = true;
-		ObjectError *error = new_error(vm, message, ASSERT, true);
-		return OBJECT_VAL(error);
+		runtime_panic(vm->current_module_record, true, ASSERT,
+			      message->chars);
+		return NIL_VAL;
 	}
 	// returning different types because we panicked anyway!
 	return NIL_VAL;
 }
 
+/**
+ * Returns the error message from an Error
+ * arg0 -> error: Error
+ * Returns String
+ */
 Value error_message_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -36,6 +52,11 @@ Value error_message_method(VM *vm, const Value *args)
 	return OBJECT_VAL(error->message);
 }
 
+/**
+ * Returns the type of error as a string
+ * arg0 -> error: Error
+ * Returns String
+ */
 Value error_type_method(VM *vm, const Value *args)
 {
 	const ObjectError *error = AS_CRUX_ERROR(args[0]);
@@ -180,6 +201,11 @@ Value error_type_method(VM *vm, const Value *args)
 	}
 }
 
+/**
+ * Creates an error Result with a message
+ * arg0 -> message: String
+ * Returns Result<Nothing>
+ */
 Value err_function(VM *vm, const Value *args)
 {
 	ObjectString *message = to_string(vm, args[0]);
@@ -192,12 +218,21 @@ Value err_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Wraps a value in an Ok Result
+ * arg0 -> value: Any
+ * Returns Result
+ */
 Value ok_function(VM *vm, const Value *args)
 {
 	return OBJECT_VAL(new_ok_result(vm, args[0]));
 }
 
-// arg0 - Result
+/**
+ * Unwraps a Result, returning the value if Ok or the error if Err
+ * arg0 -> result: Result
+ * Returns Any (value or Error)
+ */
 Value unwrap_function(VM *vm, const Value *args)
 {
 	(void)vm;

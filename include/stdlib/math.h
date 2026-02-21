@@ -1,8 +1,7 @@
 #ifndef MATH_H
 #define MATH_H
 
-#include "../value.h"
-#include "std.h"
+#include "value.h"
 
 Value pow_function(VM *vm, const Value *args);
 Value sqrt_function(VM *vm, const Value *args);
