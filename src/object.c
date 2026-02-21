@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "value.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -206,8 +207,7 @@ void print_type_to(FILE *stream, const Value value)
 		fprintf(stream, "'String'");
 		break;
 	case OBJECT_FUNCTION:
-	case OBJECT_NATIVE_FUNCTION:
-	case OBJECT_NATIVE_METHOD:
+	case OBJECT_NATIVE_CALLABLE:
 	case OBJECT_CLOSURE:
 		fprintf(stream, "'Function'");
 		break;
@@ -555,23 +555,14 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		print_function_to(stream, AS_CRUX_FUNCTION(value));
 		break;
 	}
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			value);
 		if (native->name != NULL) {
-			fprintf(stream, "<native fn %s>", native->name->chars);
-		} else {
-			fprintf(stream, "<native fn>");
-		}
-		break;
-	}
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
-		if (native->name != NULL) {
-			fprintf(stream, "<native method %s>",
+			fprintf(stream, "<native callable %s>",
 				native->name->chars);
 		} else {
-			fprintf(stream, "<native method>");
+			fprintf(stream, "<native callable>");
 		}
 		break;
 	}
@@ -733,8 +724,8 @@ ObjectString *to_string(VM *vm, const Value value)
 		return copy_string(vm, buffer, length);
 	}
 
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			value);
 		if (native->name != NULL) {
 			const char *start = "<native fn ";
@@ -752,26 +743,6 @@ ObjectString *to_string(VM *vm, const Value value)
 			return result;
 		}
 		return copy_string(vm, "<native fn>", 11);
-	}
-
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
-		if (native->name != NULL) {
-			const char *start = "<native method ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native method>", 15);
 	}
 
 	case OBJECT_CLOSURE: {
@@ -936,34 +907,18 @@ ObjectFunction *new_function(VM *vm)
  * array
  * @return The GC owned object
  */
-ObjectNativeFunction *new_native_function(VM *vm, const CruxCallable function,
+ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
 					  const int arity, ObjectString *name,
-					  const ValueType * arg_types
-					  )
+					  const TypeMask *arg_types)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction,
-						       OBJECT_NATIVE_FUNCTION);
+	ObjectNativeCallable *native = ALLOCATE_OBJECT(vm, ObjectNativeCallable,
+						       OBJECT_NATIVE_CALLABLE);
 	pop(vm->current_module_record);
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
-	memcpy(native->arg_types, arg_types, arity * sizeof(ValueType));
-	return native;
-}
-
-ObjectNativeMethod *new_native_method(VM *vm, const CruxCallable function,
-				      const int arity, ObjectString *name
-				      ,const ValueType* arg_types)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod,
-						     OBJECT_NATIVE_METHOD);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	memcpy(native->arg_types, arg_types, arity * sizeof(ValueType));
+	memcpy(native->arg_types, arg_types, arity * sizeof(TypeMask));
 	return native;
 }
 

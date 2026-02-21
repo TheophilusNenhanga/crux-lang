@@ -10,7 +10,7 @@
 #include "object.h"
 #include "panic.h"
 #include "slab_allocator.h"
-#include "stdlib/std.h"
+#include "stdlib/stdlib.h"
 #include "table.h"
 #include "type_system.h"
 #include "value.h"
@@ -192,69 +192,37 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 	case OBJECT_CLOSURE:
 		return call(current_module_record, AS_CRUX_CLOSURE(callee),
 			    arg_count);
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			callee);
 		check_native_arity(arg_count, native);
 
-		const Value *args = current_module_record->stack_top - arg_count;
+		const Value *args = current_module_record->stack_top -
+				    arg_count;
 		for (int i = 0; i < arg_count; i++) {
 			if (!runtime_types_compatible(native->arg_types[i],
 						      args[i])) {
+				char expected_name[128];
+				char actual_name[128];
+				type_mask_name(native->arg_types[i],
+					       expected_name,
+					       sizeof(expected_name));
+				TypeMask actual_mask = get_type_mask(args[i]);
+				type_mask_name(actual_mask, actual_name,
+					       sizeof(actual_name));
 				runtime_panic(current_module_record, false,
 					      TYPE,
-					      "arg %d: expected type %s, but got %s",
-					      i+1,
-					      type_name(native->arg_types[i]),
-					      value_type_name(args[i]));
+					      "In %s() --- arg %d: expected "
+					      "%s, got %s",
+					      native->name->chars, i + 1,
+					      expected_name, actual_name);
 				return false;
 			}
 		}
 
-		const Value result_value = native->function(
-			vm, current_module_record->stack_top - arg_count);
-
-		// only happens for assert functions
-		if (vm->panicking) {
-			vm->panicking = false;
-			const ObjectError * error = AS_CRUX_ERROR(result_value);
-			runtime_panic(current_module_record, true, error->type, error->message->chars);
-		}
+		const Value result_value = native->function(vm, args);
 
 		current_module_record->stack_top -= arg_count + 1;
-
-		push(current_module_record, OBJECT_VAL(result_value));
-		return true;
-	}
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
-			callee);
-		check_native_arity(arg_count, native);
-
-		const Value *args = current_module_record->stack_top - arg_count;
-		for (int i = 0; i < arg_count; i++) {
-			if (!runtime_types_compatible(native->arg_types[i],
-						      args[i])) {
-				runtime_panic(current_module_record, false,
-					      TYPE,
-					      "arg %d: expected type %s, but got %s",
-					      i+1,
-					      type_name(native->arg_types[i]),
-					      value_type_name(args[i]));
-				return false;
-			}
-		}
-
-		const Value result_value = native->function(
-			vm, current_module_record->stack_top - arg_count);
-		current_module_record->stack_top -= arg_count + 1;
-
-		// only happens for assert functions
-		if (vm->panicking) {
-			vm->panicking = false;
-			const ObjectError * error = AS_CRUX_ERROR(result_value);
-			runtime_panic(current_module_record, true, error->type, error->message->chars);
-		}
 
 		push(current_module_record, result_value);
 		return true;
@@ -422,8 +390,7 @@ static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
 static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STRING] = handle_string_invoke,
 	[OBJECT_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_METHOD] = handle_undefined_invoke,
+	[OBJECT_NATIVE_CALLABLE] = handle_undefined_invoke,
 	[OBJECT_CLOSURE] = handle_undefined_invoke,
 	[OBJECT_UPVALUE] = handle_undefined_invoke,
 	[OBJECT_ARRAY] = handle_array_invoke,
@@ -716,7 +683,6 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	table_set(vm, &vm->module_cache, vm->current_module_record->path,
 		  OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
-	vm->panicking = false;
 }
 
 void free_vm(VM *vm)
@@ -1342,8 +1308,7 @@ static Value typeof_matrix(VM *vm, const Value value)
 static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRING] = typeof_string,
 	[OBJECT_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_METHOD] = typeof_function,
+	[OBJECT_NATIVE_CALLABLE] = typeof_function,
 	[OBJECT_CLOSURE] = typeof_function,
 	[OBJECT_UPVALUE] = typeof_upvalue,
 	[OBJECT_ARRAY] = typeof_array,

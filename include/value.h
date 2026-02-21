@@ -1,6 +1,7 @@
 #ifndef VALUE_H
 #define VALUE_H
 
+#include <stdint.h>
 #include "common.h"
 
 typedef struct VM VM;
@@ -69,27 +70,28 @@ typedef struct {
 	int count;
 } ValueArray;
 
-typedef enum
-{
-	ANY_TYPE,
-	INT_TYPE,
-	FLOAT_TYPE,
-	NIL_TYPE,
-	BOOL_TYPE,
-	STRING_TYPE,
-	FUNCTION_TYPE,
-	ARRAY_TYPE,
-	TABLE_TYPE,
-	ERROR_TYPE,
-	RESULT_TYPE,
-	RANDOM_TYPE,
-	FILE_TYPE,
-	STRUCT_TYPE,
-	VECTOR_TYPE,
-	COMPLEX_TYPE,
-	MATRIX_TYPE,
-} ValueType;
+typedef uint32_t TypeMask;
 
+#define NIL_TYPE      (1u << 0)
+#define BOOL_TYPE     (1u << 1)
+#define INT_TYPE      (1u << 2)
+#define FLOAT_TYPE    (1u << 3)
+#define STRING_TYPE   (1u << 4)
+#define ARRAY_TYPE    (1u << 5)
+#define TABLE_TYPE    (1u << 6)
+#define ERROR_TYPE    (1u << 7)
+#define RESULT_TYPE   (1u << 8)
+#define RANDOM_TYPE   (1u << 9)
+#define FILE_TYPE     (1u << 10)
+#define STRUCT_TYPE   (1u << 11)
+#define VECTOR_TYPE   (1u << 12)
+#define COMPLEX_TYPE  (1u << 13)
+#define MATRIX_TYPE   (1u << 14)
+#define FUNCTION_TYPE (1u << 15)
+#define MODULE_TYPE   (1u << 16)
+
+#define NUMERIC_TYPE  (INT_TYPE | FLOAT_TYPE)
+#define ANY_TYPE      (0xFFFFFFFFu)
 
 /**
  * @brief Compares two values for equality
