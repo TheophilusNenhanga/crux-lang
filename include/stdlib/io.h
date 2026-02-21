@@ -2,7 +2,6 @@
 #define IO_H
 
 #include "value.h"
-#include "std.h"
 
 /*
  * io module — stream and terminal I/O

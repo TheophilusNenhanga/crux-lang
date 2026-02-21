@@ -148,8 +148,11 @@ static bool read_remaining(VM *vm, FILE *fp, ObjectString **out_str)
 /* ── File handle construction ────────────────────────────────────────────────
  */
 
-/*
- * open(path: string, mode: string) -> Result<File>
+/**
+ * Opens a file with the specified path and mode
+ * arg0 -> path: String
+ * arg1 -> mode: String (e.g., "r", "w", "a")
+ * Returns Result<File>
  */
 Value fs_open_function(VM *vm, const Value *args)
 {
@@ -184,12 +187,13 @@ Value fs_open_function(VM *vm, const Value *args)
 /* ── Methods on File handles ─────────────────────────────────────────────────
  */
 
-/*
- * close() -> Result<nil>
+/**
+ * Closes an open file
+ * arg0 -> file: File
+ * Returns Result<Nil>
  */
 Value fs_close_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "close");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -203,12 +207,13 @@ Value fs_close_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * flush() -> Result<nil>
+/**
+ * Flushes any buffered data to the file
+ * arg0 -> file: File
+ * Returns Result<Nil>
  */
 Value fs_flush_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "flush");
 
 	const ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -220,14 +225,14 @@ Value fs_flush_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * read(n: int) -> Result<string>
- * Reads up to <n> bytes from the current position.
- * Returns an empty string on EOF.
+/**
+ * Reads up to n bytes from the current position in the file
+ * arg0 -> file: File
+ * arg1 -> n: Int
+ * Returns Result<String>
  */
 Value fs_read_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "read");
 
 	if (!IS_INT(args[1])) {
@@ -270,14 +275,13 @@ Value fs_read_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * readln() -> Result<string>
- * Reads up to the next '\n' (exclusive) or EOF.
- * Returns an empty string on EOF.
+/**
+ * Reads a line from the file (up to but excluding newline)
+ * arg0 -> file: File
+ * Returns Result<String>
  */
 Value fs_readln_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -324,13 +328,13 @@ Value fs_readln_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * read_all() -> Result<string>
- * Reads everything from the current position to EOF.
+/**
+ * Reads all remaining content from the current position to EOF
+ * arg0 -> file: File
+ * Returns Result<String>
  */
 Value fs_read_all_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -354,14 +358,13 @@ Value fs_read_all_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * read_lines() -> Result<Array<string>>
- * Reads all remaining lines into an Array; newlines are stripped.
- * CRLF line endings are normalised on all platforms.
+/**
+ * Reads all remaining lines from the file into an array (newlines stripped)
+ * arg0 -> file: File
+ * Returns Result<Array<String>>
  */
 Value fs_read_lines_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "read");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -436,12 +439,14 @@ Value fs_read_lines_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * write(content: string) -> Result<nil>
+/**
+ * Writes a string to the file
+ * arg0 -> file: File
+ * arg1 -> content: String
+ * Returns Result<Nil>
  */
 Value fs_write_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
@@ -469,12 +474,14 @@ Value fs_write_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * writeln(content: string) -> Result<nil>
+/**
+ * Writes a string to the file followed by a newline
+ * arg0 -> file: File
+ * arg1 -> content: String
+ * Returns Result<Nil>
  */
 Value fs_writeln_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
@@ -506,13 +513,15 @@ Value fs_writeln_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * seek(offset: int, whence: string) -> Result<nil>
- * whence: "start" | "current" | "end"
+/**
+ * Seeks to a position in the file
+ * arg0 -> file: File
+ * arg1 -> offset: Int
+ * arg2 -> whence: String ("start", "current", or "end")
+ * Returns Result<Nil>
  */
 Value fs_seek_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "seek");
 
 	if (!IS_INT(args[1])) {
@@ -551,12 +560,13 @@ Value fs_seek_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * tell() -> Result<int>
+/**
+ * Returns the current position in the file
+ * arg0 -> file: File
+ * Returns Result<Int>
  */
 Value fs_tell_method(VM *vm, const Value *args)
 {
-
 	REQUIRE_OPEN_FILE(args, "tell");
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -572,8 +582,10 @@ Value fs_tell_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL((int32_t)pos)));
 }
 
-/*
- * is_open() -> bool  (infallible)
+/**
+ * Checks if the file is currently open
+ * arg0 -> file: File
+ * Returns Bool
  */
 Value fs_is_open_method(VM *vm, const Value *args)
 {
@@ -585,8 +597,10 @@ Value fs_is_open_method(VM *vm, const Value *args)
 /* ── Filesystem queries ──────────────────────────────────────────────────────
  */
 
-/*
- * exists(path: string) -> bool  (infallible)
+/**
+ * Checks if a path exists
+ * arg0 -> path: String
+ * Returns Bool
  */
 Value fs_exists_function(VM *vm, const Value *args)
 {
@@ -596,8 +610,10 @@ Value fs_exists_function(VM *vm, const Value *args)
 	return BOOL_VAL(FS_STAT(AS_C_STRING(args[0]), &st) == 0);
 }
 
-/*
- * is_file(path: string) -> bool  (infallible)
+/**
+ * Checks if a path is a regular file
+ * arg0 -> path: String
+ * Returns Bool
  */
 Value fs_is_file_function(VM *vm, const Value *args)
 {
@@ -608,8 +624,10 @@ Value fs_is_file_function(VM *vm, const Value *args)
 	return BOOL_VAL(FS_S_ISREG(st.st_mode));
 }
 
-/*
- * is_dir(path: string) -> bool  (infallible)
+/**
+ * Checks if a path is a directory
+ * arg0 -> path: String
+ * Returns Bool
  */
 Value fs_is_dir_function(VM *vm, const Value *args)
 {
@@ -620,8 +638,10 @@ Value fs_is_dir_function(VM *vm, const Value *args)
 	return BOOL_VAL(FS_S_ISDIR(st.st_mode));
 }
 
-/*
- * file_size(path: string) -> Result<Float>
+/**
+ * Returns the size of a file in bytes
+ * arg0 -> path: String
+ * Returns Result<Float>
  */
 Value fs_file_size_function(VM *vm, const Value *args)
 {
@@ -642,8 +662,10 @@ Value fs_file_size_function(VM *vm, const Value *args)
 /* ── Filesystem mutations ────────────────────────────────────────────────────
  */
 
-/*
- * remove(path: string) -> Result<nil>
+/**
+ * Deletes a file
+ * arg0 -> path: String
+ * Returns Result<Nil>
  */
 Value fs_remove_function(VM *vm, const Value *args)
 {
@@ -692,13 +714,14 @@ Value fs_rename_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * copy_file(from: string, to: string) -> Result<nil>
- * Copies in COPY_BUFFER_SIZE chunks; does not require the file to be seekable.
+/**
+ * Copies a file from one path to another
+ * arg0 -> from: String
+ * arg1 -> to: String
+ * Returns Result<Nil>
  */
 Value fs_copy_file_function(VM *vm, const Value *args)
 {
-
 	const char *from = AS_C_STRING(args[0]);
 	const char *to = AS_C_STRING(args[1]);
 
@@ -758,8 +781,10 @@ Value fs_copy_file_function(VM *vm, const Value *args)
 #endif
 }
 
-/*
- * mkdir(path: string) -> Result<nil>
+/**
+ * Creates a directory
+ * arg0 -> path: String
+ * Returns Result<Nil>
  */
 Value fs_mkdir_function(VM *vm, const Value *args)
 {
@@ -788,10 +813,10 @@ Value fs_mkdir_function(VM *vm, const Value *args)
 /* ── Convenience one-shot functions ──────────────────────────────────────────
  */
 
-/*
- * read_file(path: string) -> Result<string>
- * Opens in binary mode so the byte count matches the file size exactly.
- * CRLF normalisation (if desired) is the caller's responsibility.
+/**
+ * Reads the entire contents of a file
+ * arg0 -> path: String
+ * Returns Result<String>
  */
 Value fs_read_file_function(VM *vm, const Value *args)
 {
@@ -817,9 +842,11 @@ Value fs_read_file_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * write_file(path: string, content: string) -> Result<nil>
- * Creates or truncates <path> and writes <content>.
+/**
+ * Writes content to a file (creates or truncates the file)
+ * arg0 -> path: String
+ * arg1 -> content: String
+ * Returns Result<Nil>
  */
 Value fs_write_file_function(VM *vm, const Value *args)
 {
@@ -842,9 +869,11 @@ Value fs_write_file_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-/*
- * append_file(path: string, content: string) -> Result<nil>
- * Opens <path> in append mode and writes <content>.
+/**
+ * Appends content to a file (creates the file if it doesn't exist)
+ * arg0 -> path: String
+ * arg1 -> content: String
+ * Returns Result<Nil>
  */
 Value fs_append_file_function(VM *vm, const Value *args)
 {

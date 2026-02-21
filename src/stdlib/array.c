@@ -7,6 +7,12 @@
 #include "stdlib/array.h"
 #include "vm_helpers.h"
 
+/**
+ * Adds an element to the end of an array
+ * arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Result<Nil>
+ */
 Value array_push_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -20,6 +26,11 @@ Value array_push_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
+/**
+ * Removes and returns the last element of an array
+ * arg0 -> array: Array
+ * Returns Result<Any>
+ */
 Value array_pop_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -37,6 +48,13 @@ Value array_pop_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, popped));
 }
 
+/**
+ * Inserts an element at the specified index in an array
+ * arg0 -> array: Array
+ * arg1 -> index: Int
+ * arg2 -> value: Any
+ * Returns Result<Nil>
+ */
 Value array_insert_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -64,6 +82,12 @@ Value array_insert_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
+/**
+ * Removes and returns the element at the specified index
+ * arg0 -> array: Array
+ * arg1 -> index: Int
+ * Returns Result<Any>
+ */
 Value array_remove_at_method(VM *vm, const Value *args)
 {
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -85,6 +109,12 @@ Value array_remove_at_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, removed_element));
 }
 
+/**
+ * Concatenates two arrays together
+ * arg0 -> array: Array
+ * arg1 -> other: Array
+ * Returns Result<Array>
+ */
 Value array_concat_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -112,6 +142,13 @@ Value array_concat_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Extracts a portion of an array from start to end (exclusive)
+ * arg0 -> array: Array
+ * arg1 -> start: Int
+ * arg2 -> end: Int
+ * Returns Result<Array>
+ */
 Value array_slice_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -146,6 +183,11 @@ Value array_slice_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Reverses an array in place
+ * arg0 -> array: Array
+ * Returns Result<Nil>
+ */
 Value array_reverse_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -171,6 +213,12 @@ Value array_reverse_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
+/**
+ * Returns the index of the first occurrence of a value, or an error if not
+ * found arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Result<Int>
+ */
 Value array_index_of_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -185,6 +233,12 @@ Value array_index_of_method(VM *vm, const Value *args)
 				  VALUE);
 }
 
+/**
+ * Checks if an array contains a specific value
+ * arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Bool
+ */
 Value array_contains_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -199,6 +253,11 @@ Value array_contains_method(VM *vm, const Value *args)
 	return BOOL_VAL(false);
 }
 
+/**
+ * Removes all elements from an array
+ * arg0 -> array: Array
+ * Returns Nil
+ */
 Value array_clear_method(VM *vm, const Value *args)
 {
 	(void)args;
@@ -213,6 +272,12 @@ Value array_clear_method(VM *vm, const Value *args)
 	return NIL_VAL;
 }
 
+/**
+ * Checks if two arrays are equal (same elements in same order)
+ * arg0 -> array: Array
+ * arg1 -> other: Array
+ * Returns Bool
+ */
 Value arrayEqualsMethod(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -232,8 +297,12 @@ Value arrayEqualsMethod(VM *vm, const Value *args)
 	return BOOL_VAL(true);
 }
 
-// arg0 - array
-// arg1 - function
+/**
+ * Transforms each element of an array using a function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 1 argument)
+ * Returns Result<Array>
+ */
 Value array_map_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -281,8 +350,12 @@ Value array_map_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - function
+/**
+ * Filters an array to only include elements that satisfy a predicate function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 1 argument, returns Bool)
+ * Returns Result<Array>
+ */
 Value array_filter_method(VM *vm, const Value *args)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
@@ -331,9 +404,13 @@ Value array_filter_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - function
-// arg2 - initial value
+/**
+ * Reduces an array to a single value using an accumulator function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 2 arguments: accumulator, element)
+ * arg2 -> initial: Any
+ * Returns Result<Any>
+ */
 Value array_reduce_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -479,7 +556,11 @@ static void quick_sort(Value *arr, const int low, const int high)
 	}
 }
 
-// arg0 - array
+/**
+ * Sorts an array in ascending order (works with Int, Float, or String arrays)
+ * arg0 -> array: Array
+ * Returns Result<Array>
+ */
 Value array_sort_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -511,8 +592,12 @@ Value array_sort_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - separator string
+/**
+ * Joins all elements of an array into a string with a separator
+ * arg0 -> array: Array
+ * arg1 -> separator: String
+ * Returns Result<String>
+ */
 Value array_join_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);

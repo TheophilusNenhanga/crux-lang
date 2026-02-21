@@ -132,10 +132,14 @@ static double vector_magnitude(const ObjectVector *vec)
 	return compute_magnitude(components, vec->dimensions);
 }
 
-/* arg_count = 2; arg0 -> dimension, arg1 -> components array */
+/**
+ * Creates a new vector with the specified dimension and components
+ * arg0 -> dimension: Int
+ * arg1 -> components: Array
+ * Returns Result<Vector>
+ */
 Value new_vector_function(VM *vm, const Value *args)
 {
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[1]);
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -171,6 +175,10 @@ Value new_vector_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Computes the dot product of two vectors (vectors must have the same
+ * dimension) arg0 -> vector: Vector arg1 -> other: Vector Returns Result<Float>
+ */
 Value vector_dot_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
@@ -192,6 +200,12 @@ Value vector_dot_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
+/**
+ * Adds two vectors together (vectors must have the same dimension)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
 Value vector_add_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
@@ -218,6 +232,12 @@ Value vector_add_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Subtracts one vector from another (vectors must have the same dimension)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
 Value vector_subtract_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
@@ -244,6 +264,12 @@ Value vector_subtract_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Multiplies a vector by a scalar value
+ * arg0 -> vector: Vector
+ * arg1 -> scalar: Float
+ * Returns Result<Vector>
+ */
 Value vector_multiply_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
@@ -256,11 +282,18 @@ Value vector_multiply_method(VM *vm, const Value *args)
 	double *result_comp = VECTOR_COMPONENTS(result_vector);
 
 	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
-	pop(vm->current_module_record);
 
-	return OBJECT_VAL(result_vector);
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
 }
 
+/**
+ * Divides a vector by a scalar value
+ * arg0 -> vector: Vector
+ * arg1 -> scalar: Float
+ * Returns Result<Vector>
+ */
 Value vector_divide_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
@@ -280,15 +313,25 @@ Value vector_divide_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
+/**
+ * Returns the magnitude (length) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
 Value vector_magnitude_method(VM *vm, const Value *args)
 {
-	(void) vm;
+	(void)vm;
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double magnitude = vector_magnitude(vec);
 
 	return FLOAT_VAL(magnitude);
 }
 
+/**
+ * Returns a normalized (unit length) version of the vector
+ * arg0 -> vector: Vector
+ * Returns Result<Vector>
+ */
 Value vector_normalize_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
@@ -310,6 +353,12 @@ Value vector_normalize_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
+/**
+ * Returns the Euclidean distance between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Float>
+ */
 Value vector_distance_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
@@ -331,6 +380,12 @@ Value vector_distance_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(distance)));
 }
 
+/**
+ * Computes the cross product of two 3D vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
 Value vector_cross_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
@@ -358,8 +413,13 @@ Value vector_cross_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-Value vector_angle_between_method(VM *vm,
-				  const Value *args)
+/**
+ * Returns the angle in radians between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Float>
+ */
+Value vector_angle_between_method(VM *vm, const Value *args)
 {
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
@@ -388,9 +448,15 @@ Value vector_angle_between_method(VM *vm,
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
+/**
+ * Linear interpolation between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * arg2 -> t: Float (interpolation factor between 0 and 1)
+ * Returns Result<Vector>
+ */
 Value vector_lerp_method(VM *vm, const Value *args)
 {
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 	const double t = TO_DOUBLE(args[2]);
@@ -415,6 +481,12 @@ Value vector_lerp_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Reflects a vector off a surface with the given normal
+ * arg0 -> vector: Vector
+ * arg1 -> normal: Vector
+ * Returns Result<Vector>
+ */
 Value vector_reflect_method(VM *vm, const Value *args)
 {
 	const ObjectVector *incident = AS_CRUX_VECTOR(args[0]);
@@ -449,9 +521,15 @@ Value vector_reflect_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+/**
+ * Checks if two vectors are equal (with epsilon tolerance)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Bool
+ */
 Value vector_equals_method(VM *vm, const Value *args)
 {
-	(void) vm;
+	(void)vm;
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -467,6 +545,11 @@ Value vector_equals_method(VM *vm, const Value *args)
 	return BOOL_VAL(equal);
 }
 
+/**
+ * Returns the x component (first dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
 Value vector_x_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -479,6 +562,11 @@ Value vector_x_method(VM *vm, const Value *args)
 	return NIL_VAL;
 }
 
+/**
+ * Returns the y component (second dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
 Value vector_y_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -491,6 +579,11 @@ Value vector_y_method(VM *vm, const Value *args)
 	return NIL_VAL;
 }
 
+/**
+ * Returns the z component (third dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
 Value vector_z_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -503,6 +596,11 @@ Value vector_z_method(VM *vm, const Value *args)
 	return NIL_VAL;
 }
 
+/**
+ * Returns the w component (fourth dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
 Value vector_w_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -515,6 +613,11 @@ Value vector_w_method(VM *vm, const Value *args)
 	return NIL_VAL;
 }
 
+/**
+ * Returns the number of dimensions of the vector
+ * arg0 -> vector: Vector
+ * Returns Int
+ */
 Value vector_dimension_method(VM *vm, const Value *args)
 {
 	(void)vm;

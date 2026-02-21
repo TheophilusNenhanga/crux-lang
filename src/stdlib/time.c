@@ -9,6 +9,11 @@
 #include "panic.h"
 #include "stdlib/time.h"
 
+/**
+ * Returns the current Unix timestamp in seconds
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Float
+ */
 Value time_seconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -16,6 +21,11 @@ Value time_seconds_function_(VM *vm, const Value *args)
 	return FLOAT_VAL((double)time(NULL));
 }
 
+/**
+ * Returns the current Unix timestamp in milliseconds
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Float
+ */
 Value time_milliseconds_function_(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -33,11 +43,16 @@ Value time_milliseconds_function_(VM *vm, const Value *args)
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
 	const uint64_t ms = (uint64_t)ts.tv_sec * 1000 +
-		      (uint64_t)ts.tv_nsec / 1000000;
+			    (uint64_t)ts.tv_nsec / 1000000;
 #endif
 	return FLOAT_VAL((double)ms);
 }
 
+/**
+ * Pauses execution for the specified number of seconds
+ * arg0 -> seconds: Float
+ * Returns Result<Nil>
+ */
 Value sleep_seconds_function(VM *vm, const Value *args)
 {
 	const double seconds = TO_DOUBLE(args[0]);
@@ -55,6 +70,11 @@ Value sleep_seconds_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
+/**
+ * Pauses execution for the specified number of milliseconds
+ * arg0 -> milliseconds: Float
+ * Returns Result<Nil>
+ */
 Value sleep_milliseconds_function(VM *vm, const Value *args)
 {
 	const double milliseconds = TO_DOUBLE(args[0]);
@@ -78,6 +98,11 @@ static time_t get_current_time(void)
 	return time(NULL);
 }
 
+/**
+ * Returns the current year
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value year_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -87,6 +112,11 @@ Value year_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_year + 1900);
 }
 
+/**
+ * Returns the current month (1-12)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value month_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -96,6 +126,11 @@ Value month_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_mon + 1);
 }
 
+/**
+ * Returns the current day of the month (1-31)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value day_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -105,6 +140,11 @@ Value day_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_mday);
 }
 
+/**
+ * Returns the current hour (0-23)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value hour_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -114,6 +154,11 @@ Value hour_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_hour);
 }
 
+/**
+ * Returns the current minute (0-59)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value minute_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -123,6 +168,11 @@ Value minute_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_min);
 }
 
+/**
+ * Returns the current second (0-59)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value second_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -132,6 +182,11 @@ Value second_function_(VM *vm, const Value *args)
 	return INT_VAL(timeInfo->tm_sec);
 }
 
+/**
+ * Returns the current day of the week (1=Monday, 7=Sunday)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value weekday_function_(VM *vm, const Value *args)
 {
 	(void)args;
@@ -143,6 +198,11 @@ Value weekday_function_(VM *vm, const Value *args)
 	return INT_VAL(weekday);
 }
 
+/**
+ * Returns the current day of the year (1-366)
+ * TODO:CHNAGE TYPE TO {} (no arguments)
+ * Returns Int
+ */
 Value day_of_year_function_(VM *vm, const Value *args)
 {
 	(void)args;

@@ -26,6 +26,10 @@ static Value get_length(const Value value)
 	return INT_VAL(-1);
 }
 
+/**
+ * Returns the length of a value (works with Array, String, Table, Vector,
+ * Matrix) arg0 -> value: Any Returns Int
+ */
 Value length_function(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -161,10 +165,12 @@ static Value cast_int(VM *vm, const Value arg, bool *success)
 {
 	(void)vm;
 	if (IS_INT(arg)) {
+		*success = true;
 		return arg;
 	}
 
 	if (IS_FLOAT(arg)) {
+		*success = true;
 		return INT_VAL((uint32_t)AS_FLOAT(arg));
 	}
 
@@ -172,19 +178,20 @@ static Value cast_int(VM *vm, const Value arg, bool *success)
 		const char *str = AS_C_STRING(arg);
 		char *end;
 		const double num = strtod(str, &end);
-
 		// can check for overflow or underflow with errno
-
 		if (end != str) {
+			*success = true;
 			return INT_VAL((uint32_t)num);
 		}
 	}
 
 	if (IS_BOOL(arg)) {
+		*success = true;
 		return INT_VAL(AS_BOOL(arg) ? 1 : 0);
 	}
 
 	if (IS_NIL(arg)) {
+		*success = true;
 		return INT_VAL(0);
 	}
 
@@ -223,29 +230,46 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 	return NIL_VAL;
 }
 
+/**
+ * Converts a value to an integer
+ * arg0 -> value: Any
+ * Returns Result<Int>
+ */
 Value int_function(VM *vm, const Value *args)
 {
-	bool success = true;
+	bool success = false;
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to convert value to integer.",
+					  RUNTIME);
 	}
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
+/**
+ * Converts a value to a float
+ * arg0 -> value: Any
+ * Returns Result<Float>
+ */
 Value float_function(VM *vm, const Value *args)
 {
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to convert value to float.",
+					  RUNTIME);
 	}
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
+/**
+ * Converts a value to a string
+ * arg0 -> value: Any
+ * Returns String
+ */
 Value string_function(VM *vm, const Value *args)
 {
 	const Value value = args[0];
@@ -253,6 +277,11 @@ Value string_function(VM *vm, const Value *args)
 	return OBJECT_VAL(str);
 }
 
+/**
+ * Converts a value to an array
+ * arg0 -> value: Any
+ * Returns Result<Array>
+ */
 Value array_function(VM *vm, const Value *args)
 {
 	bool success = true;
@@ -265,40 +294,21 @@ Value array_function(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, array));
 }
 
+/**
+ * Converts a value to a table
+ * arg0 -> value: Any
+ * Returns Result<Table>
+ */
 Value table_function(VM *vm, const Value *args)
 {
 	const Value table = cast_table(vm, args);
 	return OBJECT_VAL(new_ok_result(vm, table));
 }
 
-Value int_function_(VM *vm, const Value *args)
-{
-	bool success = true;
-	const Value argument = args[0];
-	return OBJECT_VAL(cast_int(vm, argument, &success));
-}
-
-Value float_function_(VM *vm, const Value *args)
-{
-	bool success = true;
-	return cast_float(vm, args, &success);
-}
-
-Value array_function_(VM *vm, const Value *args)
-{
-	bool success = true;
-	const Value array = cast_array(vm, args, &success);
-	if (!success) {
-		return NIL_VAL;
-	}
-	return array;
-}
-
-Value table_function_(VM *vm, const Value *args)
-{
-	return cast_table(vm, args);
-}
-
+/**
+ * Formats a string using placeholders like {key} replaced with values from a
+ * table arg0 -> format_string: String arg1 -> values: Table Returns Result<Nil>
+ */
 Value format_function(VM *vm, const Value *args)
 {
 	const ObjectString *str = AS_CRUX_STRING(args[0]);

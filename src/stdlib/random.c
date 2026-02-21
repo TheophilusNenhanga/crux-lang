@@ -8,6 +8,12 @@
 // Adapted from
 // https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
+/**
+ * Seeds the random number generator with a specific value
+ * arg0 -> random: Random
+ * arg1 -> seed: Int
+ * Returns Nil
+ */
 Value random_seed_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -33,6 +39,11 @@ double get_next(ObjectRandom *random)
 	return result;
 }
 
+/**
+ * Returns the next random float in the range [0, 1)
+ * arg0 -> random: Random
+ * Returns Float
+ */
 Value random_next_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -40,6 +51,10 @@ Value random_next_method(VM *vm, const Value *args)
 	return FLOAT_VAL(get_next(random));
 }
 
+/**
+ * Creates a new Random number generator instance
+ * Returns Random
+ */
 Value random_init_function(VM *vm, const Value *args)
 {
 	(void)args;
@@ -47,7 +62,13 @@ Value random_init_function(VM *vm, const Value *args)
 	return OBJECT_VAL(random_obj);
 }
 
-// Returns a random integer in the range [min, max] inclusive
+/**
+ * Returns a random integer in the range [min, max] inclusive
+ * arg0 -> random: Random
+ * arg1 -> min: Int
+ * arg2 -> max: Int
+ * Returns Result<Int>
+ */
 Value random_int_method(VM *vm, const Value *args)
 {
 	const Value min = args[1];
@@ -58,7 +79,8 @@ Value random_int_method(VM *vm, const Value *args)
 
 	if (minInt > maxInt) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Min must be less than or equal to max", RUNTIME);
+			vm, "<min> must be less than or equal to <max>",
+			RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -69,7 +91,13 @@ Value random_int_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL(result)));
 }
 
-// Returns a random double in the range [min, max]
+/**
+ * Returns a random float in the range [min, max]
+ * arg0 -> random: Random
+ * arg1 -> min: Float
+ * arg2 -> max: Float
+ * Returns Result<Float>
+ */
 Value random_float_method(VM *vm, const Value *args)
 {
 	const Value min = args[1];
@@ -95,6 +123,12 @@ Value random_float_method(VM *vm, const Value *args)
 }
 
 // Returns true with probability p (0 <= p <= 1)
+/**
+ * Returns true with probability p (0 <= p <= 1)
+ * arg0 -> random: Random
+ * arg1 -> probability: Float
+ * Returns Result<Bool>
+ */
 Value random_bool_method(VM *vm, const Value *args)
 {
 	const double prob = TO_DOUBLE(args[1]);
@@ -112,6 +146,12 @@ Value random_bool_method(VM *vm, const Value *args)
 }
 
 // Returns a random element from the array
+/**
+ * Returns a random element from an array
+ * arg0 -> random: Random
+ * arg1 -> array: Array
+ * Returns Result<Any>
+ */
 Value random_choice_method(VM *vm, const Value *args)
 {
 	const ObjectArray *arr = AS_CRUX_ARRAY(args[1]);

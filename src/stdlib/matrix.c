@@ -90,13 +90,14 @@ static int lu_decompose(double *restrict m, const uint16_t n, uint16_t *perm)
 /* ── Construction ────────────────────────────────────────────────────────────
  */
 
-/*
- * new_matrix_function(rows: int, cols: int) -> Result<Matrix>
- * Creates a zero-initialised rows×cols matrix.
+/**
+ * Creates a new matrix with the specified dimensions (zero-initialized)
+ * arg0 -> rows: Int
+ * arg1 -> cols: Int
+ * Returns Result<Matrix>
  */
 Value new_matrix_function(VM *vm, const Value *args)
 {
-
 	const int32_t rows = AS_INT(args[0]);
 	const int32_t cols = AS_INT(args[1]);
 
@@ -116,9 +117,10 @@ Value new_matrix_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * new_matrix_identity_function(n: int) -> Result<Matrix>
- * Creates an n×n identity matrix.
+/**
+ * Creates an n×n identity matrix
+ * arg0 -> n: Int
+ * Returns Result<Matrix>
  */
 Value new_matrix_identity_function(VM *vm, const Value *args)
 {
@@ -142,10 +144,12 @@ Value new_matrix_identity_function(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * new_matrix_from_array_function(rows: int, cols: int, data: Array) ->
- * Result<Matrix> Constructs a matrix from a flat Array of numbers (row-major).
- * Elements beyond rows*cols are ignored; missing elements are zero-filled.
+/**
+ * Creates a matrix from a flat array of numbers (row-major order)
+ * arg0 -> rows: Int
+ * arg1 -> cols: Int
+ * arg2 -> data: Array
+ * Returns Result<Matrix>
  */
 Value new_matrix_from_array_function(VM *vm, const Value *args)
 {
@@ -190,13 +194,15 @@ Value new_matrix_from_array_function(VM *vm, const Value *args)
 /* ── Element access ──────────────────────────────────────────────────────────
  */
 
-/*
- * get(row: int, col: int) -> Result<float>
- * Returns the element at (row, col), 0-indexed.
+/**
+ * Gets the element at the specified row and column (0-indexed)
+ * arg0 -> matrix: Matrix
+ * arg1 -> row: Int
+ * arg2 -> col: Int
+ * Returns Result<Float>
  */
 Value matrix_get_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const int32_t row = AS_INT(args[1]);
 	const int32_t col = AS_INT(args[2]);
@@ -211,9 +217,13 @@ Value matrix_get_method(VM *vm, const Value *args)
 		new_ok_result(vm, FLOAT_VAL(MATRIX_AT(mat, row, col))));
 }
 
-/*
- * set(row: int, col: int, value: int|float) -> Result<nil>
- * Sets the element at (row, col).
+/**
+ * Sets the element at the specified row and column
+ * arg0 -> matrix: Matrix
+ * arg1 -> row: Int
+ * arg2 -> col: Int
+ * arg3 -> value: Float
+ * Returns Result<Nil>
  */
 Value matrix_set_method(VM *vm, const Value *args)
 {
@@ -234,6 +244,11 @@ Value matrix_set_method(VM *vm, const Value *args)
 /* ── Infallible property accessors ───────────────────────────────────────────
  */
 
+/**
+ * Returns the number of rows in the matrix
+ * arg0 -> matrix: Matrix
+ * Returns Int
+ */
 Value matrix_rows_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -241,6 +256,11 @@ Value matrix_rows_method(VM *vm, const Value *args)
 	return INT_VAL(mat->row_dim);
 }
 
+/**
+ * Returns the number of columns in the matrix
+ * arg0 -> matrix: Matrix
+ * Returns Int
+ */
 Value matrix_cols_method(VM *vm, const Value *args)
 {
 	(void)vm;
@@ -252,13 +272,14 @@ Value matrix_cols_method(VM *vm, const Value *args)
 /* ── Arithmetic ──────────────────────────────────────────────────────────────
  */
 
-/*
- * add(other: Matrix) -> Result<Matrix>
- * Element-wise addition. Matrices must be the same shape.
+/**
+ * Adds another matrix element-wise (matrices must have the same dimensions)
+ * arg0 -> matrix: Matrix
+ * arg1 -> other: Matrix
+ * Returns Result<Matrix>
  */
 Value matrix_add_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 	REQUIRE_SAME_SHAPE(a, b, "addition");
@@ -276,13 +297,13 @@ Value matrix_add_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * subtract(other: Matrix) -> Result<Matrix>
- * Element-wise subtraction. Matrices must be the same shape.
+/**
+ * Subtracts another matrix element-wise (matrices must have the same
+ * dimensions) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
+ * Result<Matrix>
  */
 Value matrix_subtract_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 	REQUIRE_SAME_SHAPE(a, b, "subtraction");
@@ -300,13 +321,13 @@ Value matrix_subtract_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * multiply(other: Matrix) -> Result<Matrix>
- * Standard matrix multiplication. a.cols must equal b.rows.
+/**
+ * Performs standard matrix multiplication (first matrix cols must equal second
+ * matrix rows) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
+ * Result<Matrix>
  */
 Value matrix_multiply_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 
@@ -340,9 +361,11 @@ Value matrix_multiply_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * scale(scalar: int|float) -> Result<Matrix>
- * Multiplies every element by scalar.
+/**
+ * Multiplies every element in the matrix by a scalar value
+ * arg0 -> matrix: Matrix
+ * arg1 -> scalar: Float
+ * Returns Result<Matrix>
  */
 Value matrix_scale_method(VM *vm, const Value *args)
 {
@@ -365,9 +388,10 @@ Value matrix_scale_method(VM *vm, const Value *args)
 /* ── Linear-algebra operations ───────────────────────────────────────────────
  */
 
-/*
- * transpose() -> Result<Matrix>
- * Returns the transposed matrix (rows become columns).
+/**
+ * Returns the transpose of the matrix (rows become columns)
+ * arg0 -> matrix: Matrix
+ * Returns Result<Matrix>
  */
 Value matrix_transpose_method(VM *vm, const Value *args)
 {
@@ -387,14 +411,13 @@ Value matrix_transpose_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * determinant() -> Result<float>
- * Computes the determinant via LU decomposition.
- * Only defined for square matrices.
+/**
+ * Computes the determinant of the matrix (only defined for square matrices)
+ * arg0 -> matrix: Matrix
+ * Returns Result<Float>
  */
 Value matrix_determinant_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	if (mat->row_dim != mat->col_dim) {
@@ -425,14 +448,12 @@ Value matrix_determinant_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(det)));
 }
 
-/*
- * inverse() -> Result<Matrix>
- * Computes the matrix inverse via Gauss-Jordan elimination.
- * Returns an error for non-square or singular matrices.
+/**
+ * Computes the inverse of the matrix (only defined for square, non-singular
+ * matrices) arg0 -> matrix: Matrix Returns Result<Matrix>
  */
 Value matrix_inverse_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	if (mat->row_dim != mat->col_dim) {
@@ -517,13 +538,12 @@ Value matrix_inverse_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * trace() -> Result<float>
- * Sum of the main diagonal elements. Square matrices only.
+/**
+ * Returns the trace of the matrix (sum of main diagonal elements, square
+ * matrices only) arg0 -> matrix: Matrix Returns Result<Float>
  */
 Value matrix_trace_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 
 	if (mat->row_dim != mat->col_dim) {
@@ -539,13 +559,13 @@ Value matrix_trace_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(trace)));
 }
 
-/*
- * rank() -> Result<int>
- * Computes the rank via Gaussian elimination on a copy.
+/**
+ * Computes the rank of the matrix
+ * arg0 -> matrix: Matrix
+ * Returns Result<Int>
  */
 Value matrix_rank_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
 	const uint16_t rows = mat->row_dim;
 	const uint16_t cols = mat->col_dim;
@@ -601,9 +621,11 @@ Value matrix_rank_method(VM *vm, const Value *args)
 /* ── Row / column extraction ─────────────────────────────────────────────────
  */
 
-/*
- * row(i: int) -> Result<Array>
- * Returns the i-th row as a flat Array of floats.
+/**
+ * Returns the specified row as an array
+ * arg0 -> matrix: Matrix
+ * arg1 -> row: Int
+ * Returns Result<Array>
  */
 Value matrix_row_method(VM *vm, const Value *args)
 {
@@ -628,9 +650,11 @@ Value matrix_row_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * col(j: int) -> Result<Array>
- * Returns the j-th column as a flat Array of floats.
+/**
+ * Returns the specified column as an array
+ * arg0 -> matrix: Matrix
+ * arg1 -> col: Int
+ * Returns Result<Array>
  */
 Value matrix_col_method(VM *vm, const Value *args)
 {
@@ -658,13 +682,12 @@ Value matrix_col_method(VM *vm, const Value *args)
 /* ── Utilities ───────────────────────────────────────────────────────────────
  */
 
-/*
- * equals(other: Matrix) -> Result<bool>
- * Element-wise comparison with epsilon tolerance.
+/**
+ * Checks if two matrices are equal (element-wise comparison with epsilon
+ * tolerance) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns Result<Bool>
  */
 Value matrix_equals_method(VM *vm, const Value *args)
 {
-
 	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
 	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 
@@ -682,9 +705,10 @@ Value matrix_equals_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(true)));
 }
 
-/*
- * copy() -> Result<Matrix>
- * Returns a deep copy of the matrix.
+/**
+ * Returns a deep copy of the matrix
+ * arg0 -> matrix: Matrix
+ * Returns Result<Matrix>
  */
 Value matrix_copy_method(VM *vm, const Value *args)
 {
@@ -697,9 +721,10 @@ Value matrix_copy_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/*
- * to_array() -> Result<Array<Array<float>>>
- * Returns the matrix as an Array of row Arrays.
+/**
+ * Converts the matrix to an array of row arrays
+ * arg0 -> matrix: Matrix
+ * Returns Result<Array>
  */
 Value matrix_to_array_method(VM *vm, const Value *args)
 {
@@ -729,10 +754,10 @@ Value matrix_to_array_method(VM *vm, const Value *args)
 /* ── Vector interop ──────────────────────────────────────────────────────────
  */
 
-/*
- * multiply_vector(v: Vector) -> Result<Vector>
- * Multiplies the matrix (m×n) by a column vector of dimension n,
- * producing a Vector of dimension m.
+/**
+ * Multiplies the matrix by a vector (matrix columns must equal vector
+ * dimension) arg0 -> matrix: Matrix arg1 -> vector: Vector Returns
+ * Result<Vector>
  */
 Value matrix_multiply_vector_method(VM *vm, const Value *args)
 {

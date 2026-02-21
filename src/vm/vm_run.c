@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "file_handler.h"
-#include "stdlib/std.h"
+#include "stdlib/stdlib.h"
 #include "vm.h"
 #include "vm_helpers.h"
 #include "vm_run.h"
