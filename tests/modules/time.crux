@@ -1,0 +1,94 @@
+use println from "crux:io";
+use sleep_s, sleep_ms from "crux:time";
+use _time_s, _time_ms, _year, _month, _day from "crux:time";
+use _hour, _minute, _second, _weekday, _day_of_year from "crux:time";
+
+println("=== Testing Time Module ===");
+
+// Test _time_s
+println("--- Testing _time_s ---");
+let time_s = _time_s();
+assert(typeof time_s == "Float", "_time_s should return float");
+assert(time_s > 1700000000.0, "_time_s should return Unix timestamp");
+println("_time_s() test passed");
+
+// Test _time_ms
+println("--- Testing _time_ms ---");
+let time_ms = _time_ms();
+assert(typeof time_ms == "Float", "_time_ms should return float");
+assert(time_ms > 1700000000000.0, "_time_ms should return Unix timestamp in ms");
+println("_time_ms() test passed");
+
+// Test _year
+println("--- Testing _year ---");
+let year = _year();
+assert(typeof year == "Int", "_year should return int");
+assert(year >= 2024 and year <= 2100, "_year should return reasonable year");
+println("_year() test passed");
+
+// Test _month
+println("--- Testing _month ---");
+let month = _month();
+assert(typeof month == "Int", "_month should return int");
+assert(month >= 1 and month <= 12, "_month should be 1-12");
+println("_month() test passed");
+
+// Test _day
+println("--- Testing _day ---");
+let day = _day();
+assert(typeof day == "Int", "_day should return int");
+assert(day >= 1 and day <= 31, "_day should be 1-31");
+println("_day() test passed");
+
+// Test _hour
+println("--- Testing _hour ---");
+let hour = _hour();
+assert(typeof hour == "Int", "_hour should return int");
+assert(hour >= 0 and hour <= 23, "_hour should be 0-23");
+println("_hour() test passed");
+
+// Test _minute
+println("--- Testing _minute ---");
+let minute = _minute();
+assert(typeof minute == "Int", "_minute should return int");
+assert(minute >= 0 and minute <= 59, "_minute should be 0-59");
+println("_minute() test passed");
+
+// Test _second
+println("--- Testing _second ---");
+let second = _second();
+assert(typeof second == "Int", "_second should return int");
+assert(second >= 0 and second <= 59, "_second should be 0-59");
+println("_second() test passed");
+
+// Test _weekday
+println("--- Testing _weekday ---");
+let weekday = _weekday();
+assert(typeof weekday == "Int", "_weekday should return int");
+assert(weekday >= 0 and weekday <= 6, "_weekday should be 0-6");
+println("_weekday() test passed");
+
+// Test _day_of_year
+println("--- Testing _day_of_year ---");
+let day_of_year = _day_of_year();
+assert(typeof day_of_year == "Int", "_day_of_year should return int");
+assert(day_of_year >= 1 and day_of_year <= 366, "_day_of_year should be 1-366");
+println("_day_of_year() test passed");
+
+// Test sleep_ms (very short sleep)
+println("--- Testing sleep_ms ---");
+let start = _time_ms();
+sleep_ms(10)?;
+let elapsed = _time_ms() - start;
+assert(elapsed >= 10, "sleep_ms should sleep at least the specified time");
+println("sleep_ms() test passed");
+
+// Test sleep_s (very short sleep)
+println("--- Testing sleep_s ---");
+let start_s = _time_s();
+sleep_s(1);
+let elapsed_s = _time_s() - start_s;
+assert(elapsed_s >= 1, "sleep_s should sleep at least the specified time");
+println("sleep_s() test passed");
+
+println("=== All Time Module tests passed! ===");

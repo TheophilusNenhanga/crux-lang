@@ -7,6 +7,7 @@
 #include "stdlib/complex.h"
 #include "stdlib/core.h"
 #include "stdlib/error.h"
+#include "stdlib/event.h"
 #include "stdlib/fs.h"
 #include "stdlib/io.h"
 #include "stdlib/math.h"
@@ -18,6 +19,7 @@
 #include "stdlib/string.h"
 #include "stdlib/sys.h"
 #include "stdlib/tables.h"
+#include "stdlib/term.h"
 #include "stdlib/time.h"
 #include "stdlib/tuple.h"
 #include "stdlib/vectors.h"
@@ -78,17 +80,16 @@ static const Callable arrayMethods[] = {
 	{"equals", arrayEqualsMethod, 2, {ARRAY_TYPE, ARRAY_TYPE}}};
 
 static const Callable tableMethods[] = {
-	// TODO: Add hashable type which consists of Int, Float, String, Bool
 	{"values", table_values_method, 1, {TABLE_TYPE}},
 	{"keys", table_keys_method, 1, {TABLE_TYPE}},
 	{"pairs", table_pairs_method, 1, {TABLE_TYPE}},
-	{"remove", table_remove_method, 2, {TABLE_TYPE, ANY_TYPE}},
-	{"get", table_get_method, 2, {TABLE_TYPE, ANY_TYPE}},
-	{"has_key", table_has_key_method, 2, {TABLE_TYPE, ANY_TYPE}},
+	{"remove", table_remove_method, 2, {TABLE_TYPE, HASHABLE_TYPE}},
+	{"get", table_get_method, 2, {TABLE_TYPE, HASHABLE_TYPE}},
+	{"has_key", table_has_key_method, 2, {TABLE_TYPE, HASHABLE_TYPE}},
 	{"get_or_else",
 	 table_get_or_else_method,
 	 3,
-	 {TABLE_TYPE, ANY_TYPE, ANY_TYPE}}};
+	 {TABLE_TYPE, HASHABLE_TYPE, ANY_TYPE}}};
 
 static const Callable errorMethods[] = {
 	{"type", error_type_method, 1, {ERROR_TYPE}},
@@ -275,7 +276,10 @@ static const Callable matrixFunctions[] = {
 
 static const Callable matrixMethods[] = {
 	{"get", matrix_get_method, 3, {MATRIX_TYPE, INT_TYPE, INT_TYPE}},
-	{"set", matrix_set_method, 3, {MATRIX_TYPE, INT_TYPE, INT_TYPE}},
+	{"set",
+	 matrix_set_method,
+	 4,
+	 {MATRIX_TYPE, INT_TYPE, INT_TYPE, NUMERIC_TYPE}},
 	{"add", matrix_add_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
 	{"sub", matrix_subtract_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
 	{"mul", matrix_multiply_method, 2, {MATRIX_TYPE, MATRIX_TYPE}},
@@ -413,6 +417,66 @@ static const Callable set_methods[] = {
 	{"is_empty", is_empty_set_method, 1, {SET_TYPE}},
 	{"to_array", to_array_set_method, 1, {SET_TYPE}},
 	{"clone", clone_set_method, 1, {SET_TYPE}},
+};
+
+static const Callable keyMethods[] = {
+	{"is_char", key_is_char_method, 1, {KEY_TYPE}},
+	{"is_arrow", key_is_arrow_method, 1, {KEY_TYPE}},
+	{"is_function", key_is_function_method, 1, {KEY_TYPE}},
+	{"is_modifier", key_is_modifier_method, 1, {KEY_TYPE}},
+	{"char", key_char_method, 1, {KEY_TYPE}},
+	{"name", key_name_method, 1, {KEY_TYPE}},
+	{"equals", key_equals_method, 2, {KEY_TYPE, KEY_TYPE}},
+};
+
+static const Callable eventMethods[] = {
+	{"type", event_type_method, 1, {EVENT_TYPE}},
+	{"source", event_source_method, 1, {EVENT_TYPE}},
+	{"data", event_data_method, 1, {EVENT_TYPE}},
+	{"timestamp", event_timestamp_method, 1, {EVENT_TYPE}},
+	{"is_key", event_is_key_method, 1, {EVENT_TYPE}},
+	{"is_keydown", event_is_keydown_method, 1, {EVENT_TYPE}},
+	{"is_keyup", event_is_keyup_method, 1, {EVENT_TYPE}},
+	{"is_mouse", event_is_mouse_method, 1, {EVENT_TYPE}},
+	{"is_resize", event_is_resize_method, 1, {EVENT_TYPE}},
+	{"key", event_key_method, 1, {EVENT_TYPE}},
+};
+
+static const Callable eventFunctions[] = {
+	{"Event",
+	 event_new_function,
+	 3,
+	 {STRING_TYPE, STRING_TYPE, TABLE_TYPE}},
+	{"char", key_char_function, 1, {STRING_TYPE}},
+	{"enter", key_enter_function, 0, {}},
+	{"tab", key_tab_function, 0, {}},
+	{"backspace", key_backspace_function, 0, {}},
+	{"delete", key_delete_function, 0, {}},
+	{"escape", key_escape_function, 0, {}},
+	{"up", key_up_function, 0, {}},
+	{"down", key_down_function, 0, {}},
+	{"left", key_left_function, 0, {}},
+	{"right", key_right_function, 0, {}},
+	{"home", key_home_function, 0, {}},
+	{"end", key_end_function, 0, {}},
+	{"page_up", key_page_up_function, 0, {}},
+	{"page_down", key_page_down_function, 0, {}},
+	{"f", key_f_function, 1, {INT_TYPE}},
+	{"ctrl", key_ctrl_function, 1, {STRING_TYPE}},
+	{"alt", key_alt_function, 1, {STRING_TYPE}},
+};
+
+static const Callable termFunctions[] = {
+	{"init", term_init_function, 0, {}},
+	{"exit", term_exit_function, 0, {}},
+	{"size", term_size_function, 0, {}},
+	{"width", term_width_function, 0, {}},
+	{"height", term_height_function, 0, {}},
+	{"read_event", term_read_event_function, 0, {}},
+	{"read_event_timeout", term_read_event_timeout_function, 1, {INT_TYPE}},
+	{"poll_event", term_poll_event_function, 0, {}},
+	{"mouse_enable", term_mouse_enable_function, 0, {}},
+	{"mouse_disable", term_mouse_disable_function, 0, {}},
 };
 
 bool register_native_method(VM *vm, Table *method_table,
@@ -574,6 +638,11 @@ bool initialize_std_lib(VM *vm)
 
 	initTypeMethodTable(vm, &vm->buffer_type, buffer_methods,
 			    ARRAY_COUNT(buffer_methods));
+	initTypeMethodTable(vm, &vm->key_type, keyMethods,
+			    ARRAY_COUNT(keyMethods));
+
+	initTypeMethodTable(vm, &vm->event_type, eventMethods,
+			    ARRAY_COUNT(eventMethods));
 
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions,
@@ -636,6 +705,16 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "buffer", buffer_functions,
 			ARRAY_COUNT(buffer_functions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "event", eventFunctions,
+			ARRAY_COUNT(eventFunctions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "term", termFunctions,
+			ARRAY_COUNT(termFunctions))) {
 		return false;
 	}
 

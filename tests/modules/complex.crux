@@ -1,0 +1,113 @@
+use println from "crux:io";
+use Complex from "crux:complex";
+
+println("=== Testing Complex Number Module ===");
+
+// Test Complex constructor
+println("--- Testing Complex constructor ---");
+let c1 = Complex(3, 4);
+assert(typeof c1 == "Complex", "Complex() should return Complex object");
+
+let c2 = Complex(1, 2);
+assert(typeof c2 == "Complex", "Complex() should work with integer args");
+println("Complex constructor test passed");
+
+// Test real and imag
+println("--- Testing real and imag ---");
+assert(c1.real() == 3.0, "real() should return real part");
+assert(c1.imag() == 4.0, "imag() should return imaginary part");
+assert(c2.real() == 1.0, "real() should return real part");
+assert(c2.imag() == 2.0, "imag() should return imaginary part");
+println("real() and imag() test passed");
+
+// Test add
+println("--- Testing add ---");
+let sum = c1.add(c2);
+assert(sum.real() == 4.0, "add should sum real parts");
+assert(sum.imag() == 6.0, "add should sum imaginary parts");
+println("add() test passed");
+
+// Test sub
+println("--- Testing sub ---");
+let diff = c1.sub(c2);
+assert(diff.real() == 2.0, "sub should subtract real parts");
+assert(diff.imag() == 2.0, "sub should subtract imaginary parts");
+println("sub() test passed");
+
+// Test mul
+println("--- Testing mul ---");
+let c3 = Complex(2, 3);
+let c4 = Complex(1, 4);
+let product = c3.mul(c4);
+assert(product.real() == -10.0, "mul: (2+3i)*(1+4i) = -10+11i");
+assert(product.imag() == 11.0, "mul: (2+3i)*(1+4i) = -10+11i");
+println("mul() test passed");
+
+// Test div
+println("--- Testing div ---");
+let c5 = Complex(4, 6);
+let c6 = Complex(2, 2);
+let quotient = c5.div(c6);
+assert(quotient.real() == 2.5, "div: (4+6i)/(2+2i) = 2.5+0.5i");
+assert(quotient.imag() == 0.5, "div: (4+6i)/(2+2i) = 2.5+0.5i");
+println("div() test passed");
+
+// Test scale
+println("--- Testing scale ---");
+let scaled = c1.scale(2);
+assert(scaled.real() == 6.0, "scale should multiply real part");
+assert(scaled.imag() == 8.0, "scale should multiply imaginary part");
+println("scale() test passed");
+
+// Test conjugate
+println("--- Testing conjugate ---");
+let conj = c1.conjugate();
+assert(conj.real() == 3.0, "conjugate should keep real part");
+assert(conj.imag() == -4.0, "conjugate should negate imaginary part");
+println("conjugate() test passed");
+
+// Test mag (magnitude)
+println("--- Testing mag ---");
+let mag = c1.mag();
+assert(mag == 5.0, "mag: |3+4i| = 5");
+println("mag() test passed");
+
+// Test square_mag
+println("--- Testing square_mag ---");
+let sq_mag = c1.square_mag();
+assert(sq_mag == 25.0, "square_mag: |3+4i|^2 = 25");
+println("square_mag() test passed");
+
+// Test with negative values
+println("--- Testing with negative values ---");
+let c_neg = Complex(-3, -4);
+assert(c_neg.real() == -3.0, "should handle negative real");
+assert(c_neg.imag() == -4.0, "should handle negative imaginary");
+let neg_mag = c_neg.mag();
+assert(neg_mag == 5.0, "mag: |-3-4i| = 5");
+println("Negative values test passed");
+
+// Test with zero
+println("--- Testing with zero ---");
+let c_zero = Complex(0, 0);
+assert(c_zero.real() == 0.0, "zero real");
+assert(c_zero.imag() == 0.0, "zero imaginary");
+let zero_mag = c_zero.mag();
+assert(zero_mag == 0.0, "mag of zero is zero");
+println("Zero test passed");
+
+// Test pure real
+println("--- Testing pure real ---");
+let c_real = Complex(5, 0);
+assert(c_real.real() == 5.0, "pure real");
+assert(c_real.imag() == 0.0, "pure real has zero imag");
+println("Pure real test passed");
+
+// Test pure imaginary
+println("--- Testing pure imaginary ---");
+let c_imag = Complex(0, 5);
+assert(c_imag.real() == 0.0, "pure imaginary has zero real");
+assert(c_imag.imag() == 5.0, "pure imaginary");
+println("Pure imaginary test passed");
+
+println("=== All Complex Number tests passed! ===");

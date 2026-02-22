@@ -146,12 +146,15 @@ static void blacken_module_record(VM *vm, CruxObject *object);
 static void blacken_struct(VM *vm, CruxObject *object);
 static void blacken_struct_instance(VM *vm, CruxObject *object);
 static void blacken_vector(VM *vm, CruxObject *object);
-static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 static void blacken_range(VM *vm, CruxObject *object);
 static void blacken_set(VM *vm, CruxObject *object);
 static void blacken_buffer(VM *vm, CruxObject *object);
 static void blacken_tuple(VM *vm, CruxObject *object);
+static void blacken_complex(VM *vm, CruxObject *object);
+static void blacken_matrix(VM *vm, CruxObject *object);
+static void blacken_key(VM *vm, CruxObject *object);
+static void blacken_event(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
@@ -174,6 +177,9 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_SET] = blacken_set,
 	[OBJECT_BUFFER] = blacken_buffer,
 	[OBJECT_TUPLE] = blacken_tuple,
+	[OBJECT_MATRIX] = blacken_matrix,
+	[OBJECT_KEY] = blacken_key,
+	[OBJECT_EVENT] = blacken_event,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -306,6 +312,12 @@ static void blacken_complex(VM *vm, CruxObject *object)
 	(void)object;
 }
 
+static void blacken_matrix(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+
 static void blacken_string(VM *vm, CruxObject *object)
 {
 	(void)vm;
@@ -313,6 +325,11 @@ static void blacken_string(VM *vm, CruxObject *object)
 }
 
 static void blacken_range(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+static void blacken_key(VM *vm, CruxObject *object)
 {
 	(void)vm;
 	(void)object;
@@ -334,6 +351,14 @@ static void blacken_tuple(VM *vm, CruxObject *object)
 {
 	(void)vm;
 	(void)object;
+}
+
+static void blacken_event(VM *vm, CruxObject *object)
+{
+	const ObjectEvent *event = (ObjectEvent *)object;
+	mark_object(vm, (CruxObject *)event->type);
+	mark_object(vm, (CruxObject *)event->source);
+	mark_object(vm, (CruxObject *)event->data);
 }
 
 /**
@@ -368,6 +393,9 @@ static void free_object_set(VM *vm, CruxObject *object);
 static void free_object_range(VM *vm, CruxObject *object);
 static void free_object_buffer(VM *vm, CruxObject *object);
 static void free_object_tuple(VM *vm, CruxObject *object);
+static void free_object_matrix(VM *vm, CruxObject *object);
+static void free_object_key(VM *vm, CruxObject *object);
+static void free_object_event(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -390,6 +418,9 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_RANGE] = free_object_range,
 	[OBJECT_BUFFER] = free_object_buffer,
 	[OBJECT_TUPLE] = free_object_tuple,
+	[OBJECT_MATRIX] = free_object_matrix,
+	[OBJECT_KEY] = free_object_key,
+	[OBJECT_EVENT] = free_object_event,
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -558,6 +589,24 @@ static void free_object_tuple(VM *vm, CruxObject *object)
 	const ObjectTuple *tuple = (ObjectTuple *)object;
 	FREE_ARRAY(vm, Value, tuple->elements, tuple->size);
 	FREE_OBJECT(vm, ObjectTuple, object);
+}
+
+static void free_object_matrix(VM *vm, CruxObject *object)
+{
+	const ObjectMatrix *matrix = (ObjectMatrix *)object;
+	FREE_ARRAY(vm, double, matrix->data,
+		   (uint32_t)matrix->row_dim * matrix->col_dim);
+	FREE_OBJECT(vm, ObjectMatrix, object);
+}
+
+static void free_object_key(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectKey, object);
+}
+
+static void free_object_event(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectEvent, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)

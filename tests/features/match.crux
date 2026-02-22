@@ -1,3 +1,5 @@
+use println from "crux:io";
+
 // Testing match keyword
 
 println("=== Testing the match keyword ===");
@@ -24,6 +26,7 @@ let m3 = match 3 {
 
 assert(m3 == "three", "The match keyword did not work as expected");
 
+// NOTE: when matching if no arm matches then the value you are trying to match against is returned.
 let m4 = match 4 {
     1 => {
         println("one");
@@ -79,7 +82,7 @@ let m7 = match ok("test") {
     }
 };
 
-assert(typeof m7 == "string", "match failed to bind value from result matching.");
+assert(typeof m7 == "String", "match failed to bind value from result matching.");
 
 
 let m8 = match err("test") {
@@ -91,6 +94,6 @@ let m8 = match err("test") {
     }
 };
 
-assert(typeof m8 == "error", "match failed to bind value from result matching.");
+assert(typeof m8 == "Error", "match failed to bind value from result matching.");
 
 println("=== Completed match keyword test ===");

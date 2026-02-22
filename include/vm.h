@@ -103,6 +103,8 @@ struct VM {
 	Table set_type;
 	Table tuple_type;
 	Table buffer_type;
+	Table key_type;
+	Table event_type;
 
 	StructInstanceStack struct_instance_stack;
 

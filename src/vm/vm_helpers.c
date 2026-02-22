@@ -357,6 +357,28 @@ static bool handle_vector_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_complex_invoke(VM *vm, const ObjectString *name,
+				  const int arg_count, const Value original,
+				  const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->complex_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_matrix_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->matrix_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static bool handle_result_invoke(VM *vm, const ObjectString *name,
 				 const int arg_count, const Value original,
 				 const Value receiver)
@@ -429,6 +451,28 @@ static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_key_invoke(VM *vm, const ObjectString *name,
+			      const int arg_count, const Value original,
+			      const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->key_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_event_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->event_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STRING] = handle_string_invoke,
 	[OBJECT_FUNCTION] = handle_undefined_invoke,
@@ -449,7 +493,10 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_SET] = handle_set_invoke,
 	[OBJECT_TUPLE] = handle_tuple_invoke,
 	[OBJECT_BUFFER] = handle_buffer_invoke,
-
+	[OBJECT_COMPLEX] = handle_complex_invoke,
+	[OBJECT_MATRIX] = handle_matrix_invoke,
+	[OBJECT_KEY] = handle_key_invoke,
+	[OBJECT_EVENT] = handle_event_invoke,
 };
 
 /**
@@ -685,6 +732,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->set_type);
 	init_table(&vm->tuple_type);
 	init_table(&vm->buffer_type);
+	init_table(&vm->key_type);
+	init_table(&vm->event_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -755,6 +804,8 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->set_type);
 	free_table(vm, &vm->tuple_type);
 	free_table(vm, &vm->buffer_type);
+	free_table(vm, &vm->key_type);
+	free_table(vm, &vm->event_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1384,7 +1435,18 @@ static Value typeof_set(VM *vm, const Value value)
 	return OBJECT_VAL(copy_string(vm, "Set", 3));
 }
 
-// Dispatch table for object types
+static Value typeof_key(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Key", 3));
+}
+
+static Value typeof_event(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Event", 5));
+}
+
 static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRING] = typeof_string,
 	[OBJECT_FUNCTION] = typeof_function,
@@ -1407,6 +1469,8 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_TUPLE] = typeof_tuple,
 	[OBJECT_BUFFER] = typeof_buffer,
 	[OBJECT_SET] = typeof_set,
+	[OBJECT_KEY] = typeof_key,
+	[OBJECT_EVENT] = typeof_event,
 };
 
 /**
@@ -1645,19 +1709,19 @@ Value typeof_value(VM *vm, const Value value)
 	}
 
 	if (IS_INT(value)) {
-		return OBJECT_VAL(copy_string(vm, "int", 3));
+		return OBJECT_VAL(copy_string(vm, "Int", 3));
 	}
 
 	if (IS_FLOAT(value)) {
-		return OBJECT_VAL(copy_string(vm, "float", 5));
+		return OBJECT_VAL(copy_string(vm, "Float", 5));
 	}
 
 	if (IS_BOOL(value)) {
-		return OBJECT_VAL(copy_string(vm, "boolean", 7));
+		return OBJECT_VAL(copy_string(vm, "Bool", 4));
 	}
 
 	if (IS_NIL(value)) {
-		return OBJECT_VAL(copy_string(vm, "nil", 3));
+		return OBJECT_VAL(copy_string(vm, "Nil", 3));
 	}
 	// unreachable
 	return OBJECT_VAL(copy_string(vm, "unknown", 7));

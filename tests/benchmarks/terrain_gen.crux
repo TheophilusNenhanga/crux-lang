@@ -1,3 +1,5 @@
+use println from "crux:io";
+
 println("=== START OF TERRAIN GENERATOR ===");
 
 use _time_ms from "crux:time";
@@ -26,7 +28,7 @@ fn init_permutation() {
 
     // Shuffle (Fisher-Yates)
     for let i = 255; i > 0; i -= 1 {
-        let j = _int(rand.double(0, i + 1)?);
+        let j = int(rand.double(0, i + 1)?);
         let swap = p[i];
         p[i] = p[j];
         p[j] = swap;
@@ -85,9 +87,9 @@ fn grad(hash, x, y, z) {
 
 fn noise(x, y, z) {
     // Find unit cube that contains point
-    let X = _int(floor(x)) & 255;
-    let Y = _int(floor(y)) & 255;
-    let Z = _int(floor(z)) & 255;
+    let X = int(floor(x)) & 255;
+    let Y = int(floor(y)) & 255;
+    let Z = int(floor(z)) & 255;
 
     // Find relative x,y,z of point in cube
     x -= floor(x);
@@ -171,7 +173,7 @@ fn main() {
     println("Initializing Permutation Table...");
     init_permutation();
 
-    println("Generating Terrain (" + _string(IMAGE_WIDTH) + "x" + _string(IMAGE_HEIGHT) + ")...");
+    println("Generating Terrain (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
     let start_time = _time_ms();
 
     let file = match open_file("terrain.ppm", "w") {
@@ -180,12 +182,12 @@ fn main() {
     };
 
     file.write("P3\n");
-    file.write(_string(IMAGE_WIDTH) + " " + _string(IMAGE_HEIGHT) + "\n");
+    file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
     file.write("255\n");
 
     for let y = 0; y < IMAGE_HEIGHT; y += 1 {
         if y % 32 == 0 {
-            println("Processing line " + _string(y));
+            println("Processing line " + string(y));
         }
 
         for let x = 0; x < IMAGE_WIDTH; x += 1 {
@@ -195,12 +197,12 @@ fn main() {
             // Map to color
             let color = get_terrain_color(n);
 
-            file.write(_string(color["r"]) + " " + _string(color["g"]) + " " + _string(color["b"]) + "\n");
+            file.write(string(color["r"]) + " " + string(color["g"]) + " " + string(color["b"]) + "\n");
         }
     }
 
     let end_time = _time_ms();
-    println("Terrain generated in " + _string(end_time - start_time) + " ms");
+    println("Terrain generated in " + string(end_time - start_time) + " ms");
     file.close();
 }
 

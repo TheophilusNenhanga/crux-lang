@@ -1,0 +1,65 @@
+use println from "crux:io";
+use args, get_env, exit from "crux:sys";
+use _platform, _arch, _pid from "crux:sys";
+
+println("=== Testing Sys Module ===");
+
+// Test _platform
+println("--- Testing _platform ---");
+let platform = _platform();
+assert(typeof platform == "String", "_platform should return String");
+println("Platform: " + platform);
+assert(platform == "linux" or platform == "windows" or platform == "macos", "_platform should return known platform");
+println("_platform() test passed");
+
+// Test _arch
+println("--- Testing _arch ---");
+let arch = _arch();
+assert(typeof arch == "String", "_arch should return String");
+println("Architecture: " + arch);
+println("_arch() test passed");
+
+// Test _pid
+println("--- Testing _pid ---");
+let pid = _pid();
+assert(typeof pid == "Int", "_pid should return int");
+assert(pid > 0, "_pid should return positive integer");
+println("PID: " + string(pid));
+println("_pid() test passed");
+
+// Test args
+println("--- Testing args ---");
+let arguments = args();
+assert(typeof arguments == "Result", "args should return Result");
+let args_arr = match arguments {
+    Ok(v) => give v;
+    Err(_) => give [];
+};
+assert(typeof args_arr == "Array", "args should return Array when unwrapped");
+println("Args count: " + string(len(args_arr)));
+println("args() test passed");
+
+// Test get_env
+println("--- Testing get_env ---");
+// Test with a common environment variable
+let path_result = get_env("PATH");
+assert(typeof path_result == "Result", "get_env should return Result");
+let path = match path_result {
+    Ok(v) => give v;
+    Err(_) => give nil;
+};
+if path != nil {
+    println("PATH found, length: " + string(len(path)));
+} else {
+    println("PATH not found (unusual but possible)");
+}
+println("get_env() test passed");
+
+// Test get_env with non-existent variable
+println("--- Testing get_env with non-existent ---");
+let no_var_result = get_env("DEFINITELY_NOT_A_REAL_ENV_VAR_12345");
+let no_var = no_var_result?;
+assert(no_var.message() == "Environment variable not found.", "Failed to get non-existent environment variable");
+println("get_env() non-existent test passed");
+
+println("=== All Sys Module tests passed! ===");

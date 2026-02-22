@@ -1,0 +1,93 @@
+use println from "crux:io";
+use open, remove, size, copy_file, mkdir from "crux:fs";
+use read_file, write_file, append_file, exists, is_file, is_dir from "crux:fs";
+
+println("=== Testing FS Module ===");
+
+fn unwrap(r) {
+    return match r {
+        Ok(v) => give v;
+        Err(_) => give nil;
+    };
+}
+
+let test_file = "/tmp/crux_test_file.txt";
+let test_file2 = "/tmp/crux_test_file2.txt";
+let test_dir = "/tmp/crux_test_dir";
+
+// Test exists
+println("--- Testing exists ---");
+assert(exists("/tmp") == true, "/tmp should exist");
+assert(exists("/nonexistent/path/xyz") == false, "nonexistent path should not exist");
+println("exists() test passed");
+
+// Test is_file and is_dir
+println("--- Testing is_file and is_dir ---");
+assert(is_file("/tmp") == false, "/tmp is not a file");
+assert(is_dir("/tmp") == true, "/tmp is a directory");
+println("is_file() and is_dir() test passed");
+
+// Test write_file
+println("--- Testing write_file ---");
+unwrap(write_file(test_file, "Hello, Crux!"));
+println("write_file() test passed");
+
+// Test read_file
+println("--- Testing read_file ---");
+let content = unwrap(read_file(test_file));
+assert(content == "Hello, Crux!", "read_file should return written content");
+println("read_file() test passed");
+
+// Test append_file
+println("--- Testing append_file ---");
+unwrap(append_file(test_file, " Appended text."));
+let appended = unwrap(read_file(test_file));
+assert(appended == "Hello, Crux! Appended text.", "append_file should append content");
+println("append_file() test passed");
+
+// Test size
+println("--- Testing size ---");
+let file_size = unwrap(size(test_file));
+assert(typeof file_size == "Float", "size should return float");
+assert(file_size > 0, "size should return positive value");
+println("size() test passed");
+
+// Test file operations
+println("--- Testing file operations ---");
+let file = unwrap(open(test_file, "r"));
+assert(typeof file == "File", "open should return File object");
+assert(file.is_open() == true, "file should be open");
+
+let line = unwrap(file.readln());
+assert(typeof line == "String", "readln should return String");
+
+file.seek(0, "start");
+let pos = unwrap(file.tell());
+assert(pos == 0, "tell should return 0 after seek to start");
+
+file.close();
+assert(file.is_open() == false, "file should be closed");
+println("File operations test passed");
+
+// Test mkdir
+println("--- Testing mkdir ---");
+unwrap(mkdir(test_dir));
+assert(is_dir(test_dir) == true, "mkdir should create directory");
+println("mkdir() test passed");
+
+// Test copy_file
+println("--- Testing copy_file ---");
+unwrap(copy_file(test_file, test_file2));
+assert(exists(test_file2) == true, "copy_file should create destination");
+println("copy_file() test passed");
+
+// Test remove
+println("--- Testing remove ---");
+unwrap(remove(test_file));
+assert(exists(test_file) == false, "remove should delete file");
+unwrap(remove(test_file2));
+assert(exists(test_file2) == false, "remove should delete copied file");
+unwrap(remove(test_dir));
+println("remove() test passed");
+
+println("=== All FS Module tests passed! ===");
