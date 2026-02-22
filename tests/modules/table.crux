@@ -1,0 +1,98 @@
+use println from "crux:io";
+
+println("=== Testing Table Methods ===");
+
+// Helper to unwrap result
+fn unwrap(r) {
+    return match r {
+        Ok(v) => give v;
+        Err(_) => give nil;
+    };
+}
+
+// Test basic table operations
+println("--- Testing basic table operations ---");
+let t1 = {};
+t1["a"] = 1;
+t1["b"] = 2;
+assert(t1["a"] == 1, "table set and get should work");
+assert(t1["b"] == 2, "table set and get should work");
+println("Basic table operations test passed");
+
+// Test keys
+println("--- Testing keys ---");
+let t2 = {"a": 1, "b": 2, "c": 3};
+let keys = unwrap(t2.keys());
+assert(len(keys) == 3, "keys should return correct count");
+println("keys() test passed");
+
+// Test values
+println("--- Testing values ---");
+let t3 = {"a": 1, "b": 2, "c": 3};
+let values = unwrap(t3.values());
+assert(len(values) == 3, "values should return correct count");
+println("values() test passed");
+
+// Test pairs
+println("--- Testing pairs ---");
+let t4 = {"a": 1, "b": 2};
+let pairs = unwrap(t4.pairs());
+assert(len(pairs) == 2, "pairs should return correct count");
+println("pairs() test passed");
+
+// Test get
+println("--- Testing get ---");
+let t5 = {"a": 1, "b": 2};
+assert(unwrap(t5.get("a")) == 1, "get should return value for existing key");
+let not_found = t5.get("c");
+assert(typeof not_found == "Result", "get should return Result for missing key");
+println("get() test passed");
+
+// Test get_or_else
+println("--- Testing get_or_else ---");
+let t6 = {"a": 1};
+assert(unwrap(t6.get_or_else("a", 99)) == 1, "get_or_else should return value for existing key");
+assert(unwrap(t6.get_or_else("b", 99)) == 99, "get_or_else should return default for missing key");
+println("get_or_else() test passed");
+
+// Test has_key
+println("--- Testing has_key ---");
+let t7 = {"a": 1, "b": 2};
+assert(unwrap(t7.has_key("a")) == true, "has_key should return true for existing key");
+assert(unwrap(t7.has_key("c")) == false, "has_key should return false for missing key");
+println("has_key() test passed");
+
+// Test remove
+println("--- Testing remove ---");
+let t8 = {"a": 1, "b": 2, "c": 3};
+unwrap(t8.remove("b"));
+assert(unwrap(t8.has_key("b")) == false, "remove should delete key");
+println("remove() test passed");
+
+// Test table with different key types
+println("--- Testing table with different key types ---");
+let t9 = {};
+t9[1] = "int key";
+t9["str"] = "string key";
+assert(t9[1] == "int key", "table should work with int keys");
+assert(t9["str"] == "string key", "table should work with string keys");
+println("Different key types test passed");
+
+// Test nested tables
+println("--- Testing nested tables ---");
+let t10 = {};
+t10["outer"] = {};
+t10["outer"]["inner"] = 42;
+assert(t10["outer"]["inner"] == 42, "nested table access should work");
+println("Nested tables test passed");
+
+// Test table as function parameter
+println("--- Testing table as function parameter ---");
+fn get_value(t, key) {
+    return unwrap(t.get(key));
+}
+let t11 = {"x": 10, "y": 20};
+assert(get_value(t11, "x") == 10, "table should work as function parameter");
+println("Table as parameter test passed");
+
+println("=== All Table Method tests passed! ===");

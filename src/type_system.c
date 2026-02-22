@@ -38,6 +38,10 @@ TypeMask get_type_mask(Value value)
 			return COMPLEX_TYPE;
 		case OBJECT_MATRIX:
 			return MATRIX_TYPE;
+		case OBJECT_KEY:
+			return KEY_TYPE;
+		case OBJECT_EVENT:
+			return EVENT_TYPE;
 		case OBJECT_MODULE_RECORD:
 			return MODULE_TYPE;
 		case OBJECT_UPVALUE: {
@@ -82,7 +86,8 @@ void type_mask_name(TypeMask mask, char *buf, int buf_size)
 		       {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
 		       {STRUCT_TYPE, "Struct"},	  {MODULE_TYPE, "Module"},
 		       {SET_TYPE, "Set"},	  {TUPLE_TYPE, "Tuple"},
-		       {BUFFER_TYPE, "Buffer"},	  {RANGE_TYPE, "Range"}};
+		       {BUFFER_TYPE, "Buffer"},	  {RANGE_TYPE, "Range"},
+		       {KEY_TYPE, "Key"},	  {EVENT_TYPE, "Event"}};
 
 	int offset = 0;
 	bool first = true;

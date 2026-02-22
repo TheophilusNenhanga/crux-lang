@@ -1,5 +1,4 @@
-// Testing the type function
-
+use println from "crux:io";
 use Random from "crux:random";
 
 println("=== Testing the type function ===");
@@ -13,7 +12,7 @@ let f = {a: 1, b: 2};
 let g = fn (test) { return test; };
 struct Test {}
 let h = new Test {};
-let j = len(e);
+let j = ok("test");
 let k = 1.0;
 let r = Random();
 
@@ -30,17 +29,17 @@ let jType = typeof j;
 let kType = typeof k;
 let rType = typeof r;
 
-assert(aType == "string", "a is not string");
-assert(bType == "int", "b is not an integer");
-assert(cType == "boolean", "c is not boolean");
-assert(dType == "nil", "d is not nil");
-assert(eType == "array", "e is not array");
-assert(fType == "table", "f is not table");
-assert(gType == "function", "g is not function");
-assert(hType == "struct instance", "h is not a struct instance");
-assert(iType == "struct", "i is not struct");
-assert(jType == "result", "j is not result");
-assert(kType == "float", "k is not a float");
-assert(rType == "random", "r is not a Random");
+assert(aType == "String", "a is not string, got actual: " + aType);
+assert(bType == "Int", "b is not an integer, got actual: " + bType);
+assert(cType == "Bool", "c is not boolean, got actual: " + cType);
+assert(dType == "Nil", "d is not nil, got actual: " + dType);
+assert(eType == "Array", "e is not array, got actual: " + eType);
+assert(fType == "Table", "f is not table, got actual: " + fType);
+assert(gType == "Function", "g is not function, got actual: " + gType);
+assert(hType == "Struct instance", "h is not a struct instance, got actual: " + hType);
+assert(iType == "Struct", "i is not struct, got actual: " + iType);
+assert(jType == "Result", "j is not result, got actual: " + jType);
+assert(kType == "Float", "k is not a float, got actual: " + kType);
+assert(rType == "Random", "r is not a Random, got actual: " + rType);
 
 println("=== type function test complete ===");

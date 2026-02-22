@@ -126,7 +126,7 @@ Value table_pairs_method(VM *vm, const Value *args)
 /**
  * Removes a key-value pair from a table
  * arg0 -> table: Table
- * arg1 -> key: Any (TODO:CHNAGE TYPE TO Hashable)
+ * arg1 -> key: Hashable
  * Returns Result<Nil>
  */
 Value table_remove_method(VM *vm, const Value *args)
@@ -150,7 +150,7 @@ Value table_remove_method(VM *vm, const Value *args)
 /**
  * Gets the value associated with a key from a table
  * arg0 -> table: Table
- * arg1 -> key: Any (TODO:CHNAGE TYPE TO Hashable)
+ * arg1 -> key: Hashable
  * Returns Result<Any>
  */
 Value table_get_method(VM *vm, const Value *args)
@@ -176,7 +176,7 @@ Value table_get_method(VM *vm, const Value *args)
 /**
  * Checks if a table contains a specific key
  * arg0 -> table: Table
- * arg1 -> key: Any (TODO:CHNAGE TYPE TO Hashable)
+ * arg1 -> key: Hashable
  * Returns Bool
  */
 Value table_has_key_method(VM *vm, const Value *args)
@@ -194,7 +194,7 @@ Value table_has_key_method(VM *vm, const Value *args)
 /**
  * Gets a value from a table or returns a default if the key doesn't exist
  * arg0 -> table: Table
- * arg1 -> key: Any (TODO:CHNAGE TYPE TO Hashable)
+ * arg1 -> key: Any Hashable
  * arg2 -> default: Any
  * Returns Any
  */

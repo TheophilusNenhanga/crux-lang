@@ -53,7 +53,6 @@ Value args_function(VM *vm, const Value *args)
 
 /**
  * Returns the current operating system platform
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns String
  */
 Value platform_function(VM *vm, const Value *args)
@@ -72,7 +71,6 @@ Value platform_function(VM *vm, const Value *args)
 
 /**
  * Returns the CPU architecture
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns String
  */
 Value arch_function(VM *vm, const Value *args)
@@ -111,7 +109,6 @@ Value arch_function(VM *vm, const Value *args)
 
 /**
  * Returns the current process ID
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value pid_function(VM *vm, const Value *args)

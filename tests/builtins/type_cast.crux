@@ -1,111 +1,112 @@
+use println from "crux:io";
+
 // Testing Type casting
 
 println("===START OF TYPE CASTING TESTS===");
 
 // int type casting
-let n1 = _int("12"); // from string
+let n1 = int("12")?; // from string
 assert(n1 == 12, "Failed to cast from string to int");
 
-let n2 = _int([]);
-assert(n2 == nil, "Failed to cast from array to int");
+let n2 = int([])?;
+assert(typeof n2 == "Error", "Failed to correctly fail to cast from array to int");
 
-let n3 = _int({});
-assert(n3 == nil, "Failed to cast from table to int");
+let n3 = int({})?;
+assert(typeof n3 == "Error", "Failed to correctly fail to cast from table to int");
 
-let n4 = _int(12);
+let n4 = int(12)?;
 assert(n4 == 12, "Failed to cast from int to int");
 
-let n5 = _int(true);
+let n5 = int(true)?;
 assert(n5 == 1, "Failed to cast from boolean true to int");
 
-let n6 = _int(false);
+let n6 = int(false)?;
 assert(n6 == 0, "Failed to cast from boolean false to int");
 
-let n7 = _int(nil);
+let n7 = int(nil)?;
 assert(n7 == 0, "Failed to cast from nil to int");
 
 // number type casting
-let f1 = _float("12"); // from string
+let f1 = float("12")?;
 assert(f1 == 12, "Failed to cast from string to number");
 
-let f2 = _float([]);
-assert(f2 == nil, "Failed to cast from array to number");
+let f2 = float([])?;
+assert(typeof f2 == "Error", "Failed to correctly fail to cast from array to number");
 
-let f3 = _float({});
-assert(f3 == nil, "Failed to cast from table to number");
+let f3 = float({})?;
+assert(typeof f3 == "Error", "Failed to correctly fail to cast from table to number");
 
-let f4 = _float(12);
+let f4 = float(12)?;
 assert(f4 == 12, "Failed to cast from number to number");
 
-let f5 = _float(true);
+let f5 = float(true)?;
 assert(f5 == 1, "Failed to cast from boolean true to number");
 
-let f6 = _float(false);
+let f6 = float(false)?;
 assert(f6 == 0, "Failed to cast from boolean false to number");
 
-let f7 = _float(nil);
+let f7 = float(nil)?;
 assert(f7 == 0, "Failed to cast from nil to number");
 
 
 
 // string type casting
-let s1 = _string(42);
+let s1 = string(42);
 assert(s1 == "42", "Failed to cast from number to string");
 
-let s2 = _string("hello");
+let s2 = string("hello");
 assert(s2 == "hello", "Failed to cast from string to string");
 
-let s3 = _string(true);
+let s3 = string(true);
 assert(s3 == "true", "Failed to cast from boolean true to string");
 
-let s4 = _string(false);
+let s4 = string(false);
 assert(s4 == "false", "Failed to cast from boolean false to string");
 
-let s5 = _string(nil);
+let s5 = string(nil);
 assert(s5 == "nil", "Failed to cast from nil to string");
 
-let s6 = _string([1, 2, 3]);
+let s6 = string([1, 2, 3]);
 assert(s6 == "[1, 2, 3]", "Failed to cast from array to string");
 
-let s7 = _string({"a": 1});
+let s7 = string({"a": 1});
 assert(s7 == "{a:1}", "Failed to cast from table to string");
 
 
 // table type casting
-let t1 = _table({"a": 1});
+let t1 = table({"a": 1})?;
 assert(t1["a"] == 1, "Failed to cast from table to table");
 
-let t2 = _table([10, 20, 30]);
+let t2 = table([10, 20, 30])?;
 assert(t2[0] == 10 and t2[1] == 20 and t2[2] == 30,  "Failed to cast from array to table");
 
-let t3 = _table(42);
+let t3 = table(42)?;
 assert(t3[0] == 42, "Failed to cast from number to table");
 
-let t4 = _table("hello");
+let t4 = table("hello")?;
 assert(t4[0] == "h", "Failed to cast from string to table");
 
-let t5 = _table(nil);
+let t5 = table(nil)?;
 assert(t5[0] == nil, "Failed to cast from nil to table");
 
 
 // array type casting
-let a1 = _array([1, 2, 3]);
+let a1 = array([1, 2, 3])?;
 assert(a1[0] == 1 and a1[1] == 2 and a1[2] == 3, "Failed to cast from array to array");
 
-let a2 = _array("abc");
+let a2 = array("abc")?;
 assert(a2[0] == "a" and a2[1] == "b" and a2[2] == "c", "Failed to cast from string to array");
 
+let a3 = array({"a": 1, "b": 2})?;
+assert(len(a3) == 4, "Failed to cast from table to array");
 
-let a3 = _array({"a": 1, "b": 2});
-assert(_len(a3) == 4, "Failed to cast from table to array");
-
-let a4 = _array(42);
+let a4 = array(42)?;
 assert(a4[0] == 42, "Failed to cast from number to array");
 
-let a5 = _array(true);
+let a5 = array(true)?;
 assert(a5[0] == true, "Failed to cast from boolean to array");
 
-let a6 = _array(nil);
+let a6 = array(nil)?;
 assert(a6[0] == nil, "Failed to cast from nil to array");
 
 println("===END OF TYPE CASTING TESTS===");

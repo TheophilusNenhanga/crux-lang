@@ -11,7 +11,6 @@
 
 /**
  * Returns the current Unix timestamp in seconds
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Float
  */
 Value time_seconds_function_(VM *vm, const Value *args)
@@ -23,7 +22,6 @@ Value time_seconds_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current Unix timestamp in milliseconds
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Float
  */
 Value time_milliseconds_function_(VM *vm, const Value *args)
@@ -100,7 +98,6 @@ static time_t get_current_time(void)
 
 /**
  * Returns the current year
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value year_function_(VM *vm, const Value *args)
@@ -114,7 +111,6 @@ Value year_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current month (1-12)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value month_function_(VM *vm, const Value *args)
@@ -128,7 +124,6 @@ Value month_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current day of the month (1-31)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value day_function_(VM *vm, const Value *args)
@@ -142,7 +137,6 @@ Value day_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current hour (0-23)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value hour_function_(VM *vm, const Value *args)
@@ -156,7 +150,6 @@ Value hour_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current minute (0-59)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value minute_function_(VM *vm, const Value *args)
@@ -170,7 +163,6 @@ Value minute_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current second (0-59)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value second_function_(VM *vm, const Value *args)
@@ -184,7 +176,6 @@ Value second_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current day of the week (1=Monday, 7=Sunday)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value weekday_function_(VM *vm, const Value *args)
@@ -200,7 +191,6 @@ Value weekday_function_(VM *vm, const Value *args)
 
 /**
  * Returns the current day of the year (1-366)
- * TODO:CHNAGE TYPE TO {} (no arguments)
  * Returns Int
  */
 Value day_of_year_function_(VM *vm, const Value *args)

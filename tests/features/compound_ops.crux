@@ -1,3 +1,5 @@
+use println from "crux:io";
+
 // Testing compound operations
 
 let x = 5;

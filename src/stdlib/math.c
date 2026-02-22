@@ -53,7 +53,7 @@ static double absolute_float(const double x)
 
 /**
  * Calculates the absolute value of a number
- * arg0 -> x: Float (TODO:CHNAGE TYPE TO Int | Float)
+ * arg0 -> x: Float | Int
  * Returns Int or Float (same type as input)
  */
 Value abs_function(VM *vm, const Value *args)
@@ -162,7 +162,7 @@ Value ln_function(VM *vm, const Value *args)
 					  "of non positive number.",
 					  VALUE);
 	}
-	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(log(AS_FLOAT(args[0])))));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(log(number))));
 }
 
 /**
@@ -180,8 +180,7 @@ Value log10_function(VM *vm, const Value *args)
 					  VALUE);
 	}
 
-	return OBJECT_VAL(
-		new_ok_result(vm, FLOAT_VAL(log10(AS_FLOAT(args[0])))));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(log10(number))));
 }
 
 /**
@@ -272,7 +271,7 @@ Value min_function(VM *vm, const Value *args)
 	(void)vm;
 	const double a = TO_DOUBLE(args[0]);
 	const double b = TO_DOUBLE(args[1]);
-	return FLOAT_VAL(a < b ? args[0] : args[1]);
+	return FLOAT_VAL(a < b ? a : b);
 }
 
 /**
@@ -286,5 +285,5 @@ Value max_function(VM *vm, const Value *args)
 	(void)vm;
 	const double a = TO_DOUBLE(args[0]);
 	const double b = TO_DOUBLE(args[1]);
-	return FLOAT_VAL(a > b ? args[0] : args[1]);
+	return FLOAT_VAL(a > b ? a : b);
 }
