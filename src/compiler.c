@@ -1853,6 +1853,8 @@ static void string(bool can_assign)
 	if (srcLength == 0) {
 		ObjectString *string = copy_string(current->owner, "", 0);
 		emit_constant(OBJECT_VAL(string));
+		FREE_ARRAY(current->owner, char, processed,
+			   parser.previous.length);
 		return;
 	}
 
