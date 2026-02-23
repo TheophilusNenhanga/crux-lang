@@ -1,9 +1,11 @@
 #include "stdlib/core.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "object.h"
 #include "panic.h"
+#include "stdlib/range.h"
 
 static Value get_length(const Value value)
 {
@@ -22,6 +24,10 @@ static Value get_length(const Value value)
 	if (IS_CRUX_MATRIX(value)) {
 		return INT_VAL(AS_CRUX_MATRIX(value)->col_dim *
 			       AS_CRUX_MATRIX(value)->row_dim);
+	}
+	if (IS_CRUX_RANGE(value)) {
+		const ObjectRange *range = AS_CRUX_RANGE(value);
+		return INT_VAL(range_len(range));
 	}
 	return INT_VAL(-1);
 }

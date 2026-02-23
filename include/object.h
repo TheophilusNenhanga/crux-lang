@@ -1,6 +1,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include "value.h"
@@ -59,6 +60,10 @@
 #define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
 #define IS_CRUX_COMPLEX(value) is_object_type(value, OBJECT_COMPLEX)
 #define IS_CRUX_MATRIX(value) is_object_type(value, OBJECT_MATRIX)
+#define IS_CRUX_BUFFER(value) is_object_type(value, OBJECT_BUFFER)
+#define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
+#define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
+#define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -81,6 +86,10 @@
 #define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_COMPLEX(value) ((ObjectComplex *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MATRIX(value) ((ObjectMatrix *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_BUFFER(value) ((ObjectBuffer *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -104,6 +113,10 @@ typedef enum {
 	OBJECT_VECTOR,
 	OBJECT_COMPLEX,
 	OBJECT_MATRIX,
+	OBJECT_BUFFER,
+	OBJECT_SET,
+	OBJECT_TUPLE,
+	OBJECT_RANGE,
 } ObjectType;
 
 struct CruxObject {//8
@@ -313,6 +326,32 @@ struct ObjectModuleRecord {//112
 	bool is_main;
 	ModuleState state;
 };
+
+typedef struct { // 40
+    CruxObject object;
+    int32_t start;
+    int32_t end;
+    int32_t step;
+} ObjectRange;
+
+typedef struct { // 24
+    CruxObject object;
+    Table entries;
+} ObjectSet;
+
+typedef struct{ // 32
+    CruxObject object;
+    uint64_t read_pos;
+    uint64_t write_pos;
+    uint64_t capacity;
+    uint8_t* data;
+}ObjectBuffer;
+
+typedef struct{ // 20
+    CruxObject object;
+    uint64_t size;
+    Value* elements;
+}ObjectTuple;
 
 static bool is_object_type(const Value value, const ObjectType type)
 {
@@ -687,5 +726,13 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 ObjectComplex* new_complex_number(VM *vm, double real, double imaginary);
 
 ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
+
+ObjectRange* new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
+
+ObjectSet* new_set(VM *vm);
+
+ObjectBuffer* new_buffer(VM *vm);
+
+ObjectTuple* new_tuple(VM *vm, uint64_t size);
 
 #endif

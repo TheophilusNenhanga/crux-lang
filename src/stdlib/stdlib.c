@@ -11,6 +11,7 @@
 #include "stdlib/math.h"
 #include "stdlib/matrix.h"
 #include "stdlib/random.h"
+#include "stdlib/range.h"
 #include "stdlib/stdlib.h"
 #include "stdlib/string.h"
 #include "stdlib/sys.h"
@@ -294,6 +295,19 @@ static const Callable matrixMethods[] = {
 	{"cols", matrix_cols_method, 1, {MATRIX_TYPE}},
 };
 
+static const Callable range_functions[] = {
+	{"Range", new_range_function, 3, {INT_TYPE, INT_TYPE, INT_TYPE}}};
+
+static const Callable range_methods[] = {
+	{"contains", contains_range_method, 2, {RANGE_TYPE, INT_TYPE}},
+	{"to_array", to_array_range_method, 1, {RANGE_TYPE}},
+	{"start", start_range_method, 1, {RANGE_TYPE}},
+	{"end", end_range_method, 1, {RANGE_TYPE}},
+	{"step", step_range_method, 1, {RANGE_TYPE}},
+	{"is_empty", is_empty_range_method, 1, {RANGE_TYPE}},
+	{"reversed", reversed_range_method, 1, {RANGE_TYPE}},
+};
+
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
 			    const CruxCallable method_function, const int arity,
@@ -442,6 +456,9 @@ bool initialize_std_lib(VM *vm)
 	initTypeMethodTable(vm, &vm->matrix_type, matrixMethods,
 			    ARRAY_COUNT(matrixMethods));
 
+	initTypeMethodTable(vm, &vm->range_type, range_methods,
+			    ARRAY_COUNT(range_methods));
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions,
 			ARRAY_COUNT(mathFunctions))) {
@@ -484,6 +501,11 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "matrix", matrixFunctions,
 			ARRAY_COUNT(matrixFunctions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "range", range_functions,
+			ARRAY_COUNT(range_functions))) {
 		return false;
 	}
 

@@ -682,7 +682,7 @@ static void binary(bool can_assign)
 	}
 }
 
-static void call(bool can_assign)
+static void infix_call(bool can_assign)
 {
 	(void)can_assign;
 	const uint16_t arg_count = argument_list();
@@ -1957,7 +1957,7 @@ static void typeof_expression(bool can_assign)
  * type.
  */
 ParseRule rules[] = {
-	[TOKEN_LEFT_PAREN] = {grouping, call, NULL, PREC_CALL},
+	[TOKEN_LEFT_PAREN] = {grouping, infix_call, NULL, PREC_CALL},
 	[TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_LEFT_BRACE] = {table_literal, NULL, NULL, PREC_NONE},
 	[TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},

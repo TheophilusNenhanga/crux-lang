@@ -3,8 +3,6 @@
 #include "file_handler.h"
 #include "stdlib/stdlib.h"
 #include "vm.h"
-#include "vm_helpers.h"
-#include "vm_run.h"
 
 #include <string.h>
 

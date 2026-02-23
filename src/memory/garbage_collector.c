@@ -5,7 +5,9 @@
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
+#include "vm.h"
 
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
@@ -146,6 +148,10 @@ static void blacken_struct_instance(VM *vm, CruxObject *object);
 static void blacken_vector(VM *vm, CruxObject *object);
 static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
+static void blacken_range(VM *vm, CruxObject *object);
+static void blacken_set(VM *vm, CruxObject *object);
+static void blacken_buffer(VM *vm, CruxObject *object);
+static void blacken_tuple(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
@@ -164,6 +170,10 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRUCT_INSTANCE] = blacken_struct_instance,
 	[OBJECT_VECTOR] = blacken_vector,
 	[OBJECT_COMPLEX] = blacken_complex,
+	[OBJECT_RANGE] = blacken_range,
+	[OBJECT_SET] = blacken_set,
+	[OBJECT_BUFFER] = blacken_buffer,
+	[OBJECT_TUPLE] = blacken_tuple,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -302,6 +312,30 @@ static void blacken_string(VM *vm, CruxObject *object)
 	(void)object;
 }
 
+static void blacken_range(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+
+static void blacken_set(VM *vm, CruxObject *object)
+{
+	ObjectSet *set = (ObjectSet *)object;
+	mark_table(vm, &set->entries);
+}
+
+static void blacken_buffer(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+
+static void blacken_tuple(VM *vm, CruxObject *object)
+{
+	(void)vm;
+	(void)object;
+}
+
 /**
  * @brief Frees the memory associated with an object based on its type.
  *
@@ -330,6 +364,10 @@ static void free_object_struct(VM *vm, CruxObject *object);
 static void free_object_struct_instance(VM *vm, CruxObject *object);
 static void free_object_vector(VM *vm, CruxObject *object);
 static void free_object_complex(VM *vm, CruxObject *object);
+static void free_object_set(VM *vm, CruxObject *object);
+static void free_object_range(VM *vm, CruxObject *object);
+static void free_object_buffer(VM *vm, CruxObject *object);
+static void free_object_tuple(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -348,6 +386,10 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRUCT_INSTANCE] = free_object_struct_instance,
 	[OBJECT_VECTOR] = free_object_vector,
 	[OBJECT_COMPLEX] = free_object_complex,
+	[OBJECT_SET] = free_object_set,
+	[OBJECT_RANGE] = free_object_range,
+	[OBJECT_BUFFER] = free_object_buffer,
+	[OBJECT_TUPLE] = free_object_tuple,
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -489,6 +531,33 @@ static void free_object_vector(VM *vm, CruxObject *object)
 static void free_object_complex(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectComplex, object);
+}
+
+static void free_object_set(VM *vm, CruxObject *object)
+{
+	ObjectSet *set = (ObjectSet *)object;
+	free_table(vm, &set->entries);
+	FREE_OBJECT(vm, ObjectSet, object);
+}
+
+static void free_object_range(VM *vm, CruxObject *object)
+{
+	const ObjectRange *range = (ObjectRange *)object;
+	FREE_OBJECT(vm, ObjectRange, object);
+}
+
+static void free_object_buffer(VM *vm, CruxObject *object)
+{
+	const ObjectBuffer *buffer = (ObjectBuffer *)object;
+	FREE_ARRAY(vm, uint8_t, buffer->data, buffer->capacity);
+	FREE_OBJECT(vm, ObjectBuffer, object);
+}
+
+static void free_object_tuple(VM *vm, CruxObject *object)
+{
+	const ObjectTuple *tuple = (ObjectTuple *)object;
+	FREE_ARRAY(vm, Value, tuple->elements, tuple->size);
+	FREE_OBJECT(vm, ObjectTuple, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)

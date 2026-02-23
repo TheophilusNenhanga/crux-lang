@@ -48,6 +48,14 @@ TypeMask get_type_mask(Value value)
 		case OBJECT_NATIVE_CALLABLE:
 		case OBJECT_FUNCTION:
 			return FUNCTION_TYPE;
+		case OBJECT_SET:
+			return SET_TYPE;
+		case OBJECT_TUPLE:
+			return TUPLE_TYPE;
+		case OBJECT_BUFFER:
+			return BUFFER_TYPE;
+		case OBJECT_RANGE:
+			return RANGE_TYPE;
 		default:
 			return ANY_TYPE;
 		}
@@ -72,7 +80,9 @@ void type_mask_name(TypeMask mask, char *buf, int buf_size)
 		       {ERROR_TYPE, "Error"},	  {RESULT_TYPE, "Result"},
 		       {FILE_TYPE, "File"},	  {VECTOR_TYPE, "Vector"},
 		       {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
-		       {STRUCT_TYPE, "Struct"},	  {MODULE_TYPE, "Module"}};
+		       {STRUCT_TYPE, "Struct"},	  {MODULE_TYPE, "Module"},
+		       {SET_TYPE, "Set"},	  {TUPLE_TYPE, "Tuple"},
+		       {BUFFER_TYPE, "Buffer"},	  {RANGE_TYPE, "Range"}};
 
 	int offset = 0;
 	bool first = true;

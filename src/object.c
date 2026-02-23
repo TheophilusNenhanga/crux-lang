@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "table.h"
 #include "value.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -263,6 +264,26 @@ void print_type_to(FILE *stream, const Value value)
 		const ObjectMatrix *matrix = AS_CRUX_MATRIX(value);
 		fprintf(stream, "'Matrix<%d, %d>'", matrix->row_dim,
 			matrix->col_dim);
+		break;
+	}
+	case OBJECT_RANGE: {
+		const ObjectRange *range = AS_CRUX_RANGE(value);
+		fprintf(stream, "'Range'");
+		break;
+	}
+	case OBJECT_TUPLE: {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
+		fprintf(stream, "'Tuple'");
+		break;
+	}
+	case OBJECT_BUFFER: {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
+		fprintf(stream, "'Buffer'");
+		break;
+	}
+	case OBJECT_SET: {
+		const ObjectSet *set = AS_CRUX_SET(value);
+		fprintf(stream, "'Set'");
 		break;
 	}
 	default:
@@ -1369,4 +1390,40 @@ ObjectMatrix *new_matrix(VM *vm, const uint16_t row_dim, const uint16_t col_dim)
 	matrix->data = ALLOCATE(vm, double, row_dim *col_dim);
 	pop(vm->current_module_record);
 	return matrix;
+}
+
+ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step)
+{
+	ObjectRange *range = ALLOCATE_OBJECT(vm, ObjectRange, OBJECT_RANGE);
+	range->start = start;
+	range->end = end;
+	range->step = step;
+	return range;
+}
+
+ObjectSet *new_set(VM *vm)
+{
+	ObjectSet *set = ALLOCATE_OBJECT(vm, ObjectSet, OBJECT_SET);
+	init_table(&set->entries);
+	return set;
+}
+
+ObjectBuffer *new_buffer(VM *vm)
+{
+	ObjectBuffer *buffer = ALLOCATE_OBJECT(vm, ObjectBuffer, OBJECT_BUFFER);
+	buffer->capacity = INITIAL_BUFFER_CAPACITY;
+	buffer->read_pos = 0;
+	buffer->write_pos = 0;
+	buffer->data = NULL;
+	buffer->data = ALLOCATE(vm, uint8_t, buffer->capacity);
+	return buffer;
+}
+
+ObjectTuple *new_tuple(VM *vm, uint64_t size)
+{
+	ObjectTuple *tuple = ALLOCATE_OBJECT(vm, ObjectTuple, OBJECT_TUPLE);
+	tuple->elements = NULL;
+	tuple->size = size;
+	tuple->elements = ALLOCATE(vm, Value, size);
+	return tuple;
 }

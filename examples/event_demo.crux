@@ -1,0 +1,368 @@
+use println, print from "crux:io";
+use char, enter, tab, backspace, delete, escape from "crux:event";
+use up, down, left, right, home, end, page_up, page_down from "crux:event";
+use f, ctrl, alt from "crux:event";
+use Event from "crux:event";
+
+println("╔══════════════════════════════════════════════════════════════╗");
+println("║        Crux Event & Key Module Demonstration                 ║");
+println("╠══════════════════════════════════════════════════════════════╣");
+println("║  This program simulates an event-driven text input system    ║");
+println("║  demonstrating the capabilities of the event and key modules ║");
+println("╚══════════════════════════════════════════════════════════════╝");
+println("");
+
+fn describe_key(k) {
+    let desc = "Key: " + k.name();
+    
+    if k.is_char() {
+        desc = desc + " (character)";
+    } else if k.is_arrow() {
+        desc = desc + " (arrow)";
+    } else if k.is_function() {
+        desc = desc + " (function)";
+    } else if k.is_modifier() {
+        desc = desc + " (modifier)";
+    }
+    
+    return desc;
+}
+
+fn handle_event(event, buffer) {
+    let event_type = event.type();
+    let source = event.source();
+    let timestamp = event.timestamp();
+    
+    println("┌─────────────────────────────────────────────────────────────");
+    println("│ Event received:");
+    println("│   Type: " + event_type);
+    println("│   Source: " + source);
+    println("│   Timestamp: " + string(timestamp));
+    
+    if event.is_key() {
+        let key = event.key();
+        if key != nil {
+            println("│   " + describe_key(key));
+            
+            if event.is_keydown() {
+                if key.is_char() {
+                    let c = key.char();
+                    if c != nil {
+                        buffer[0] = buffer[0] + c;
+                        println("│   Action: Added '" + c + "' to buffer");
+                    }
+                } else if key.equals(backspace()) {
+                    let text = buffer[0];
+                    let text_len = len(text);
+                    if text_len > 0 {
+                        buffer[0] = text.substring(0, text_len - 1)?;
+                        println("│   Action: Removed last character");
+                    }
+                } else if key.equals(enter()) {
+                    println("│   Action: Enter pressed - would submit: \"" + buffer[0] + "\"");
+                } else if key.equals(escape()) {
+                    println("│   Action: Escape pressed - would cancel");
+                } else if key.is_arrow() {
+                    println("│   Action: Arrow key navigation");
+                } else if key.is_function() {
+                    println("│   Action: Function key action (F1-F12)");
+                }
+            } else if event.is_keyup() {
+                println("│   Action: Key released");
+            }
+        }
+    } else if event.is_mouse() {
+        let data = event.data();
+        let x = data["x"];
+        let y = data["y"];
+        let button = data["button"];
+        println("│   Mouse event at (" + string(x) + ", " + string(y) + ")");
+        println("│   Button: " + string(button));
+    } else if event.is_resize() {
+        let data = event.data();
+        let width = data["width"];
+        let height = data["height"];
+        println("│   Terminal resized to " + string(width) + "x" + string(height));
+    }
+    
+    println("│   Current buffer: \"" + buffer[0] + "\"");
+    println("└─────────────────────────────────────────────────────────────");
+    println("");
+}
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 1: Key Factory Functions");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+println("Creating different key types...");
+println("");
+
+let key_a = char("a")?;
+println("Character key: " + describe_key(key_a));
+
+let key_enter = enter();
+println("Enter key: " + describe_key(key_enter));
+
+let key_up_arrow = up();
+println("Arrow key: " + describe_key(key_up_arrow));
+
+let key_f1 = f(1)?;
+println("Function key: " + describe_key(key_f1));
+
+let key_ctrl_c = ctrl("c")?;
+println("Modifier key: " + describe_key(key_ctrl_c));
+
+let key_alt_x = alt("x")?;
+println("Modifier key: " + describe_key(key_alt_x));
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 2: Key Comparison with equals()");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+let k1 = char("x")?;
+let k2 = char("x")?;
+let k3 = char("y")?;
+
+println("Comparing char('x') with char('x'):");
+println("  equals: " + string(k1.equals(k2)));
+
+println("Comparing char('x') with char('y'):");
+println("  equals: " + string(k1.equals(k3)));
+
+println("Comparing up() with up():");
+println("  equals: " + string(up().equals(up())));
+
+println("Comparing char('a') with up():");
+println("  equals: " + string(char("a")?.equals(up())));
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 3: Event Creation and Handling");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+let text_buffer = [""];
+
+println("Simulating keyboard input events...");
+println("");
+
+let keydown_data = {};
+keydown_data["key"] = char("H")?;
+keydown_data["shift"] = true;
+keydown_data["ctrl"] = false;
+keydown_data["alt"] = false;
+keydown_data["repeat"] = false;
+
+let event1 = Event("keydown", "keyboard", keydown_data);
+handle_event(event1, text_buffer);
+
+let keydown_data2 = {};
+keydown_data2["key"] = char("i")?;
+keydown_data2["shift"] = false;
+keydown_data2["ctrl"] = false;
+keydown_data2["alt"] = false;
+keydown_data2["repeat"] = false;
+
+let event2 = Event("keydown", "keyboard", keydown_data2);
+handle_event(event2, text_buffer);
+
+let keydown_data3 = {};
+keydown_data3["key"] = char("!")?;
+keydown_data3["shift"] = true;
+keydown_data3["ctrl"] = false;
+keydown_data3["alt"] = false;
+keydown_data3["repeat"] = false;
+
+let event3 = Event("keydown", "keyboard", keydown_data3);
+handle_event(event3, text_buffer);
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 4: Special Key Events");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+let backspace_data = {};
+backspace_data["key"] = backspace();
+backspace_data["shift"] = false;
+backspace_data["ctrl"] = false;
+backspace_data["alt"] = false;
+backspace_data["repeat"] = false;
+
+let event_backspace = Event("keydown", "keyboard", backspace_data);
+handle_event(event_backspace, text_buffer);
+
+let enter_data = {};
+enter_data["key"] = enter();
+enter_data["shift"] = false;
+enter_data["ctrl"] = false;
+enter_data["alt"] = false;
+enter_data["repeat"] = false;
+
+let event_enter = Event("keydown", "keyboard", enter_data);
+handle_event(event_enter, text_buffer);
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 5: Different Event Types");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+println("Mouse Event:");
+let mouse_data = {};
+mouse_data["x"] = 100;
+mouse_data["y"] = 50;
+mouse_data["button"] = 1;
+mouse_data["shift"] = false;
+mouse_data["ctrl"] = false;
+mouse_data["alt"] = false;
+
+let mouse_event = Event("mousedown", "mouse", mouse_data);
+handle_event(mouse_event, text_buffer);
+
+println("Resize Event:");
+let resize_data = {};
+resize_data["width"] = 120;
+resize_data["height"] = 40;
+
+let resize_event = Event("resize", "terminal", resize_data);
+handle_event(resize_event, text_buffer);
+
+println("Keyup Event:");
+let keyup_data = {};
+keyup_data["key"] = char("a")?;
+keyup_data["shift"] = false;
+keyup_data["ctrl"] = false;
+keyup_data["alt"] = false;
+keyup_data["repeat"] = false;
+
+let keyup_event = Event("keyup", "keyboard", keyup_data);
+handle_event(keyup_event, text_buffer);
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 6: Event Type Detection Methods");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+let test_keydown = Event("keydown", "test", {});
+let test_keyup = Event("keyup", "test", {});
+let test_mouse = Event("mousedown", "test", {});
+let test_resize = Event("resize", "test", {});
+
+println("Event type detection results:");
+println("");
+println("  keydown event:");
+println("    is_key(): " + string(test_keydown.is_key()));
+println("    is_keydown(): " + string(test_keydown.is_keydown()));
+println("    is_keyup(): " + string(test_keydown.is_keyup()));
+println("    is_mouse(): " + string(test_keydown.is_mouse()));
+println("    is_resize(): " + string(test_keydown.is_resize()));
+println("");
+println("  keyup event:");
+println("    is_key(): " + string(test_keyup.is_key()));
+println("    is_keydown(): " + string(test_keyup.is_keydown()));
+println("    is_keyup(): " + string(test_keyup.is_keyup()));
+println("");
+println("  mousedown event:");
+println("    is_key(): " + string(test_mouse.is_key()));
+println("    is_mouse(): " + string(test_mouse.is_mouse()));
+println("");
+println("  resize event:");
+println("    is_key(): " + string(test_resize.is_key()));
+println("    is_resize(): " + string(test_resize.is_resize()));
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 7: All Available Keys");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+println("Character keys:");
+println("  char(\"a\")? -> " + char("a")?.name());
+println("  char(\"Z\")? -> " + char("Z")?.name());
+println("  char(\"0\")? -> " + char("0")?.name());
+println("");
+
+println("Special keys:");
+println("  enter() -> " + enter().name());
+println("  tab() -> " + tab().name());
+println("  backspace() -> " + backspace().name());
+println("  delete() -> " + delete().name());
+println("  escape() -> " + escape().name());
+println("");
+
+println("Arrow keys:");
+println("  up() -> " + up().name());
+println("  down() -> " + down().name());
+println("  left() -> " + left().name());
+println("  right() -> " + right().name());
+println("");
+
+println("Navigation keys:");
+println("  home() -> " + home().name());
+println("  end() -> " + end().name());
+println("  page_up() -> " + page_up().name());
+println("  page_down() -> " + page_down().name());
+println("");
+
+println("Function keys:");
+println("  f(1)? -> " + f(1)?.name());
+println("  f(6)? -> " + f(6)?.name());
+println("  f(12)? -> " + f(12)?.name());
+println("");
+
+println("Modifier keys:");
+println("  ctrl(\"c\")? -> " + ctrl("c")?.name());
+println("  ctrl(\"z\")? -> " + ctrl("z")?.name());
+println("  alt(\"a\")? -> " + alt("a")?.name());
+println("  alt(\"f4\")? -> " + alt("f")?.name());
+
+println("");
+
+println("═══════════════════════════════════════════════════════════════");
+println("SECTION 8: Event Data Access");
+println("═══════════════════════════════════════════════════════════════");
+println("");
+
+let data_event = Event("keydown", "demo", {
+    "key": char("w")?,
+    "shift": false,
+    "ctrl": true,
+    "alt": false,
+    "repeat": false,
+    "metadata": "extra info"
+});
+
+println("Event created with custom data:");
+println("  type(): " + data_event.type());
+println("  source(): " + data_event.source());
+println("  timestamp(): " + string(data_event.timestamp()));
+
+let retrieved_data = data_event.data();
+println("  data()[\"ctrl\"]: " + string(retrieved_data["ctrl"]));
+println("  data()[\"metadata\"]: " + string(retrieved_data["metadata"]));
+
+println("");
+
+println("╔══════════════════════════════════════════════════════════════╗");
+println("║                  Demonstration Complete                      ║");
+println("╠══════════════════════════════════════════════════════════════╣");
+println("║  The event and key modules provide:                          ║");
+println("║  • Key creation for all key types (char, arrow, function,    ║");
+println("║    modifier, navigation)                                      ║");
+println("║  • Key type checking (is_char, is_arrow, is_function, etc)   ║");
+println("║  • Key comparison with equals()                              ║");
+println("║  • Event creation with custom type, source, and data         ║");
+println("║  • Event type detection (is_key, is_mouse, is_resize)        ║");
+println("║  • Event data access and key extraction                      ║");
+println("╚══════════════════════════════════════════════════════════════╝");
