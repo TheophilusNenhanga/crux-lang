@@ -1,0 +1,138 @@
+use println from "crux:io";
+use Range from "crux:range";
+
+println("=== Testing basic range creation ===");
+let r = Range(0, 10, 1)?;
+println(typeof r);
+assert(typeof r == "Range", "Failed to create basic range");
+
+println("=== Testing range with positive step ===");
+let r_pos = Range(0, 10, 2)?;
+assert(typeof r_pos == "Range", "Failed to create range with step 2");
+
+println("=== Testing range with negative step ===");
+let r_neg = Range(10, 0, -1)?;
+assert(typeof r_neg == "Range", "Failed to create range with negative step");
+
+println("=== Testing range with negative step and larger magnitude ===");
+let r_neg_step = Range(20, 0, -2)?;
+assert(typeof r_neg_step == "Range", "Failed to create range with step -2");
+
+println("=== Testing start() method ===");
+assert(r.start() == 0, "Failed to get start value");
+assert(r_neg.start() == 10, "Failed to get start value for negative step range");
+
+println("=== Testing end() method ===");
+assert(r.end() == 10, "Failed to get end value");
+assert(r_neg.end() == 0, "Failed to get end value for negative step range");
+
+println("=== Testing step() method ===");
+assert(r.step() == 1, "Failed to get step value");
+assert(r_pos.step() == 2, "Failed to get step value for step 2 range");
+assert(r_neg.step() == -1, "Failed to get step value for negative step range");
+
+println("=== Testing len() method ===");
+assert(len(r) == 10, "Failed to get length of Range(0, 10, 1)");
+assert(len(r_pos) == 5, "Failed to get length of Range(0, 10, 2)");
+assert(len(r_neg) == 10, "Failed to get length of Range(10, 0, -1)");
+assert(len(r_neg_step) == 10, "Failed to get length of Range(20, 0, -2)");
+assert(len(Range(0, 1, 1)?) == 1, "Failed to get length of single element range");
+
+println("=== Testing is_empty() method ===");
+assert(r.is_empty() == false, "Range(0, 10, 1) should not be empty");
+assert(r_neg.is_empty() == false, "Range(10, 0, -1) should not be empty");
+
+println("=== Testing contains() method ===");
+assert(r.contains(0) == true, "Range(0, 10, 1) should contain 0");
+assert(r.contains(5) == true, "Range(0, 10, 1) should contain 5");
+assert(r.contains(9) == true, "Range(0, 10, 1) should contain 9");
+assert(r.contains(10) == false, "Range(0, 10, 1) should not contain 10 (exclusive end)");
+assert(r.contains(-1) == false, "Range(0, 10, 1) should not contain -1");
+
+println("=== Testing contains() with step 2 ===");
+assert(r_pos.contains(0) == true, "Range(0, 10, 2) should contain 0");
+assert(r_pos.contains(2) == true, "Range(0, 10, 2) should contain 2");
+assert(r_pos.contains(8) == true, "Range(0, 10, 2) should contain 8");
+assert(r_pos.contains(1) == false, "Range(0, 10, 2) should not contain 1");
+assert(r_pos.contains(3) == false, "Range(0, 10, 2) should not contain 3");
+
+println("=== Testing contains() with negative step ===");
+assert(r_neg.contains(10) == true, "Range(10, 0, -1) should contain 10");
+assert(r_neg.contains(5) == true, "Range(10, 0, -1) should contain 5");
+assert(r_neg.contains(1) == true, "Range(10, 0, -1) should contain 1");
+assert(r_neg.contains(0) == false, "Range(10, 0, -1) should not contain 0 (exclusive end)");
+assert(r_neg.contains(11) == false, "Range(10, 0, -1) should not contain 11");
+
+println("=== Testing to_array() method ===");
+let arr = r.to_array()?;
+assert(typeof arr == "Array", "to_array() should return an Array");
+assert(len(arr) == 10, "to_array() array should have 10 elements");
+
+println("=== Testing to_array() values for Range(0, 5, 1) ===");
+let small = Range(0, 5, 1)?;
+let small_arr = small.to_array()?;
+assert(small_arr[0] == 0, "to_array()[0] should be 0");
+assert(small_arr[1] == 1, "to_array()[1] should be 1");
+assert(small_arr[2] == 2, "to_array()[2] should be 2");
+assert(small_arr[3] == 3, "to_array()[3] should be 3");
+assert(small_arr[4] == 4, "to_array()[4] should be 4");
+
+println("=== Testing to_array() values for Range(0, 10, 2) ===");
+let step_arr = r_pos.to_array()?;
+assert(step_arr[0] == 0, "to_array()[0] should be 0");
+assert(step_arr[1] == 2, "to_array()[1] should be 2");
+assert(step_arr[2] == 4, "to_array()[2] should be 4");
+assert(step_arr[3] == 6, "to_array()[3] should be 6");
+assert(step_arr[4] == 8, "to_array()[4] should be 8");
+
+println("=== Testing to_array() values for Range(10, 0, -1) ===");
+let neg_arr = r_neg.to_array()?;
+assert(neg_arr[0] == 10, "to_array()[0] should be 10");
+assert(neg_arr[1] == 9, "to_array()[1] should be 9");
+assert(neg_arr[9] == 1, "to_array()[9] should be 1");
+
+println("=== Testing reversed() method ===");
+let r_rev = r.reversed();
+assert(typeof r_rev == "Range", "reversed() should return a Range");
+assert(r_rev.step() == -1, "reversed range should have step -1");
+
+println("=== Testing reversed() preserves elements ===");
+let original = Range(1, 6, 1)?;
+let reversed = original.reversed();
+let rev_arr = reversed.to_array()?;
+assert(rev_arr[0] == 5, "reversed to_array()[0] should be 5");
+assert(rev_arr[1] == 4, "reversed to_array()[1] should be 4");
+assert(rev_arr[2] == 3, "reversed to_array()[2] should be 3");
+assert(rev_arr[3] == 2, "reversed to_array()[3] should be 2");
+assert(rev_arr[4] == 1, "reversed to_array()[4] should be 1");
+
+println("=== Testing reversed() length matches original ===");
+assert(len(original) == len(reversed), "reversed range should have same length as original");
+
+println("=== Testing error cases ===");
+let zero_step = Range(0, 10, 0)?;
+assert(typeof zero_step == "Error", "range with step 0 should return an error");
+
+let bad_pos = Range(10, 0, 1)?;
+assert(typeof bad_pos == "Error", "Range(10, 0, 1) should return an error (start > end with positive step)");
+
+let bad_neg = Range(0, 10, -1)?;
+assert(typeof bad_neg == "Error", "Range(0, 10, -1) should return an error (start < end with negative step)");
+
+println("=== Testing single element range ===");
+let single = Range(5, 6, 1)?;
+assert(len(single) == 1, "Single element range should have length 1");
+assert(single.is_empty() == false, "Single element range should not be empty");
+assert(single.contains(5) == true, "Single element range should contain 5");
+assert(single.contains(6) == false, "Single element range should not contain 6");
+
+println("=== Testing large step that skips most values ===");
+let large_step = Range(0, 100, 33)?;
+assert(len(large_step) == 4, "Range(0, 100, 33) should have 4 elements (0, 33, 66, 99)");
+assert(large_step.contains(0) == true, "should contain 0");
+assert(large_step.contains(33) == true, "should contain 33");
+assert(large_step.contains(66) == true, "should contain 66");
+assert(large_step.contains(99) == true, "should contain 99");
+assert(large_step.contains(1) == false, "should not contain 1");
+
+println("=== All range tests passed ===");

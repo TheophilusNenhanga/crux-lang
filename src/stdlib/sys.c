@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "panic.h"
-#include "vm_helpers.h"
 
 #ifndef _WIN32
 #include <unistd.h>

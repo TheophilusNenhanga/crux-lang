@@ -89,6 +89,10 @@ typedef uint32_t TypeMask;
 #define MATRIX_TYPE   (1u << 14)
 #define FUNCTION_TYPE (1u << 15)
 #define MODULE_TYPE   (1u << 16)
+#define SET_TYPE      (1u << 17)
+#define TUPLE_TYPE    (1u << 18)
+#define BUFFER_TYPE   (1u << 19)
+#define RANGE_TYPE    (1u << 20)
 
 #define NUMERIC_TYPE  (INT_TYPE | FLOAT_TYPE)
 #define ANY_TYPE      (0xFFFFFFFFu)

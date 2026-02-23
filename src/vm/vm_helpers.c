@@ -15,8 +15,6 @@
 #include "type_system.h"
 #include "value.h"
 #include "vm.h"
-#include "vm_helpers.h"
-#include "vm_run.h"
 
 void init_import_stack(VM *vm)
 {
@@ -370,6 +368,50 @@ static bool handle_result_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_range_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->range_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_set_invoke(VM *vm, const ObjectString *name,
+			      const int arg_count, const Value original,
+			      const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->set_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_tuple_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->tuple_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_buffer_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->buffer_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
 					  int arg_count, Value original,
 					  const Value receiver)
@@ -402,7 +444,13 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
-	[OBJECT_VECTOR] = handle_vector_invoke};
+	[OBJECT_VECTOR] = handle_vector_invoke,
+	[OBJECT_RANGE] = handle_range_invoke,
+	[OBJECT_SET] = handle_set_invoke,
+	[OBJECT_TUPLE] = handle_tuple_invoke,
+	[OBJECT_BUFFER] = handle_buffer_invoke,
+
+};
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -633,6 +681,10 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->vector_type);
 	init_table(&vm->complex_type);
 	init_table(&vm->matrix_type);
+	init_table(&vm->range_type);
+	init_table(&vm->set_type);
+	init_table(&vm->tuple_type);
+	init_table(&vm->buffer_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -699,6 +751,10 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->vector_type);
 	free_table(vm, &vm->complex_type);
 	free_table(vm, &vm->matrix_type);
+	free_table(vm, &vm->range_type);
+	free_table(vm, &vm->set_type);
+	free_table(vm, &vm->tuple_type);
+	free_table(vm, &vm->buffer_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1304,6 +1360,30 @@ static Value typeof_matrix(VM *vm, const Value value)
 	return OBJECT_VAL(copy_string(vm, "Matrix", 6));
 }
 
+static Value typeof_range(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Range", 5));
+}
+
+static Value typeof_tuple(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Tuple", 5));
+}
+
+static Value typeof_buffer(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Buffer", 6));
+}
+
+static Value typeof_set(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Set", 3));
+}
+
 // Dispatch table for object types
 static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRING] = typeof_string,
@@ -1323,6 +1403,10 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_VECTOR] = typeof_vector,
 	[OBJECT_COMPLEX] = typeof_complex,
 	[OBJECT_MATRIX] = typeof_matrix,
+	[OBJECT_RANGE] = typeof_range,
+	[OBJECT_TUPLE] = typeof_tuple,
+	[OBJECT_BUFFER] = typeof_buffer,
+	[OBJECT_SET] = typeof_set,
 };
 
 /**
