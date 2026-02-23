@@ -17,6 +17,7 @@
 #include "stdlib/sys.h"
 #include "stdlib/tables.h"
 #include "stdlib/time.h"
+#include "stdlib/tuple.h"
 #include "stdlib/vectors.h"
 #include "value.h"
 
@@ -308,6 +309,22 @@ static const Callable range_methods[] = {
 	{"reversed", reversed_range_method, 1, {RANGE_TYPE}},
 };
 
+static const Callable tuple_functions[] = {
+	{"Tuple", new_tuple_function, 1, {ARRAY_TYPE}},
+};
+
+static const Callable tuple_methods[] = {
+	{"get", get_tuple_method, 2, {TUPLE_TYPE, INT_TYPE}},
+	{"slice", slice_tuple_method, 3, {TUPLE_TYPE, INT_TYPE, INT_TYPE}},
+	{"index", index_tuple_method, 2, {TUPLE_TYPE, ANY_TYPE}},
+	{"is_empty", is_empty_tuple_method, 1, {TUPLE_TYPE}},
+	{"to_array", to_array_tuple_method, 1, {TUPLE_TYPE}},
+	{"first", first_tuple_method, 1, {TUPLE_TYPE}},
+	{"last", last_tuple_method, 1, {TUPLE_TYPE}},
+	{"contains", contains_tuple_method, 2, {TUPLE_TYPE, ANY_TYPE}},
+	{"equals", equals_tuple_method, 2, {TUPLE_TYPE, TUPLE_TYPE}},
+};
+
 bool register_native_method(VM *vm, Table *method_table,
 			    const char *method_name,
 			    const CruxCallable method_function, const int arity,
@@ -459,6 +476,9 @@ bool initialize_std_lib(VM *vm)
 	initTypeMethodTable(vm, &vm->range_type, range_methods,
 			    ARRAY_COUNT(range_methods));
 
+	initTypeMethodTable(vm, &vm->tuple_type, tuple_methods,
+			    ARRAY_COUNT(tuple_methods));
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions,
 			ARRAY_COUNT(mathFunctions))) {
@@ -506,6 +526,11 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "range", range_functions,
 			ARRAY_COUNT(range_functions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "tuple", tuple_functions,
+			ARRAY_COUNT(tuple_functions))) {
 		return false;
 	}
 
