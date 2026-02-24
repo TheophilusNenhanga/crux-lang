@@ -29,6 +29,10 @@ static Value get_length(const Value value)
 		const ObjectRange *range = AS_CRUX_RANGE(value);
 		return INT_VAL(range_len(range));
 	}
+	if (IS_CRUX_BUFFER(value)) {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
+		return INT_VAL((int32_t)buffer->write_pos - buffer->read_pos);
+	}
 	return INT_VAL(-1);
 }
 

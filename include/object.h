@@ -4,10 +4,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "value.h"
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
+#include "value.h"
 #include "vm.h"
 
 #define NATIVE_FUNCTION_MAX_ARGS 8
@@ -36,7 +36,7 @@
 			new_error_result((vm), gc_safe_error);                 \
 		pop((vm)->current_module_record);                              \
 		pop((vm)->current_module_record);                              \
-		OBJECT_VAL(gcSafeErrorResult);                                             \
+		OBJECT_VAL(gcSafeErrorResult);                                 \
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
@@ -44,7 +44,8 @@
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
-#define IS_CRUX_NATIVE_CALLABLE(value) is_object_type(value, OBJECT_NATIVE_CALLABLE)
+#define IS_CRUX_NATIVE_CALLABLE(value)                                         \
+	is_object_type(value, OBJECT_NATIVE_CALLABLE)
 #define IS_CRUX_CLOSURE(value) is_object_type(value, OBJECT_CLOSURE)
 #define IS_CRUX_BOUND_METHOD(value) is_object_type(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) is_object_type(value, OBJECT_ARRAY)
@@ -68,7 +69,8 @@
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_CALLABLE(value) ((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_CALLABLE(value)                                         \
+	((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
@@ -119,12 +121,12 @@ typedef enum {
 	OBJECT_RANGE,
 } ObjectType;
 
-struct CruxObject {//8
+struct CruxObject { // 8
 	uint32_t pool_index;
 	ObjectType type;
 };
 
-struct PoolObject {//8
+struct PoolObject { // 8
 	void *data;
 };
 
@@ -136,11 +138,11 @@ struct PoolObject {//8
 	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
 				((uintptr_t)(obj)->data & MARK_BIT)))
 #define SET_MARKED(obj, marked)                                                \
-	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |            \
+	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |          \
 				((marked) ? MARK_BIT : 0)))
 
 #define TO_DOUBLE(value)                                                       \
-(IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
+	(IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
 struct ObjectString { // 24
 	CruxObject object;
@@ -149,7 +151,7 @@ struct ObjectString { // 24
 	uint32_t hash;
 };
 
-typedef struct {//72
+typedef struct { // 72
 	CruxObject object;
 	int arity;
 	int upvalue_count;
@@ -158,28 +160,28 @@ typedef struct {//72
 	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
-typedef struct ObjectUpvalue {//32
+typedef struct ObjectUpvalue { // 32
 	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct ObjectClosure {//32
+typedef struct ObjectClosure { // 32
 	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
-typedef struct {//16
+typedef struct { // 16
 	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
@@ -212,14 +214,14 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
-struct ObjectResult {//24
+struct ObjectResult { // 24
 	CruxObject object;
 	bool is_ok;
 	union {
@@ -230,7 +232,7 @@ struct ObjectResult {//24
 
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct {//64
+typedef struct { // 64
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
@@ -238,20 +240,20 @@ typedef struct {//64
 	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
 } ObjectNativeCallable;
 
-typedef struct {//24
+typedef struct { // 24
 	Value key;
 	Value value;
 	bool is_occupied;
 } ObjectTableEntry;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
-typedef struct {//48
+typedef struct { // 48
 	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
@@ -260,13 +262,13 @@ typedef struct {//48
 	bool is_open;
 } ObjectFile;
 
-typedef struct {//32
+typedef struct { // 32
 	CruxObject object;
 	ObjectString *name;
 	Table fields; // <field_name: index>
 } ObjectStruct;
 
-struct ObjectStructInstance {//32
+struct ObjectStructInstance { // 32
 	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
@@ -274,14 +276,15 @@ struct ObjectStructInstance {//32
 };
 
 #define STATIC_VECTOR_SIZE 4
-#define VECTOR_COMPONENTS(vec) \
-((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
+#define VECTOR_COMPONENTS(vec)                                                 \
+	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components      \
+						 : (vec)->as.h_components)
 
-typedef struct {//48
+typedef struct { // 48
 	CruxObject object;
 	uint32_t dimensions;
 	union {
-		double* h_components; /* heap components */
+		double *h_components; /* heap components */
 		double s_components[STATIC_VECTOR_SIZE]; /* static components */
 	} as;
 } ObjectVector;
@@ -299,7 +302,7 @@ typedef struct // 24
 	CruxObject object;
 	uint16_t row_dim;
 	uint16_t col_dim;
-	double* data;
+	double *data;
 } ObjectMatrix;
 
 typedef enum {
@@ -308,7 +311,7 @@ typedef enum {
 	STATE_ERROR,
 } ModuleState;
 
-struct ObjectModuleRecord {//112
+struct ObjectModuleRecord { // 112
 	CruxObject object;
 	ObjectString *path;
 	Table globals;
@@ -328,30 +331,30 @@ struct ObjectModuleRecord {//112
 };
 
 typedef struct { // 40
-    CruxObject object;
-    int32_t start;
-    int32_t end;
-    int32_t step;
+	CruxObject object;
+	int32_t start;
+	int32_t end;
+	int32_t step;
 } ObjectRange;
 
 typedef struct { // 24
-    CruxObject object;
-    Table entries;
+	CruxObject object;
+	Table entries;
 } ObjectSet;
 
-typedef struct{ // 32
-    CruxObject object;
-    uint64_t read_pos;
-    uint64_t write_pos;
-    uint64_t capacity;
-    uint8_t* data;
-}ObjectBuffer;
+typedef struct { // 32
+	CruxObject object;
+	uint32_t read_pos;
+	uint32_t write_pos;
+	uint32_t capacity;
+	uint8_t *data;
+} ObjectBuffer;
 
-typedef struct{ // 20
-    CruxObject object;
-    uint64_t size;
-    Value* elements;
-}ObjectTuple;
+typedef struct { // 20
+	CruxObject object;
+	uint64_t size;
+	Value *elements;
+} ObjectTuple;
 
 static bool is_object_type(const Value value, const ObjectType type)
 {
@@ -420,8 +423,8 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  * @return A pointer to the newly created ObjectNativeFunction.
  */
 ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function,
-					  int arity, ObjectString *name
-					  ,const TypeMask* arg_types);
+					  int arity, ObjectString *name,
+					  const TypeMask *arg_types);
 
 /**
  * @brief Creates a new function object.
@@ -555,11 +558,11 @@ ObjectString *to_string(VM *vm, Value value);
  */
 void print_object(Value value, bool in_collection);
 
-void print_type_to(FILE* stream, Value value);
+void print_type_to(FILE *stream, Value value);
 
-void print_value_to(FILE *stream,Value value, bool inCollection);
+void print_value_to(FILE *stream, Value value, bool inCollection);
 
-void print_error_type_to(FILE* stream, ErrorType type);
+void print_error_type_to(FILE *stream, ErrorType type);
 
 /**
  * @brief Frees the memory associated with an object table.
@@ -719,20 +722,22 @@ ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 					  uint16_t field_count);
 
-ObjectVector *new_vector(VM* vm, uint32_t dimensions);
+ObjectVector *new_vector(VM *vm, uint32_t dimensions);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 
-ObjectComplex* new_complex_number(VM *vm, double real, double imaginary);
+ObjectComplex *new_complex_number(VM *vm, double real, double imaginary);
 
 ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
 
-ObjectRange* new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
+ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
 
-ObjectSet* new_set(VM *vm);
+ObjectSet *new_set(VM *vm);
 
-ObjectBuffer* new_buffer(VM *vm);
+ObjectBuffer *new_buffer(VM *vm);
 
-ObjectTuple* new_tuple(VM *vm, uint64_t size);
+ObjectBuffer *new_sized_buffer(VM *vm, uint32_t buffer_size);
+
+ObjectTuple *new_tuple(VM *vm, uint64_t size);
 
 #endif

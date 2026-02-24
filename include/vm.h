@@ -1,9 +1,9 @@
 #ifndef VM_H
 #define VM_H
 
-#include "value.h"
-#include "table.h"
 #include "chunk.h"
+#include "table.h"
+#include "value.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -257,6 +257,5 @@ ObjectStructInstance *peek_struct_stack(const VM *vm);
 
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord,
 				Value *target, Value operand, OpCode op);
-
 
 #endif // VM_H

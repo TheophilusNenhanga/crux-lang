@@ -3,6 +3,7 @@
 #include "garbage_collector.h"
 #include "panic.h"
 #include "stdlib/array.h"
+#include "stdlib/buffer.h"
 #include "stdlib/complex.h"
 #include "stdlib/core.h"
 #include "stdlib/error.h"
@@ -323,6 +324,73 @@ static const Callable tuple_methods[] = {
 	{"last", last_tuple_method, 1, {TUPLE_TYPE}},
 	{"contains", contains_tuple_method, 2, {TUPLE_TYPE, ANY_TYPE}},
 	{"equals", equals_tuple_method, 2, {TUPLE_TYPE, TUPLE_TYPE}},
+};
+
+static const Callable buffer_functions[] = {
+	{"Buffer", new_buffer_function, 0, {}},
+};
+
+static const Callable buffer_methods[] = {
+	{"write_byte", write_byte_buffer_method, 2, {BUFFER_TYPE, INT_TYPE}},
+	{"write_int16_le",
+	 write_int16_le_buffer_method,
+	 2,
+	 {BUFFER_TYPE, INT_TYPE}},
+	{"write_int32_le",
+	 write_int32_le_buffer_method,
+	 2,
+	 {BUFFER_TYPE, INT_TYPE}},
+	{"write_float32_le",
+	 write_float32_le_buffer_method,
+	 2,
+	 {BUFFER_TYPE, FLOAT_TYPE}},
+	{"write_float64_le",
+	 write_float64_le_buffer_method,
+	 2,
+	 {BUFFER_TYPE, FLOAT_TYPE}},
+	{"write_int16_be",
+	 write_int16_be_buffer_method,
+	 2,
+	 {BUFFER_TYPE, INT_TYPE}},
+	{"write_int32_be",
+	 write_int32_be_buffer_method,
+	 2,
+	 {BUFFER_TYPE, INT_TYPE}},
+	{"write_float32_be",
+	 write_float32_be_buffer_method,
+	 2,
+	 {BUFFER_TYPE, FLOAT_TYPE}},
+	{"write_float64_be",
+	 write_float64_be_buffer_method,
+	 2,
+	 {BUFFER_TYPE, FLOAT_TYPE}},
+	{"write_string",
+	 write_string_buffer_method,
+	 2,
+	 {BUFFER_TYPE, STRING_TYPE}},
+	{"write_buffer",
+	 write_buffer_buffer_method,
+	 2,
+	 {BUFFER_TYPE, BUFFER_TYPE}},
+	{"read_byte", read_byte_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_string", read_string_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_line", read_line_buffer_method, 1, {BUFFER_TYPE, BUFFER_TYPE}},
+	{"read_all", read_all_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_int16_le", read_int16_le_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_int32_le", read_int32_le_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_float32_le", read_float32_le_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_float64_le", read_float64_le_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_int16_be", read_int16_be_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_int32_be", read_int32_be_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_float32_be", read_float32_be_buffer_method, 1, {BUFFER_TYPE}},
+	{"read_float64_be", read_float64_be_buffer_method, 1, {BUFFER_TYPE}},
+	{"capacity", capacity_buffer_method, 1, {BUFFER_TYPE}},
+	{"is_empty", is_empty_buffer_method, 1, {BUFFER_TYPE}},
+	{"clear", clear_buffer_method, 1, {BUFFER_TYPE}},
+	{"peek_byte", peek_byte_buffer_method, 1, {BUFFER_TYPE}},
+	{"skip_bytes", skip_bytes_buffer_method, 2, {BUFFER_TYPE, INT_TYPE}},
+	{"clone", clone_buffer_method, 1, {BUFFER_TYPE}},
+	{"compact", compact_buffer_method, 1, {BUFFER_TYPE}},
 };
 
 bool register_native_method(VM *vm, Table *method_table,
