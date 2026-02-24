@@ -1419,6 +1419,17 @@ ObjectBuffer *new_buffer(VM *vm)
 	return buffer;
 }
 
+ObjectBuffer *new_sized_buffer(VM *vm, uint32_t buffer_size)
+{
+	ObjectBuffer *buffer = ALLOCATE_OBJECT(vm, ObjectBuffer, OBJECT_BUFFER);
+	buffer->capacity = buffer_size;
+	buffer->read_pos = 0;
+	buffer->write_pos = 0;
+	buffer->data = NULL;
+	buffer->data = ALLOCATE(vm, uint8_t, buffer->capacity);
+	return buffer;
+}
+
 ObjectTuple *new_tuple(VM *vm, uint64_t size)
 {
 	ObjectTuple *tuple = ALLOCATE_OBJECT(vm, ObjectTuple, OBJECT_TUPLE);

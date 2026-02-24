@@ -3,7 +3,6 @@ use Range from "crux:range";
 
 println("=== Testing basic range creation ===");
 let r = Range(0, 10, 1)?;
-println(typeof r);
 assert(typeof r == "Range", "Failed to create basic range");
 
 println("=== Testing range with positive step ===");
