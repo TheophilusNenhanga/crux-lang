@@ -495,8 +495,6 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_BUFFER] = handle_buffer_invoke,
 	[OBJECT_COMPLEX] = handle_complex_invoke,
 	[OBJECT_MATRIX] = handle_matrix_invoke,
-	[OBJECT_KEY] = handle_key_invoke,
-	[OBJECT_EVENT] = handle_event_invoke,
 };
 
 /**
@@ -1469,8 +1467,6 @@ static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_TUPLE] = typeof_tuple,
 	[OBJECT_BUFFER] = typeof_buffer,
 	[OBJECT_SET] = typeof_set,
-	[OBJECT_KEY] = typeof_key,
-	[OBJECT_EVENT] = typeof_event,
 };
 
 /**

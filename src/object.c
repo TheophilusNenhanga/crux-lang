@@ -1460,24 +1460,3 @@ ObjectTuple *new_tuple(VM *vm, uint32_t size)
 	pop(vm->current_module_record);
 	return tuple;
 }
-
-ObjectKey *new_key(VM *vm, const KeyType key_type, const char character)
-{
-	ObjectKey *key = ALLOCATE_OBJECT(vm, ObjectKey, OBJECT_KEY);
-	key->key_type = key_type;
-	key->character = character;
-	return key;
-}
-
-ObjectEvent *new_event(VM *vm, ObjectString *type, ObjectString *source,
-		       ObjectTable *data, const uint64_t timestamp)
-{
-	ObjectEvent *event = ALLOCATE_OBJECT(vm, ObjectEvent, OBJECT_EVENT);
-	push(vm->current_module_record, OBJECT_VAL(event));
-	event->type = type;
-	event->source = source;
-	event->data = data;
-	event->timestamp = timestamp;
-	pop(vm->current_module_record);
-	return event;
-}
