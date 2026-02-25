@@ -607,7 +607,7 @@ bool initialize_std_lib(VM *vm)
 		return false;
 	}
 
-	if (!initModule(vm, "vectors", vectorFunctions,
+	if (!initModule(vm, "vector", vectorFunctions,
 			ARRAY_COUNT(vectorFunctions))) {
 		return false;
 	}

@@ -1,5 +1,5 @@
 use println from "crux:io";
-use Vec from "crux:vectors";
+use Vec from "crux:vector";
 
 println("=== Testing creating a Vector with 4 dimensions ===");
 let v4 = Vec(4, [1, 2, 3, 4])?;

@@ -32,6 +32,9 @@ typedef enum {
 	TOKEN_LESS_EQUAL, // <=
 	TOKEN_LEFT_SHIFT, // <<
 	TOKEN_RIGHT_SHIFT, // >>
+	TOKEN_AMPERSAND, // &
+	TOKEN_CARET, // ^
+	TOKEN_PIPE, // |
 	TOKEN_PLUS_EQUAL, // +=
 	TOKEN_MINUS_EQUAL, // -=
 	TOKEN_STAR_EQUAL, // *=
@@ -74,9 +77,6 @@ typedef enum {
 	TOKEN_TYPEOF, // typeof
 	TOKEN_NEW, // new
 	TOKEN_PANIC, // panic
-
-	TOKEN_DOLLAR_LEFT_CURLY, // ${
-	TOKEN_DOLLAR_LEFT_SQUARE, // $[
 	TOKEN_STRUCT, // struct
 
 	TOKEN_QUESTION_MARK,

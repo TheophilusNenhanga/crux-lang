@@ -672,6 +672,15 @@ static void binary(bool can_assign)
 	case TOKEN_BACKSLASH:
 		emit_word(OP_INT_DIVIDE);
 		break;
+	case TOKEN_AMPERSAND:
+		emit_word(OP_BITWISE_AND);
+		break;
+	case TOKEN_CARET:
+		emit_word(OP_BITWISE_XOR);
+		break;
+	case TOKEN_PIPE:
+		emit_word(OP_BITWISE_OR);
+		break;
 	case TOKEN_STAR_STAR:
 		emit_word(OP_POWER);
 		break;
@@ -1968,6 +1977,9 @@ ParseRule rules[] = {
 	[TOKEN_PERCENT] = {NULL, binary, NULL, PREC_FACTOR},
 	[TOKEN_LEFT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
 	[TOKEN_RIGHT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
+	[TOKEN_AMPERSAND] = {NULL, binary, NULL, PREC_BITWISE_AND},
+	[TOKEN_CARET] = {NULL, binary, NULL, PREC_BITWISE_XOR},
+	[TOKEN_PIPE] = {NULL, binary, NULL, PREC_BITWISE_OR},
 	[TOKEN_NOT] = {unary, NULL, NULL, PREC_NONE},
 	[TOKEN_BANG_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
 	[TOKEN_EQUAL] = {NULL, NULL, NULL, PREC_NONE},

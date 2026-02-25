@@ -1,15 +1,13 @@
 use println from "crux:io";
-
-println("=== START OF TERRAIN GENERATOR ===");
-
 use _time_ms from "crux:time";
-use open_file from "crux:io";
+use open from "crux:fs";
 use floor, abs from "crux:math";
 use Random from "crux:random";
 
-let IMAGE_WIDTH = 512;
-let IMAGE_HEIGHT = 512;
-let OCTAVES = 6;      // Detail level. Higher = more taxing.
+println("=== START OF TERRAIN GENERATOR ===");
+let IMAGE_WIDTH = 1024;
+let IMAGE_HEIGHT = 1024;
+let OCTAVES = 32;      // Detail level. Higher = more taxing.
 let PERSISTENCE = 0.5;
 let SCALE = 0.005;    // Zoom level
 
@@ -28,7 +26,7 @@ fn init_permutation() {
 
     // Shuffle (Fisher-Yates)
     for let i = 255; i > 0; i -= 1 {
-        let j = int(rand.double(0, i + 1)?);
+        let j = int(rand.float(0, i + 1)?)?;
         let swap = p[i];
         p[i] = p[j];
         p[j] = swap;
@@ -87,9 +85,9 @@ fn grad(hash, x, y, z) {
 
 fn noise(x, y, z) {
     // Find unit cube that contains point
-    let X = int(floor(x)) & 255;
-    let Y = int(floor(y)) & 255;
-    let Z = int(floor(z)) & 255;
+    let X = int(floor(x))? & 255;
+    let Y = int(floor(y))? & 255;
+    let Z = int(floor(z))? & 255;
 
     // Find relative x,y,z of point in cube
     x -= floor(x);
@@ -176,9 +174,9 @@ fn main() {
     println("Generating Terrain (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
     let start_time = _time_ms();
 
-    let file = match open_file("terrain.ppm", "w") {
+    let file = match open("terrain.ppm", "w") {
         Ok(f) => give f;
-        Err => panic("Error opening file");
+        Err => {panic "Error opening file"; }
     };
 
     file.write("P3\n");

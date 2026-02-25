@@ -18,7 +18,7 @@ Value array_push_method(VM *vm, const Value *args)
 	const Value to_add = args[1];
 
 	if (!array_add(vm, array, to_add, array->size)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to add to array.",
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to add element to array.",
 					  RUNTIME);
 	}
 
