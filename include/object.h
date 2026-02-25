@@ -74,8 +74,6 @@
 #define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
 #define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
 #define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
-#define IS_CRUX_KEY(value) is_object_type(value, OBJECT_KEY)
-#define IS_CRUX_EVENT(value) is_object_type(value, OBJECT_EVENT)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -103,8 +101,6 @@
 #define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_KEY(value) ((ObjectKey *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_EVENT(value) ((ObjectEvent *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -132,41 +128,7 @@ typedef enum {
 	OBJECT_SET,
 	OBJECT_TUPLE,
 	OBJECT_RANGE,
-	OBJECT_KEY,
-	OBJECT_EVENT,
 } ObjectType;
-
-typedef enum {
-	KEY_CHAR,
-	KEY_ENTER,
-	KEY_TAB,
-	KEY_BACKSPACE,
-	KEY_DELETE,
-	KEY_INSERT,
-	KEY_ESCAPE,
-	KEY_UP,
-	KEY_DOWN,
-	KEY_LEFT,
-	KEY_RIGHT,
-	KEY_HOME,
-	KEY_END,
-	KEY_PAGEUP,
-	KEY_PAGEDOWN,
-	KEY_F1,
-	KEY_F2,
-	KEY_F3,
-	KEY_F4,
-	KEY_F5,
-	KEY_F6,
-	KEY_F7,
-	KEY_F8,
-	KEY_F9,
-	KEY_F10,
-	KEY_F11,
-	KEY_F12,
-	KEY_CTRL,
-	KEY_ALT,
-} KeyType;
 
 struct CruxObject { // 8
 	uint32_t pool_index;
@@ -350,20 +312,6 @@ typedef struct {
 	uint16_t col_dim;
 	double *data;
 } ObjectMatrix;
-
-typedef struct {
-	CruxObject object;
-	KeyType key_type;
-	char character;
-} ObjectKey;
-
-typedef struct {
-	CruxObject object;
-	ObjectString *type;
-	ObjectString *source;
-	ObjectTable *data;
-	uint64_t timestamp;
-} ObjectEvent;
 
 typedef enum {
 	STATE_LOADING,
@@ -788,9 +736,5 @@ ObjectSet *new_set(VM *vm, uint32_t element_count);
 ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
-ObjectKey *new_key(VM *vm, KeyType key_type, char character);
-
-ObjectEvent *new_event(VM *vm, ObjectString *type, ObjectString *source,
-		       ObjectTable *data, uint64_t timestamp);
 
 #endif

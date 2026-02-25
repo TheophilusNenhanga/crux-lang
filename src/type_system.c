@@ -38,10 +38,6 @@ TypeMask get_type_mask(Value value)
 			return COMPLEX_TYPE;
 		case OBJECT_MATRIX:
 			return MATRIX_TYPE;
-		case OBJECT_KEY:
-			return KEY_TYPE;
-		case OBJECT_EVENT:
-			return EVENT_TYPE;
 		case OBJECT_MODULE_RECORD:
 			return MODULE_TYPE;
 		case OBJECT_UPVALUE: {
@@ -77,17 +73,18 @@ void type_mask_name(TypeMask mask, char *buf, int buf_size)
 	static const struct {
 		TypeMask bit;
 		const char *name;
-	} entries[] = {{NIL_TYPE, "Nil"},	  {BOOL_TYPE, "Bool"},
-		       {INT_TYPE, "Int"},	  {FLOAT_TYPE, "Float"},
-		       {STRING_TYPE, "String"},	  {ARRAY_TYPE, "Array"},
-		       {TABLE_TYPE, "Table"},	  {FUNCTION_TYPE, "Function"},
-		       {ERROR_TYPE, "Error"},	  {RESULT_TYPE, "Result"},
-		       {FILE_TYPE, "File"},	  {VECTOR_TYPE, "Vector"},
-		       {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
-		       {STRUCT_TYPE, "Struct"},	  {MODULE_TYPE, "Module"},
-		       {SET_TYPE, "Set"},	  {TUPLE_TYPE, "Tuple"},
-		       {BUFFER_TYPE, "Buffer"},	  {RANGE_TYPE, "Range"},
-		       {KEY_TYPE, "Key"},	  {EVENT_TYPE, "Event"}};
+	} entries[] = {
+		{NIL_TYPE, "Nil"},	   {BOOL_TYPE, "Bool"},
+		{INT_TYPE, "Int"},	   {FLOAT_TYPE, "Float"},
+		{STRING_TYPE, "String"},   {ARRAY_TYPE, "Array"},
+		{TABLE_TYPE, "Table"},	   {FUNCTION_TYPE, "Function"},
+		{ERROR_TYPE, "Error"},	   {RESULT_TYPE, "Result"},
+		{FILE_TYPE, "File"},	   {VECTOR_TYPE, "Vector"},
+		{COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
+		{STRUCT_TYPE, "Struct"},   {MODULE_TYPE, "Module"},
+		{SET_TYPE, "Set"},	   {TUPLE_TYPE, "Tuple"},
+		{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
+	};
 
 	int offset = 0;
 	bool first = true;

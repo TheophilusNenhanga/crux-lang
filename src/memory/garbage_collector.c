@@ -178,8 +178,6 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_BUFFER] = blacken_buffer,
 	[OBJECT_TUPLE] = blacken_tuple,
 	[OBJECT_MATRIX] = blacken_matrix,
-	[OBJECT_KEY] = blacken_key,
-	[OBJECT_EVENT] = blacken_event,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -353,14 +351,6 @@ static void blacken_tuple(VM *vm, CruxObject *object)
 	(void)object;
 }
 
-static void blacken_event(VM *vm, CruxObject *object)
-{
-	const ObjectEvent *event = (ObjectEvent *)object;
-	mark_object(vm, (CruxObject *)event->type);
-	mark_object(vm, (CruxObject *)event->source);
-	mark_object(vm, (CruxObject *)event->data);
-}
-
 /**
  * @brief Frees the memory associated with an object based on its type.
  *
@@ -394,8 +384,6 @@ static void free_object_range(VM *vm, CruxObject *object);
 static void free_object_buffer(VM *vm, CruxObject *object);
 static void free_object_tuple(VM *vm, CruxObject *object);
 static void free_object_matrix(VM *vm, CruxObject *object);
-static void free_object_key(VM *vm, CruxObject *object);
-static void free_object_event(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -419,8 +407,6 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_BUFFER] = free_object_buffer,
 	[OBJECT_TUPLE] = free_object_tuple,
 	[OBJECT_MATRIX] = free_object_matrix,
-	[OBJECT_KEY] = free_object_key,
-	[OBJECT_EVENT] = free_object_event,
 };
 
 static void free_object(VM *vm, CruxObject *object)
@@ -597,16 +583,6 @@ static void free_object_matrix(VM *vm, CruxObject *object)
 	FREE_ARRAY(vm, double, matrix->data,
 		   (uint32_t)matrix->row_dim * matrix->col_dim);
 	FREE_OBJECT(vm, ObjectMatrix, object);
-}
-
-static void free_object_key(VM *vm, CruxObject *object)
-{
-	FREE_OBJECT(vm, ObjectKey, object);
-}
-
-static void free_object_event(VM *vm, CruxObject *object)
-{
-	FREE_OBJECT(vm, ObjectEvent, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
