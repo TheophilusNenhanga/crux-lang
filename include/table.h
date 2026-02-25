@@ -1,8 +1,8 @@
 #ifndef TABLE_H
 #define TABLE_H
 
-#include "value.h"
 #include "common.h"
+#include "value.h"
 
 typedef VM VM;
 
@@ -65,10 +65,6 @@ bool table_delete(const Table *table, const ObjectString *key);
 
 /**
  * Copies all entries from one table to another.
- *
- * @param vm Pointer to the virtual machine.
- * @param from Source table to copy from.
- * @param to Destination table to copy to.
  */
 void table_add_all(VM *vm, const Table *from, Table *to);
 
@@ -83,20 +79,15 @@ void table_add_all(VM *vm, const Table *from, Table *to);
  * @return Pointer to the found string object, or NULL if not found.
  */
 ObjectString *table_find_string(const Table *table, const char *chars,
-			      uint64_t length, uint32_t hash);
+				uint64_t length, uint32_t hash);
 
 /**
  * Removes all entries with unmarked keys during garbage collection.
- *
- * @param table Pointer to the table to clean up.
  */
-void table_remove_white(const VM * vm, const Table *table);
+void table_remove_white(const VM *vm, const Table *table);
 
 /**
  * Marks all objects in the table as reachable during garbage collection.
- *
- * @param vm Pointer to the virtual machine.
- * @param table Pointer to the table to mark.
  */
 void mark_table(VM *vm, const Table *table);
 

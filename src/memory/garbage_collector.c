@@ -321,7 +321,7 @@ static void blacken_range(VM *vm, CruxObject *object)
 static void blacken_set(VM *vm, CruxObject *object)
 {
 	ObjectSet *set = (ObjectSet *)object;
-	mark_table(vm, &set->entries);
+	mark_object_table(vm, set->entries->entries, set->entries->capacity);
 }
 
 static void blacken_buffer(VM *vm, CruxObject *object)
@@ -536,7 +536,7 @@ static void free_object_complex(VM *vm, CruxObject *object)
 static void free_object_set(VM *vm, CruxObject *object)
 {
 	ObjectSet *set = (ObjectSet *)object;
-	free_table(vm, &set->entries);
+	free_object_table_wrapper(vm, &set->entries->object);
 	FREE_OBJECT(vm, ObjectSet, object);
 }
 
