@@ -339,7 +339,7 @@ typedef struct { // 40
 
 typedef struct { // 24
 	CruxObject object;
-	Table entries;
+	ObjectTable *entries;
 } ObjectSet;
 
 typedef struct { // 32
@@ -352,7 +352,7 @@ typedef struct { // 32
 
 typedef struct { // 20
 	CruxObject object;
-	uint64_t size;
+	uint32_t size;
 	Value *elements;
 } ObjectTuple;
 
@@ -449,12 +449,10 @@ ObjectFunction *new_function(VM *vm);
  * @param element_count Hint for initial table size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount` (or 16 if
  * `elementCount` is less than 16).
- * @param module_record
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *new_table(VM *vm, int element_count,
-		       ObjectModuleRecord *module_record);
+ObjectTable *new_object_table(VM *vm, int element_count);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -582,16 +580,9 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record);
  * @brief Sets a key-value pair in an object table.
  *
  * This function inserts or updates a key-value pair in an ObjectTable. It
- * resizes the table if necessary to maintain performance and handles key
- * collisions using open addressing.
+ * resizes the table if necessary.
  *
- * @param vm The virtual machine.
- * @param table The ObjectTable to modify.
- * @param key The key Value.
- * @param value The value Value.
- *
- * @return true if the set operation was successful, false otherwise (e.g.,
- * memory allocation failure during resizing).
+ * @return true if the set operation was successful, false otherwise.
  */
 bool object_table_set(VM *vm, ObjectTable *table, Value key, Value value);
 
@@ -732,12 +723,10 @@ ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
 
 ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
 
-ObjectSet *new_set(VM *vm);
+ObjectSet *new_set(VM *vm, uint32_t element_count);
 
-ObjectBuffer *new_buffer(VM *vm);
+ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 
-ObjectBuffer *new_sized_buffer(VM *vm, uint32_t buffer_size);
-
-ObjectTuple *new_tuple(VM *vm, uint64_t size);
+ObjectTuple *new_tuple(VM *vm, uint32_t size);
 
 #endif

@@ -558,9 +558,6 @@ static void print_result_to(FILE *stream, const ObjectResult *result)
 	}
 }
 
-/* ── Public API ──────────────────────────────────────────────────────────────
- */
-
 void print_object_to(FILE *stream, const Value value, const bool in_collection)
 {
 	switch (OBJECT_TYPE(value)) {
@@ -663,6 +660,23 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		} else {
 			fprintf(stream, "%.17g%.17gi", c->real, c->imag);
 		}
+		break;
+	}
+	case OBJECT_SET: {
+		fprintf(stream, "<Set>");
+		break;
+	}
+
+	case OBJECT_BUFFER: {
+		fprintf(stream, "<Buffer>");
+		break;
+	}
+	case OBJECT_TUPLE: {
+		fprintf(stream, "<Tuple>");
+		break;
+	}
+	case OBJECT_RANGE: {
+		fprintf(stream, "<Range>");
 		break;
 	}
 	}
@@ -901,6 +915,20 @@ ObjectString *to_string(VM *vm, const Value value)
 		return copy_string(vm, "<Matrix>", 8);
 	}
 
+	case OBJECT_SET: {
+		return copy_string(vm, "<Set>", 5);
+	}
+
+	case OBJECT_BUFFER: {
+		return copy_string(vm, "<Buffer>", 8);
+	}
+	case OBJECT_TUPLE: {
+		return copy_string(vm, "<Tuple>", 7);
+	}
+	case OBJECT_RANGE: {
+		return copy_string(vm, "<Range>", 7);
+	}
+
 	default:
 		return copy_string(vm, "<Crux Object>", 13);
 	}
@@ -943,11 +971,10 @@ ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
 	return native;
 }
 
-ObjectTable *new_table(VM *vm, const int element_count,
-		       ObjectModuleRecord *module_record)
+ObjectTable *new_object_table(VM *vm, const int element_count)
 {
 	ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
-	push(module_record, OBJECT_VAL(table));
+	push(vm->current_module_record, OBJECT_VAL(table));
 	table->size = 0;
 	table->entries = NULL;
 	const uint32_t newCapacity = element_count < 16
@@ -961,7 +988,7 @@ ObjectTable *new_table(VM *vm, const int element_count,
 		table->entries[i].key = NIL_VAL;
 		table->entries[i].is_occupied = false;
 	}
-	pop(module_record);
+	pop(vm->current_module_record);
 	return table;
 }
 
@@ -1401,40 +1428,35 @@ ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step)
 	return range;
 }
 
-ObjectSet *new_set(VM *vm)
+ObjectSet *new_set(VM *vm, uint32_t element_count)
 {
 	ObjectSet *set = ALLOCATE_OBJECT(vm, ObjectSet, OBJECT_SET);
-	init_table(&set->entries);
+	push(vm->current_module_record, OBJECT_VAL(set));
+	set->entries = new_object_table(vm, element_count);
+	pop(vm->current_module_record);
 	return set;
 }
 
-ObjectBuffer *new_buffer(VM *vm)
-{
-	ObjectBuffer *buffer = ALLOCATE_OBJECT(vm, ObjectBuffer, OBJECT_BUFFER);
-	buffer->capacity = INITIAL_BUFFER_CAPACITY;
-	buffer->read_pos = 0;
-	buffer->write_pos = 0;
-	buffer->data = NULL;
-	buffer->data = ALLOCATE(vm, uint8_t, buffer->capacity);
-	return buffer;
-}
-
-ObjectBuffer *new_sized_buffer(VM *vm, uint32_t buffer_size)
+ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size)
 {
 	ObjectBuffer *buffer = ALLOCATE_OBJECT(vm, ObjectBuffer, OBJECT_BUFFER);
 	buffer->capacity = buffer_size;
 	buffer->read_pos = 0;
 	buffer->write_pos = 0;
 	buffer->data = NULL;
+	push(vm->current_module_record, OBJECT_VAL(buffer));
 	buffer->data = ALLOCATE(vm, uint8_t, buffer->capacity);
+	pop(vm->current_module_record);
 	return buffer;
 }
 
-ObjectTuple *new_tuple(VM *vm, uint64_t size)
+ObjectTuple *new_tuple(VM *vm, uint32_t size)
 {
 	ObjectTuple *tuple = ALLOCATE_OBJECT(vm, ObjectTuple, OBJECT_TUPLE);
 	tuple->elements = NULL;
 	tuple->size = size;
+	push(vm->current_module_record, OBJECT_VAL(tuple));
 	tuple->elements = ALLOCATE(vm, Value, size);
+	pop(vm->current_module_record);
 	return tuple;
 }

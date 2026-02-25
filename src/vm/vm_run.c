@@ -815,7 +815,7 @@ OP_SET_GLOBAL_MINUS: {
 
 OP_TABLE: {
 	uint16_t elementCount = READ_SHORT();
-	ObjectTable *table = new_table(vm, elementCount, currentModuleRecord);
+	ObjectTable *table = new_object_table(vm, elementCount);
 	for (int i = elementCount - 1; i >= 0; i--) {
 		Value value = pop(currentModuleRecord);
 		Value key = pop(currentModuleRecord);

@@ -13,6 +13,7 @@
 #include "stdlib/matrix.h"
 #include "stdlib/random.h"
 #include "stdlib/range.h"
+#include "stdlib/set.h"
 #include "stdlib/stdlib.h"
 #include "stdlib/string.h"
 #include "stdlib/sys.h"
@@ -373,8 +374,8 @@ static const Callable buffer_methods[] = {
 	 2,
 	 {BUFFER_TYPE, BUFFER_TYPE}},
 	{"read_byte", read_byte_buffer_method, 1, {BUFFER_TYPE}},
-	{"read_string", read_string_buffer_method, 1, {BUFFER_TYPE}},
-	{"read_line", read_line_buffer_method, 1, {BUFFER_TYPE, BUFFER_TYPE}},
+	{"read_string", read_string_buffer_method, 2, {BUFFER_TYPE, INT_TYPE}},
+	{"read_line", read_line_buffer_method, 1, {BUFFER_TYPE}},
 	{"read_all", read_all_buffer_method, 1, {BUFFER_TYPE}},
 	{"read_int16_le", read_int16_le_buffer_method, 1, {BUFFER_TYPE}},
 	{"read_int32_le", read_int32_le_buffer_method, 1, {BUFFER_TYPE}},
@@ -391,6 +392,27 @@ static const Callable buffer_methods[] = {
 	{"skip_bytes", skip_bytes_buffer_method, 2, {BUFFER_TYPE, INT_TYPE}},
 	{"clone", clone_buffer_method, 1, {BUFFER_TYPE}},
 	{"compact", compact_buffer_method, 1, {BUFFER_TYPE}},
+};
+
+static const Callable set_functions[] = {
+	{"Set", new_set_function, 1, {ARRAY_TYPE}},
+};
+
+static const Callable set_methods[] = {
+	{"add", add_set_method, 2, {SET_TYPE, HASHABLE_TYPE}},
+	{"remove", remove_set_method, 2, {SET_TYPE, HASHABLE_TYPE}},
+	{"discard", discard_set_method, 2, {SET_TYPE, HASHABLE_TYPE}},
+	{"union", union_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"intersection", intersection_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"difference", difference_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"sym_difference", sym_difference_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"is_subset", is_subset_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"is_superset", is_superset_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"is_disjoint", is_disjoint_set_method, 2, {SET_TYPE, SET_TYPE}},
+	{"contains", contains_set_method, 2, {SET_TYPE, HASHABLE_TYPE}},
+	{"is_empty", is_empty_set_method, 1, {SET_TYPE}},
+	{"to_array", to_array_set_method, 1, {SET_TYPE}},
+	{"clone", clone_set_method, 1, {SET_TYPE}},
 };
 
 bool register_native_method(VM *vm, Table *method_table,
@@ -547,6 +569,12 @@ bool initialize_std_lib(VM *vm)
 	initTypeMethodTable(vm, &vm->tuple_type, tuple_methods,
 			    ARRAY_COUNT(tuple_methods));
 
+	initTypeMethodTable(vm, &vm->set_type, set_methods,
+			    ARRAY_COUNT(set_methods));
+
+	initTypeMethodTable(vm, &vm->buffer_type, buffer_methods,
+			    ARRAY_COUNT(buffer_methods));
+
 	// Initialize standard library modules
 	if (!initModule(vm, "math", mathFunctions,
 			ARRAY_COUNT(mathFunctions))) {
@@ -599,6 +627,15 @@ bool initialize_std_lib(VM *vm)
 
 	if (!initModule(vm, "tuple", tuple_functions,
 			ARRAY_COUNT(tuple_functions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "set", set_functions, ARRAY_COUNT(set_functions))) {
+		return false;
+	}
+
+	if (!initModule(vm, "buffer", buffer_functions,
+			ARRAY_COUNT(buffer_functions))) {
 		return false;
 	}
 

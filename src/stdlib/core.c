@@ -33,6 +33,14 @@ static Value get_length(const Value value)
 		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
 		return INT_VAL((int32_t)buffer->write_pos - buffer->read_pos);
 	}
+	if (IS_CRUX_TUPLE(value)) {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
+		return INT_VAL(tuple->size);
+	}
+	if (IS_CRUX_SET(value)) {
+		const ObjectSet *set = AS_CRUX_SET(value);
+		return INT_VAL(set->entries->size);
+	}
 	return INT_VAL(-1);
 }
 
@@ -127,8 +135,7 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_ARRAY(value)) {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
-		ObjectTable *table = new_table(vm, (int)array->size,
-					       moduleRecord);
+		ObjectTable *table = new_object_table(vm, (int)array->size);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < array->size; i++) {
@@ -144,8 +151,7 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectTable *table = new_table(vm, (int)string->length,
-					       moduleRecord);
+		ObjectTable *table = new_object_table(vm, (int)string->length);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < string->length; i++) {
@@ -163,7 +169,7 @@ static Value cast_table(VM *vm, const Value *args)
 		return result;
 	}
 
-	ObjectTable *table = new_table(vm, 1, moduleRecord);
+	ObjectTable *table = new_object_table(vm, 1);
 	push(vm->current_module_record, OBJECT_VAL(table));
 	object_table_set(vm, table, INT_VAL(0), value);
 	const Value result = OBJECT_VAL(table);

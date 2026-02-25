@@ -1,6 +1,7 @@
 #include "stdlib/buffer.h"
 #include <stdint.h>
 #include <string.h>
+#include "common.h"
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
@@ -70,7 +71,7 @@ static double bytes_to_float64(const uint8_t *src)
 Value new_buffer_function(VM *vm, const Value *args)
 {
 	(void)args;
-	ObjectBuffer *buffer = new_buffer(vm);
+	ObjectBuffer *buffer = new_buffer(vm, INITIAL_BUFFER_CAPACITY);
 	return OBJECT_VAL(buffer);
 }
 
@@ -721,7 +722,7 @@ Value to_string_buffer_method(VM *vm, const Value *args)
 Value clone_buffer_method(VM *vm, const Value *args)
 {
 	const ObjectBuffer *src = AS_CRUX_BUFFER(args[0]);
-	ObjectBuffer *dst = new_sized_buffer(vm, src->capacity);
+	ObjectBuffer *dst = new_buffer(vm, src->capacity);
 
 	push(vm->current_module_record, OBJECT_VAL(dst));
 
