@@ -2,6 +2,7 @@
 
 #include "file_handler.h"
 #include "stdlib/stdlib.h"
+#include "type_system.h"
 #include "vm.h"
 
 #include <string.h>
@@ -118,6 +119,9 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 					&&OP_NIL_RETURN,
 					&&OP_UNWRAP,
 					&&OP_PANIC,
+					&&OP_BITWISE_AND,
+					&&OP_BITWISE_XOR,
+					&&OP_BITWISE_OR,
 					&&end};
 
 	uint16_t instruction;
@@ -519,8 +523,13 @@ OP_GET_COLLECTION: {
 	}
 	case OBJECT_ARRAY: {
 		if (!IS_INT(indexValue)) {
+			char buf[64];
+			type_mask_name(get_type_mask(indexValue), buf,
+				       sizeof(buf));
 			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Index must be of type 'int'.");
+				      "Index must be of type 'Int' but "
+				      "got type '%s'.",
+				      buf);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		uint32_t index = (uint32_t)AS_INT(indexValue);
@@ -1331,6 +1340,42 @@ OP_PANIC: {
 	// TODO: Don't hard exit, cleanup first
 	runtime_panic(vm->current_module_record, true, RUNTIME, "Panic: %s",
 		      message->chars);
+	DISPATCH();
+}
+
+OP_BITWISE_AND: {
+	Value left = pop(currentModuleRecord);
+	Value right = pop(currentModuleRecord);
+	if (!IS_INT(left) || !IS_INT(right)) {
+		runtime_panic(currentModuleRecord, false, TYPE,
+			      "Bitwise AND operation requires type 'Int'.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	push(currentModuleRecord, INT_VAL(INT_VAL(left) & INT_VAL(right)));
+	DISPATCH();
+}
+
+OP_BITWISE_XOR: {
+	Value left = pop(currentModuleRecord);
+	Value right = pop(currentModuleRecord);
+	if (!IS_INT(left) || !IS_INT(right)) {
+		runtime_panic(currentModuleRecord, false, TYPE,
+			      "Bitwise XOR operation requires type 'Int'.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	push(currentModuleRecord, INT_VAL(INT_VAL(left) ^ INT_VAL(right)));
+	DISPATCH();
+}
+
+OP_BITWISE_OR: {
+	Value left = pop(currentModuleRecord);
+	Value right = pop(currentModuleRecord);
+	if (!IS_INT(left) || !IS_INT(right)) {
+		runtime_panic(currentModuleRecord, false, TYPE,
+			      "Bitwise OR operation requires type 'Int'.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	push(currentModuleRecord, INT_VAL(INT_VAL(left) | INT_VAL(right)));
 	DISPATCH();
 }
 

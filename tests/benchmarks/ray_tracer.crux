@@ -1,5 +1,5 @@
 use Random from "crux:random";
-use Vec from "crux:vectors";
+use Vec from "crux:vector";
 use _time_ms from "crux:time";
 use sqrt, min from "crux:math";
 use exit from "crux:sys";

@@ -501,9 +501,14 @@ Token scan_token(void)
 		return double_string();
 	case '\'':
 		return single_string();
-	case '?': {
+	case '?':
 		return make_token(TOKEN_QUESTION_MARK);
-	}
+	case '&':
+		return make_token(TOKEN_AMPERSAND);
+	case '|':
+		return make_token(TOKEN_PIPE);
+	case '^':
+		return make_token(TOKEN_CARET);
 	default:;
 	}
 	return error_token("Unexpected character.");
