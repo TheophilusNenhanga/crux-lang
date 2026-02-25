@@ -1,0 +1,208 @@
+use println from "crux:io";
+use _time_ms from "crux:time";
+use open from "crux:fs";
+use floor, abs from "crux:math";
+use Random from "crux:random";
+
+println("=== START OF TERRAIN GENERATOR ===");
+let IMAGE_WIDTH = 1024;
+let IMAGE_HEIGHT = 1024;
+let OCTAVES = 32;      // Detail level. Higher = more taxing.
+let PERSISTENCE = 0.5;
+let SCALE = 0.005;    // Zoom level
+
+// The Permutation Table (0-255 randomized)
+// We double it to 512 to avoid buffer overflow checks during lookup
+let PERM = [];
+
+fn init_permutation() {
+    let rand = Random();
+    let p = [];
+
+    // Fill 0-255
+    for let i = 0; i < 256; i += 1 {
+        p.push(i);
+    }
+
+    // Shuffle (Fisher-Yates)
+    for let i = 255; i > 0; i -= 1 {
+        let j = int(rand.float(0, i + 1)?)?;
+        let swap = p[i];
+        p[i] = p[j];
+        p[j] = swap;
+    }
+
+    // Duplicate array to avoid buffer overflow wrapping
+    for let i = 0; i < 512; i += 1 {
+        if i < 256 {
+            PERM.push(p[i]);
+        } else {
+            PERM.push(p[i - 256]);
+        }
+    }
+}
+
+// Fade function: 6t^5 - 15t^4 + 10t^3
+// Smoothes the transition between grid points
+fn fade(t) {
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// Linear Interpolation
+fn lerp(t, a, b) {
+    return a + t * (b - a);
+}
+
+// Gradient function
+// Calculates dot product between distance vector and gradient vector
+// heavily reliant on Bitwise ops
+fn grad(hash, x, y, z) {
+    let h = hash & 15; // Take first 4 bits
+    let u;
+    let v;
+
+    if h < 8 { u = x; } else { u = y; }
+
+    if h < 4 {
+        v = y;
+    } else {
+        if h == 12 or h == 14 {
+            v = x;
+        } else {
+            v = z;
+        }
+    }
+
+    let res_u;
+    let res_v;
+
+    // Simulate bitwise check for sign
+    if (h & 1) == 0 { res_u = u; } else { res_u = -u; }
+    if (h & 2) == 0 { res_v = v; } else { res_v = -v; }
+
+    return res_u + res_v;
+}
+
+fn noise(x, y, z) {
+    // Find unit cube that contains point
+    let X = int(floor(x))? & 255;
+    let Y = int(floor(y))? & 255;
+    let Z = int(floor(z))? & 255;
+
+    // Find relative x,y,z of point in cube
+    x -= floor(x);
+    y -= floor(y);
+    z -= floor(z);
+
+    // Compute fade curves
+    let u = fade(x);
+    let v = fade(y);
+    let w = fade(z);
+
+    // Hash coordinates of the 8 cube corners
+    // This nested array access is a stress test
+    let A = PERM[X] + Y;
+    let AA = PERM[A] + Z;
+    let AB = PERM[A + 1] + Z;
+    let B = PERM[X + 1] + Y;
+    let BA = PERM[B] + Z;
+    let BB = PERM[B + 1] + Z;
+
+    // Add blended results from 8 corners of cube
+    return lerp(w,
+        lerp(v,
+            lerp(u, grad(PERM[AA], x, y, z), grad(PERM[BA], x - 1, y, z)),
+            lerp(u, grad(PERM[AB], x, y - 1, z), grad(PERM[BB], x - 1, y - 1, z))
+        ),
+        lerp(v,
+            lerp(u, grad(PERM[AA + 1], x, y, z - 1), grad(PERM[BA + 1], x - 1, y, z - 1)),
+            lerp(u, grad(PERM[AB + 1], x, y - 1, z - 1), grad(PERM[BB + 1], x - 1, y - 1, z - 1))
+        )
+    );
+}
+
+// Fractal Brownian Motion
+// Superimposes multiple layers of noise
+fn fbm(x, y) {
+    let total = 0.0;
+    let amplitude = 1.0;
+    let frequency = 1.0;
+    let maxValue = 0.0;  // Used for normalizing result to 0.0 - 1.0
+
+    for let i = 0; i < OCTAVES; i += 1 {
+        total += noise(x * frequency, y * frequency, 0.0) * amplitude;
+
+        maxValue += amplitude;
+
+        amplitude *= PERSISTENCE;
+        frequency *= 2.0;
+    }
+
+    return total / maxValue;
+}
+
+fn get_terrain_color(height) {
+    // Map -1.0 -> 1.0 range to colors
+    if height < -0.05 {
+        // Deep Water (Blue)
+        return { "r": 20, "g": 40, "b": 170 };
+    }
+    if height < 0.15 {
+        // Shallow Water / Beach (Cyan/Yellowish)
+        return { "r": 30, "g": 100, "b": 200 };
+    }
+    if height < 0.25 {
+        // Sand
+        return { "r": 210, "g": 200, "b": 120 };
+    }
+    if height < 0.55 {
+        // Forest
+        return { "r": 30, "g": 120, "b": 30 };
+    }
+    if height < 0.8 {
+        // Rock / Mountain
+        return { "r": 100, "g": 100, "b": 100 };
+    }
+    // Snow
+    return { "r": 255, "g": 255, "b": 255 };
+}
+
+fn main() {
+    println("Initializing Permutation Table...");
+    init_permutation();
+
+    println("Generating Terrain (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
+    let start_time = _time_ms();
+
+    let file = match open("terrain.ppm", "w") {
+        Ok(f) => give f;
+        Err => {panic "Error opening file"; }
+    };
+
+    file.write("P3\n");
+    file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
+    file.write("255\n");
+
+    for let y = 0; y < IMAGE_HEIGHT; y += 1 {
+        if y % 32 == 0 {
+            println("Processing line " + string(y));
+        }
+
+        for let x = 0; x < IMAGE_WIDTH; x += 1 {
+            // Generate Noise value
+            let n = fbm(x * SCALE, y * SCALE);
+
+            // Map to color
+            let color = get_terrain_color(n);
+
+            file.write(string(color["r"]) + " " + string(color["g"]) + " " + string(color["b"]) + "\n");
+        }
+    }
+
+    let end_time = _time_ms();
+    println("Terrain generated in " + string(end_time - start_time) + " ms");
+    file.close();
+}
+
+main();
+println("=== END OF TERRAIN GENERATOR ===");

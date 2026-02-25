@@ -11,5 +11,7 @@ src/CMakeSettings.json
 /src/cmake-build-*
 /cmake-build-*
 /build-wsl
-tests/benchmarks/render.ppm
+# for ray tracing benchmark
 *.ppm
+# for perf data
+*.data

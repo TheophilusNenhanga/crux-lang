@@ -5,25 +5,33 @@
 #include "garbage_collector.h"
 #include "panic.h"
 #include "stdlib/array.h"
-#include "vm_helpers.h"
 
-ObjectResult *array_push_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Adds an element to the end of an array
+ * arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Result<Nil>
+ */
+Value array_push_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value to_add = args[1];
 
 	if (!array_add(vm, array, to_add, array->size)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to add to array.",
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to add element to array.",
 					  RUNTIME);
 	}
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_pop_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Removes and returns the last element of an array
+ * arg0 -> array: Array
+ * Returns Result<Any>
+ */
+Value array_pop_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
@@ -36,22 +44,22 @@ ObjectResult *array_pop_method(VM *vm, int arg_count, const Value *args)
 	array->values[array->size - 1] = NIL_VAL;
 	array->size--;
 
-	return new_ok_result(vm, popped);
+	return OBJECT_VAL(new_ok_result(vm, popped));
 }
 
-ObjectResult *array_insert_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Inserts an element at the specified index in an array
+ * arg0 -> array: Array
+ * arg1 -> index: Int
+ * arg2 -> value: Any
+ * Returns Result<Nil>
+ */
+Value array_insert_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	if (!IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<index> must be of type 'number'.",
-					  TYPE);
-	}
-
-	const Value toInsert = args[1];
-	const uint32_t insert_at = AS_INT(args[2]);
+	const Value toInsert = args[2];
+	const uint32_t insert_at = AS_INT(args[1]);
 
 	if (insert_at > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.",
@@ -70,19 +78,18 @@ ObjectResult *array_insert_method(VM *vm, int arg_count, const Value *args)
 			vm, "Failed to allocate enough memory for new array.",
 			MEMORY);
 	}
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_remove_at_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Removes and returns the element at the specified index
+ * arg0 -> array: Array
+ * arg1 -> index: Int
+ * Returns Result<Any>
+ */
+Value array_remove_at_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<index> must be of type 'number'.",
-					  TYPE);
-	}
 
 	const uint32_t removeAt = AS_INT(args[1]);
 
@@ -98,20 +105,18 @@ ObjectResult *array_remove_at_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	array->size--;
-	return new_ok_result(vm, removed_element);
+	return OBJECT_VAL(new_ok_result(vm, removed_element));
 }
 
-ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Concatenates two arrays together
+ * arg0 -> array: Array
+ * arg1 -> other: Array
+ * Returns Result<Array>
+ */
+Value array_concat_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<target> must be of type 'array'.",
-					  TYPE);
-	}
-
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
 	const uint32_t combined_size = targetArray->size + array->size;
@@ -120,8 +125,7 @@ ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
 			vm, "Size of resultant array out of bounds.", BOUNDS);
 	}
 
-	ObjectArray *resultArray = new_array(vm, combined_size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, combined_size);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < combined_size; i++) {
@@ -134,26 +138,21 @@ ObjectResult *array_concat_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Extracts a portion of an array from start to end (exclusive)
+ * arg0 -> array: Array
+ * arg1 -> start: Int
+ * arg2 -> end: Int
+ * Returns Result<Array>
+ */
+Value array_slice_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<start_index> must be of type 'number'.", TYPE);
-	}
-
-	if (!IS_INT(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<end_index> must be of type 'number'.", TYPE);
-	}
-
-	const uint32_t start_index = AS_INT(args[1]);
-	const uint32_t end_index = AS_INT(args[2]);
+	const int32_t start_index = AS_INT(args[1]);
+	const int32_t end_index = AS_INT(args[2]);
 
 	if (start_index > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.",
@@ -170,8 +169,7 @@ ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
 	}
 
 	const size_t sliceSize = end_index - start_index;
-	ObjectArray *slicedArray = new_array(vm, sliceSize,
-					     vm->current_module_record);
+	ObjectArray *slicedArray = new_array(vm, sliceSize);
 	push(vm->current_module_record, OBJECT_VAL(slicedArray));
 
 	for (size_t i = 0; i < sliceSize; i++) {
@@ -181,12 +179,16 @@ ObjectResult *array_slice_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(slicedArray));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *array_reverse_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Reverses an array in place
+ * arg0 -> array: Array
+ * Returns Result<Nil>
+ */
+Value array_reverse_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	Value *values = ALLOCATE(vm, Value, array->size);
@@ -205,29 +207,39 @@ ObjectResult *array_reverse_method(VM *vm, int arg_count, const Value *args)
 		array->values[i] = values[array->size - 1 - i];
 	}
 
-	free(values);
+	FREE(vm, Value, values);
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *array_index_of_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the index of the first occurrence of a value, or an error if not
+ * found arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Result<Int>
+ */
+Value array_index_of_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		if (values_equal(target, array->values[i])) {
-			return new_ok_result(vm, INT_VAL(i));
+			return OBJECT_VAL(new_ok_result(vm, INT_VAL(i)));
 		}
 	}
 	return MAKE_GC_SAFE_ERROR(vm, "Value could not be found in the array.",
 				  VALUE);
 }
 
-Value array_contains_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Checks if an array contains a specific value
+ * arg0 -> array: Array
+ * arg1 -> value: Any
+ * Returns Bool
+ */
+Value array_contains_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const Value target = args[1];
@@ -240,9 +252,13 @@ Value array_contains_method(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(false);
 }
 
-Value array_clear_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Removes all elements from an array
+ * arg0 -> array: Array
+ * Returns Nil
+ */
+Value array_clear_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	(void)vm;
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
@@ -255,14 +271,15 @@ Value array_clear_method(VM *vm, int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
+/**
+ * Checks if two arrays are equal (same elements in same order)
+ * arg0 -> array: Array
+ * arg1 -> other: Array
+ * Returns Bool
+ */
+Value arrayEqualsMethod(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return BOOL_VAL(false);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const ObjectArray *targetArray = AS_CRUX_ARRAY(args[1]);
 
@@ -279,21 +296,18 @@ Value arrayEqualsMethod(VM *vm, int arg_count, const Value *args)
 	return BOOL_VAL(true);
 }
 
-// arg0 - array
-// arg1 - function
-ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Transforms each element of an array using a function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 1 argument)
+ * Returns Result<Array>
+ */
+Value array_map_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'callable' for <func> argument",
-			TYPE);
-	}
-
+	// TODO: Ensure that this works for native functions as well
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
 	if (closure->function->arity != 1) {
@@ -302,12 +316,12 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 			ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
 		ObjectResult *result = execute_user_function(vm, closure, 1,
@@ -317,7 +331,7 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
 				pop(currentModuleRecord); // resultArray
-				return result;
+				return OBJECT_VAL(result);
 			}
 		}
 
@@ -332,23 +346,19 @@ ObjectResult *array_map_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(currentModuleRecord); // resultArray
-	return res;
+	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - function
-ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Filters an array to only include elements that satisfy a predicate function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 1 argument, returns Bool)
+ * Returns Result<Array>
+ */
+Value array_filter_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'callable' for <func> argument",
-			TYPE);
-	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 
@@ -358,13 +368,13 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 			ARGUMENT_MISMATCH);
 	}
 
-	ObjectArray *resultArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
 
 	uint32_t addCount = 0;
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
 		ObjectResult *result = execute_user_function(vm, closure, 1,
@@ -374,7 +384,7 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
 				pop(currentModuleRecord); // resultArray
-				return result;
+				return OBJECT_VAL(result);
 			}
 		}
 
@@ -390,24 +400,20 @@ ObjectResult *array_filter_method(VM *vm, int arg_count, const Value *args)
 	resultArray->size = addCount;
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(resultArray));
 	pop(currentModuleRecord); // resultArray
-	return res;
+	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - function
-// arg2 - initial value
-ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Reduces an array to a single value using an accumulator function
+ * arg0 -> array: Array
+ * arg1 -> func: Function (takes 2 arguments: accumulator, element)
+ * arg2 -> initial: Any
+ * Returns Result<Any>
+ */
+Value array_reduce_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-
-	if (!IS_CRUX_CLOSURE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Expected value of type 'callable' for <func> argument",
-			TYPE);
-	}
 
 	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
 	if (closure->function->arity != 2) {
@@ -421,6 +427,7 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
 
+		push(currentModuleRecord, OBJECT_VAL(closure));
 		push(currentModuleRecord, arrayValue);
 		push(currentModuleRecord, accumulator);
 
@@ -433,23 +440,22 @@ ObjectResult *array_reduce_method(VM *vm, int arg_count, const Value *args)
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // accumulator
 				pop(currentModuleRecord); // arrayValue
-				return result;
+				pop(currentModuleRecord); // closure
+				return OBJECT_VAL(result);
 			}
 		}
 
 		if (result->is_ok) {
 			accumulator = result->as.value;
 		} else {
-			pop(currentModuleRecord); // accumulator
-			pop(currentModuleRecord); // arrayValue
-			return result;
+			pop(currentModuleRecord); // result
+			return OBJECT_VAL(result);
 		}
 
-		pop(currentModuleRecord); // accumulator
-		pop(currentModuleRecord); // arrayValue
+		pop(currentModuleRecord); // result
 	}
 
-	return new_ok_result(vm, accumulator);
+	return OBJECT_VAL(new_ok_result(vm, accumulator));
 }
 
 static int compare_values(const Value a, const Value b)
@@ -494,7 +500,7 @@ static int compare_values(const Value a, const Value b)
 	return 0;
 }
 
-static bool are_all_elements_sortable(const ObjectArray *array)
+static bool all_elements_sortable(const ObjectArray *array)
 {
 	if (array->size == 0)
 		return true;
@@ -549,25 +555,27 @@ static void quick_sort(Value *arr, const int low, const int high)
 	}
 }
 
-// arg0 - array
-ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Sorts an array in ascending order (works with Int, Float, or String arrays)
+ * arg0 -> array: Array
+ * Returns Result<Array>
+ */
+Value array_sort_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
-		return new_ok_result(vm, args[0]);
+		return OBJECT_VAL(new_ok_result(vm, args[0]));
 	}
 
-	if (!are_all_elements_sortable(array)) {
+	if (!all_elements_sortable(array)) {
 		return MAKE_GC_SAFE_ERROR(
 			vm,
 			"Array contains unsortable or mixed incompatible types",
 			TYPE);
 	}
 
-	ObjectArray *sortedArray = new_array(vm, array->size,
-					     vm->current_module_record);
+	ObjectArray *sortedArray = new_array(vm, array->size);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	push(currentModuleRecord, OBJECT_VAL(sortedArray));
 
@@ -580,20 +588,17 @@ ObjectResult *array_sort_method(VM *vm, int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(sortedArray));
 	pop(currentModuleRecord);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-// arg0 - array
-// arg1 - separator string
-ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Joins all elements of an array into a string with a separator
+ * arg0 -> array: Array
+ * arg1 -> separator: String
+ * Returns Result<String>
+ */
+Value array_join_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Expected arg <separator> to be of type 'string'.",
-			TYPE);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	const ObjectString *separator = AS_CRUX_STRING(args[1]);
 
@@ -602,7 +607,7 @@ ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
 		push(vm->current_module_record, OBJECT_VAL(emptyResult));
 		ObjectResult *res = new_ok_result(vm, OBJECT_VAL(emptyResult));
 		pop(vm->current_module_record);
-		return res;
+		return OBJECT_VAL(res);
 	}
 
 	// estimate: 3 chars per element + separators
@@ -672,5 +677,5 @@ ObjectResult *array_join_method(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(result));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }

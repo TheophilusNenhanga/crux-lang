@@ -1,0 +1,145 @@
+use println from "crux:io";
+use Set from "crux:set";
+
+println("=== Testing basic set creation ===");
+let s = Set([1, 2, 3]);
+assert(typeof s == "Set", "Failed to create basic set");
+
+println("=== Testing set with string elements ===");
+let s_str = Set(["a", "b", "c"]);
+assert(typeof s_str == "Set", "Failed to create set with strings");
+
+println("=== Testing is_empty() method ===");
+let empty = Set([]);
+assert(empty.is_empty() == true, "Newly created empty set should be empty");
+assert(s.is_empty() == false, "Set with elements should not be empty");
+
+println("=== Testing contains() method ===");
+assert(s.contains(1) == true, "Set should contain 1");
+assert(s.contains(2) == true, "Set should contain 2");
+assert(s.contains(3) == true, "Set should contain 3");
+assert(s.contains(4) == false, "Set should not contain 4");
+assert(s.contains(0) == false, "Set should not contain 0");
+
+println("=== Testing add() method ===");
+let s2 = Set([1, 2]);
+s2.add(3);
+assert(s2.contains(3) == true, "Set should contain 3 after add");
+s2.add(4);
+assert(s2.contains(4) == true, "Set should contain 4 after add");
+
+println("=== Testing add() with duplicate ===");
+s2.add(1);
+assert(s2.contains(1) == true, "Set should still contain 1");
+
+println("=== Testing remove() method ===");
+let s3 = Set([1, 2, 3]);
+s3.remove(2);
+assert(s3.contains(2) == false, "Set should not contain 2 after remove");
+
+println("=== Testing discard() method ===");
+let s4 = Set([1, 2, 3]);
+s4.discard(2);
+assert(s4.contains(2) == false, "Set should not contain 2 after discard");
+s4.discard(100);
+assert(s4.contains(100) == false, "Set should not contain 100 (was not in set)");
+
+println("=== Testing to_array() method ===");
+let arr = s.to_array();
+assert(typeof arr == "Array", "to_array() should return an Array");
+assert(len(arr) == 3, "to_array() should have 3 elements");
+
+println("=== Testing clone() method ===");
+let s5 = Set([1, 2, 3]);
+let s5_clone = s5.clone();
+assert(s5_clone.contains(1) == true, "Clone should contain 1");
+assert(s5_clone.contains(2) == true, "Clone should contain 2");
+assert(s5_clone.contains(3) == true, "Clone should contain 3");
+assert(s5_clone.is_empty() == false, "Clone should not be empty");
+
+println("=== Testing union() method ===");
+let s6 = Set([1, 2]);
+let s7 = Set([3, 4]);
+let union_result = s6.union(s7)._unwrap();
+assert(typeof union_result == "Set", "union() should return a Set");
+assert(union_result.contains(1) == true, "Union should contain 1");
+assert(union_result.contains(2) == true, "Union should contain 2");
+assert(union_result.contains(3) == true, "Union should contain 3");
+assert(union_result.contains(4) == true, "Union should contain 4");
+assert(len(union_result.to_array()) == 4, "Union should have 4 elements");
+
+println("=== Testing intersection() method ===");
+let s8 = Set([1, 2, 3]);
+let s9 = Set([2, 3, 4]);
+let intersection_result = s8.intersection(s9);
+assert(typeof intersection_result == "Set", "intersection() should return a Set");
+assert(intersection_result.contains(2) == true, "Intersection should contain 2");
+assert(intersection_result.contains(3) == true, "Intersection should contain 3");
+assert(intersection_result.contains(1) == false, "Intersection should not contain 1");
+assert(len(intersection_result.to_array()) == 2, "Intersection should have 2 elements");
+
+println("=== Testing difference() method ===");
+let s10 = Set([1, 2, 3]);
+let s11 = Set([2, 3, 4]);
+let difference_result = s10.difference(s11);
+assert(typeof difference_result == "Set", "difference() should return a Set");
+assert(difference_result.contains(1) == true, "Difference should contain 1");
+assert(difference_result.contains(2) == false, "Difference should not contain 2");
+assert(difference_result.contains(3) == false, "Difference should not contain 3");
+assert(len(difference_result.to_array()) == 1, "Difference should have 1 element");
+
+println("=== Testing sym_difference() method ===");
+let s12 = Set([1, 2, 3]);
+let s13 = Set([2, 3, 4]);
+let sym_diff_result = s12.sym_difference(s13);
+assert(typeof sym_diff_result == "Set", "sym_difference() should return a Set");
+assert(sym_diff_result.contains(1) == true, "Sym difference should contain 1");
+assert(sym_diff_result.contains(4) == true, "Sym difference should contain 4");
+assert(sym_diff_result.contains(2) == false, "Sym difference should not contain 2");
+assert(sym_diff_result.contains(3) == false, "Sym difference should not contain 3");
+assert(len(sym_diff_result.to_array()) == 2, "Sym difference should have 2 elements");
+
+println("=== Testing is_subset() method ===");
+let s14 = Set([1, 2]);
+let s15 = Set([1, 2, 3]);
+assert(s14.is_subset(s15) == true, "Set([1,2]) should be subset of Set([1,2,3])");
+assert(s15.is_subset(s14) == false, "Set([1,2,3]) should not be subset of Set([1,2])");
+let s16 = Set([1, 2, 3]);
+assert(s16.is_subset(s15) == true, "Set([1,2,3]) should be subset of Set([1,2,3])");
+
+println("=== Testing is_superset() method ===");
+let s17 = Set([1, 2, 3]);
+let s18 = Set([1, 2]);
+assert(s17.is_superset(s18) == true, "Set([1,2,3]) should be superset of Set([1,2])");
+assert(s18.is_superset(s17) == false, "Set([1,2]) should not be superset of Set([1,2,3])");
+let s19 = Set([1, 2, 3]);
+assert(s19.is_superset(s19) == true, "Set should be superset of itself");
+
+println("=== Testing is_disjoint() method ===");
+let s20 = Set([1, 2]);
+let s21 = Set([3, 4]);
+assert(s20.is_disjoint(s21) == true, "Disjoint sets should return true");
+let s22 = Set([1, 2]);
+let s23 = Set([2, 3]);
+assert(s22.is_disjoint(s23) == false, "Non-disjoint sets should return false");
+
+println("=== Testing set with mixed types ===");
+let s24 = Set([1, "hello", true, nil]);
+assert(s24.contains(1) == true, "Set should contain 1");
+assert(s24.contains("hello") == true, "Set should contain 'hello'");
+assert(s24.contains(true) == true, "Set should contain true");
+assert(s24.contains(nil) == true, "Set should contain nil");
+assert(s24.contains(false) == false, "Set should not contain false");
+
+println("=== Testing set with floats ===");
+let s25 = Set([1.5, 2.5, 3.5]);
+assert(s25.contains(1.5) == true, "Set should contain 1.5");
+assert(s25.contains(2.5) == true, "Set should contain 2.5");
+
+println("=== Testing error cases ===");
+let bad = Set([1, []]);
+assert(typeof bad == "Result", "Set with array element should return Result");
+let unwrapped = bad._unwrap();
+assert(typeof unwrapped == "Error", "Unwrapped result should be Error");
+
+println("=== All set tests passed ===");

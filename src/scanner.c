@@ -232,7 +232,16 @@ static CruxTokenType identifier_type(void)
 	case 'u':
 		return check_keyword(1, 2, "se", TOKEN_USE);
 	case 'p':
-		return check_keyword(1, 2, "ub", TOKEN_PUB);
+		if (scanner.current - scanner.start > 1) {
+			switch (scanner.start[1]) {
+			case 'a':
+				return check_keyword(2, 3, "nic", TOKEN_PANIC);
+			case 'u':
+				return check_keyword(2, 1, "b", TOKEN_PUB);
+			default:;
+			}
+		}
+		break;
 	case 'E':
 		return check_keyword(1, 2, "rr", TOKEN_ERR);
 	case 'O':
@@ -486,9 +495,14 @@ Token scan_token(void)
 		return double_string();
 	case '\'':
 		return single_string();
-	case '?': {
+	case '?':
 		return make_token(TOKEN_QUESTION_MARK);
-	}
+	case '&':
+		return make_token(TOKEN_AMPERSAND);
+	case '|':
+		return make_token(TOKEN_PIPE);
+	case '^':
+		return make_token(TOKEN_CARET);
 	default:;
 	}
 	return error_token("Unexpected character.");

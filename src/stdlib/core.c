@@ -1,9 +1,11 @@
 #include "stdlib/core.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "object.h"
 #include "panic.h"
+#include "stdlib/range.h"
 
 static Value get_length(const Value value)
 {
@@ -16,29 +18,42 @@ static Value get_length(const Value value)
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
 	}
-	return NIL_VAL;
-}
-
-ObjectResult *length_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	const Value value = args[0];
-	const Value length = get_length(value);
-	if (IS_NIL(length)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Expected either a collection type "
-					  "('string', 'array', 'table').",
-					  TYPE);
+	if (IS_CRUX_VECTOR(value)) {
+		return INT_VAL(AS_CRUX_VECTOR(value)->dimensions);
 	}
-	return new_ok_result(vm, length);
+	if (IS_CRUX_MATRIX(value)) {
+		return INT_VAL(AS_CRUX_MATRIX(value)->col_dim *
+			       AS_CRUX_MATRIX(value)->row_dim);
+	}
+	if (IS_CRUX_RANGE(value)) {
+		const ObjectRange *range = AS_CRUX_RANGE(value);
+		return INT_VAL(range_len(range));
+	}
+	if (IS_CRUX_BUFFER(value)) {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
+		return INT_VAL((int32_t)buffer->write_pos - buffer->read_pos);
+	}
+	if (IS_CRUX_TUPLE(value)) {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
+		return INT_VAL(tuple->size);
+	}
+	if (IS_CRUX_SET(value)) {
+		const ObjectSet *set = AS_CRUX_SET(value);
+		return INT_VAL(set->entries->size);
+	}
+	return INT_VAL(-1);
 }
 
-Value length_function_(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the length of a value (works with Array, String, Table, Vector,
+ * Matrix) arg0 -> value: Any Returns Int
+ */
+Value length_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	const Value value = args[0];
-	return get_length(value);
+	const Value length = get_length(value);
+	return length;
 }
 
 static Value cast_array(VM *vm, const Value *args, bool *success)
@@ -51,8 +66,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectArray *array = new_array(vm, string->length,
-					       vm->current_module_record);
+		ObjectArray *array = new_array(vm, string->length);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		for (uint32_t i = 0; i < string->length; i++) {
@@ -76,8 +90,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_TABLE(value)) {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		ObjectArray *array = new_array(vm, table->size * 2,
-					       vm->current_module_record);
+		ObjectArray *array = new_array(vm, table->size * 2);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
 		uint32_t index = 0;
@@ -103,7 +116,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 		return result;
 	}
 
-	ObjectArray *array = new_array(vm, 1, vm->current_module_record);
+	ObjectArray *array = new_array(vm, 1);
 	push(vm->current_module_record, OBJECT_VAL(array));
 	array_add(vm, array, value, 0);
 	const Value result = OBJECT_VAL(array);
@@ -122,8 +135,7 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_ARRAY(value)) {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
-		ObjectTable *table = new_table(vm, (int)array->size,
-					       moduleRecord);
+		ObjectTable *table = new_object_table(vm, (int)array->size);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < array->size; i++) {
@@ -139,8 +151,7 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectTable *table = new_table(vm, (int)string->length,
-					       moduleRecord);
+		ObjectTable *table = new_object_table(vm, (int)string->length);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
 		for (uint32_t i = 0; i < string->length; i++) {
@@ -158,7 +169,7 @@ static Value cast_table(VM *vm, const Value *args)
 		return result;
 	}
 
-	ObjectTable *table = new_table(vm, 1, moduleRecord);
+	ObjectTable *table = new_object_table(vm, 1);
 	push(vm->current_module_record, OBJECT_VAL(table));
 	object_table_set(vm, table, INT_VAL(0), value);
 	const Value result = OBJECT_VAL(table);
@@ -170,10 +181,12 @@ static Value cast_int(VM *vm, const Value arg, bool *success)
 {
 	(void)vm;
 	if (IS_INT(arg)) {
+		*success = true;
 		return arg;
 	}
 
 	if (IS_FLOAT(arg)) {
+		*success = true;
 		return INT_VAL((uint32_t)AS_FLOAT(arg));
 	}
 
@@ -181,19 +194,20 @@ static Value cast_int(VM *vm, const Value arg, bool *success)
 		const char *str = AS_C_STRING(arg);
 		char *end;
 		const double num = strtod(str, &end);
-
 		// can check for overflow or underflow with errno
-
 		if (end != str) {
+			*success = true;
 			return INT_VAL((uint32_t)num);
 		}
 	}
 
 	if (IS_BOOL(arg)) {
+		*success = true;
 		return INT_VAL(AS_BOOL(arg) ? 1 : 0);
 	}
 
 	if (IS_NIL(arg)) {
+		*success = true;
 		return INT_VAL(0);
 	}
 
@@ -232,45 +246,60 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 	return NIL_VAL;
 }
 
-ObjectResult *int_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Converts a value to an integer
+ * arg0 -> value: Any
+ * Returns Result<Int>
+ */
+Value int_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	bool success = true;
+	bool success = false;
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to convert value to integer.",
+					  RUNTIME);
 	}
-	return new_ok_result(vm, value);
+	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-ObjectResult *float_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Converts a value to a float
+ * arg0 -> value: Any
+ * Returns Result<Float>
+ */
+Value float_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot convert value to number.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm,
+					  "Failed to convert value to float.",
+					  RUNTIME);
 	}
-	return new_ok_result(vm, value);
+	return OBJECT_VAL(new_ok_result(vm, value));
 }
 
-ObjectResult *string_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Converts a value to a string
+ * arg0 -> value: Any
+ * Returns String
+ */
+Value string_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value value = args[0];
 	ObjectString *str = to_string(vm, value);
-	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
-	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(str);
 }
 
-ObjectResult *array_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Converts a value to an array
+ * arg0 -> value: Any
+ * Returns Result<Array>
+ */
+Value array_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
@@ -278,69 +307,26 @@ ObjectResult *array_function(VM *vm, int arg_count, const Value *args)
 					  "Failed to convert value to array.",
 					  RUNTIME);
 	}
-	return new_ok_result(vm, array);
+	return OBJECT_VAL(new_ok_result(vm, array));
 }
 
-ObjectResult *table_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Converts a value to a table
+ * arg0 -> value: Any
+ * Returns Result<Table>
+ */
+Value table_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value table = cast_table(vm, args);
-	return new_ok_result(vm, table);
+	return OBJECT_VAL(new_ok_result(vm, table));
 }
 
-Value int_function_(VM *vm, int arg_count, const Value *args)
+/**
+ * Formats a string using placeholders like {key} replaced with values from a
+ * table arg0 -> format_string: String arg1 -> values: Table Returns Result<Nil>
+ */
+Value format_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	bool success = true;
-	const Value argument = args[0];
-	return cast_int(vm, argument, &success);
-}
-
-Value float_function_(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	bool success = true;
-	return cast_float(vm, args, &success);
-}
-
-Value string_function_(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	return OBJECT_VAL(to_string(vm, args[0]));
-}
-
-Value array_function_(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	bool success = true;
-	const Value array = cast_array(vm, args, &success);
-	if (!success) {
-		return NIL_VAL;
-	}
-	return array;
-}
-
-Value table_function_(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	return cast_table(vm, args);
-}
-
-ObjectResult *format_function(VM *vm, int arg_count, const Value *args)
-{
-	(void)arg_count;
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"argument <format_string> must be of type 'string'.",
-			TYPE);
-	}
-	if (!IS_CRUX_TABLE(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "argument <format_table> must be of type 'table'.",
-			TYPE);
-	}
-
 	const ObjectString *str = AS_CRUX_STRING(args[0]);
 	const ObjectTable *table = AS_CRUX_TABLE(args[1]);
 
@@ -446,5 +432,5 @@ ObjectResult *format_function(VM *vm, int arg_count, const Value *args)
 	}
 
 	free(tokens);
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }

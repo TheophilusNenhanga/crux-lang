@@ -1,0 +1,146 @@
+use println from "crux:io";
+use pow, sqrt, ceil, floor, abs from "crux:math";
+use sin, cos, tan, atan, acos, asin from "crux:math";
+use exp, ln, log, round, min, max from "crux:math";
+use e, pi, nan, inf from "crux:math";
+
+println("=== Testing Math Module ===");
+
+// Helper to unwrap result
+fn unwrap(r) {
+    return match r {
+        Ok(v) => give v;
+        Err(_) => give nil;
+    };
+}
+
+// Test constants
+println("--- Testing constants ---");
+let e_val = e();
+let pi_val = pi();
+println("e = " + string(e_val));
+println("pi = " + string(pi_val));
+assert(e_val > 2.71 and e_val < 2.72, "e constant should be approximately 2.718");
+assert(pi_val > 3.14 and pi_val < 3.15, "pi constant should be approximately 3.14159");
+println("Constants test passed");
+
+// Test nan and inf
+let nan_val = nan();
+let inf_val = inf();
+assert(nan_val != nan_val, "NaN should not equal itself");
+assert(inf_val > 0, "Infinity should be positive");
+println("NaN and Inf test passed");
+
+// Test pow
+println("--- Testing pow ---");
+let pow_result = pow(2, 3);
+assert(unwrap(pow_result) == 8, "pow(2, 3) should be 8");
+assert(unwrap(pow(4, 0.5)) == 2, "pow(4, 0.5) should be 2");
+assert(unwrap(pow(2, -1)) == 0.5, "pow(2, -1) should be 0.5");
+assert(unwrap(pow(2, 0)) == 1, "pow(2, 0) should be 1");
+println("pow() test passed");
+
+// Test sqrt
+println("--- Testing sqrt ---");
+assert(unwrap(sqrt(4)) == 2, "sqrt(4) should be 2");
+assert(unwrap(sqrt(9)) == 3, "sqrt(9) should be 3");
+assert(unwrap(sqrt(2)) > 1.41 and unwrap(sqrt(2)) < 1.42, "sqrt(2) should be approximately 1.414");
+println("sqrt() test passed");
+
+// Test ceil
+println("--- Testing ceil ---");
+assert(unwrap(ceil(1.1)) == 2, "ceil(1.1) should be 2");
+assert(unwrap(ceil(1.9)) == 2, "ceil(1.9) should be 2");
+assert(unwrap(ceil(-1.1)) == -1, "ceil(-1.1) should be -1");
+assert(unwrap(ceil(5)) == 5, "ceil(5) should be 5");
+println("ceil() test passed");
+
+// Test floor
+println("--- Testing floor ---");
+assert(unwrap(floor(1.1)) == 1, "floor(1.1) should be 1");
+assert(unwrap(floor(1.9)) == 1, "floor(1.9) should be 1");
+assert(unwrap(floor(-1.1)) == -2, "floor(-1.1) should be -2");
+assert(unwrap(floor(5)) == 5, "floor(5) should be 5");
+println("floor() test passed");
+
+// Test abs
+println("--- Testing abs ---");
+assert(unwrap(abs(-5)) == 5, "abs(-5) should be 5");
+assert(unwrap(abs(5)) == 5, "abs(5) should be 5");
+let abs_result = unwrap(abs(-3.14));
+assert(abs_result > 3.13 and abs_result < 3.15, "abs(-3.14) should be 3.14");
+assert(unwrap(abs(0)) == 0, "abs(0) should be 0");
+println("abs() test passed");
+
+// Test round
+println("--- Testing round ---");
+assert(unwrap(round(1.4)) == 1, "round(1.4) should be 1");
+assert(unwrap(round(1.5)) == 2, "round(1.5) should be 2");
+assert(unwrap(round(1.6)) == 2, "round(1.6) should be 2");
+println("round() test passed");
+
+// Test min and max
+println("--- Testing min and max ---");
+assert(unwrap(min(1, 2)) == 1, "min(1, 2) should be 1");
+assert(unwrap(min(5, 3)) == 3, "min(5, 3) should be 3");
+assert(unwrap(min(-1, -5)) == -5, "min(-1, -5) should be -5");
+assert(unwrap(max(1, 2)) == 2, "max(1, 2) should be 2");
+assert(unwrap(max(5, 3)) == 5, "max(5, 3) should be 5");
+assert(unwrap(max(-1, -5)) == -1, "max(-1, -5) should be -1");
+println("min() and max() test passed");
+
+// Test sin, cos, tan
+println("--- Testing trigonometric functions ---");
+let sin_0 = unwrap(sin(0));
+let cos_0 = unwrap(cos(0));
+let sin_pi = unwrap(sin(pi_val));
+let cos_pi = unwrap(cos(pi_val));
+
+assert(sin_0 < 0.001 and sin_0 > -0.001, "sin(0) should be 0");
+assert(cos_0 > 0.999 and cos_0 < 1.001, "cos(0) should be 1");
+assert(sin_pi < 0.001 and sin_pi > -0.001, "sin(pi) should be 0");
+assert(cos_pi < -0.999 and cos_pi > -1.001, "cos(pi) should be -1");
+
+let tan_45 = unwrap(tan(pi_val / 4));
+assert(tan_45 > 0.99 and tan_45 < 1.01, "tan(pi/4) should be 1");
+println("Trigonometric functions test passed");
+
+// Test inverse trigonometric functions
+println("--- Testing inverse trigonometric functions ---");
+let asin_1 = unwrap(asin(1));
+let acos_1 = unwrap(acos(1));
+let atan_1 = unwrap(atan(1));
+
+assert(asin_1 > 1.57 and asin_1 < 1.58, "asin(1) should be pi/2");
+assert(acos_1 < 0.01 and acos_1 > -0.01, "acos(1) should be 0");
+assert(atan_1 > 0.78 and atan_1 < 0.79, "atan(1) should be pi/4");
+println("Inverse trigonometric functions test passed");
+
+// Test exp and ln
+println("--- Testing exp and ln ---");
+let exp_1 = unwrap(exp(1));
+assert(exp_1 > 2.71 and exp_1 < 2.72, "exp(1) should be e");
+assert(unwrap(exp(0)) == 1, "exp(0) should be 1");
+
+let ln_e = unwrap(ln(e_val));
+assert(ln_e > 0.99 and ln_e < 1.01, "ln(e) should be 1");
+assert(unwrap(ln(1)) == 0, "ln(1) should be 0");
+println("exp() and ln() test passed");
+
+// Test log (base 10)
+println("--- Testing log ---");
+let log_100 = unwrap(log(100));
+let log_1000 = unwrap(log(1000));
+assert(log_100 > 1.99 and log_100 < 2.01, "log(100) should be 2");
+assert(log_1000 > 2.99 and log_1000 < 3.01, "log(1000) should be 3");
+assert(unwrap(log(1)) == 0, "log(1) should be 0");
+println("log() test passed");
+
+// Test with integer arguments (type coercion)
+println("--- Testing with integer arguments ---");
+assert(unwrap(pow(2, 10)) == 1024, "pow(2, 10) should be 1024");
+assert(unwrap(sqrt(16)) == 4, "sqrt(16) should be 4");
+assert(unwrap(abs(-10)) == 10, "abs(-10) should be 10");
+println("Integer argument test passed");
+
+println("=== All Math Module tests passed! ===");

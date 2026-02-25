@@ -85,6 +85,10 @@ typedef enum {
 	OP_STRUCT_INSTANCE_END,
 	OP_NIL_RETURN,
 	OP_UNWRAP,
+	OP_PANIC,
+	OP_BITWISE_AND,
+	OP_BITWISE_XOR,
+	OP_BITWISE_OR,
 } OpCode;
 
 typedef struct {

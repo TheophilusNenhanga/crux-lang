@@ -48,6 +48,7 @@ file(GLOB HEADERS
 )
 
 include_directories(include)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(crux ${SOURCES} ${HEADERS})
 

@@ -168,7 +168,7 @@ void mark_table(VM *vm, const Table *table)
 	}
 }
 
-void table_remove_white(const VM * vm, const Table *table)
+void table_remove_white(const VM *vm, const Table *table)
 {
 	const ObjectPool *object_pool = vm->object_pool;
 
@@ -178,7 +178,7 @@ void table_remove_white(const VM * vm, const Table *table)
 			continue;
 
 		const uint32_t index = entry->key->object.pool_index;
-		const PoolObject* pool_object = &object_pool->objects[index];
+		const PoolObject *pool_object = &object_pool->objects[index];
 
 		if (!IS_MARKED(pool_object)) {
 			table_delete(table, entry->key);

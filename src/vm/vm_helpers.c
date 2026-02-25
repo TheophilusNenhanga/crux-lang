@@ -9,13 +9,12 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
-#include "stdlib/std.h"
+#include "slab_allocator.h"
+#include "stdlib/stdlib.h"
 #include "table.h"
+#include "type_system.h"
 #include "value.h"
 #include "vm.h"
-#include "vm_run.h"
-#include "vm_helpers.h"
-#include "slab_allocator.h"
 
 void init_import_stack(VM *vm)
 {
@@ -191,69 +190,39 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 	case OBJECT_CLOSURE:
 		return call(current_module_record, AS_CRUX_CLOSURE(callee),
 			    arg_count);
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			callee);
 		check_native_arity(arg_count, native);
 
-		ObjectResult *result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
-
-		current_module_record->stack_top -= arg_count + 1;
-
-		if (!result->is_ok && result->as.error->is_panic) {
-			runtime_panic(current_module_record, false,
-				      result->as.error->type,
-				      result->as.error->message->chars);
-			return false;
-		}
-		push(current_module_record, OBJECT_VAL(result));
-		return true;
-	}
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
-			callee);
-		check_native_arity(arg_count, native);
-
-		ObjectResult *result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
-		current_module_record->stack_top -= arg_count + 1;
-
-		if (!result->is_ok && result->as.error->is_panic) {
-			runtime_panic(current_module_record, false,
-				      result->as.error->type,
-				      result->as.error->message->chars);
-			return false;
+		const Value *args = current_module_record->stack_top -
+				    arg_count;
+		for (int i = 0; i < arg_count; i++) {
+			if (!runtime_types_compatible(native->arg_types[i],
+						      args[i])) {
+				char expected_name[128];
+				char actual_name[128];
+				type_mask_name(native->arg_types[i],
+					       expected_name,
+					       sizeof(expected_name));
+				TypeMask actual_mask = get_type_mask(args[i]);
+				type_mask_name(actual_mask, actual_name,
+					       sizeof(actual_name));
+				runtime_panic(current_module_record, false,
+					      TYPE,
+					      "In %s() --- arg %d: expected "
+					      "%s, got %s",
+					      native->name->chars, i + 1,
+					      expected_name, actual_name);
+				return false;
+			}
 		}
 
-		push(current_module_record, OBJECT_VAL(result));
-		return true;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(callee);
-		check_native_arity(arg_count, native);
+		const Value result_value = native->function(vm, args);
 
-		const Value result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
 		current_module_record->stack_top -= arg_count + 1;
 
-		push(current_module_record, result);
-		return true;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		const ObjectNativeInfallibleMethod *native =
-			AS_CRUX_NATIVE_INFALLIBLE_METHOD(callee);
-		check_native_arity(arg_count, native);
-
-		const Value result = native->function(
-			vm, arg_count,
-			current_module_record->stack_top - arg_count);
-		current_module_record->stack_top -= arg_count + 1;
-		push(current_module_record, result);
+		push(current_module_record, result_value);
 		return true;
 	}
 	default: {
@@ -388,12 +357,78 @@ static bool handle_vector_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_complex_invoke(VM *vm, const ObjectString *name,
+				  const int arg_count, const Value original,
+				  const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->complex_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_matrix_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->matrix_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static bool handle_result_invoke(VM *vm, const ObjectString *name,
 				 const int arg_count, const Value original,
 				 const Value receiver)
 {
 	Value value;
 	if (table_get(&vm->result_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_range_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->range_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_set_invoke(VM *vm, const ObjectString *name,
+			      const int arg_count, const Value original,
+			      const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->set_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_tuple_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->tuple_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_buffer_invoke(VM *vm, const ObjectString *name,
+				 const int arg_count, const Value original,
+				 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->buffer_type, name, &value)) {
 		return handle_invoke(vm, arg_count, receiver, original, value);
 	}
 	undefined_method_return(vm->current_module_record, name);
@@ -416,25 +451,51 @@ static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_key_invoke(VM *vm, const ObjectString *name,
+			      const int arg_count, const Value original,
+			      const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->key_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
+static bool handle_event_invoke(VM *vm, const ObjectString *name,
+				const int arg_count, const Value original,
+				const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->event_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STRING] = handle_string_invoke,
 	[OBJECT_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_METHOD] = handle_undefined_invoke,
+	[OBJECT_NATIVE_CALLABLE] = handle_undefined_invoke,
 	[OBJECT_CLOSURE] = handle_undefined_invoke,
 	[OBJECT_UPVALUE] = handle_undefined_invoke,
 	[OBJECT_ARRAY] = handle_array_invoke,
 	[OBJECT_TABLE] = handle_table_invoke,
 	[OBJECT_ERROR] = handle_error_invoke,
 	[OBJECT_RESULT] = handle_result_invoke,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = handle_undefined_invoke,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] = handle_undefined_invoke,
 	[OBJECT_RANDOM] = handle_random_invoke,
 	[OBJECT_FILE] = handle_file_invoke,
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
 	[OBJECT_STRUCT] = handle_undefined_invoke,
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
-	[OBJECT_VECTOR] = handle_vector_invoke};
+	[OBJECT_VECTOR] = handle_vector_invoke,
+	[OBJECT_RANGE] = handle_range_invoke,
+	[OBJECT_SET] = handle_set_invoke,
+	[OBJECT_TUPLE] = handle_tuple_invoke,
+	[OBJECT_BUFFER] = handle_buffer_invoke,
+	[OBJECT_COMPLEX] = handle_complex_invoke,
+	[OBJECT_MATRIX] = handle_matrix_invoke,
+};
 
 /**
  * Invokes a method on an object with the given arguments.
@@ -663,6 +724,14 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
 	init_table(&vm->vector_type);
+	init_table(&vm->complex_type);
+	init_table(&vm->matrix_type);
+	init_table(&vm->range_type);
+	init_table(&vm->set_type);
+	init_table(&vm->tuple_type);
+	init_table(&vm->buffer_type);
+	init_table(&vm->key_type);
+	init_table(&vm->event_type);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -727,6 +796,14 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
 	free_table(vm, &vm->vector_type);
+	free_table(vm, &vm->complex_type);
+	free_table(vm, &vm->matrix_type);
+	free_table(vm, &vm->range_type);
+	free_table(vm, &vm->set_type);
+	free_table(vm, &vm->tuple_type);
+	free_table(vm, &vm->buffer_type);
+	free_table(vm, &vm->key_type);
+	free_table(vm, &vm->event_type);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];
@@ -1245,13 +1322,13 @@ typedef Value (*TypeofHandler)(VM *vm, Value value);
 static Value typeof_string(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "string", 6));
+	return OBJECT_VAL(copy_string(vm, "String", 6));
 }
 
 static Value typeof_function(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "function", 8));
+	return OBJECT_VAL(copy_string(vm, "Function", 8));
 }
 
 static Value typeof_upvalue(VM *vm, const Value value)
@@ -1263,82 +1340,134 @@ static Value typeof_upvalue(VM *vm, const Value value)
 static Value typeof_array(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "array", 5));
+	return OBJECT_VAL(copy_string(vm, "Array", 5));
 }
 
 static Value typeof_table(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "table", 5));
+	return OBJECT_VAL(copy_string(vm, "Table", 5));
 }
 
 static Value typeof_error(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "error", 5));
+	return OBJECT_VAL(copy_string(vm, "Error", 5));
 }
 
 static Value typeof_result(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "result", 6));
+	return OBJECT_VAL(copy_string(vm, "Result", 6));
 }
 
 static Value typeof_random(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "random", 6));
+	return OBJECT_VAL(copy_string(vm, "Random", 6));
 }
 
 static Value typeof_file(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "file", 4));
+	return OBJECT_VAL(copy_string(vm, "File", 4));
 }
 
 static Value typeof_module_record(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "module", 6));
+	return OBJECT_VAL(copy_string(vm, "Module", 6));
 }
 
 static Value typeof_struct(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "struct", 6));
+	return OBJECT_VAL(copy_string(vm, "Struct", 6));
 }
 
 static Value typeof_struct_instance(VM *vm, const Value value)
 {
 	(void)value;
-	return OBJECT_VAL(copy_string(vm, "struct instance", 15));
+	return OBJECT_VAL(copy_string(vm, "Struct instance", 15));
 }
 
-static Value typeof_vector(VM *vm, const Value value __attribute__((unused)))
+static Value typeof_vector(VM *vm, const Value value)
 {
-	return OBJECT_VAL(copy_string(vm, "vec", 3));
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Vec", 3));
 }
 
-// Dispatch table for object types
+static Value typeof_complex(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Complex", 7));
+}
+
+static Value typeof_matrix(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Matrix", 6));
+}
+
+static Value typeof_range(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Range", 5));
+}
+
+static Value typeof_tuple(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Tuple", 5));
+}
+
+static Value typeof_buffer(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Buffer", 6));
+}
+
+static Value typeof_set(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Set", 3));
+}
+
+static Value typeof_key(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Key", 3));
+}
+
+static Value typeof_event(VM *vm, const Value value)
+{
+	(void)value;
+	return OBJECT_VAL(copy_string(vm, "Event", 5));
+}
+
 static const TypeofHandler typeof_handlers[] = {
 	[OBJECT_STRING] = typeof_string,
 	[OBJECT_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_METHOD] = typeof_function,
+	[OBJECT_NATIVE_CALLABLE] = typeof_function,
 	[OBJECT_CLOSURE] = typeof_function,
 	[OBJECT_UPVALUE] = typeof_upvalue,
 	[OBJECT_ARRAY] = typeof_array,
 	[OBJECT_TABLE] = typeof_table,
 	[OBJECT_ERROR] = typeof_error,
 	[OBJECT_RESULT] = typeof_result,
-	[OBJECT_NATIVE_INFALLIBLE_FUNCTION] = typeof_function,
-	[OBJECT_NATIVE_INFALLIBLE_METHOD] = typeof_function,
 	[OBJECT_RANDOM] = typeof_random,
 	[OBJECT_FILE] = typeof_file,
 	[OBJECT_MODULE_RECORD] = typeof_module_record,
 	[OBJECT_STRUCT] = typeof_struct,
 	[OBJECT_STRUCT_INSTANCE] = typeof_struct_instance,
-	[OBJECT_VECTOR] = typeof_vector};
+	[OBJECT_VECTOR] = typeof_vector,
+	[OBJECT_COMPLEX] = typeof_complex,
+	[OBJECT_MATRIX] = typeof_matrix,
+	[OBJECT_RANGE] = typeof_range,
+	[OBJECT_TUPLE] = typeof_tuple,
+	[OBJECT_BUFFER] = typeof_buffer,
+	[OBJECT_SET] = typeof_set,
+};
 
 /**
  * Performs a binary operation on the top two values of the stack.
@@ -1456,7 +1585,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name,
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		InterpretResult result = int_compound_ops[opcode](
+		const InterpretResult result = int_compound_ops[opcode](
 			current_module_record, name, operation, icurrent,
 			ioperand, &resultValue);
 		if (result != INTERPRET_OK) {
@@ -1576,21 +1705,21 @@ Value typeof_value(VM *vm, const Value value)
 	}
 
 	if (IS_INT(value)) {
-		return OBJECT_VAL(copy_string(vm, "int", 3));
+		return OBJECT_VAL(copy_string(vm, "Int", 3));
 	}
 
 	if (IS_FLOAT(value)) {
-		return OBJECT_VAL(copy_string(vm, "float", 5));
+		return OBJECT_VAL(copy_string(vm, "Float", 5));
 	}
 
 	if (IS_BOOL(value)) {
-		return OBJECT_VAL(copy_string(vm, "boolean", 7));
+		return OBJECT_VAL(copy_string(vm, "Bool", 4));
 	}
 
 	if (IS_NIL(value)) {
-		return OBJECT_VAL(copy_string(vm, "nil", 3));
+		return OBJECT_VAL(copy_string(vm, "Nil", 3));
 	}
-	__builtin_unreachable();
+	// unreachable
 	return OBJECT_VAL(copy_string(vm, "unknown", 7));
 }
 

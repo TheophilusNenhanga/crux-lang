@@ -1,13 +1,13 @@
 #ifndef VALUE_H
 #define VALUE_H
 
+#include <stdint.h>
 #include "common.h"
 
 typedef struct VM VM;
 typedef struct ObjectString ObjectString;
 typedef struct CruxObject CruxObject;
 typedef struct PoolObject PoolObject;
-
 
 #define QNAN ((uint64_t)0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t)0x8000000000000000)
@@ -68,6 +68,35 @@ typedef struct {
 	int capacity;
 	int count;
 } ValueArray;
+
+typedef uint32_t TypeMask;
+
+#define NIL_TYPE (1u << 0)
+#define BOOL_TYPE (1u << 1)
+#define INT_TYPE (1u << 2)
+#define FLOAT_TYPE (1u << 3)
+#define STRING_TYPE (1u << 4)
+#define ARRAY_TYPE (1u << 5)
+#define TABLE_TYPE (1u << 6)
+#define ERROR_TYPE (1u << 7)
+#define RESULT_TYPE (1u << 8)
+#define RANDOM_TYPE (1u << 9)
+#define FILE_TYPE (1u << 10)
+#define STRUCT_TYPE (1u << 11)
+#define VECTOR_TYPE (1u << 12)
+#define COMPLEX_TYPE (1u << 13)
+#define MATRIX_TYPE (1u << 14)
+#define FUNCTION_TYPE (1u << 15)
+#define MODULE_TYPE (1u << 16)
+#define SET_TYPE (1u << 17)
+#define TUPLE_TYPE (1u << 18)
+#define BUFFER_TYPE (1u << 19)
+#define RANGE_TYPE (1u << 20)
+
+#define NUMERIC_TYPE (INT_TYPE | FLOAT_TYPE)
+#define HASHABLE_TYPE                                                          \
+	(STRING_TYPE | INT_TYPE | FLOAT_TYPE | NIL_TYPE | BOOL_TYPE)
+#define ANY_TYPE (0xFFFFFFFFu)
 
 /**
  * @brief Compares two values for equality

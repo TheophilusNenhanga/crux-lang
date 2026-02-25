@@ -1,0 +1,70 @@
+use println from "crux:io";
+use Random from "crux:random";
+
+println("=== Testing Random Module ===");
+
+// Test Random constructor
+println("--- Testing Random constructor ---");
+let r1 = Random();
+assert(typeof r1 == "Random", "Random() should return Random object");
+
+let r2 = Random();
+assert(typeof r2 == "Random", "Multiple Random instances should work");
+println("Random constructor test passed");
+
+// Test seed
+println("--- Testing seed ---");
+r1.seed(12345);
+println("seed() test passed");
+
+// Test int
+println("--- Testing int ---");
+let int_val = r1.int(1, 100)?;
+assert(typeof int_val == "Int", "int() should return int");
+assert(int_val >= 1 and int_val <= 100, "int() should be in range");
+println("int() test passed");
+
+// Test float
+println("--- Testing float ---");
+let float_val = r1.float(0.0, 1.0)?;
+assert(typeof float_val == "Float", "float() should return float");
+assert(float_val >= 0.0 and float_val <= 1.0, "float() should be in range");
+println("float() test passed");
+
+// Test bool
+println("--- Testing bool ---");
+let bool_val = r1.bool(0.5)?;
+assert(typeof bool_val == "Bool", "bool() should return boolean");
+println("bool() test passed");
+
+// Test choice
+println("--- Testing choice ---");
+let arr = [1, 2, 3, 4, 5];
+let chosen = r1.choice(arr)?;
+let found = arr.contains(chosen);
+assert(found == true, "choice() should return element from array");
+println("choice() test passed");
+
+// Test reproducibility with seed
+println("--- Testing reproducibility ---");
+let r3 = Random();
+r3.seed(42);
+let v1 = r3.int(1, 1000)?;
+
+let r4 = Random();
+r4.seed(42);
+let v2 = r4.int(1, 1000)?;
+
+assert(v1 == v2, "Same seed should produce same sequence");
+println("Reproducibility test passed");
+
+// Test multiple values
+println("--- Testing multiple values ---");
+let values = [];
+for let i = 0; i < 10; i += 1 {
+    values.push(r1.int(1, 100)?);
+}
+assert(len(values) == 10, "Should generate 10 values");
+println("Multiple values test passed");
+
+println("=== All Random Module tests passed! ===");

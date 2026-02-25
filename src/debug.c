@@ -358,6 +358,9 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_UNWRAP: {
 		return simple_instruction("OP_UNWRAP", offset);
 	}
+	case OP_PANIC: {
+		return simple_instruction("OP_PANIC", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

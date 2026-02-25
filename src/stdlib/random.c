@@ -8,20 +8,19 @@
 // Adapted from
 // https://learn.microsoft.com/en-us/archive/msdn-magazine/2016/august/test-run-lightweight-random-number-generation
 
-ObjectResult *random_seed_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Seeds the random number generator with a specific value
+ * arg0 -> random: Random
+ * arg1 -> seed: Int
+ * Returns Nil
+ */
+Value random_seed_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	const Value seed = args[1];
-	if (!IS_INT(seed)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Seed must be a number.",
-					  RUNTIME);
-	}
-
-	const uint64_t seedInt = (uint64_t)AS_INT(seed);
-
+	(void)vm;
+	const uint64_t seedInt = (uint64_t)AS_INT(args[1]);
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	random->seed = seedInt;
-	return new_ok_result(vm, NIL_VAL);
+	return NIL_VAL;
 }
 
 int next(uint64_t *seed, const int bits)
@@ -40,44 +39,48 @@ double get_next(ObjectRandom *random)
 	return result;
 }
 
-Value random_next_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the next random float in the range [0, 1)
+ * arg0 -> random: Random
+ * Returns Float
+ */
+Value random_next_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	return FLOAT_VAL(get_next(random));
 }
 
-Value random_init_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Creates a new Random number generator instance
+ * Returns Random
+ */
+Value random_init_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	ObjectRandom *random_obj = new_random(vm);
-	push(vm->current_module_record, OBJECT_VAL(random_obj));
-	Value result = OBJECT_VAL(random_obj);
-	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(random_obj);
 }
 
-// Returns a random integer in the range [min, max] inclusive
-ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns a random integer in the range [min, max] inclusive
+ * arg0 -> random: Random
+ * arg1 -> min: Int
+ * arg2 -> max: Int
+ * Returns Result<Int>
+ */
+Value random_int_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value min = args[1];
 	const Value max = args[2];
-
-	if (!IS_INT(min) || !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Arguments must be of type 'int'.",
-					  TYPE);
-	}
 
 	const int32_t minInt = AS_INT(min);
 	const int32_t maxInt = AS_INT(max);
 
 	if (minInt > maxInt) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "Min must be less than or equal to max", RUNTIME);
+			vm, "<min> must be less than or equal to <max>",
+			RUNTIME);
 	}
 
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
@@ -85,27 +88,20 @@ ObjectResult *random_int_method(VM *vm, int arg_count, const Value *args)
 	const uint64_t range = (uint64_t)maxInt - (uint64_t)minInt + 1;
 	const int32_t result = minInt + (int32_t)(r * range);
 
-	return new_ok_result(vm, INT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, INT_VAL(result)));
 }
 
-// Returns a random double in the range [min, max]
-ObjectResult *random_double_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns a random float in the range [min, max]
+ * arg0 -> random: Random
+ * arg1 -> min: Float
+ * arg2 -> max: Float
+ * Returns Result<Float>
+ */
+Value random_float_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	const Value min = args[1];
 	const Value max = args[2];
-
-	if (!IS_FLOAT(min) && !IS_INT(min)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Parameter <min> must be a number.",
-					  RUNTIME);
-	}
-
-	if (!IS_FLOAT(max) && !IS_INT(max)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Parameter <max> must be a number.",
-					  RUNTIME);
-	}
 
 	const double minDouble = IS_FLOAT(min) ? AS_FLOAT(min)
 					       : (double)AS_INT(min);
@@ -123,21 +119,19 @@ ObjectResult *random_double_method(VM *vm, int arg_count, const Value *args)
 	const double r = get_next(random);
 	const double result = minDouble + r * (maxDouble - minDouble);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
 // Returns true with probability p (0 <= p <= 1)
-ObjectResult *random_bool_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns true with probability p (0 <= p <= 1)
+ * arg0 -> random: Random
+ * arg1 -> probability: Float
+ * Returns Result<Bool>
+ */
+Value random_bool_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	const Value p = args[1];
-	if (!IS_FLOAT(p) && !IS_INT(p)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument must be of type 'int' | 'float'.",
-			RUNTIME);
-	}
-
-	const double prob = IS_FLOAT(p) ? AS_FLOAT(p) : (double)AS_INT(p);
+	const double prob = TO_DOUBLE(args[1]);
 
 	if (prob < 0 || prob > 1) {
 		return MAKE_GC_SAFE_ERROR(vm,
@@ -148,20 +142,19 @@ ObjectResult *random_bool_method(VM *vm, int arg_count, const Value *args)
 	ObjectRandom *random = AS_CRUX_RANDOM(args[0]);
 	const double r = get_next(random);
 
-	return new_ok_result(vm, BOOL_VAL(r < prob));
+	return OBJECT_VAL(new_ok_result(vm, BOOL_VAL(r < prob)));
 }
 
 // Returns a random element from the array
-ObjectResult *random_choice_method(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns a random element from an array
+ * arg0 -> random: Random
+ * arg1 -> array: Array
+ * Returns Result<Any>
+ */
+Value random_choice_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	const Value array = args[1];
-	if (!IS_CRUX_ARRAY(array)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Argument must be an array",
-					  RUNTIME);
-	}
-
-	const ObjectArray *arr = AS_CRUX_ARRAY(array);
+	const ObjectArray *arr = AS_CRUX_ARRAY(args[1]);
 	if (arr->size == 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "Array cannot be empty", RUNTIME);
 	}
@@ -170,5 +163,5 @@ ObjectResult *random_choice_method(VM *vm, int arg_count, const Value *args)
 	const double r = get_next(random);
 	const uint32_t index = (uint32_t)(r * arr->size);
 
-	return new_ok_result(vm, arr->values[index]);
+	return OBJECT_VAL(new_ok_result(vm, arr->values[index]));
 }

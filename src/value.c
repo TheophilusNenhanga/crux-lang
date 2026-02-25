@@ -32,21 +32,6 @@ void free_value_array(VM *vm, ValueArray *array)
 	init_value_array(array);
 }
 
-void print_value(const Value value, const bool inCollection)
-{
-	if (IS_BOOL(value)) {
-		printf(AS_BOOL(value) ? "true" : "false");
-	} else if (IS_NIL(value)) {
-		printf("nil");
-	} else if IS_FLOAT (value) {
-		printf("%.17g", AS_FLOAT(value));
-	} else if (IS_INT(value)) {
-		printf("%d", AS_INT(value));
-	} else if (IS_CRUX_OBJECT(value)) {
-		print_object(value, inCollection);
-	}
-}
-
 bool values_equal(const Value a, const Value b)
 {
 	if (IS_INT(a) && IS_INT(b)) {
