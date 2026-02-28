@@ -14,6 +14,7 @@
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
+#include "type_system.h"
 #include "value.h"
 
 Parser parser;
@@ -161,8 +162,18 @@ static void emit_constant(const Value value)
 	emit_words(OP_CONSTANT, constant);
 }
 
+void push_type_record(TypeRecord *type_record)
+{
+	current->type_stack[current->type_stack_count++] = type_record;
+}
+TypeRecord *pop_type_record()
+{
+	return current->type_stack[--current->type_stack_count];
+}
+
 static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 {
+	compiler->type_stack_count = 0;
 	compiler->enclosing = current;
 	compiler->function = NULL;
 	compiler->type = type;
@@ -172,6 +183,7 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 	compiler->loop_depth = 0;
 	compiler->owner = vm;
 
+	init_type_table(&compiler->type_table);
 	type_arena_reset(&compiler->type_arena);
 
 	compiler->function = new_function(compiler->owner);
@@ -962,8 +974,9 @@ static void anonymous_function(bool can_assign)
 	}
 }
 
-static void create_array(const OpCode creationOpCode, const char *typeName)
+static void array_literal(bool can_assign)
 {
+	(void)can_assign;
 	uint16_t elementCount = 0;
 
 	if (!match(TOKEN_RIGHT_SQUARE)) {
@@ -972,8 +985,7 @@ static void create_array(const OpCode creationOpCode, const char *typeName)
 			if (elementCount >= UINT16_MAX) {
 				char buffer[64];
 				snprintf(buffer, sizeof(buffer),
-					 "Too many elements in %s literal.",
-					 typeName);
+					 "Too many elements in array literal.");
 				compiler_panic(&parser, buffer,
 					       COLLECTION_EXTENT);
 			}
@@ -982,14 +994,8 @@ static void create_array(const OpCode creationOpCode, const char *typeName)
 		consume(TOKEN_RIGHT_SQUARE,
 			"Expected ']' after array elements");
 	}
-	emit_word(creationOpCode);
+	emit_word(OP_ARRAY);
 	emit_word(elementCount);
-}
-
-static void array_literal(bool can_assign)
-{
-	(void)can_assign;
-	create_array(OP_ARRAY, "array");
 }
 
 static void table_literal(bool can_assign)
@@ -1326,6 +1332,7 @@ static void result_unwrap(bool can_assign)
 {
 	(void)can_assign;
 	emit_word(OP_UNWRAP);
+	// push the type of the result value
 }
 
 /**
@@ -1407,6 +1414,7 @@ static void give_statement(void)
 		emit_word(OP_NIL);
 	} else {
 		expression();
+		// push the type from the expression
 		consume(TOKEN_SEMICOLON, "Expected ';' after give statement.");
 	}
 
@@ -1671,6 +1679,8 @@ static void number(bool can_assign)
 	}
 	if (errno == ERANGE) {
 		emit_constant(FLOAT_VAL(number));
+		push_type_record(
+			new_type_record(&current->type_arena, FLOAT_TYPE));
 		return;
 	}
 	bool hasDecimalNotation = false;
@@ -1682,12 +1692,18 @@ static void number(bool can_assign)
 	}
 	if (hasDecimalNotation) {
 		emit_constant(FLOAT_VAL(number));
+		push_type_record(
+			new_type_record(&current->type_arena, FLOAT_TYPE));
 	} else {
 		const int32_t integer = (int32_t)number;
 		if ((double)integer == number) {
 			emit_constant(INT_VAL(integer));
+			push_type_record(new_type_record(&current->type_arena,
+							 INT_TYPE));
 		} else {
 			emit_constant(FLOAT_VAL(number));
+			push_type_record(new_type_record(&current->type_arena,
+							 FLOAT_TYPE));
 		}
 	}
 }
@@ -1798,6 +1814,7 @@ static void string(bool can_assign)
 	processed[processedLength] = '\0';
 	ObjectString *string = take_string(current->owner, processed,
 					   processedLength);
+	push_type_record(new_type_record(&current->type_arena, STRING_TYPE));
 	emit_constant(OBJECT_VAL(string));
 }
 
@@ -1811,9 +1828,11 @@ static void unary(bool can_assign)
 
 	switch (operatorType) {
 	case TOKEN_NOT:
+		// check if this is a boolean type
 		emit_word(OP_NOT);
 		break;
 	case TOKEN_MINUS:
+		// checkk of this is a negatable type
 		emit_word(OP_NEGATE);
 		break;
 	default:
@@ -1825,7 +1844,9 @@ static void typeof_expression(bool can_assign)
 {
 	(void)can_assign;
 	parse_precedence(PREC_UNARY);
-	emit_word(OP_TYPEOF);
+	emit_word(OP_TYPEOF); // this will emit a string representation of the
+			      // type at runtime
+	push_type_record(new_type_record(&current->type_arena, STRING_TYPE));
 }
 
 ParseRule rules[] = {
