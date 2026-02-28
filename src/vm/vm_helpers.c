@@ -1634,6 +1634,7 @@ bool check_previous_instruction(const CallFrame *frame,
 
 	return *(current - (instructions_ago + 2)) == instruction;
 }
+
 InterpretResult interpret(VM *vm, char *source)
 {
 	ObjectFunction *function = compile(vm, source);

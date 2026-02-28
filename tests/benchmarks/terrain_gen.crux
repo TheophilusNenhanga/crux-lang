@@ -7,7 +7,7 @@ use Random from "crux:random";
 println("=== START OF TERRAIN GENERATOR ===");
 let IMAGE_WIDTH = 1024;
 let IMAGE_HEIGHT = 1024;
-let OCTAVES = 32;      // Detail level. Higher = more taxing.
+let OCTAVES = 8;      // Detail level. Higher = more taxing.
 let PERSISTENCE = 0.5;
 let SCALE = 0.005;    // Zoom level
 

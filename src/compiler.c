@@ -123,8 +123,6 @@ static int emit_jump(const uint16_t instruction)
 
 /**
  * Patches a jump instruction with the calculated offset.
- *
- * @param offset The index of the jump instruction in the bytecode to patch.
  */
 static void patch_jump(const int offset)
 {
@@ -137,20 +135,11 @@ static void patch_jump(const int offset)
 	current_chunk()->code[offset] = (uint16_t)jump;
 }
 
-/**
- * Emits OP_NIL_RETURN that signals the end of a scope.
- */
 static void emit_return(void)
 {
 	emit_word(OP_NIL_RETURN);
 }
 
-/**
- * Creates a constant value and adds it to the current chunk's constant pool.
- *
- * @param value The value to add as a constant.
- * @return The index of the constant in the constant pool.
- */
 static uint16_t make_constant(const Value value)
 {
 	const int constant = add_constant(current->owner, current_chunk(),
@@ -163,11 +152,6 @@ static uint16_t make_constant(const Value value)
 	return (uint16_t)constant;
 }
 
-/**
- * Emits an OP_CONSTANT instruction and its operand (the constant index).
- *
- * @param value The constant value to emit.
- */
 static void emit_constant(const Value value)
 {
 	const uint16_t constant = make_constant(value);
@@ -177,16 +161,6 @@ static void emit_constant(const Value value)
 	emit_words(OP_CONSTANT, constant);
 }
 
-/**
- * Initializes a compiler.
- *
- * Sets up the compiler state for compiling a new function (or script).
- *
- * @param compiler The compiler to initialize.
- * @param type The type of function being compiled (e.g., TYPE_FUNCTION,
- * TYPE_SCRIPT).
- * @param vm The virtual machine instance.
- */
 static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 {
 	compiler->enclosing = current;
@@ -197,6 +171,8 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 	compiler->match_depth = 0;
 	compiler->loop_depth = 0;
 	compiler->owner = vm;
+
+	type_arena_reset(&compiler->type_arena);
 
 	compiler->function = new_function(compiler->owner);
 	current = compiler;
@@ -225,24 +201,12 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 	}
 }
 
-/**
- * Creates a constant for an identifier token.
- *
- * @param name The token representing the identifier.
- * @return The index of the identifier constant in the constant pool.
- */
 static uint16_t identifier_constant(const Token *name)
 {
 	return make_constant(OBJECT_VAL(
 		copy_string(current->owner, name->start, name->length)));
 }
 
-/**
- * Begins a new scope.
- *
- * Increases the scope depth, indicating that variables declared subsequently
- * are in a new, inner scope.
- */
 static void begin_scope(void)
 {
 	current->scope_depth++;
@@ -273,13 +237,6 @@ static void end_scope(void)
 	cleanupLocalsToDepth(current->scope_depth);
 }
 
-/**
- * Checks if two identifier tokens are equal.
- *
- * @param a The first token.
- * @param b The second token.
- * @return true if the tokens represent the same identifier, false otherwise.
- */
 static bool identifiers_equal(const Token *a, const Token *b)
 {
 	if (a->length != b->length)
@@ -539,11 +496,6 @@ static void define_variable(const uint16_t global)
 	emit_words(OP_DEFINE_GLOBAL, global);
 }
 
-/**
- * Parses an argument list for a function call.
- *
- * @return The number of arguments parsed.
- */
 static uint16_t argument_list(void)
 {
 	uint16_t arg_count = 0;
@@ -564,12 +516,6 @@ static uint16_t argument_list(void)
 	return arg_count;
 }
 
-/**
- * Parses the 'and' operator. Implemented using short-circuiting.
- *
- * @param can_assign Whether the 'and' expression can be the target of an
- * assignment.
- */
 static void and_(bool can_assign)
 {
 	(void)can_assign;
@@ -580,12 +526,6 @@ static void and_(bool can_assign)
 	patch_jump(endJump);
 }
 
-/**
- * Parses the 'or' operator. Implemented using short-circuiting.
- *
- * @param can_assign Whether the 'or' expression can be the target of an
- * assignment.
- */
 static void or_(bool can_assign)
 {
 	(void)can_assign;
@@ -598,14 +538,6 @@ static void or_(bool can_assign)
 	patch_jump(endJump);
 }
 
-/**
- * Finishes compilation and returns the compiled function.
- *
- * Emits the final OP_RETURN instruction, frees the compiler state, and returns
- * the compiled function object.
- *
- * @return The compiled function object.
- */
 static ObjectFunction *end_compiler(void)
 {
 	emit_return();
@@ -698,12 +630,6 @@ static void infix_call(bool can_assign)
 	emit_words(OP_CALL, arg_count);
 }
 
-/**
- * Parses a literal boolean or nil value.
- *
- * @param can_assign Whether the literal can be the target of an assignment
- * (always false).
- */
 static void literal(bool can_assign)
 {
 	(void)can_assign;
@@ -722,12 +648,6 @@ static void literal(bool can_assign)
 	}
 }
 
-/**
- * Parses a dot (.) property access expression.
- *
- * @param can_assign Whether the dot expression can be the target of an
- * assignment.
- */
 static void dot(const bool can_assign)
 {
 	consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
@@ -757,15 +677,6 @@ static void expression(void)
 	parse_precedence(PREC_ASSIGNMENT);
 }
 
-/**
- * Gets the compound opcode based on the set opcode and compound operation.
- *
- * This helper function is used for compound assignments (e.g., +=, -=, *=, /=).
- *
- * @param setOp The base set opcode (e.g., OP_SET_LOCAL, OP_SET_GLOBAL).
- * @param op The compound operation (e.g., COMPOUND_OP_PLUS, COMPOUND_OP_MINUS).
- * @return The corresponding compound opcode.
- */
 static OpCode get_compound_opcode(const OpCode setOp, const CompoundOp op)
 {
 	switch (setOp) {
@@ -1105,12 +1016,6 @@ static void table_literal(bool can_assign)
 	emit_word(elementCount);
 }
 
-/**
- * Parses a collection index access expression (e.g., array[index]).
- *
- * @param can_assign Whether the collection index expression can be the target
- * of an assignment.
- */
 static void collection_index(const bool can_assign)
 {
 	expression();
@@ -1508,9 +1413,6 @@ static void give_statement(void)
 	emit_word(OP_GIVE);
 }
 
-/**
- * Parses a match expression.
- */
 static void match_expression(bool can_assign)
 {
 	(void)can_assign;
@@ -1700,10 +1602,6 @@ static void panic_statement(void)
 	emit_word(OP_PANIC);
 }
 
-/**
- * Parses a declaration, which can be a variable, function, or class
- * declaration.
- */
 static void declaration(void)
 {
 	if (match(TOKEN_LET)) {
@@ -1722,9 +1620,6 @@ static void declaration(void)
 		synchronize();
 }
 
-/**
- * Parses a statement.
- */
 static void statement(void)
 {
 	if (match(TOKEN_IF)) {
@@ -1754,12 +1649,6 @@ static void statement(void)
 	}
 }
 
-/**
- * Parses a grouping expression.
- *
- * @param can_assign Whether the grouping expression can be the target of an
- * assignment.
- */
 static void grouping(bool can_assign)
 {
 	(void)can_assign;
@@ -1803,14 +1692,6 @@ static void number(bool can_assign)
 	}
 }
 
-/**
- * Processes an escape sequence within a string literal.
- *
- * @param escape The escape character (e.g., 'n', 't', '\\').
- * @param hasError A pointer to a boolean to indicate if an error occurred
- * during processing.
- * @return The processed escaped character, or '\0' if an error occurred.
- */
 static char process_escape_sequence(const char escape, bool *hasError)
 {
 	*hasError = false;
@@ -1844,12 +1725,6 @@ static char process_escape_sequence(const char escape, bool *hasError)
 	}
 }
 
-/**
- * Parses a string literal.
- *
- * @param can_assign Whether the string literal can be the target of an
- * assignment.
- */
 static void string(bool can_assign)
 {
 	(void)can_assign;
@@ -1926,12 +1801,6 @@ static void string(bool can_assign)
 	emit_constant(OBJECT_VAL(string));
 }
 
-/**
- * Parses a unary operator expression.
- *
- * @param can_assign Whether the unary expression can be the target of an
- * assignment.
- */
 static void unary(bool can_assign)
 {
 	(void)can_assign;
@@ -1959,12 +1828,6 @@ static void typeof_expression(bool can_assign)
 	emit_word(OP_TYPEOF);
 }
 
-/**
- * @brief Parse rules for each token type.
- *
- * Defines prefix and infix parsing functions and precedence for each token
- * type.
- */
 ParseRule rules[] = {
 	[TOKEN_LEFT_PAREN] = {grouping, infix_call, NULL, PREC_CALL},
 	[TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
@@ -2060,25 +1923,11 @@ static void parse_precedence(const Precedence precedence)
 	}
 }
 
-/**
- * Retrieves the parse rule for a given token type.
- *
- * @param type The token type to get the rule for.
- * @return A pointer to the ParseRule struct for the given token type.
- */
 static ParseRule *get_rule(const CruxTokenType type)
 {
 	return &rules[type]; // Returns the rule at the given index
 }
 
-/**
- * Compiles source code into bytecode.
- *
- * @param vm The virtual machine instance.
- * @param source The source code string to compile.
- * @return A pointer to the compiled function object if compilation succeeds,
- * NULL otherwise.
- */
 ObjectFunction *compile(VM *vm, char *source)
 {
 	init_scanner(source);
@@ -2102,14 +1951,6 @@ ObjectFunction *compile(VM *vm, char *source)
 	return parser.had_error ? NULL : function;
 }
 
-/**
- * Marks compiler-related objects as reachable for garbage collection.
- *
- * Traverses the compiler chain and marks the function objects associated with
- * each compiler.
- *
- * @param vm The virtual machine instance.
- */
 void mark_compiler_roots(VM *vm)
 {
 	const Compiler *compiler = current;

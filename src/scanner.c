@@ -121,6 +121,119 @@ static CruxTokenType check_keyword(const int start, const int length,
 static CruxTokenType identifier_type(void)
 {
 	switch (scanner.start[0]) {
+		// type annotations
+	case 'N': {
+		return check_keyword(1, 3, "il", TOKEN_NIL_TYPE);
+	}
+	case 'B': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 'o':
+				return check_keyword(2, 2, "ol",
+						     TOKEN_BOOL_TYPE);
+			case 'u':
+				return check_keyword(2, 4, "ffer",
+						     TOKEN_BUFFER_TYPE);
+			}
+		}
+		break;
+	}
+	case 'I': {
+		return check_keyword(1, 4, "nt", TOKEN_INT_TYPE);
+	}
+	case 'F': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 'i':
+				return check_keyword(2, 2, "le",
+						     TOKEN_FILE_TYPE);
+			case 'l':
+				return check_keyword(2, 3, "oat",
+						     TOKEN_FLOAT_TYPE);
+			}
+		}
+		break;
+	}
+	case 'C': {
+		return check_keyword(1, 6, "omplex", TOKEN_COMPLEX_TYPE);
+	}
+	case 'S': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 't':
+				return check_keyword(2, 4, "ring",
+						     TOKEN_STRING_TYPE);
+			case 'e':
+				return check_keyword(2, 1, "t", TOKEN_SET_TYPE);
+			}
+		}
+		break;
+	}
+	case 'T': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 'u':
+				return check_keyword(2, 3, "ple",
+						     TOKEN_TUPLE_TYPE);
+			case 'a':
+				return check_keyword(2, 3, "ble",
+						     TOKEN_TABLE_TYPE);
+			}
+		}
+		break;
+	}
+	case 'R': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 'a':
+				if (scanner.current - scanner.start > 3) {
+					switch (scanner.start[2]) {
+					case 'n':
+						if (scanner.current -
+							    scanner.start >
+						    4) {
+							switch (scanner.start
+									[3]) {
+							case 'g':
+								return check_keyword(
+									4, 1,
+									"e",
+									TOKEN_RANGE_TYPE);
+							}
+						case 'd':
+							return check_keyword(
+								4, 2, "om",
+								TOKEN_RANDOM_TYPE);
+						}
+					}
+				}
+			case 'e': {
+				return check_keyword(2, 1, "sult",
+						     TOKEN_RESULT_TYPE);
+			}
+			}
+		}
+		break;
+	}
+	case 'A': {
+		if (scanner.current - scanner.start > 2) {
+			switch (scanner.start[1]) {
+			case 'n':
+				return check_keyword(2, 1, "y", TOKEN_ANY_TYPE);
+			case 'r':
+				return check_keyword(2, 3, "ray",
+						     TOKEN_ARRAY_TYPE);
+			}
+		}
+		break;
+	}
+	case 'V': {
+		return check_keyword(1, 5, "ector", TOKEN_VECTOR_TYPE);
+	}
+	case 'M': {
+		return check_keyword(1, 5, "atrix", TOKEN_MATRIX_TYPE);
+	}
+	// language keywords
 	case 'a': {
 		if (scanner.current - scanner.start > 1) {
 			switch (scanner.start[1]) {
@@ -290,8 +403,8 @@ static Token error_token(const char *message)
 }
 
 /**
- * Checks if the current character matches the expected one and advances if it
- * does.
+ * Checks if the current character matches the expected one and
+ * advances if it does.
  * @param expected The character to match
  * @return true if the character matches, false otherwise
  */
