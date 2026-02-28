@@ -92,6 +92,8 @@ typedef uint32_t TypeMask;
 #define TUPLE_TYPE (1u << 18)
 #define BUFFER_TYPE (1u << 19)
 #define RANGE_TYPE (1u << 20)
+#define SHAPE_TYPE (1u << 21)
+#define UNION_TYPE (1u << 22)
 
 #define NUMERIC_TYPE (INT_TYPE | FLOAT_TYPE)
 #define HASHABLE_TYPE                                                          \

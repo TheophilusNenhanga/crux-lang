@@ -1,11 +1,92 @@
 #ifndef CRUX_LANG_TYPE_SYSTEM_H
 #define CRUX_LANG_TYPE_SYSTEM_H
 
-#include "value.h"
 #include "object.h"
+#include "value.h"
+
+#define TYPE_ARENA_CAPACITY (256 * 1024)
 
 bool runtime_types_compatible(TypeMask expected, Value actual);
 void type_mask_name(TypeMask mask, char *buf, int buf_size);
 TypeMask get_type_mask(Value value);
+
+typedef struct TypeRecord TypeRecord;
+
+typedef struct {
+	uint8_t data[TYPE_ARENA_CAPACITY];
+	size_t used;
+} TypeArena;
+
+struct TypeRecord {
+	TypeMask base_type;
+	union {
+		struct {
+			TypeRecord *element_type;
+		} array_type;
+		struct {
+			TypeRecord *key_type; // must be Hashable
+			TypeRecord *value_type;
+		} table_type;
+		struct {
+			TypeRecord *ok_type;
+		} result_type;
+		struct {
+			TypeRecord **field_types;
+			int field_count;
+			ObjectStruct *definition; // has the field names
+		} struct_type;
+		struct {
+			TypeRecord *element_type; // can be Int or Float
+		} vector_type;
+		struct {
+			TypeRecord *element_type;
+		} tuple_type;
+		struct {
+			TypeRecord *element_type; // can be Int or Float
+		} matrix_type;
+		struct {
+			TypeRecord **arg_types;
+			int arg_count;
+			TypeRecord *return_type;
+		} function_type;
+		struct {
+			TypeRecord *element_type;
+		} set_type;
+		struct {
+			TypeRecord **element_types;
+			ObjectString **element_names;
+			int element_count;
+		} union_type;
+		struct {
+			TypeRecord **element_types;
+			int element_count;
+			int element_capacity;
+		} shape_type;
+	} as;
+};
+
+TypeRecord *new_type_record(TypeArena *arena, TypeMask base_type);
+
+TypeRecord *new_array_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
+			       TypeRecord *value_type);
+TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type);
+TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
+				TypeRecord **field_types, int field_count);
+TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types,
+				  int arg_count, TypeRecord *return_type);
+TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_shape_type_rec(TypeArena *arena, TypeRecord **element_types,
+			       int element_count);
+TypeRecord *new_union_type_rec(TypeArena *arena, TypeRecord **element_types,
+			       ObjectString **element_names, int element_count);
+
+bool types_equal(TypeRecord *a, TypeRecord *b);
+bool types_compatible(TypeRecord *a, TypeRecord *b);
+
+void type_arena_reset(TypeArena *arena);
 
 #endif // CRUX_LANG_TYPE_SYSTEM_H

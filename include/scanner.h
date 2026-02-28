@@ -23,6 +23,7 @@ typedef enum {
 	TOKEN_SINGLE_QUOTE, // '
 	TOKEN_DOUBLE_QUOTE, // "
 	// One or two character tokens. //
+	TOKEN_ARROW, // ->
 	TOKEN_BANG_EQUAL, // !=
 	TOKEN_EQUAL, // =
 	TOKEN_EQUAL_EQUAL, // ==
@@ -41,6 +42,7 @@ typedef enum {
 	TOKEN_SLASH_EQUAL, // /=
 	TOKEN_BACK_SLASH_EQUAL, // \=
 	TOKEN_PERCENT_EQUAL, // %=
+	TOKEN_QUESTION_MARK, // ?
 	// Literals. //
 	TOKEN_IDENTIFIER, //
 	TOKEN_STRING, //
@@ -78,8 +80,33 @@ typedef enum {
 	TOKEN_NEW, // new
 	TOKEN_PANIC, // panic
 	TOKEN_STRUCT, // struct
-	TOKEN_QUESTION_MARK, // ?
-	TOKEN_ARROW, // ->
+	TOKEN_SHAPE, // shape
+
+	TOKEN_NIL_TYPE, // Nil
+	TOKEN_BOOL_TYPE, // Bool
+	TOKEN_INT_TYPE, // Int
+	TOKEN_FLOAT_TYPE, // Float
+	TOKEN_STRING_TYPE, // String
+	TOKEN_ARRAY_TYPE, // Array
+	TOKEN_TABLE_TYPE, // Table
+	TOKEN_ERROR_TYPE, // Error
+	TOKEN_RESULT_TYPE, // Result
+	TOKEN_RANDOM_TYPE, // Random
+	TOKEN_FILE_TYPE, // File
+	TOKEN_STRUCT_TYPE, // Struct
+	TOKEN_VECTOR_TYPE, // Vector
+	TOKEN_COMPLEX_TYPE, // Complex
+	TOKEN_MATRIX_TYPE, // Matrix
+	TOKEN_SET_TYPE, // Set
+	TOKEN_TUPLE_TYPE, // Tuple
+	TOKEN_BUFFER_TYPE, // Buffer
+	TOKEN_RANGE_TYPE, // Range
+	// these do not get annotated
+	// TOKEN_SHAPE_TYPE, // Shape
+	// TOKEN_FUNCTION_TYPE, // Function
+	// TOKEN_MODULE_TYPE, // Module
+	// TOKEN_UNION_TYPE, // Union
+	TOKEN_ANY_TYPE, // Any
 } CruxTokenType;
 
 typedef struct {

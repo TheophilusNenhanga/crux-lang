@@ -3,6 +3,7 @@
 
 #include "object.h"
 #include "scanner.h"
+#include "type_system.h"
 
 ObjectFunction *compile(VM *vm, char *source);
 
@@ -64,6 +65,7 @@ typedef struct {
 	Token name;
 	int depth;
 	bool is_captured;
+	TypeRecord *type;
 } Local;
 
 typedef struct {
@@ -96,6 +98,7 @@ struct Compiler {
 	Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;
+	TypeRecord *return_type;
 	int local_count;
 	int scope_depth; // 0 is global scope
 	int match_depth;
@@ -103,6 +106,13 @@ struct Compiler {
 	LoopContext loop_stack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
+	TypeRecord *type_stack[UINT8_COUNT];
+	TypeArena type_arena;
 };
+
+TypeRecord *parse_type_record();
+
+void push_type_record(TypeRecord *type_record);
+TypeRecord *pop_type_record();
 
 #endif // COMPILER_H
