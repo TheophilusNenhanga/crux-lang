@@ -1,16 +1,36 @@
 #ifndef CRUX_LANG_TYPE_SYSTEM_H
 #define CRUX_LANG_TYPE_SYSTEM_H
 
+#include "garbage_collector.h"
 #include "object.h"
 #include "value.h"
 
 #define TYPE_ARENA_CAPACITY (256 * 1024)
 
+typedef struct TypeRecord TypeRecord;
+
+typedef struct TypeEntry {
+	ObjectString *key;
+	TypeRecord *value;
+} TypeEntry;
+
+typedef struct {
+	TypeEntry *entries;
+	int count;
+	int capacity;
+} TypeTable;
+
 bool runtime_types_compatible(TypeMask expected, Value actual);
 void type_mask_name(TypeMask mask, char *buf, int buf_size);
 TypeMask get_type_mask(Value value);
 
-typedef struct TypeRecord TypeRecord;
+void init_type_table(TypeTable *table);
+void free_type_table(TypeTable *table);
+bool type_table_set(TypeTable *table, ObjectString *key, TypeRecord *value);
+bool type_table_get(const TypeTable *table, const ObjectString *key,
+		    TypeRecord **value);
+bool type_table_delete(const TypeTable *table, const ObjectString *key);
+void type_table_add_all(const TypeTable *from, TypeTable *to);
 
 typedef struct {
 	uint8_t data[TYPE_ARENA_CAPACITY];
@@ -31,7 +51,7 @@ struct TypeRecord {
 			TypeRecord *ok_type;
 		} result_type;
 		struct {
-			TypeRecord **field_types;
+			TypeTable *field_types;
 			int field_count;
 			ObjectStruct *definition; // has the field names
 		} struct_type;
@@ -58,9 +78,8 @@ struct TypeRecord {
 			int element_count;
 		} union_type;
 		struct {
-			TypeRecord **element_types;
+			TypeTable *element_types;
 			int element_count;
-			int element_capacity;
 		} shape_type;
 	} as;
 };
@@ -72,14 +91,14 @@ TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
 			       TypeRecord *value_type);
 TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type);
 TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
-				TypeRecord **field_types, int field_count);
+				TypeTable *field_types, int field_count);
 TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type);
 TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type);
 TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type);
 TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types,
 				  int arg_count, TypeRecord *return_type);
 TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type);
-TypeRecord *new_shape_type_rec(TypeArena *arena, TypeRecord **element_types,
+TypeRecord *new_shape_type_rec(TypeArena *arena, TypeTable *element_types,
 			       int element_count);
 TypeRecord *new_union_type_rec(TypeArena *arena, TypeRecord **element_types,
 			       ObjectString **element_names, int element_count);

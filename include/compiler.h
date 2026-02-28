@@ -108,6 +108,8 @@ struct Compiler {
 	Upvalue upvalues[UINT8_COUNT];
 	TypeRecord *type_stack[UINT8_COUNT];
 	TypeArena type_arena;
+	int type_stack_count;
+	TypeTable type_table;
 };
 
 TypeRecord *parse_type_record();

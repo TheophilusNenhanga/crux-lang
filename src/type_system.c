@@ -1,7 +1,137 @@
 #include "type_system.h"
+#include <stdlib.h>
 #include <string.h>
+#include "garbage_collector.h"
 #include "object.h"
 #include "value.h"
+
+#define TYPE_GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
+
+void init_type_table(TypeTable *table)
+{
+	table->count = 0;
+	table->capacity = 0;
+	table->entries = NULL;
+}
+
+void free_type_table(TypeTable *table)
+{
+	free(table->entries);
+	init_type_table(table);
+}
+
+static bool compare_strings(const ObjectString *a, const ObjectString *b)
+{
+	if (a->length != b->length)
+		return false;
+	return memcmp(a->chars, b->chars, a->length) == 0;
+}
+
+static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity,
+				  const ObjectString *key)
+{
+	uint32_t index = key->hash & (capacity - 1);
+	TypeEntry *tombstone = NULL;
+	for (;;) {
+		TypeEntry *entry = &entries[index];
+
+		if (entry->key == NULL) {
+			if (entry->value == NULL) {
+				return tombstone != NULL ? tombstone : entry;
+			}
+			if (tombstone == NULL)
+				tombstone = entry;
+		} else if (entry->key == key ||
+			   compare_strings(entry->key, key)) {
+			return entry;
+		}
+
+		index = (index + 1) & (capacity - 1);
+	}
+}
+
+static void type_adjust_capacity(TypeTable *table, const int capacity)
+{
+	TypeEntry *entries = calloc(capacity, sizeof(TypeEntry));
+	for (int i = 0; i < capacity; i++) {
+		entries[i].key = NULL;
+		entries[i].value = NULL;
+	}
+	table->count = 0;
+	for (int i = 0; i < table->capacity; i++) {
+		TypeEntry *entry = &table->entries[i];
+		if (entry->key == NULL)
+			continue;
+
+		TypeEntry *dest = type_find_entry(entries, capacity,
+						  entry->key);
+		dest->key = entry->key;
+		dest->value = entry->value;
+		table->count++;
+	}
+	free(table->entries);
+	table->entries = entries;
+	table->capacity = capacity;
+}
+
+bool type_table_set(TypeTable *table, ObjectString *key, TypeRecord *value)
+{
+	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
+		const int capacity = TYPE_GROW_CAPACITY(table->capacity);
+		type_adjust_capacity(table, capacity);
+	}
+
+	TypeEntry *entry = type_find_entry(table->entries, table->capacity,
+					   key);
+	const bool isNewKey = entry->key == NULL;
+
+	if (isNewKey && entry->value == NULL) {
+		table->count++;
+	}
+
+	entry->key = key;
+	entry->value = value;
+	return isNewKey;
+}
+
+bool type_table_get(const TypeTable *table, const ObjectString *key,
+		    TypeRecord **value)
+{
+	if (table->count == 0)
+		return false;
+
+	const TypeEntry *entry = type_find_entry(table->entries,
+						 table->capacity, key);
+	if (entry->key == NULL)
+		return false;
+	*value = entry->value;
+	return true;
+}
+
+bool type_table_delete(const TypeTable *table, const ObjectString *key)
+{
+	if (table->count == 0)
+		return false;
+
+	TypeEntry *entry = type_find_entry(table->entries, table->capacity,
+					   key);
+	if (entry->key == NULL)
+		return false;
+
+	entry->key = NULL;
+	entry->value = NULL;
+	return true;
+}
+
+void type_table_add_all(const TypeTable *from, TypeTable *to)
+{
+	for (int i = 0; i < from->capacity; i++) {
+		const TypeEntry *entry = &from->entries[i];
+		if (entry->key != NULL) {
+			type_table_set(to, entry->key, entry->value);
+		}
+	}
+}
 
 TypeMask get_type_mask(Value value)
 {
@@ -170,7 +300,7 @@ TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type)
 }
 
 TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
-				TypeRecord **field_types, int field_count)
+				TypeTable *field_types, int field_count)
 {
 	TypeRecord *rec = new_type_record(arena, STRUCT_TYPE);
 	if (!rec)
@@ -229,7 +359,7 @@ TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type)
 	return rec;
 }
 
-TypeRecord *new_shape_type_rec(TypeArena *arena, TypeRecord **element_types,
+TypeRecord *new_shape_type_rec(TypeArena *arena, TypeTable *element_types,
 			       int element_count)
 {
 	TypeRecord *rec = new_type_record(arena, SHAPE_TYPE);
@@ -313,9 +443,16 @@ bool types_equal(TypeRecord *a, TypeRecord *b)
 		if (a->as.shape_type.element_count !=
 		    b->as.shape_type.element_count)
 			return false;
-		for (int i = 0; i < a->as.shape_type.element_count; i++) {
-			if (!types_equal(a->as.shape_type.element_types[i],
-					 b->as.shape_type.element_types[i]))
+		TypeTable *a_table = a->as.shape_type.element_types;
+		TypeTable *b_table = b->as.shape_type.element_types;
+		for (int i = 0; i < a_table->capacity; i++) {
+			TypeEntry *entry = &a_table->entries[i];
+			if (entry->key == NULL)
+				continue;
+			TypeRecord *b_value = NULL;
+			if (!type_table_get(b_table, entry->key, &b_value))
+				return false;
+			if (!types_equal(entry->value, b_value))
 				return false;
 		}
 		return true;
