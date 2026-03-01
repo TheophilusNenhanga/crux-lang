@@ -107,5 +107,6 @@ bool types_equal(TypeRecord *a, TypeRecord *b);
 bool types_compatible(TypeRecord *a, TypeRecord *b);
 
 void type_arena_reset(TypeArena *arena);
+TypeRecord *copy_type_rec_to_arena(TypeArena *dest, TypeRecord *src);
 
 #endif // CRUX_LANG_TYPE_SYSTEM_H

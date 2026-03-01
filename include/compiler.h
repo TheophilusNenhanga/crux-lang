@@ -71,6 +71,7 @@ typedef struct {
 typedef struct {
 	uint8_t index;
 	bool is_local;
+	TypeRecord *type;
 } Upvalue;
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_ANONYMOUS } FunctionType;
@@ -110,6 +111,7 @@ struct Compiler {
 	TypeArena type_arena;
 	int type_stack_count;
 	TypeTable type_table;
+	TypeRecord *last_give_type;
 };
 
 TypeRecord *parse_type_record();

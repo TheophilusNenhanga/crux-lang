@@ -499,3 +499,71 @@ bool types_compatible(TypeRecord *a, TypeRecord *b)
 
 	return types_equal(a, b);
 }
+
+// Deep-copies a TypeRecord from any source arena into dest.
+// For function types, the arg_types array is heap-allocated.
+TypeRecord *copy_type_rec_to_arena(TypeArena *dest, TypeRecord *src)
+{
+	if (!src)
+		return NULL;
+
+	TypeRecord *copy = new_type_rec(dest, src->base_type);
+	if (!copy)
+		return NULL;
+
+	switch (src->base_type) {
+	case ARRAY_TYPE:
+		copy->as.array_type.element_type = copy_type_rec_to_arena(
+			dest, src->as.array_type.element_type);
+		break;
+	case TABLE_TYPE:
+		copy->as.table_type.key_type = copy_type_rec_to_arena(
+			dest, src->as.table_type.key_type);
+		copy->as.table_type.value_type = copy_type_rec_to_arena(
+			dest, src->as.table_type.value_type);
+		break;
+	case RESULT_TYPE:
+		copy->as.result_type.ok_type = copy_type_rec_to_arena(
+			dest, src->as.result_type.ok_type);
+		break;
+	case VECTOR_TYPE:
+		copy->as.vector_type.element_type = copy_type_rec_to_arena(
+			dest, src->as.vector_type.element_type);
+		break;
+	case TUPLE_TYPE:
+		copy->as.tuple_type.element_type = copy_type_rec_to_arena(
+			dest, src->as.tuple_type.element_type);
+		break;
+	case MATRIX_TYPE:
+		copy->as.matrix_type.element_type = copy_type_rec_to_arena(
+			dest, src->as.matrix_type.element_type);
+		break;
+	case SET_TYPE:
+		copy->as.set_type.element_type = copy_type_rec_to_arena(
+			dest, src->as.set_type.element_type);
+		break;
+	case FUNCTION_TYPE: {
+		int count = src->as.function_type.arg_count;
+		TypeRecord **args = NULL;
+		if (count > 0) {
+			args = malloc(sizeof(TypeRecord *) * count);
+			for (int i = 0; i < count; i++) {
+				args[i] = copy_type_rec_to_arena(
+					dest,
+					src->as.function_type.arg_types[i]);
+			}
+		}
+		copy->as.function_type.arg_types = args;
+		copy->as.function_type.arg_count = count;
+		copy->as.function_type.return_type = copy_type_rec_to_arena(
+			dest, src->as.function_type.return_type);
+		break;
+	}
+	// Struct, shape, union have pointers to external ObjectStruct /
+	// TypeTable — those are GC-managed or long-lived so no deep copy
+	// needed for their nested pointers.
+	default:
+		break;
+	}
+	return copy;
+}
