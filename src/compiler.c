@@ -92,6 +92,174 @@ static void emit_words(const uint16_t word1, const uint16_t word2)
 	emit_word(word2);
 }
 
+TypeRecord *parse_type_record()
+{
+	TypeRecord *type_record = NULL;
+	// TODO: Enforce which types can be used in collections
+	if (match(TOKEN_INT_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, INT_TYPE);
+	} else if (match(TOKEN_FLOAT_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, FLOAT_TYPE);
+	} else if (match(TOKEN_BOOL_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, BOOL_TYPE);
+	} else if (match(TOKEN_STRING_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, STRING_TYPE);
+	} else if (match(TOKEN_NIL_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, NIL_TYPE);
+	} else if (match(TOKEN_ANY_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+	} else if (match(TOKEN_ARRAY_TYPE)) {
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   ARRAY_TYPE);
+			type_record->as.array_type.element_type =
+				parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after array element type.");
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for array type definition.",
+				ARRAY_TYPE);
+		}
+	} else if (match(TOKEN_TABLE_TYPE)) {
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   TABLE_TYPE);
+			type_record->as.table_type.key_type =
+				parse_type_record();
+			consume(TOKEN_COLON, "Expected ':' after key type.");
+			type_record->as.table_type.value_type =
+				parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after table element type.");
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for table type definition.",
+				TABLE_TYPE);
+		}
+	} else if (match(TOKEN_VECTOR_TYPE)) {
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   VECTOR_TYPE);
+			type_record->as.vector_type.element_type =
+				parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after vector element type.");
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for vector type definition.",
+				VECTOR_TYPE);
+		}
+	} else if (match(TOKEN_MATRIX_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, MATRIX_TYPE);
+	} else if (match(TOKEN_BUFFER_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, BUFFER_TYPE);
+	} else if (match(TOKEN_ERROR_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, ERROR_TYPE);
+	} else if (match(TOKEN_RESULT_TYPE)) {
+		if (match(TOKEN_LEFT_SQUARE)) {
+			TypeRecord *value_type = parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after result value type.");
+			type_record = new_result_type_rec(&current->type_arena,
+							  value_type);
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for result type definition.",
+				TYPE);
+		}
+	} else if (match(TOKEN_RANGE_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, RANGE_TYPE);
+	} else if (match(TOKEN_TUPLE_TYPE)) {
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   VECTOR_TYPE);
+			type_record->as.vector_type.element_type =
+				parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after vector element type.");
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for vector type definition.",
+				VECTOR_TYPE);
+		}
+	} else if (match(TOKEN_COMPLEX_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, COMPLEX_TYPE);
+	} else if (match(TOKEN_LEFT_PAREN)) {
+		// will be freed when function type record is freed
+		int param_capacity = 4;
+		int param_count = 0;
+		TypeRecord **param_types = malloc(sizeof(TypeRecord *) *
+						  param_capacity);
+
+		do {
+			TypeRecord *type_record = parse_type_record();
+			if (!type_record) {
+				compiler_panic(&parser, "Expected type.", TYPE);
+				type_record = NULL;
+			}
+			if (param_count == param_capacity) {
+				param_capacity *= 2;
+				TypeRecord **new_param_types = realloc(
+					param_types,
+					sizeof(TypeRecord *) * param_capacity);
+				if (!new_param_types) {
+					compiler_panic(
+						&parser,
+						"Memory allocation failed.",
+						MEMORY);
+					return NULL;
+				}
+				param_types = new_param_types;
+			}
+			param_types[param_count++] = type_record;
+		} while (match(TOKEN_COMMA));
+		consume(TOKEN_RIGHT_PAREN,
+			"Expected ')' to end function argument types.");
+
+		consume(TOKEN_ARROW, "Expected '->' to separate function "
+				     "argument types from return type.");
+		TypeRecord *return_type = parse_type_record();
+		if (!return_type) {
+			compiler_panic(&parser, "Expected type.", TYPE);
+			return NULL;
+		}
+
+		param_types = realloc(param_types,
+				      sizeof(TypeRecord *) * param_count);
+		if (!param_types) {
+			compiler_panic(&parser, "Memory allocation failed.",
+				       MEMORY);
+			return NULL;
+		}
+
+		TypeRecord *type_record = new_type_rec(&current->type_arena,
+						       FUNCTION_TYPE);
+		type_record->as.function_type.arg_types = param_types;
+		type_record->as.function_type.arg_count = param_count;
+		type_record->as.function_type.return_type = return_type;
+	} else if (match(TOKEN_SET_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, SET_TYPE);
+	} else if (match(TOKEN_RANDOM_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, RANDOM_TYPE);
+	} else if (match(TOKEN_FILE_TYPE)) {
+		type_record = new_type_rec(&current->type_arena, FILE_TYPE);
+	} else {
+		compiler_panic(&parser, "Expected type.", TYPE);
+		type_record = NULL;
+	}
+
+	do {
+		// TODO: type parsing for union type
+	} while (match(TOKEN_PIPE));
+	return type_record;
+}
+
 /**
  * emits an OP_LOOP instruction
  * @param loopStart The starting point of the loop
@@ -553,6 +721,7 @@ static void or_(bool can_assign)
 static ObjectFunction *end_compiler(void)
 {
 	emit_return();
+	push_type_record(current->return_type);
 	ObjectFunction *function = current->function;
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.had_error) {
@@ -648,12 +817,15 @@ static void literal(bool can_assign)
 	switch (parser.previous.type) {
 	case TOKEN_FALSE:
 		emit_word(OP_FALSE);
+		push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
 		break;
 	case TOKEN_NIL:
 		emit_word(OP_NIL);
+		push_type_record(new_type_rec(&current->type_arena, NIL_TYPE));
 		break;
 	case TOKEN_TRUE:
 		emit_word(OP_TRUE);
+		push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
 		break;
 	default:
 		return; // unreachable
@@ -943,6 +1115,10 @@ static void anonymous_function(bool can_assign)
 	(void)can_assign;
 	Compiler compiler;
 	init_compiler(&compiler, TYPE_ANONYMOUS, current->owner);
+	int param_capacity = 4;
+	// will be freed when function type record is freed
+	TypeRecord **param_types = malloc(sizeof(TypeRecord *) *
+					  param_capacity);
 	begin_scope();
 	consume(TOKEN_LEFT_PAREN, "Expected '(' to start argument list");
 	if (!check(TOKEN_RIGHT_PAREN)) {
@@ -957,10 +1133,30 @@ static void anonymous_function(bool can_assign)
 			}
 			const uint16_t constant = parse_variable(
 				"Expected parameter name");
+			consume(TOKEN_COLON,
+				"Expected ':' after parameter name");
+			TypeRecord *param_type = parse_type_record();
+
+			if (current->function->arity >= param_capacity) {
+				param_capacity *= 2;
+				TypeRecord **new_param_types = realloc(
+					param_types,
+					sizeof(TypeRecord *) * param_capacity);
+				if (!new_param_types) {
+					compiler_panic(
+						&parser,
+						"Memory allocation failed",
+						ARGUMENT_EXTENT);
+				}
+				param_types = new_param_types;
+			}
+			param_types[current->function->arity - 1] = param_type;
 			define_variable(constant);
 		} while (match(TOKEN_COMMA));
 	}
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list");
+	consume(TOKEN_ARROW, "Expected '->' after argument list");
+	TypeRecord *annotated_return_type = parse_type_record();
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before function body");
 	block();
 	ObjectFunction *function = end_compiler();
@@ -972,6 +1168,11 @@ static void anonymous_function(bool can_assign)
 		emit_word(compiler.upvalues[i].is_local ? 1 : 0);
 		emit_word(compiler.upvalues[i].index);
 	}
+	TypeRecord *func_type = new_function_type_rec(&current->type_arena,
+						      param_types,
+						      function->arity,
+						      annotated_return_type);
+	push_type_record(func_type);
 }
 
 static void array_literal(bool can_assign)
@@ -1003,11 +1204,32 @@ static void table_literal(bool can_assign)
 	(void)can_assign;
 	uint16_t elementCount = 0;
 
+	TypeRecord *table_key_type = NULL;
+	TypeRecord *table_value_type = NULL;
+
 	if (!match(TOKEN_RIGHT_BRACE)) {
 		do {
 			expression();
+			TypeRecord *key_type = pop_type_record();
 			consume(TOKEN_COLON, "Expected ':' after <table> key");
 			expression();
+			TypeRecord *value_type = pop_type_record();
+
+			if (!table_key_type) {
+				table_key_type = key_type;
+			} else if (!types_equal(table_key_type, key_type)) {
+				compiler_panic(&parser,
+					       "Inconsistent key types", TYPE);
+			}
+
+			if (!table_value_type) {
+				table_value_type = value_type;
+			} else if (!types_equal(table_value_type, value_type)) {
+				compiler_panic(&parser,
+					       "Inconsistent value types",
+					       TYPE);
+			}
+
 			if (elementCount >= UINT16_MAX) {
 				compiler_panic(
 					&parser,
@@ -1018,13 +1240,30 @@ static void table_literal(bool can_assign)
 		} while (match(TOKEN_COMMA));
 		consume(TOKEN_RIGHT_BRACE, "Expected '}' after table elements");
 	}
+
+	if (table_key_type == NULL) {
+		table_key_type = new_type_rec(&current->type_arena, ANY_TYPE);
+	}
+
+	if (table_value_type == NULL) {
+		table_value_type = new_type_rec(&current->type_arena, ANY_TYPE);
+	}
+
+	TypeRecord *table_type = new_table_type_rec(&current->type_arena,
+						    table_key_type,
+						    table_value_type);
+	push_type_record(table_type);
 	emit_word(OP_TABLE);
 	emit_word(elementCount);
 }
 
 static void collection_index(const bool can_assign)
 {
-	expression();
+	expression(); // should be an integer
+	TypeRecord *type = pop_type_record();
+	if (!type || type->base_type != INT_TYPE) {
+		compiler_panic(&parser, "Expected integer index", TYPE);
+	}
 	consume(TOKEN_RIGHT_SQUARE, "Expected ']' after index");
 
 	if (can_assign && match(TOKEN_EQUAL)) {
@@ -1680,7 +1919,7 @@ static void number(bool can_assign)
 	if (errno == ERANGE) {
 		emit_constant(FLOAT_VAL(number));
 		push_type_record(
-			new_type_record(&current->type_arena, FLOAT_TYPE));
+			new_type_rec(&current->type_arena, FLOAT_TYPE));
 		return;
 	}
 	bool hasDecimalNotation = false;
@@ -1693,17 +1932,17 @@ static void number(bool can_assign)
 	if (hasDecimalNotation) {
 		emit_constant(FLOAT_VAL(number));
 		push_type_record(
-			new_type_record(&current->type_arena, FLOAT_TYPE));
+			new_type_rec(&current->type_arena, FLOAT_TYPE));
 	} else {
 		const int32_t integer = (int32_t)number;
 		if ((double)integer == number) {
 			emit_constant(INT_VAL(integer));
-			push_type_record(new_type_record(&current->type_arena,
-							 INT_TYPE));
+			push_type_record(
+				new_type_rec(&current->type_arena, INT_TYPE));
 		} else {
 			emit_constant(FLOAT_VAL(number));
-			push_type_record(new_type_record(&current->type_arena,
-							 FLOAT_TYPE));
+			push_type_record(
+				new_type_rec(&current->type_arena, FLOAT_TYPE));
 		}
 	}
 }
@@ -1814,7 +2053,7 @@ static void string(bool can_assign)
 	processed[processedLength] = '\0';
 	ObjectString *string = take_string(current->owner, processed,
 					   processedLength);
-	push_type_record(new_type_record(&current->type_arena, STRING_TYPE));
+	push_type_record(new_type_rec(&current->type_arena, STRING_TYPE));
 	emit_constant(OBJECT_VAL(string));
 }
 
@@ -1827,14 +2066,32 @@ static void unary(bool can_assign)
 	parse_precedence(PREC_UNARY);
 
 	switch (operatorType) {
-	case TOKEN_NOT:
+	case TOKEN_NOT: {
 		// check if this is a boolean type
+		TypeRecord *bool_expected = pop_type_record();
+		if (!bool_expected || bool_expected->base_type != BOOL_TYPE) {
+			compiler_panic(
+				&parser,
+				"Expected 'Bool'type for 'not' operator.",
+				TYPE);
+		}
+		push_type_record(bool_expected);
 		emit_word(OP_NOT);
 		break;
-	case TOKEN_MINUS:
-		// checkk of this is a negatable type
+	}
+	case TOKEN_MINUS: {
+		// check if this is a negatable type
+		TypeRecord *num_expected = pop_type_record();
+		if (!num_expected || num_expected->base_type & NUMERIC_TYPE) {
+			compiler_panic(
+				&parser,
+				"Expected 'Int | Float' type for '-' operator.",
+				TYPE);
+		}
+		push_type_record(num_expected);
 		emit_word(OP_NEGATE);
 		break;
+	}
 	default:
 		return; // unreachable
 	}
@@ -1846,7 +2103,7 @@ static void typeof_expression(bool can_assign)
 	parse_precedence(PREC_UNARY);
 	emit_word(OP_TYPEOF); // this will emit a string representation of the
 			      // type at runtime
-	push_type_record(new_type_record(&current->type_arena, STRING_TYPE));
+	push_type_record(new_type_rec(&current->type_arena, STRING_TYPE));
 }
 
 ParseRule rules[] = {
