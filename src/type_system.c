@@ -261,7 +261,7 @@ void type_arena_reset(TypeArena *arena)
 	arena->used = 0;
 }
 
-TypeRecord *new_type_record(TypeArena *arena, TypeMask base_type)
+TypeRecord *new_type_rec(TypeArena *arena, TypeMask base_type)
 {
 	TypeRecord *rec = type_arena_alloc(arena);
 	if (!rec)
@@ -272,7 +272,7 @@ TypeRecord *new_type_record(TypeArena *arena, TypeMask base_type)
 
 TypeRecord *new_array_type_rec(TypeArena *arena, TypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_record(arena, ARRAY_TYPE);
+	TypeRecord *rec = new_type_rec(arena, ARRAY_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.array_type.element_type = element_type;
@@ -282,7 +282,7 @@ TypeRecord *new_array_type_rec(TypeArena *arena, TypeRecord *element_type)
 TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
 			       TypeRecord *value_type)
 {
-	TypeRecord *rec = new_type_record(arena, TABLE_TYPE);
+	TypeRecord *rec = new_type_rec(arena, TABLE_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.table_type.key_type = key_type;
@@ -292,7 +292,7 @@ TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
 
 TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type)
 {
-	TypeRecord *rec = new_type_record(arena, RESULT_TYPE);
+	TypeRecord *rec = new_type_rec(arena, RESULT_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.result_type.ok_type = ok_type;
@@ -302,7 +302,7 @@ TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type)
 TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
 				TypeTable *field_types, int field_count)
 {
-	TypeRecord *rec = new_type_record(arena, STRUCT_TYPE);
+	TypeRecord *rec = new_type_rec(arena, STRUCT_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.struct_type.definition = definition;
@@ -313,7 +313,7 @@ TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
 
 TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_record(arena, VECTOR_TYPE);
+	TypeRecord *rec = new_type_rec(arena, VECTOR_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.vector_type.element_type = element_type;
@@ -322,7 +322,7 @@ TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type)
 
 TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_record(arena, TUPLE_TYPE);
+	TypeRecord *rec = new_type_rec(arena, TUPLE_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.tuple_type.element_type = element_type;
@@ -331,7 +331,7 @@ TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type)
 
 TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_record(arena, MATRIX_TYPE);
+	TypeRecord *rec = new_type_rec(arena, MATRIX_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.matrix_type.element_type = element_type;
@@ -341,7 +341,7 @@ TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type)
 TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types,
 				  int arg_count, TypeRecord *return_type)
 {
-	TypeRecord *rec = new_type_record(arena, FUNCTION_TYPE);
+	TypeRecord *rec = new_type_rec(arena, FUNCTION_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.function_type.arg_types = arg_types;
@@ -352,7 +352,7 @@ TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types,
 
 TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_record(arena, SET_TYPE);
+	TypeRecord *rec = new_type_rec(arena, SET_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.set_type.element_type = element_type;
@@ -362,7 +362,7 @@ TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type)
 TypeRecord *new_shape_type_rec(TypeArena *arena, TypeTable *element_types,
 			       int element_count)
 {
-	TypeRecord *rec = new_type_record(arena, SHAPE_TYPE);
+	TypeRecord *rec = new_type_rec(arena, SHAPE_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.shape_type.element_types = element_types;
@@ -373,7 +373,7 @@ TypeRecord *new_shape_type_rec(TypeArena *arena, TypeTable *element_types,
 TypeRecord *new_union_type_rec(TypeArena *arena, TypeRecord **element_types,
 			       ObjectString **element_names, int element_count)
 {
-	TypeRecord *rec = new_type_record(arena, UNION_TYPE);
+	TypeRecord *rec = new_type_rec(arena, UNION_TYPE);
 	if (!rec)
 		return NULL;
 	rec->as.union_type.element_types = element_types;

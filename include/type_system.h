@@ -84,7 +84,7 @@ struct TypeRecord {
 	} as;
 };
 
-TypeRecord *new_type_record(TypeArena *arena, TypeMask base_type);
+TypeRecord *new_type_rec(TypeArena *arena, TypeMask base_type);
 
 TypeRecord *new_array_type_rec(TypeArena *arena, TypeRecord *element_type);
 TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
