@@ -10,9 +10,6 @@
 #include "garbage_collector.h"
 #include "vm.h"
 
-/* ── Platform ────────────────────────────────────────────────────────────────
- */
-
 #ifdef _WIN32
 #include <direct.h> /* _mkdir */
 #include <sys/stat.h>
@@ -39,21 +36,13 @@ typedef __int64 fs_off_t;
 typedef off_t fs_off_t;
 #endif
 
-/* ── Read buffer sizes ───────────────────────────────────────────────────────
- */
-
 #define READLN_BUFFER_SIZE 4096
 #define COPY_BUFFER_SIZE 65536 /* 64 KiB chunks for copy_file */
-
-/* ── Internal validation helpers ────────────────────────────────────────────
- */
 
 /*
  * All file methods share the same three pre-conditions: the receiver must
  * be an ObjectFile, the underlying FILE* must be non-NULL, and is_open
- * must be true.  This macro handles all three and returns an IO error if
- * any of them fail.  <op> is a human-readable operation name for the
- * error message.
+ * must be true.
  */
 #define REQUIRE_OPEN_FILE(args, op)                                            \
 	do {                                                                   \
@@ -65,8 +54,7 @@ typedef off_t fs_off_t;
 	} while (0)
 
 /*
- * Mode-capability predicates — identical logic to the original io.c but
- * consolidated here so fs.c is self-contained.
+ * Mode-capability predicates
  */
 static bool mode_is_readable(const ObjectString *mode)
 {
@@ -145,9 +133,6 @@ static bool read_remaining(VM *vm, FILE *fp, ObjectString **out_str)
 	return true;
 }
 
-/* ── File handle construction ────────────────────────────────────────────────
- */
-
 /**
  * Opens a file with the specified path and mode
  * arg0 -> path: String
@@ -183,9 +168,6 @@ Value fs_open_function(VM *vm, const Value *args)
 	pop(vm->current_module_record); /* full_path */
 	return OBJECT_VAL(res);
 }
-
-/* ── Methods on File handles ─────────────────────────────────────────────────
- */
 
 /**
  * Closes an open file
@@ -594,9 +576,6 @@ Value fs_is_open_method(VM *vm, const Value *args)
 	return BOOL_VAL(file->is_open && file->file != NULL);
 }
 
-/* ── Filesystem queries ──────────────────────────────────────────────────────
- */
-
 /**
  * Checks if a path exists
  * arg0 -> path: String
@@ -658,9 +637,6 @@ Value fs_file_size_function(VM *vm, const Value *args)
 
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL((double)st.st_size)));
 }
-
-/* ── Filesystem mutations ────────────────────────────────────────────────────
- */
 
 /**
  * Deletes a file
@@ -809,9 +785,6 @@ Value fs_mkdir_function(VM *vm, const Value *args)
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
-
-/* ── Convenience one-shot functions ──────────────────────────────────────────
- */
 
 /**
  * Reads the entire contents of a file
