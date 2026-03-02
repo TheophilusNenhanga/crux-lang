@@ -2,7 +2,6 @@ use Random from "crux:random";
 use Vec from "crux:vector";
 use _time_ms from "crux:time";
 use sqrt, min from "crux:math";
-use exit from "crux:sys";
 use println from "crux:io";
 use open from "crux:fs";
 
@@ -22,139 +21,197 @@ let COLOR_SCALE = 255.999;
 let INV_WIDTH = 1.0 / (IMAGE_WIDTH - 1);
 let INV_HEIGHT = 1.0 / (IMAGE_HEIGHT - 1);
 
-let VEC3_ZERO = Vec(3,[0, 0, 0])?;
-let VEC3_WHITE = Vec(3,[1.0, 1.0, 1.0])?;
-let VEC3_BLUE = Vec(3,[0.5, 0.7, 1.0])?;
+let VEC3_ZERO = Vec(3, [0, 0, 0])?;
+let VEC3_WHITE = Vec(3, [1.0, 1.0, 1.0])?;
+let VEC3_BLUE = Vec(3, [0.5, 0.7, 1.0])?;
 
 struct Ray {
-    origin, // Vec
+    origin,    // Vec
     direction, // Vec
-    at // (float) -> Vec
+    at         // (Float) -> Vec
 }
 
 struct HitRecord {
-    p, // Vec
-    normal, // Vec
-    t, // float
-    front_face, // bool
-    material // Material
+    p,          // Vec
+    normal,     // Vec
+    t,          // Float
+    front_face, // Bool
+    material    // Material
 }
 
 struct Material {
-    scatter, // (Ray, HitRecord) -> Table[string, any]
-    albedo, // Vec
-    fuzz // float | nil
+    scatter, // (Ray, HitRecord) -> Table | Nil
+    albedo,  // Vec
+    fuzz     // Float | Nil
 }
 
 struct Sphere {
-    center, // Vec
-    radius, // float
-    radius_squared, // float
-    material // Material
+    center,         // Vec
+    radius,         // Float
+    radius_squared, // Float  -- pre-calculated to avoid recomputing per ray
+    material        // Material
 }
 
+// -------------------------------------------------------------------------
+// Vector helpers
+// -------------------------------------------------------------------------
+
 fn reflect(vector, normal) {
-    let dotted = vector.dot(normal);
-    let d = match dotted {
-        Ok(v) => give v;
-        Err(e) => {panic "Error calculating dot product";}
-    };
-    let multiplied = normal.multiply(2 * d);
-    let m = match multiplied {
-        Ok(val) => give val;
-        Err(e) => {panic "Error multiplying normal vector";}
-    };
-    let result = vector.subtract(m);
-    let res =match result {
-        Ok(v) => give v;
-        Err(e) => {panic "Error subtracting vectors";}
-    };
-    return res;
+    let d = vector.dot(normal)?;
+    return vector.subtract(normal.multiply(2.0 * d)?)?;
 }
 
 fn random_in_unit_sphere() {
     while true {
-        let p_result = Vec(3,[g_random.float(-1, 1)?, g_random.float(-1, 1)?, g_random.float(-1, 1)?]);
-
-        let p = match p_result {
-            Ok(v) => give v;
-            Err(e) => {panic "Error creating random vector";}
-        };
-
-        let magnitude_squared = p.dot(p)?;
-        if magnitude_squared < 1 {
+        let p = Vec(3, [
+            g_random.float(-1.0, 1.0)?,
+            g_random.float(-1.0, 1.0)?,
+            g_random.float(-1.0, 1.0)?
+        ])?;
+        if p.dot(p)? < 1.0 {
             return p;
         }
     }
 }
 
 fn random_unit_vector() {
-    let p = random_in_unit_sphere();
-    let normalized_result = p.normalize();
-    let normalized = match normalized_result {
-        Ok(v) => give v;
-        Err(e) => {panic "Error normalizing vector";}
-    };
-    return normalized;
+    return random_in_unit_sphere().normalize()?;
 }
 
-fn hit_sphere(sphere, ray, t_min, t_max) {
-    let oc = ray.origin.subtract(sphere.center)?;
-    let a = ray.direction.dot(ray.direction)?;
-    let half_b = oc.dot(ray.direction)?;
-    let c = oc.dot(oc)? - sphere.radius_squared; // Use pre-calculated radius²
-    let discriminant = half_b * half_b - a * c;
+// -------------------------------------------------------------------------
+// Constructors
+// -------------------------------------------------------------------------
 
-    if discriminant < 0 {
-        return nil; // no hit
+fn new_ray(origin, direction) {
+    return new Ray {
+        origin:    origin,
+        direction: direction,
+        at:        fn(t: Float) -> Vector[Float] { return origin.add(direction.multiply(t)?)?; }
+    };
+}
+
+fn new_sphere(center, radius, material) {
+    return new Sphere {
+        center:         center,
+        radius:         radius,
+        radius_squared: radius * radius,
+        material:       material
+    };
+}
+
+// albedo: Vec, fuzz: Float
+fn new_metal(albedo, fuzz) {
+    let clamped_fuzz = min(fuzz, 1.0);
+
+    fn scatter(ray_in, rec) {
+        let reflected = reflect(ray_in.direction.normalize()?, rec.normal);
+        let scattered_ray = new_ray(
+            rec.p,
+            reflected.add(random_unit_vector().multiply(clamped_fuzz)?)?
+        );
+        if scattered_ray.direction.dot(rec.normal)? > 0.0 {
+            return {
+                "scattered":   scattered_ray,
+                "attenuation": albedo
+            };
+        }
+        return nil;
     }
 
-    let sqrt_discriminant = sqrt(discriminant)?;
-    let root = (-half_b - sqrt_discriminant) / a;
+    return new Material {
+        scatter: scatter,
+        albedo:  albedo,
+        fuzz:    clamped_fuzz
+    };
+}
+
+// albedo: Vec
+fn new_lambertian(albedo) {
+    fn scatter(ray_in, rec) {
+        let scatter_direction = rec.normal.add(random_unit_vector())?;
+
+        // Degenerate scatter direction — fall back to the surface normal
+        if scatter_direction.magnitude() < 0.001 {
+            scatter_direction = rec.normal;
+        }
+
+        return {
+            "scattered":   new_ray(rec.p, scatter_direction),
+            "attenuation": albedo
+        };
+    }
+
+    return new Material {
+        scatter: scatter,
+        albedo:  albedo,
+        fuzz:    nil
+    };
+}
+
+// -------------------------------------------------------------------------
+// Intersection
+// -------------------------------------------------------------------------
+
+fn hit_sphere(sphere, ray, t_min, t_max) {
+    let oc          = ray.origin.subtract(sphere.center)?;
+    let a           = ray.direction.dot(ray.direction)?;
+    let half_b      = oc.dot(ray.direction)?;
+    let c           = oc.dot(oc)? - sphere.radius_squared;
+    let discriminant = half_b * half_b - a * c;
+
+    if discriminant < 0.0 {
+        return nil;
+    }
+
+    let sqrt_d = sqrt(discriminant)?;
+    let root   = (-half_b - sqrt_d) / a;
 
     if root < t_min or root > t_max {
-        root = (-half_b + sqrt_discriminant) / a;
+        root = (-half_b + sqrt_d) / a;
         if root < t_min or root > t_max {
-            return nil; // no hit
+            return nil;
         }
     }
 
-    let hit_p = ray.at(root);
+    let hit_p          = ray.at(root);
     let outward_normal = hit_p.subtract(sphere.center)?.divide(sphere.radius)?;
-    let is_front_face = ray.direction.dot(outward_normal)? < 0;
+    let is_front_face  = ray.direction.dot(outward_normal)? < 0.0;
     let hit_normal;
+
     if is_front_face {
         hit_normal = outward_normal;
     } else {
-        hit_normal = outward_normal.multiply(-1)?;
+        hit_normal = outward_normal.multiply(-1.0)?;
     }
 
-    let hit_record = new HitRecord {
-        p: hit_p,
-        normal: hit_normal,
-        t: root,
+    return new HitRecord {
+        p:          hit_p,
+        normal:     hit_normal,
+        t:          root,
         front_face: is_front_face,
-        material: sphere.material
+        material:   sphere.material
     };
-
-    return hit_record;
 }
 
-// world: List[Sphere]
 fn hit_world(ray, world, t_min, t_max) {
-   let closest_so_far = t_max;
-   let final_rec = nil;
-   for let i = 0; i < len(world); i += 1 {
-        let temp_rec = hit_sphere(world[i], ray, t_min, closest_so_far);
-        if temp_rec != nil {
-            closest_so_far = temp_rec.t;
-            final_rec = temp_rec;
+    let closest   = t_max;
+    let final_rec = nil;
+
+    for let i = 0; i < len(world); i += 1 {
+        let rec = hit_sphere(world[i], ray, t_min, closest);
+        if rec != nil {
+            closest   = rec.t;
+            final_rec = rec;
         }
     }
+
     return final_rec;
 }
 
-//world: List[Sphere]
+// -------------------------------------------------------------------------
+// Shading
+// -------------------------------------------------------------------------
+
 fn ray_color(ray, depth, world) {
     if depth <= 0 {
         return VEC3_ZERO;
@@ -167,158 +224,71 @@ fn ray_color(ray, depth, world) {
 
         if scatter_result != nil {
             let scattered_color = ray_color(scatter_result["scattered"], depth - 1, world);
-            let attenuation = scatter_result["attenuation"];
-            return Vec(3,[
-                attenuation.x() * scattered_color.x(),
-                attenuation.y() * scattered_color.y(),
-                attenuation.z() * scattered_color.z()
+            let att             = scatter_result["attenuation"];
+            return Vec(3, [
+                att.x() * scattered_color.x(),
+                att.y() * scattered_color.y(),
+                att.z() * scattered_color.z()
             ])?;
-        }else {
-            return VEC3_ZERO;
-        }
-    }
-    let unit_direction_result = ray.direction.normalize();
-        let unit_direction = match unit_direction_result {
-            Ok(v) => give v;
-            Err(e) => {panic "Error normalizing ray direction";}
-        };
-        let t = 0.5 * (unit_direction.y() + 1.0);
-        let sky_result = VEC3_WHITE.multiply(1.0 - t)?.add(VEC3_BLUE.multiply(t)?);
-        let sky = match sky_result {
-            Ok(v) => give v;
-            Err(e) => {panic "Error calculating sky color";}
-        };
-        return sky;
-}
-
-fn newRay(origin, direction) {
-    return new Ray {
-        origin: origin,
-        direction: direction,
-        at: fn (t) {return origin.add(direction.multiply(t)?)?;}
-    };
-}
-
-fn newSphere(center, radius, material){
-    return new Sphere {
-        center: center,
-        radius: radius,
-        radius_squared: radius * radius,
-        material: material
-    };
-}
-
-// albedo: Vec
-// fuzz: float | nil
-fn newMetal(albedo, fuzz) {
-    fn scatter(ray_in, rec) {
-        let normalized_direction_result = ray_in.direction.normalize();
-        let normalized_direction = match normalized_direction_result {
-            Ok(v) => give v;
-            Err(e) => {panic "Error normalizing ray direction";}
-        };
-
-        let reflected = reflect(normalized_direction, rec.normal);
-        let scattered_ray = newRay(rec.p, reflected.add(random_unit_vector().multiply(fuzz)?)?);
-        if scattered_ray.direction.dot(rec.normal)? > 0 {
-            return {
-                "scattered": scattered_ray,
-                "attenuation": albedo
-            };
-        } else {
-            return nil; // no scattering
-        }
-    }
-
-    let metal = new Material {
-        scatter: scatter,
-        albedo: albedo,
-        fuzz: min(fuzz, 1.0)
-    };
-    return metal;
-}
-
-// albedo: Vec
-fn newLambertian(albedo) {
-    // scatter: (Ray, HitRecord) -> Table[string, any]
-    fn scatter(ray_in, rec) {
-        let scatter_direction_result = rec.normal.add(random_unit_vector());
-        let scatter_direction = match scatter_direction_result {
-           Ok(v) => give v;
-           Err(e) => {panic "Error calculating scatter direction";}
-        };
-
-        let scatter_magnitude_result = scatter_direction.magnitude();
-        let scatter_magnitude = match scatter_magnitude_result {
-            Ok(mag) => give mag;
-            Err(e) => {panic "Error calculating magnitude of scatter direction";}
-        };
-
-        if scatter_magnitude < 0.001 {
-            scatter_direction = rec.normal;
         }
 
-        let scattered_ray = newRay(rec.p, scatter_direction);
-        return {
-            "scattered": scattered_ray,
-            "attenuation": albedo
-        };
+        return VEC3_ZERO;
     }
 
-    let lamber = new Material {
-       scatter: scatter,
-       albedo: albedo,
-       fuzz: nil
-    };
-    return lamber;
+    // Background: vertical gradient from white to sky blue
+    let unit_dir = ray.direction.normalize()?;
+    let t        = 0.5 * (unit_dir.y() + 1.0);
+    return VEC3_WHITE.multiply(1.0 - t)?.add(VEC3_BLUE.multiply(t)?)?;
 }
 
+// -------------------------------------------------------------------------
+// Main
+// -------------------------------------------------------------------------
 
 fn main() {
-    println("Setting up the scene...");
+    println("Setting up scene...");
+
     let world = [];
 
-    let ground_material = newLambertian(Vec(3,[0.5, 0.5, 0.5])?);
-    world.push(newSphere(Vec(3,[0, -1000, -1])?, 1000, ground_material));
+    let ground   = new_lambertian(Vec(3, [0.5, 0.5, 0.5])?);
+    let material1 = new_lambertian(Vec(3, [0.7, 0.3, 0.3])?);
+    let material2 = new_metal(Vec(3, [0.8, 0.6, 0.2])?, 0.2);
+    let material3 = new_metal(Vec(3, [0.8, 0.8, 0.8])?, 0.0);
 
-    let material1 = newLambertian(Vec(3,[0.7, 0.3, 0.3])?);
-    world.push(newSphere(Vec(3,[0, 1, 0])?, 1, material1));
+    world.push(new_sphere(Vec(3, [0.0,  -1000.0, -1.0])?, 1000.0, ground));
+    world.push(new_sphere(Vec(3, [0.0,     1.0,  0.0])?,    1.0,  material1));
+    world.push(new_sphere(Vec(3, [-4.0,    1.0,  0.0])?,    1.0,  material2));
+    world.push(new_sphere(Vec(3, [4.0,     1.0,  0.0])?,    1.0,  material3));
 
-    let material2 = newMetal(Vec(3,[0.8, 0.6, 0.2])?, 0.2);
-    world.push(newSphere(Vec(3,[-4, 1, 0])?, 1, material2));
+    // Camera — positioned at (13,2,3) looking at the origin
+    // with a fixed vertical field of view of ~20 degrees
+    let camera_origin = Vec(3, [13.0, 2.0, 3.0])?;
+    let camera_target = Vec(3, [0.0,  0.0, 0.0])?;
+    let camera_vup    = Vec(3, [0.0,  1.0, 0.0])?;
 
-    let material3 = newMetal(Vec(3,[0.8, 0.8, 0.8])?, 0.0);
-    world.push(newSphere(Vec(3,[4, 1, 0])?, 1, material3));
+    let focal_length    = 10.0;  // fixed — controls zoom independent of distance
+    let viewport_height = 2.0 * (0.17632698070004336); // 2 * tan(vfov/2), vfov = 20 deg
+    let viewport_width  = IMAGE_ASPECT_RATIO * viewport_height;
 
-    // setup for rendering
-
-    let camera_origin = Vec(3,[13, 2, 3])?;
-    let camera_target = Vec(3,[0, 0, 0])?;
-    let camera_vup = Vec(3,[0, 1, 0])?;
-
-    let viewport_height = 2.0;
-    let viewport_width = IMAGE_ASPECT_RATIO * viewport_height;
-    let focal_length = (camera_origin.subtract(camera_target)?).magnitude();
-
-    let w = (camera_origin.subtract(camera_target)?).normalize()?;
-    let u = camera_vup.cross(w)?.cross(w)?;
+    // Orthonormal camera basis
+    let w = camera_origin.subtract(camera_target)?.normalize()?;
+    let u = camera_vup.cross(w)?.normalize()?;
     let v = w.cross(u)?;
 
-    let horizontal = u.multiply(viewport_width)?;
-    let vertical = v.multiply(viewport_height)?;
-    let lower_left_corner = camera_origin.subtract(horizontal.multiply(0.5)?)?.subtract(vertical.multiply(0.5)?)?.subtract(w.multiply(focal_length)?)?;
+    let horizontal         = u.multiply(viewport_width * focal_length)?;
+    let vertical           = v.multiply(viewport_height * focal_length)?;
+    let lower_left_corner  = camera_origin
+        .subtract(horizontal.multiply(0.5)?)?
+        .subtract(vertical.multiply(0.5)?)?
+        .subtract(w.multiply(focal_length)?)?;
 
-    println("Rendering image (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
-    println("Samples per pixel: " + string(SAMPLES_PER_PIXEL));
-    println("Max ray depth: " + string(MAX_DEPTH));
+    println("Rendering " + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + "...");
+    println("Samples per pixel : " + string(SAMPLES_PER_PIXEL));
+    println("Max ray depth     : " + string(MAX_DEPTH));
 
     let start_time = _time_ms();
 
-    let file_open_result = open("render.ppm", "w");
-    let file = match file_open_result {
-        Ok(f) => give f;
-        Err(e) => {panic "Error opening file for writing";}
-    };
+    let file = open("render.ppm", "w")?;
     file.write("P3\n");
     file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
     file.write("255\n");
@@ -332,29 +302,29 @@ fn main() {
             let pixel_color = VEC3_ZERO;
 
             for let s = 0; s < SAMPLES_PER_PIXEL; s += 1 {
-                let u_offset = (i + g_random.float(0, 1)?) * INV_WIDTH;
-                let v_offset = (j + g_random.float(0, 1)?) * INV_HEIGHT;
+                let uu = (i + g_random.float(0.0, 1.0)?) * INV_WIDTH;
+                let vv = (j + g_random.float(0.0, 1.0)?) * INV_HEIGHT;
 
-                let r = newRay(camera_origin, lower_left_corner.add(horizontal.multiply(u_offset)?)?.add(vertical.multiply(v_offset)?)?.subtract(camera_origin)?);
+                let ray_dir = lower_left_corner
+                    .add(horizontal.multiply(uu)?)?
+                    .add(vertical.multiply(vv)?)?
+                    .subtract(camera_origin)?;
 
-                let ray_color_result = ray_color(r, MAX_DEPTH, world);
-                pixel_color = pixel_color.add(ray_color_result)?;
+                let r = new_ray(camera_origin, ray_dir);
+                pixel_color = pixel_color.add(ray_color(r, MAX_DEPTH, world))?;
             }
 
-            let r = sqrt(pixel_color.x() * SCALE)?;
-            let g = sqrt(pixel_color.y() * SCALE)?;
-            let b = sqrt(pixel_color.z() * SCALE)?;
-
-            let ir = int(COLOR_SCALE * r)?;
-            let ig = int(COLOR_SCALE * g)?;
-            let ib = int(COLOR_SCALE * b)?;
+            // Gamma-correct (gamma 2) and convert to [0, 255]
+            let ir = int(COLOR_SCALE * sqrt(pixel_color.x() * SCALE)?)?;
+            let ig = int(COLOR_SCALE * sqrt(pixel_color.y() * SCALE)?)?;
+            let ib = int(COLOR_SCALE * sqrt(pixel_color.z() * SCALE)?)?;
 
             file.write(string(ir) + " " + string(ig) + " " + string(ib) + "\n");
         }
     }
-    let end_time = _time_ms();
-    let elapsed_time = end_time - start_time;
-    println("Rendering completed in " + string(elapsed_time) + " ms");
+
+    let elapsed = _time_ms() - start_time;
+    println("Done. Rendered in " + string(elapsed) + " ms");
     file.close();
 }
 

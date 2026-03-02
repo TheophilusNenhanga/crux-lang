@@ -193,19 +193,72 @@ void print_error_line(const int line, const char *source, int startCol,
 	fprintf(stderr, "%s\n", RESET);
 }
 
+// Internal helper — formats the message via va_list and prints the full
+// compiler error block, pointing at `token`.  All public compiler_panic*
+// variants funnel through here.
+static void error_at_vfmt(Parser *parser, const Token *token,
+			  ErrorType error_type, const char *format,
+			  va_list args)
+{
+	if (parser->panic_mode)
+		return;
+
+	parser->panic_mode = true;
+	parser->had_error = true;
+
+	const ErrorDetails details = getErrorDetails(error_type);
+
+	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
+
+	// "ErrorName: <message> at line N"
+	fprintf(stderr, "%s%s: %s", RED, details.name, MAGENTA);
+	vfprintf(stderr, format, args);
+	fprintf(stderr, " at line %d%s\n", token->line, RESET);
+
+	if (token->type != TOKEN_EOF && parser->source != NULL) {
+		fprintf(stderr, "\n");
+
+		// Compute the token's column by walking from the start of its
+		// line.  We trust token->line (set by the scanner) and
+		// token->start (pointer into source).
+		int startCol = 0;
+		if (token->start >= parser->source) {
+			const char *lineStart = parser->source;
+			for (int i = 0; i < token->line - 1; i++) {
+				const char *newline = strchr(lineStart, '\n');
+				if (!newline)
+					break;
+				lineStart = newline + 1;
+			}
+			startCol = (int)(token->start - lineStart);
+			if (startCol < 0)
+				startCol = 0;
+		}
+
+		print_error_line(token->line, parser->source, startCol,
+				 token->length > 0 ? token->length : 1);
+	}
+
+	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
+	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
+}
+
 void error_at(Parser *parser, const Token *token, const char *message,
 	      const ErrorType error_type)
 {
-	if (parser->panic_mode) {
+	if (parser->panic_mode)
 		return;
-	}
+
 	parser->panic_mode = true;
-	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
+	parser->had_error = true;
+
 	const ErrorDetails details = getErrorDetails(error_type);
+
+	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
 	fprintf(stderr, "%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA,
 		message, token->line, RESET);
 
-	if (token->type != TOKEN_EOF) {
+	if (token->type != TOKEN_EOF && parser->source != NULL) {
 		fprintf(stderr, "\n");
 
 		int startCol = 0;
@@ -217,23 +270,54 @@ void error_at(Parser *parser, const Token *token, const char *message,
 					break;
 				lineStart = newline + 1;
 			}
-
 			startCol = (int)(token->start - lineStart);
+			if (startCol < 0)
+				startCol = 0;
 		}
 
 		print_error_line(token->line, parser->source, startCol,
-				 token->length);
+				 token->length > 0 ? token->length : 1);
 	}
 
 	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
-	parser->had_error = true;
 }
+
+// ── Public compiler_panic* family ────────────────────────────────────────────
 
 void compiler_panic(Parser *parser, const char *message,
 		    const ErrorType error_type)
 {
+	// Points at parser->previous — the token that was just consumed when
+	// the error was detected.
 	error_at(parser, &parser->previous, message, error_type);
+}
+
+void compiler_panicf(Parser *parser, ErrorType error_type, const char *format,
+		     ...)
+{
+	va_list args;
+	va_start(args, format);
+	error_at_vfmt(parser, &parser->previous, error_type, format, args);
+	va_end(args);
+}
+
+void compiler_panic_at_current(Parser *parser, const char *message,
+			       ErrorType error_type)
+{
+	// Points at parser->current — the unexpected token that has not yet
+	// been consumed.  Used by consume() so the caret lands on the actual
+	// offending token rather than the one before it.
+	error_at(parser, &parser->current, message, error_type);
+}
+
+void compiler_panicf_at_current(Parser *parser, ErrorType error_type,
+				const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	error_at_vfmt(parser, &parser->current, error_type, format, args);
+	va_end(args);
 }
 
 void runtime_panic(ObjectModuleRecord *module_record, const bool should_exit,

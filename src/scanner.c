@@ -123,7 +123,7 @@ static CruxTokenType identifier_type(void)
 	switch (scanner.start[0]) {
 		// type annotations
 	case 'N': {
-		return check_keyword(1, 3, "il", TOKEN_NIL_TYPE);
+		return check_keyword(1, 2, "il", TOKEN_NIL_TYPE);
 	}
 	case 'B': {
 		if (scanner.current - scanner.start > 2) {
@@ -139,7 +139,7 @@ static CruxTokenType identifier_type(void)
 		break;
 	}
 	case 'I': {
-		return check_keyword(1, 4, "nt", TOKEN_INT_TYPE);
+		return check_keyword(1, 2, "nt", TOKEN_INT_TYPE);
 	}
 	case 'F': {
 		if (scanner.current - scanner.start > 2) {
@@ -208,7 +208,7 @@ static CruxTokenType identifier_type(void)
 					}
 				}
 			case 'e': {
-				return check_keyword(2, 1, "sult",
+				return check_keyword(2, 4, "sult",
 						     TOKEN_RESULT_TYPE);
 			}
 			}
@@ -369,7 +369,7 @@ void init_scanner(const char *source)
 {
 	scanner.start = source;
 	scanner.current = source;
-	scanner.line += 1;
+	scanner.line = 1;
 }
 
 /**
@@ -554,13 +554,9 @@ Token scan_token(void)
 	case '.':
 		return make_token(TOKEN_DOT);
 	case '-':
-		if (match('>')) {
+		if (match('>'))
 			return make_token(TOKEN_ARROW);
-		}
-		if (match('=')) {
-			return make_token(TOKEN_MINUS_EQUAL);
-		}
-		return make_token(TOKEN_MINUS);
+		return make_token(match('=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS);
 	case '+':
 		return make_token(match('=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
 	case '/':

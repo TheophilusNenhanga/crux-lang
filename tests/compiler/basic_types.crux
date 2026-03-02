@@ -1,0 +1,5 @@
+use println from "crux:io";
+use Random from "crux:random";
+
+let a: String = "test";
+let b: String = 123;
