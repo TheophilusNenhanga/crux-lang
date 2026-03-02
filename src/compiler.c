@@ -92,10 +92,21 @@ static void emit_words(const uint16_t word1, const uint16_t word2)
 	emit_word(word2);
 }
 
+// Task 4: helper — validates that a type is acceptable as a Table key.
+// ANY_TYPE passes through; anything in HASHABLE_TYPE passes; others do not.
+static bool is_valid_table_key_type(TypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (type->base_type == ANY_TYPE)
+		return true;
+	return (type->base_type & HASHABLE_TYPE) != 0;
+}
+
 TypeRecord *parse_type_record()
 {
 	TypeRecord *type_record = NULL;
-	// TODO: Enforce which types can be used in collections
+
 	if (match(TOKEN_INT_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, INT_TYPE);
 	} else if (match(TOKEN_FLOAT_TYPE)) {
@@ -120,14 +131,28 @@ TypeRecord *parse_type_record()
 			compiler_panic(
 				&parser,
 				"Expected '[' for array type definition.",
-				ARRAY_TYPE);
+				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_TABLE_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(&current->type_arena,
 						   TABLE_TYPE);
-			type_record->as.table_type.key_type =
-				parse_type_record();
+			TypeRecord *key_type = parse_type_record();
+			// Task 4: enforce hashable key types
+			if (!is_valid_table_key_type(key_type)) {
+				char got[64], msg[192];
+				type_mask_name(key_type->base_type, got,
+					       sizeof(got));
+				snprintf(msg, sizeof(msg),
+					 "Table key type '%s' is not hashable. "
+					 "Keys must be Int, Float, String, "
+					 "Bool, or Nil.",
+					 got);
+				compiler_panic(&parser, msg, TYPE);
+			}
+			type_record->as.table_type.key_type = key_type;
 			consume(TOKEN_COLON, "Expected ':' after key type.");
 			type_record->as.table_type.value_type =
 				parse_type_record();
@@ -137,7 +162,9 @@ TypeRecord *parse_type_record()
 			compiler_panic(
 				&parser,
 				"Expected '[' for table type definition.",
-				TABLE_TYPE);
+				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_VECTOR_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
@@ -151,7 +178,9 @@ TypeRecord *parse_type_record()
 			compiler_panic(
 				&parser,
 				"Expected '[' for vector type definition.",
-				VECTOR_TYPE);
+				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_MATRIX_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, MATRIX_TYPE);
@@ -171,53 +200,70 @@ TypeRecord *parse_type_record()
 				&parser,
 				"Expected '[' for result type definition.",
 				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_RANGE_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, RANGE_TYPE);
 	} else if (match(TOKEN_TUPLE_TYPE)) {
+		// Task 1: was incorrectly creating VECTOR_TYPE — fixed to
+		// TUPLE_TYPE
 		if (match(TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(&current->type_arena,
-						   VECTOR_TYPE);
-			type_record->as.vector_type.element_type =
+						   TUPLE_TYPE);
+			type_record->as.tuple_type.element_type =
 				parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE,
-				"Expected ']' after vector element type.");
+				"Expected ']' after tuple element type.");
 		} else {
 			compiler_panic(
 				&parser,
-				"Expected '[' for vector type definition.",
-				VECTOR_TYPE);
+				"Expected '[' for tuple type definition.",
+				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_COMPLEX_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, COMPLEX_TYPE);
 	} else if (match(TOKEN_LEFT_PAREN)) {
-		// will be freed when function type record is freed
+		// Function type: (ParamType, ...) -> ReturnType
+		// The arg_types array is heap-allocated and intentionally not
+		// freed here — it is owned by the TypeRecord for the duration
+		// of compilation and freed when the compiler is torn down.
 		int param_capacity = 4;
 		int param_count = 0;
 		TypeRecord **param_types = malloc(sizeof(TypeRecord *) *
 						  param_capacity);
+		if (!param_types) {
+			compiler_panic(&parser, "Memory allocation failed.",
+				       MEMORY);
+			return new_type_rec(&current->type_arena, ANY_TYPE);
+		}
 
 		do {
-			TypeRecord *type_record = parse_type_record();
-			if (!type_record) {
+			TypeRecord *inner = parse_type_record();
+			if (!inner) {
 				compiler_panic(&parser, "Expected type.", TYPE);
-				type_record = NULL;
+				inner = new_type_rec(&current->type_arena,
+						     ANY_TYPE);
 			}
 			if (param_count == param_capacity) {
 				param_capacity *= 2;
-				TypeRecord **new_param_types = realloc(
+				TypeRecord **grown = realloc(
 					param_types,
 					sizeof(TypeRecord *) * param_capacity);
-				if (!new_param_types) {
+				if (!grown) {
+					free(param_types);
 					compiler_panic(
 						&parser,
 						"Memory allocation failed.",
 						MEMORY);
-					return NULL;
+					return new_type_rec(
+						&current->type_arena, ANY_TYPE);
 				}
-				param_types = new_param_types;
+				param_types = grown;
 			}
-			param_types[param_count++] = type_record;
+			param_types[param_count++] = inner;
 		} while (match(TOKEN_COMMA));
 		consume(TOKEN_RIGHT_PAREN,
 			"Expected ')' to end function argument types.");
@@ -227,36 +273,112 @@ TypeRecord *parse_type_record()
 		TypeRecord *return_type = parse_type_record();
 		if (!return_type) {
 			compiler_panic(&parser, "Expected type.", TYPE);
-			return NULL;
+			free(param_types);
+			return new_type_rec(&current->type_arena, ANY_TYPE);
 		}
 
-		param_types = realloc(param_types,
-				      sizeof(TypeRecord *) * param_count);
-		if (!param_types) {
-			compiler_panic(&parser, "Memory allocation failed.",
-				       MEMORY);
-			return NULL;
+		// Shrink to exact size — we keep this array alive.
+		if (param_count > 0) {
+			TypeRecord **shrunk = realloc(param_types,
+						      sizeof(TypeRecord *) *
+							      param_count);
+			if (shrunk)
+				param_types = shrunk;
 		}
 
-		TypeRecord *type_record = new_type_rec(&current->type_arena,
-						       FUNCTION_TYPE);
+		type_record = new_type_rec(&current->type_arena, FUNCTION_TYPE);
 		type_record->as.function_type.arg_types = param_types;
 		type_record->as.function_type.arg_count = param_count;
 		type_record->as.function_type.return_type = return_type;
 	} else if (match(TOKEN_SET_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, SET_TYPE);
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   SET_TYPE);
+			type_record->as.set_type.element_type =
+				parse_type_record();
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after set element type.");
+		} else {
+			type_record = new_type_rec(&current->type_arena,
+						   SET_TYPE);
+		}
 	} else if (match(TOKEN_RANDOM_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, RANDOM_TYPE);
 	} else if (match(TOKEN_FILE_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, FILE_TYPE);
+	} else if (check(TOKEN_IDENTIFIER)) {
+		// Task 3: look up a user-defined struct (or other named) type.
+		// Walk the compiler chain so inner functions see enclosing
+		// struct declarations.
+		advance();
+		ObjectString *name_str = copy_string(current->owner,
+						     parser.previous.start,
+						     parser.previous.length);
+		TypeRecord *found = NULL;
+		Compiler *comp = current;
+		while (comp != NULL) {
+			if (type_table_get(&comp->type_table, name_str, &found))
+				break;
+			comp = comp->enclosing;
+		}
+		if (!found) {
+			// Forward reference or unknown name — degrade to
+			// ANY_TYPE. The pre-scanner resolves most of these
+			// before the main pass begins.
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
+		} else {
+			type_record = found;
+		}
 	} else {
 		compiler_panic(&parser, "Expected type.", TYPE);
-		type_record = NULL;
+		type_record = new_type_rec(&current->type_arena, ANY_TYPE);
 	}
 
-	do {
-		// TODO: type parsing for union type
-	} while (match(TOKEN_PIPE));
+	// Task 2: union type parsing — if a '|' follows the first type,
+	// collect additional variants into a union TypeRecord.
+	// Note: TOKEN_PIPE is also used as bitwise-OR in binary(), but
+	// parse_type_record() is only called in type-annotation context
+	// where '|' always means union.
+	if (type_record && match(TOKEN_PIPE)) {
+		int cap = 4;
+		int count = 1;
+		// Heap-allocate the variants array; it is owned by the
+		// TypeRecord and lives for the duration of compilation.
+		TypeRecord **variants = malloc(sizeof(TypeRecord *) * cap);
+		if (!variants) {
+			compiler_panic(&parser, "Memory allocation failed.",
+				       MEMORY);
+			return type_record; // return first variant as fallback
+		}
+		variants[0] = type_record;
+
+		do {
+			if (count == cap) {
+				cap *= 2;
+				TypeRecord **grown = realloc(
+					variants, sizeof(TypeRecord *) * cap);
+				if (!grown) {
+					free(variants);
+					compiler_panic(
+						&parser,
+						"Memory allocation failed.",
+						MEMORY);
+					return type_record;
+				}
+				variants = grown;
+			}
+			variants[count++] = parse_type_record();
+		} while (match(TOKEN_PIPE));
+
+		// element_names can be NULL for anonymous unions.
+		type_record = new_union_type_rec(&current->type_arena, variants,
+						 NULL, count);
+		// Do NOT free(variants) — new_union_type_rec stores the
+		// pointer and it must remain valid for the life of the
+		// TypeRecord (compiler arena duration).
+	}
+
 	return type_record;
 }
 
@@ -383,9 +505,27 @@ void push_type_record(TypeRecord *type_record)
 {
 	current->type_stack[current->type_stack_count++] = type_record;
 }
-TypeRecord *pop_type_record()
+
+TypeRecord *pop_type_record(void)
 {
+	// Task 8: guard against underflow during error recovery.
+	// After compiler_panic sets panic_mode, code may continue briefly
+	// before synchronize() is called, causing extra pop calls on an
+	// already-empty stack. Return an ANY_TYPE sentinel instead of
+	// accessing type_stack[-1].
+	if (current->type_stack_count <= 0) {
+		return new_type_rec(&current->type_arena, ANY_TYPE);
+	}
 	return current->type_stack[--current->type_stack_count];
+}
+
+// Task 8: inspect the top of the type stack without consuming it.
+// Returns NULL if the stack is empty.
+TypeRecord *peek_type_record(void)
+{
+	if (current->type_stack_count <= 0)
+		return NULL;
+	return current->type_stack[current->type_stack_count - 1];
 }
 
 static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
@@ -915,24 +1055,8 @@ static void named_variable(Token name, const bool can_assign)
 		var_type ? var_type
 			 : new_type_rec(&current->type_arena, ANY_TYPE));
 }
-static uint16_t argument_list(void)
-{
-	uint16_t arg_count = 0;
-	if (!check(TOKEN_RIGHT_PAREN)) {
-		do {
-			expression();
-			if (arg_count == UINT16_MAX) {
-				compiler_panic(&parser,
-					       "Cannot have more than 65535 "
-					       "arguments.",
-					       ARGUMENT_EXTENT);
-			}
-			arg_count++;
-		} while (match(TOKEN_COMMA));
-	}
-	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list");
-	return arg_count;
-}
+// argument_list() was removed — infix_call() and dot() now inline their own
+// argument parsing loops so they can collect and validate argument types.
 
 static void and_(bool can_assign)
 {
@@ -1297,8 +1421,84 @@ static void binary(bool can_assign)
 static void infix_call(bool can_assign)
 {
 	(void)can_assign;
-	const uint16_t arg_count = argument_list();
+
+	// The callee's TypeRecord was pushed by whichever expression produced
+	// the function value (named_variable, dot GET_PROPERTY, etc.). Pop it
+	// before compiling arguments so their types sit on top of the stack.
+	TypeRecord *func_type = pop_type_record();
+
+	// Compile argument list, collecting each arg's type as we go.
+	uint16_t arg_count = 0;
+	TypeRecord *arg_types[UINT8_COUNT];
+
+	if (!check(TOKEN_RIGHT_PAREN)) {
+		do {
+			if (arg_count == UINT16_MAX) {
+				compiler_panic(&parser,
+					       "Cannot have more than 65535 "
+					       "arguments.",
+					       ARGUMENT_EXTENT);
+			}
+			expression();
+			arg_types[arg_count] = pop_type_record();
+			arg_count++;
+		} while (match(TOKEN_COMMA));
+	}
+	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
+
 	emit_words(OP_CALL, arg_count);
+
+	// Type-check only when the callee type is statically known.
+	if (func_type && func_type->base_type == FUNCTION_TYPE) {
+		int expected_count = func_type->as.function_type.arg_count;
+
+		if ((int)arg_count != expected_count) {
+			char msg[128];
+			snprintf(msg, sizeof(msg),
+				 "Expected %d argument(s), got %d.",
+				 expected_count, (int)arg_count);
+			compiler_panic(&parser, msg, ARGUMENT_MISMATCH);
+		} else {
+			for (int i = 0; i < (int)arg_count; i++) {
+				TypeRecord *expected =
+					func_type->as.function_type
+						.arg_types[i];
+				TypeRecord *got = arg_types[i];
+				if (expected && got &&
+				    expected->base_type != ANY_TYPE &&
+				    got->base_type != ANY_TYPE) {
+					if (!types_compatible(expected, got)) {
+						char exp_name[64], got_name[64],
+							msg[160];
+						type_mask_name(
+							expected->base_type,
+							exp_name,
+							sizeof(exp_name));
+						type_mask_name(
+							got->base_type,
+							got_name,
+							sizeof(got_name));
+						snprintf(msg, sizeof(msg),
+							 "Argument %d type "
+							 "mismatch: expected "
+							 "'%s', got '%s'.",
+							 i + 1, exp_name,
+							 got_name);
+						compiler_panic(&parser, msg,
+							       TYPE);
+					}
+				}
+			}
+		}
+
+		TypeRecord *ret = func_type->as.function_type.return_type;
+		push_type_record(
+			ret ? ret
+			    : new_type_rec(&current->type_arena, ANY_TYPE));
+	} else {
+		// Unknown callee type — allow through without checking.
+		push_type_record(new_type_rec(&current->type_arena, ANY_TYPE));
+	}
 }
 
 static void literal(bool can_assign)
@@ -1325,22 +1525,222 @@ static void literal(bool can_assign)
 static void dot(const bool can_assign)
 {
 	consume(TOKEN_IDENTIFIER, "Expected property name after '.'.");
-	const uint16_t name = identifier_constant(&parser.previous);
+	const uint16_t name_constant = identifier_constant(&parser.previous);
+	const Token method_name_token = parser.previous;
 
-	if (name >= UINT16_MAX) {
+	if (name_constant >= UINT16_MAX) {
 		compiler_panic(&parser, "Too many constants.", SYNTAX);
 	}
 
+	// The object's TypeRecord was pushed by the prefix expression (e.g.
+	// named_variable). Pop it now so we can use it for lookups, and so it
+	// doesn't leak from the type stack.
+	TypeRecord *object_type = pop_type_record();
+	if (!object_type)
+		object_type = new_type_rec(&current->type_arena, ANY_TYPE);
+
 	if (can_assign && match(TOKEN_EQUAL)) {
+		// ── OP_SET_PROPERTY ──────────────────────────────────────────
 		expression();
-		emit_words(OP_SET_PROPERTY, name);
-	} else if (match(TOKEN_LEFT_PAREN)) {
-		const uint16_t arg_count = argument_list();
-		emit_words(OP_INVOKE, name);
-		emit_word(arg_count);
-	} else {
-		emit_words(OP_GET_PROPERTY, name);
+		TypeRecord *value_type = pop_type_record();
+
+		if (object_type->base_type == STRUCT_TYPE && value_type) {
+			TypeTable *field_types =
+				object_type->as.struct_type.field_types;
+			ObjectString *field_name = copy_string(
+				current->owner, method_name_token.start,
+				method_name_token.length);
+			TypeRecord *field_type = NULL;
+			if (type_table_get(field_types, field_name,
+					   &field_type)) {
+				if (field_type &&
+				    field_type->base_type != ANY_TYPE &&
+				    value_type->base_type != ANY_TYPE &&
+				    !types_compatible(field_type, value_type)) {
+					char exp[64], got[64], msg[160];
+					type_mask_name(field_type->base_type,
+						       exp, sizeof(exp));
+					type_mask_name(value_type->base_type,
+						       got, sizeof(got));
+					snprintf(msg, sizeof(msg),
+						 "Cannot assign '%s' to field "
+						 "of type '%s'.",
+						 got, exp);
+					compiler_panic(&parser, msg, TYPE);
+				}
+			} else {
+				char msg[160];
+				snprintf(msg, sizeof(msg),
+					 "Struct has no field '%.*s'.",
+					 (int)method_name_token.length,
+					 method_name_token.start);
+				compiler_panic(&parser, msg, NAME);
+			}
+		}
+
+		emit_words(OP_SET_PROPERTY, name_constant);
+		// Push NIL_TYPE to maintain type-stack invariant #1.
+		push_type_record(new_type_rec(&current->type_arena, NIL_TYPE));
+		return;
 	}
+
+	if (match(TOKEN_LEFT_PAREN)) {
+		// ── OP_INVOKE ────────────────────────────────────────────────
+		uint16_t arg_count = 0;
+		TypeRecord *arg_types[UINT8_COUNT];
+
+		if (!check(TOKEN_RIGHT_PAREN)) {
+			do {
+				expression();
+				arg_types[arg_count] = pop_type_record();
+				arg_count++;
+			} while (match(TOKEN_COMMA));
+		}
+		consume(TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
+
+		emit_words(OP_INVOKE, name_constant);
+		emit_word(arg_count);
+
+		// Look up the method's TypeRecord.
+		TypeRecord *method_type = NULL;
+
+		if (object_type->base_type == STRUCT_TYPE) {
+			// Struct method: look for a function-typed field.
+			TypeTable *field_types =
+				object_type->as.struct_type.field_types;
+			ObjectString *field_name = copy_string(
+				current->owner, method_name_token.start,
+				method_name_token.length);
+			type_table_get(field_types, field_name, &method_type);
+
+		} else if (object_type->base_type != ANY_TYPE) {
+			// Stdlib method: look up "TypeName.methodName" in the
+			// compiler's type_table (seeded from
+			// vm->stdlib_type_table when that infrastructure
+			// exists; degrades gracefully to ANY_TYPE when not).
+			char type_name[64];
+			type_mask_name(object_type->base_type, type_name,
+				       sizeof(type_name));
+			char key[128];
+			snprintf(key, sizeof(key), "%s.%.*s", type_name,
+				 (int)method_name_token.length,
+				 method_name_token.start);
+
+			ObjectString *key_str = copy_string(current->owner, key,
+							    strlen(key));
+			Compiler *comp = current;
+			while (comp != NULL) {
+				if (type_table_get(&comp->type_table, key_str,
+						   &method_type))
+					break;
+				comp = comp->enclosing;
+			}
+		}
+
+		// Validate arg types and push the return type.
+		if (method_type && method_type->base_type == FUNCTION_TYPE) {
+			int expected_count =
+				method_type->as.function_type.arg_count;
+			// OP_INVOKE passes the receiver (self) as arg[0].
+			// The Callable's declared arity includes self, so the
+			// first param_type slot is the receiver. User-supplied
+			// args start at index 1 (param_offset).
+			int param_offset = 1;
+			int user_params = expected_count - param_offset;
+
+			if (user_params < 0)
+				user_params = 0;
+
+			if ((int)arg_count != user_params &&
+			    expected_count != 0) {
+				char msg[128];
+				snprintf(msg, sizeof(msg),
+					 "Method expects %d argument(s), "
+					 "got %d.",
+					 user_params, (int)arg_count);
+				compiler_panic(&parser, msg, ARGUMENT_MISMATCH);
+			} else {
+				for (int i = 0; i < (int)arg_count; i++) {
+					TypeRecord *expected =
+						method_type->as.function_type
+							.arg_types
+								[i +
+								 param_offset];
+					TypeRecord *got = arg_types[i];
+					if (expected && got &&
+					    expected->base_type != ANY_TYPE &&
+					    got->base_type != ANY_TYPE) {
+						if (!types_compatible(expected,
+								      got)) {
+							char exp_name[64],
+								got_name[64],
+								msg[160];
+							type_mask_name(
+								expected->base_type,
+								exp_name,
+								sizeof(exp_name));
+							type_mask_name(
+								got->base_type,
+								got_name,
+								sizeof(got_name));
+							snprintf(msg,
+								 sizeof(msg),
+								 "Argument %d "
+								 "type "
+								 "mismatch: "
+								 "expected "
+								 "'%s', "
+								 "got '%s'.",
+								 i + 1,
+								 exp_name,
+								 got_name);
+							compiler_panic(&parser,
+								       msg,
+								       TYPE);
+						}
+					}
+				}
+			}
+
+			TypeRecord *ret =
+				method_type->as.function_type.return_type;
+			push_type_record(
+				ret ? ret
+				    : new_type_rec(&current->type_arena,
+						   ANY_TYPE));
+		} else {
+			push_type_record(
+				new_type_rec(&current->type_arena, ANY_TYPE));
+		}
+		return;
+	}
+
+	// ── OP_GET_PROPERTY ──────────────────────────────────────────────────
+	emit_words(OP_GET_PROPERTY, name_constant);
+
+	TypeRecord *result_type = NULL;
+	if (object_type->base_type == STRUCT_TYPE) {
+		TypeTable *field_types =
+			object_type->as.struct_type.field_types;
+		ObjectString *field_name =
+			copy_string(current->owner, method_name_token.start,
+				    method_name_token.length);
+		TypeRecord *field_type = NULL;
+		if (type_table_get(field_types, field_name, &field_type)) {
+			result_type = field_type;
+		} else {
+			char msg[160];
+			snprintf(msg, sizeof(msg),
+				 "Struct has no field '%.*s'.",
+				 (int)method_name_token.length,
+				 method_name_token.start);
+			compiler_panic(&parser, msg, NAME);
+		}
+	}
+
+	push_type_record(
+		result_type ? result_type
+			    : new_type_rec(&current->type_arena, ANY_TYPE));
 }
 
 void struct_instance(const bool can_assign)
@@ -2156,7 +2556,13 @@ static void var_declaration(void)
 		expression();
 		value_type = pop_type_record();
 
-		if (!types_compatible(annotated_type, value_type)) {
+		// Only validate if both sides are known (annotated_type is NULL
+		// when no annotation was given; types_compatible returns false
+		// for NULL, which would cause a NULL dereference below).
+		if (annotated_type && value_type &&
+		    annotated_type->base_type != ANY_TYPE &&
+		    value_type->base_type != ANY_TYPE &&
+		    !types_compatible(annotated_type, value_type)) {
 			char expected[64], got[64], msg[160];
 			type_mask_name(annotated_type->base_type, expected,
 				       sizeof(expected));
@@ -3402,8 +3808,436 @@ static ParseRule *get_rule(const CruxTokenType type)
 	return &rules[type]; // Returns the rule at the given index
 }
 
+// ── Pre-scanner
+// ───────────────────────────────────────────────────────────────
+//
+// A lightweight two-sub-pass scanner that collects top-level struct and
+// function signatures before the main compilation pass begins. This gives the
+// single-pass compiler knowledge of forward-referenced names (e.g. a function
+// declared after its call site, or mutual recursion).
+//
+// Sub-pass 1 collects struct declarations (so struct-typed parameters in
+// function signatures resolve correctly in sub-pass 2).
+// Sub-pass 2 collects function signatures.
+//
+// Implementation notes:
+// - Uses the shared global `parser` and `current` compiler pointer, exactly
+//   as the main compiler does, so parse_type_record() works normally.
+// - A temporary Compiler is initialised with init_compiler() for each sub-pass.
+// - After both sub-passes are complete, the collected types are merged into the
+//   main compiler's type_table via type_table_add_all.
+// - The scanner is rewound with init_scanner(source) after pre-scanning so the
+//   main pass starts from the beginning.
+
+// Advance the pre-scanner, skipping error tokens silently.
+static void pre_advance(void)
+{
+	parser.prev_previous = parser.previous;
+	parser.previous = parser.current;
+	for (;;) {
+		parser.current = scan_token();
+		if (parser.current.type != TOKEN_ERROR)
+			break;
+	}
+}
+
+// Skip a balanced brace block { ... } starting at the current token (which
+// must be TOKEN_LEFT_BRACE). Handles nesting.
+static void pre_skip_block(void)
+{
+	if (parser.current.type != TOKEN_LEFT_BRACE)
+		return;
+	pre_advance(); // consume '{'
+	int depth = 1;
+	while (depth > 0 && parser.current.type != TOKEN_EOF) {
+		if (parser.current.type == TOKEN_LEFT_BRACE)
+			depth++;
+		if (parser.current.type == TOKEN_RIGHT_BRACE)
+			depth--;
+		pre_advance();
+	}
+}
+
+// Skip a balanced parenthesis group ( ... ) starting at current token.
+static void pre_skip_parens(void)
+{
+	if (parser.current.type != TOKEN_LEFT_PAREN)
+		return;
+	pre_advance(); // consume '('
+	int depth = 1;
+	while (depth > 0 && parser.current.type != TOKEN_EOF) {
+		if (parser.current.type == TOKEN_LEFT_PAREN)
+			depth++;
+		if (parser.current.type == TOKEN_RIGHT_PAREN)
+			depth--;
+		pre_advance();
+	}
+}
+
+// Advance past a type annotation starting at the current token.
+// Handles nested brackets and parentheses (e.g. Array[Int], (Int)->Bool,
+// Table[String:Int], union types separated by '|').
+static void pre_skip_type(void)
+{
+	// A type may be: a keyword type, an identifier, a function type
+	// (parens), followed by optional '[...]' subscript, followed by
+	// optional '|' union chains.
+	for (;;) {
+		CruxTokenType t = parser.current.type;
+
+		if (t == TOKEN_LEFT_PAREN) {
+			// Function type: (T, T) -> T
+			pre_skip_parens();
+			// consume '->'
+			if (parser.current.type == TOKEN_ARROW)
+				pre_advance();
+			pre_skip_type(); // return type
+		} else if (t == TOKEN_INT_TYPE || t == TOKEN_FLOAT_TYPE ||
+			   t == TOKEN_BOOL_TYPE || t == TOKEN_STRING_TYPE ||
+			   t == TOKEN_NIL_TYPE || t == TOKEN_ANY_TYPE ||
+			   t == TOKEN_ARRAY_TYPE || t == TOKEN_TABLE_TYPE ||
+			   t == TOKEN_VECTOR_TYPE || t == TOKEN_MATRIX_TYPE ||
+			   t == TOKEN_BUFFER_TYPE || t == TOKEN_ERROR_TYPE ||
+			   t == TOKEN_RESULT_TYPE || t == TOKEN_RANGE_TYPE ||
+			   t == TOKEN_TUPLE_TYPE || t == TOKEN_COMPLEX_TYPE ||
+			   t == TOKEN_SET_TYPE || t == TOKEN_RANDOM_TYPE ||
+			   t == TOKEN_FILE_TYPE || t == TOKEN_IDENTIFIER) {
+			pre_advance(); // consume the base type token
+			// Optional subscript: Array[Int], Table[K:V], etc.
+			if (parser.current.type == TOKEN_LEFT_SQUARE) {
+				pre_advance(); // consume '['
+				int depth = 1;
+				while (depth > 0 &&
+				       parser.current.type != TOKEN_EOF) {
+					if (parser.current.type ==
+					    TOKEN_LEFT_SQUARE)
+						depth++;
+					if (parser.current.type ==
+					    TOKEN_RIGHT_SQUARE)
+						depth--;
+					pre_advance();
+				}
+			}
+		} else {
+			// Unknown/unsupported — stop.
+			break;
+		}
+
+		// Union continuation: T | T | ...
+		if (parser.current.type == TOKEN_PIPE) {
+			pre_advance(); // consume '|'
+			continue; // parse next variant
+		}
+		break;
+	}
+}
+
+// Collect a single top-level struct declaration into pre_compiler's type_table.
+// On entry parser.current is TOKEN_STRUCT (already consumed by caller).
+static void pre_collect_struct(void)
+{
+	// Consume struct name.
+	if (parser.current.type != TOKEN_IDENTIFIER)
+		return;
+	Token name_token = parser.current;
+	pre_advance();
+
+	// Expect '{' to start the struct body.
+	if (parser.current.type != TOKEN_LEFT_BRACE)
+		return;
+	pre_advance(); // consume '{'
+
+	// Build a field_types TypeTable.
+	TypeTable *field_types = ALLOCATE(current->owner, TypeTable, 1);
+	init_type_table(field_types);
+	int field_count = 0;
+
+	// Create a lightweight ObjectStruct so new_struct_type_rec works.
+	ObjectString *struct_name = copy_string(current->owner,
+						name_token.start,
+						name_token.length);
+	ObjectStruct *struct_obj = new_struct_type(current->owner, struct_name);
+
+	while (parser.current.type != TOKEN_RIGHT_BRACE &&
+	       parser.current.type != TOKEN_EOF) {
+		// Field name
+		if (parser.current.type != TOKEN_IDENTIFIER)
+			break;
+		Token field_tok = parser.current;
+		ObjectString *field_name = copy_string(current->owner,
+						       field_tok.start,
+						       field_tok.length);
+		pre_advance();
+
+		TypeRecord *field_type = NULL;
+		if (parser.current.type == TOKEN_COLON) {
+			pre_advance(); // consume ':'
+			// parse_type_record uses the global current compiler
+			// and parser — this works because we're in a properly
+			// initialised pre_compiler context.
+			field_type = parse_type_record();
+		} else {
+			field_type = new_type_rec(&current->type_arena,
+						  ANY_TYPE);
+		}
+
+		type_table_set(field_types, field_name, field_type);
+		table_set(current->owner, &struct_obj->fields, field_name,
+			  INT_VAL(field_count));
+		field_count++;
+
+		// Allow trailing comma between fields.
+		if (parser.current.type == TOKEN_COMMA)
+			pre_advance();
+	}
+
+	// Consume '}'.
+	if (parser.current.type == TOKEN_RIGHT_BRACE)
+		pre_advance();
+
+	// Build and register the struct TypeRecord.
+	TypeRecord *struct_type = new_struct_type_rec(&current->type_arena,
+						      struct_obj, field_types,
+						      field_count);
+
+	type_table_set(&current->type_table, struct_name, struct_type);
+}
+
+// Collect a single top-level function signature into pre_compiler's
+// type_table. On entry parser.current is TOKEN_FN (already consumed by caller).
+static void pre_collect_function(void)
+{
+	// Consume function name.
+	if (parser.current.type != TOKEN_IDENTIFIER)
+		return;
+	Token fn_name_token = parser.current;
+	pre_advance();
+
+	// Expect '(' to start parameter list.
+	if (parser.current.type != TOKEN_LEFT_PAREN)
+		return;
+	pre_advance(); // consume '('
+
+	int param_cap = 4;
+	int param_count = 0;
+	TypeRecord **param_types = malloc(sizeof(TypeRecord *) * param_cap);
+	if (!param_types)
+		return;
+
+	while (parser.current.type != TOKEN_RIGHT_PAREN &&
+	       parser.current.type != TOKEN_EOF) {
+		// Parameter name (identifier).
+		if (parser.current.type != TOKEN_IDENTIFIER) {
+			free(param_types);
+			return;
+		}
+		pre_advance(); // consume param name
+
+		TypeRecord *param_type = NULL;
+		if (parser.current.type == TOKEN_COLON) {
+			pre_advance(); // consume ':'
+			param_type = parse_type_record();
+		} else {
+			param_type = new_type_rec(&current->type_arena,
+						  ANY_TYPE);
+		}
+
+		if (param_count == param_cap) {
+			param_cap *= 2;
+			TypeRecord **grown = realloc(param_types,
+						     sizeof(TypeRecord *) *
+							     param_cap);
+			if (!grown) {
+				free(param_types);
+				return;
+			}
+			param_types = grown;
+		}
+		param_types[param_count++] = param_type;
+
+		if (parser.current.type == TOKEN_COMMA)
+			pre_advance();
+	}
+
+	// Consume ')'.
+	if (parser.current.type == TOKEN_RIGHT_PAREN)
+		pre_advance();
+
+	// Optional return type annotation: -> Type
+	TypeRecord *return_type = NULL;
+	if (parser.current.type == TOKEN_ARROW) {
+		pre_advance(); // consume '->'
+		return_type = parse_type_record();
+	} else {
+		return_type = new_type_rec(&current->type_arena, ANY_TYPE);
+	}
+
+	// Register the function TypeRecord.
+	TypeRecord *fn_type = new_function_type_rec(&current->type_arena,
+						    param_types, param_count,
+						    return_type);
+
+	ObjectString *fn_name = copy_string(current->owner, fn_name_token.start,
+					    fn_name_token.length);
+	type_table_set(&current->type_table, fn_name, fn_type);
+
+	// Skip the function body so we don't accidentally parse its tokens
+	// as top-level declarations.
+	pre_skip_block();
+}
+
+// Run a single forward-scan sub-pass over the token stream.
+// `collect_structs`: when true, collect struct declarations; when false,
+// collect function declarations (fn / pub fn).
+static void pre_scan_pass(bool collect_structs)
+{
+	// Reset parser to a clean state (advance() will prime the first token
+	// after this is called from compile() with a fresh init_scanner).
+	parser.had_error = false;
+	parser.panic_mode = false;
+
+	// Prime the first token.
+	pre_advance();
+
+	while (parser.current.type != TOKEN_EOF) {
+		CruxTokenType t = parser.current.type;
+
+		if (t == TOKEN_STRUCT) {
+			pre_advance(); // consume 'struct'
+			if (collect_structs) {
+				pre_collect_struct();
+			} else {
+				// Skip: name + block
+				if (parser.current.type == TOKEN_IDENTIFIER)
+					pre_advance();
+				pre_skip_block();
+			}
+
+		} else if (t == TOKEN_FN) {
+			pre_advance(); // consume 'fn'
+			if (!collect_structs) {
+				pre_collect_function();
+			} else {
+				// Skip: name + parens + optional ->T + block
+				if (parser.current.type == TOKEN_IDENTIFIER)
+					pre_advance();
+				pre_skip_parens();
+				if (parser.current.type == TOKEN_ARROW) {
+					pre_advance();
+					pre_skip_type();
+				}
+				pre_skip_block();
+			}
+
+		} else if (t == TOKEN_PUB) {
+			pre_advance(); // consume 'pub'
+			// pub fn ... or pub struct ...
+			if (parser.current.type == TOKEN_FN) {
+				pre_advance(); // consume 'fn'
+				if (!collect_structs) {
+					pre_collect_function();
+				} else {
+					if (parser.current.type ==
+					    TOKEN_IDENTIFIER)
+						pre_advance();
+					pre_skip_parens();
+					if (parser.current.type ==
+					    TOKEN_ARROW) {
+						pre_advance();
+						pre_skip_type();
+					}
+					pre_skip_block();
+				}
+			} else if (parser.current.type == TOKEN_STRUCT) {
+				pre_advance(); // consume 'struct'
+				if (collect_structs) {
+					pre_collect_struct();
+				} else {
+					if (parser.current.type ==
+					    TOKEN_IDENTIFIER)
+						pre_advance();
+					pre_skip_block();
+				}
+			} else {
+				pre_advance(); // skip unknown pub token
+			}
+
+		} else {
+			// Not a top-level fn/struct — skip the token.
+			pre_advance();
+		}
+	}
+}
+
+// Run both pre-scan sub-passes and merge results into `dest`.
+// The scanner must be initialised with init_scanner(source) before calling.
+static void pre_scan(VM *vm, char *source, TypeTable *dest)
+{
+	// ── Sub-pass 1: collect struct declarations ──────────────────────────
+	init_scanner(source);
+	Compiler pre_compiler_structs;
+	init_compiler(&pre_compiler_structs, TYPE_SCRIPT, vm);
+	// Clear parser error state — the pre-pass is allowed to have syntax
+	// it doesn't understand; errors here are non-fatal.
+	parser.had_error = false;
+	parser.panic_mode = false;
+	parser.source = source;
+
+	pre_scan_pass(true /* collect_structs */);
+
+	// ── Sub-pass 2: collect function signatures ──────────────────────────
+	// Re-initialise the scanner AND a new Compiler that already has the
+	// struct types from sub-pass 1, so struct-typed parameters resolve.
+	init_scanner(source);
+	Compiler pre_compiler_fns;
+	init_compiler(&pre_compiler_fns, TYPE_SCRIPT, vm);
+	parser.had_error = false;
+	parser.panic_mode = false;
+
+	// Seed the fn-pass compiler with struct types from the first pass so
+	// parse_type_record() can resolve struct names in parameter
+	// annotations.
+	type_table_add_all(&pre_compiler_structs.type_table,
+			   &pre_compiler_fns.type_table);
+
+	pre_scan_pass(false /* collect functions */);
+
+	// ── Merge into the destination table ─────────────────────────────────
+	// Structs first so that struct types are available when the main pass
+	// processes function signatures.
+	type_table_add_all(&pre_compiler_structs.type_table, dest);
+	type_table_add_all(&pre_compiler_fns.type_table, dest);
+
+	// Free the pre-compiler type_table entries arrays to avoid
+	// LeakSanitizer reports. The TypeRecord pointers they reference live in
+	// the stack- allocated arenas (valid until pre_scan returns); the
+	// caller will deep-copy them into the main compiler's arena before
+	// returning.
+	free_type_table(&pre_compiler_structs.type_table);
+	free_type_table(&pre_compiler_fns.type_table);
+
+	// Note: pre_compiler_structs and pre_compiler_fns are stack-allocated;
+	// their type_arenas go out of scope here. The TypeRecords they contain
+	// are pointed to by dest — those TypeRecords live in the arenas inside
+	// the pre-compiler stack frames and will become dangling once this
+	// function returns.
+	//
+	// To avoid dangling pointers we deep-copy every entry in dest into the
+	// main compiler's arena. The caller (compile()) does this immediately
+	// after pre_scan() returns, before the pre-compiler frames are gone.
+	// (The arenas are still valid while we're inside pre_scan().)
+}
+
+// ── Main compilation entry point ─────────────────────────────────────────────
+
 ObjectFunction *compile(VM *vm, char *source)
 {
+	// ── Pre-scan pass ────────────────────────────────────────────────────
+	// Collect top-level struct and function signatures so the main pass
+	// can resolve forward references.
+
+	// Initialise the main compiler first so we can use its arena for
+	// deep-copying pre-scanned type records.
 	init_scanner(source);
 	Compiler compiler;
 	init_compiler(&compiler, TYPE_SCRIPT, vm);
@@ -3411,6 +4245,52 @@ ObjectFunction *compile(VM *vm, char *source)
 	parser.had_error = false;
 	parser.panic_mode = false;
 	parser.source = source;
+
+	// Run pre-scan, merging into a temporary staging table.
+	TypeTable staging;
+	init_type_table(&staging);
+	pre_scan(vm, source, &staging);
+
+	// Deep-copy each pre-scanned TypeRecord into the main compiler's arena
+	// and register it in the main compiler's type_table.
+	// Also free any heap-allocated arg_types arrays stored in the staging
+	// TypeRecords (copy_type_rec_to_arena creates fresh copies, so the
+	// originals are no longer needed after the copy).
+	for (int i = 0; i < staging.capacity; i++) {
+		TypeEntry *entry = &staging.entries[i];
+		if (entry->key == NULL)
+			continue;
+		TypeRecord *src = entry->value;
+		TypeRecord *copied =
+			copy_type_rec_to_arena(&compiler.type_arena, src);
+		type_table_set(&compiler.type_table, entry->key, copied);
+		// Free the heap-allocated arg_types array from
+		// pre_collect_function — copy_type_rec_to_arena has already
+		// created its own copy.
+		if (src && src->base_type == FUNCTION_TYPE &&
+		    src->as.function_type.arg_types != NULL) {
+			free(src->as.function_type.arg_types);
+			src->as.function_type.arg_types = NULL;
+		}
+	}
+	free_type_table(&staging);
+
+	// ── Main compile pass
+	// ───────────────────────────────────────────────── Rewind the scanner
+	// for the real compilation pass.
+	init_scanner(source);
+	parser.had_error = false;
+	parser.panic_mode = false;
+	parser.source = source;
+
+	// current was set to &compiler inside init_compiler(); re-confirm it
+	// is still pointing at our main compiler (it should be, since
+	// pre_scan's end_compiler calls restore current to NULL and then
+	// init_compiler for the main compiler set it to &compiler).
+	// Because init_compiler sets current = compiler, and the pre-scan
+	// compilers were initialised after the main one, current may be
+	// pointing at the last pre-scan compiler. Reset it explicitly.
+	current = &compiler;
 
 	advance();
 
