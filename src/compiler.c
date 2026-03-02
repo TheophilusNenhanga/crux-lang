@@ -64,7 +64,7 @@ static void consume(const CruxTokenType type, const char *message)
 		advance();
 		return;
 	}
-	compiler_panic(&parser, message, SYNTAX);
+	compiler_panic_at_current(&parser, message, SYNTAX);
 }
 
 static bool check(const CruxTokenType type)
@@ -75,6 +75,48 @@ static bool check(const CruxTokenType type)
 static bool match(const CruxTokenType type)
 {
 	if (!check(type))
+		return false;
+	advance();
+	return true;
+}
+
+static bool is_identifier_like(const CruxTokenType type)
+{
+	switch (type) {
+	case TOKEN_IDENTIFIER:
+	// Type names that are also valid constructor/import names:
+	case TOKEN_RANDOM_TYPE:
+	case TOKEN_BUFFER_TYPE:
+	case TOKEN_RANGE_TYPE:
+	case TOKEN_VECTOR_TYPE:
+	case TOKEN_MATRIX_TYPE:
+	case TOKEN_COMPLEX_TYPE:
+	case TOKEN_SET_TYPE:
+	case TOKEN_TUPLE_TYPE:
+	case TOKEN_FILE_TYPE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool check_identifier_like(void)
+{
+	return is_identifier_like(parser.current.type);
+}
+
+static void consume_identifier_like(const char *message)
+{
+	if (check_identifier_like()) {
+		advance();
+		return;
+	}
+	compiler_panic(&parser, message, SYNTAX);
+}
+
+static bool match_identifier_like(void)
+{
+	if (!check_identifier_like())
 		return false;
 	advance();
 	return true;
@@ -92,8 +134,6 @@ static void emit_words(const uint16_t word1, const uint16_t word2)
 	emit_word(word2);
 }
 
-// Task 4: helper — validates that a type is acceptable as a Table key.
-// ANY_TYPE passes through; anything in HASHABLE_TYPE passes; others do not.
 static bool is_valid_table_key_type(TypeRecord *type)
 {
 	if (!type)
@@ -167,6 +207,7 @@ TypeRecord *parse_type_record()
 						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_VECTOR_TYPE)) {
+		// TODO: change vector from Vector[type] to Vector[dim_count]
 		if (match(TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(&current->type_arena,
 						   VECTOR_TYPE);
@@ -1453,11 +1494,9 @@ static void infix_call(bool can_assign)
 		int expected_count = func_type->as.function_type.arg_count;
 
 		if ((int)arg_count != expected_count) {
-			char msg[128];
-			snprintf(msg, sizeof(msg),
-				 "Expected %d argument(s), got %d.",
-				 expected_count, (int)arg_count);
-			compiler_panic(&parser, msg, ARGUMENT_MISMATCH);
+			compiler_panicf(&parser, ARGUMENT_MISMATCH,
+					"Expected %d argument(s), got %d.",
+					expected_count, (int)arg_count);
 		} else {
 			for (int i = 0; i < (int)arg_count; i++) {
 				TypeRecord *expected =
@@ -1468,8 +1507,7 @@ static void infix_call(bool can_assign)
 				    expected->base_type != ANY_TYPE &&
 				    got->base_type != ANY_TYPE) {
 					if (!types_compatible(expected, got)) {
-						char exp_name[64], got_name[64],
-							msg[160];
+						char exp_name[64], got_name[64];
 						type_mask_name(
 							expected->base_type,
 							exp_name,
@@ -1478,14 +1516,13 @@ static void infix_call(bool can_assign)
 							got->base_type,
 							got_name,
 							sizeof(got_name));
-						snprintf(msg, sizeof(msg),
-							 "Argument %d type "
-							 "mismatch: expected "
-							 "'%s', got '%s'.",
-							 i + 1, exp_name,
-							 got_name);
-						compiler_panic(&parser, msg,
-							       TYPE);
+						compiler_panicf(
+							&parser, TYPE,
+							"Argument %d type "
+							"mismatch: expected "
+							"'%s', got '%s'.",
+							i + 1, exp_name,
+							got_name);
 					}
 				}
 			}
@@ -2563,15 +2600,14 @@ static void var_declaration(void)
 		    annotated_type->base_type != ANY_TYPE &&
 		    value_type->base_type != ANY_TYPE &&
 		    !types_compatible(annotated_type, value_type)) {
-			char expected[64], got[64], msg[160];
+			char expected[64], got[64];
 			type_mask_name(annotated_type->base_type, expected,
 				       sizeof(expected));
 			type_mask_name(value_type->base_type, got, sizeof(got));
-			snprintf(msg, sizeof(msg),
-				 "Type mismatch in variable "
-				 "declaration: expected '%s', got '%s'.",
-				 expected, got);
-			compiler_panic(&parser, msg, TYPE);
+			compiler_panicf(&parser, TYPE,
+					"Type mismatch in variable "
+					"declaration: expected '%s', got '%s'.",
+					expected, got);
 		}
 	} else {
 		// No initializer — implicit nil.
@@ -2811,9 +2847,7 @@ static void use_statement(void)
 				       "from another module.",
 				       IMPORT_EXTENT);
 		}
-		consume(TOKEN_IDENTIFIER,
-			"Expected name to import from module.");
-
+		consume_identifier_like("Expected name to import from module.");
 		uint16_t name;
 		if (parser.current.type == TOKEN_AS) {
 			nameTokens[nameCount] = parser.previous;
@@ -3779,7 +3813,11 @@ higher
 static void parse_precedence(const Precedence precedence)
 {
 	advance();
-	const ParseFn prefixRule = get_rule(parser.previous.type)->prefix;
+	ParseFn prefixRule;
+	prefixRule = get_rule(parser.previous.type)->prefix;
+	if (is_identifier_like(parser.previous.type)) {
+		prefixRule = get_rule(TOKEN_IDENTIFIER)->prefix;
+	}
 	if (prefixRule == NULL) {
 		compiler_panic(&parser, "Expected expression.", SYNTAX);
 		return;
