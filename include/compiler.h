@@ -117,6 +117,7 @@ struct Compiler {
 TypeRecord *parse_type_record();
 
 void push_type_record(TypeRecord *type_record);
-TypeRecord *pop_type_record();
+TypeRecord *pop_type_record(void);
+TypeRecord *peek_type_record(void);
 
 #endif // COMPILER_H
