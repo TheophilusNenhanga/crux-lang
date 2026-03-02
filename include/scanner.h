@@ -101,11 +101,6 @@ typedef enum {
 	TOKEN_TUPLE_TYPE, // Tuple
 	TOKEN_BUFFER_TYPE, // Buffer
 	TOKEN_RANGE_TYPE, // Range
-	// these do not get annotated
-	// TOKEN_SHAPE_TYPE, // Shape
-	// TOKEN_FUNCTION_TYPE, // Function
-	// TOKEN_MODULE_TYPE, // Module
-	// TOKEN_UNION_TYPE, // Union
 	TOKEN_ANY_TYPE, // Any
 } CruxTokenType;
 
