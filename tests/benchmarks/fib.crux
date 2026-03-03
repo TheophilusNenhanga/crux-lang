@@ -6,7 +6,7 @@ fn fib(n: Int) -> Int {
 	return fib(n - 1) + fib(n - 2);
 }
 
-fn main() {
+fn main() -> Nil {
 	let start_time = _time_ms();
 	println(fib(39));
 	let end_time = _time_ms();

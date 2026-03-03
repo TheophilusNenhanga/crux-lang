@@ -193,7 +193,7 @@ TypeRecord *parse_type_record()
 				compiler_panic(&parser, msg, TYPE);
 			}
 			type_record->as.table_type.key_type = key_type;
-			consume(TOKEN_COLON, "Expected ':' after key type.");
+			consume(TOKEN_COMMA, "Expected ',' after key type.");
 			type_record->as.table_type.value_type =
 				parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE,
@@ -207,12 +207,14 @@ TypeRecord *parse_type_record()
 						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_VECTOR_TYPE)) {
-		// TODO: change vector from Vector[type] to Vector[dim_count]
 		if (match(TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(&current->type_arena,
 						   VECTOR_TYPE);
-			type_record->as.vector_type.element_type =
-				parse_type_record();
+			consume(TOKEN_INT,
+				"Expected 'int' for vector dimensions.");
+			const int dimensions = (int) strtol(parser.previous.start, NULL,
+						10);
+			type_record->as.vector_type.dimensions = dimensions;
 			consume(TOKEN_RIGHT_SQUARE,
 				"Expected ']' after vector element type.");
 		} else {
@@ -224,7 +226,27 @@ TypeRecord *parse_type_record()
 						   ANY_TYPE);
 		}
 	} else if (match(TOKEN_MATRIX_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, MATRIX_TYPE);
+		if (match(TOKEN_LEFT_SQUARE)) {
+			type_record = new_type_rec(&current->type_arena,
+						   MATRIX_TYPE);
+			consume(TOKEN_INT,
+				"Expected 'int' for matrix dimensions.");
+			const int row_dim = (int)strtol(parser.previous.start, NULL, 10);
+			consume(TOKEN_COMMA,
+				"Expected ',' after row dimension.");
+			const int col_dim = (int)strtol(parser.previous.start, NULL, 10);
+			type_record->as.matrix_type.rows = row_dim;
+			type_record->as.matrix_type.cols = col_dim;
+			consume(TOKEN_RIGHT_SQUARE,
+				"Expected ']' after matrix element type.");
+		} else {
+			compiler_panic(
+				&parser,
+				"Expected '[' for matrix type definition.",
+				TYPE);
+			type_record = new_type_rec(&current->type_arena,
+						   ANY_TYPE);
+		}
 	} else if (match(TOKEN_BUFFER_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, BUFFER_TYPE);
 	} else if (match(TOKEN_ERROR_TYPE)) {
@@ -247,8 +269,6 @@ TypeRecord *parse_type_record()
 	} else if (match(TOKEN_RANGE_TYPE)) {
 		type_record = new_type_rec(&current->type_arena, RANGE_TYPE);
 	} else if (match(TOKEN_TUPLE_TYPE)) {
-		// Task 1: was incorrectly creating VECTOR_TYPE — fixed to
-		// TUPLE_TYPE
 		if (match(TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(&current->type_arena,
 						   TUPLE_TYPE);
@@ -1757,9 +1777,9 @@ static void dot(const bool can_assign)
 
 	TypeRecord *result_type = NULL;
 	if (object_type->base_type == STRUCT_TYPE) {
-		TypeTable *field_types =
+		const TypeTable *field_types =
 			object_type->as.struct_type.field_types;
-		ObjectString *field_name =
+		const ObjectString *field_name =
 			copy_string(current->owner, method_name_token.start,
 				    method_name_token.length);
 		TypeRecord *field_type = NULL;
@@ -2064,18 +2084,10 @@ static void function(const FunctionType type)
 			const uint16_t constant = parse_variable(
 				"Expected parameter name.");
 
-			// Optional type annotation: fn foo(x: Int) ...
-			TypeRecord *param_type = NULL;
-			if (match(TOKEN_COLON)) {
-				param_type = parse_type_record();
-			} else {
-				param_type = new_type_rec(&current->type_arena,
-							  ANY_TYPE);
-			}
+			consume(TOKEN_COLON,
+				"Expect ':' after parameter name.");
+			TypeRecord *param_type = parse_type_record();
 
-			// Stamp the type onto the just-added local slot.
-			// parse_variable -> declare_variable -> add_local
-			// already incremented local_count, so -1 is correct.
 			current->locals[current->local_count - 1].type =
 				param_type;
 
@@ -2102,17 +2114,8 @@ static void function(const FunctionType type)
 	}
 	consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
-	// Return type annotation: fn foo() -> Int { ... }
-	// Defaults to ANY_TYPE so return_statement skips validation when
-	// the programmer omits the annotation.
-	TypeRecord *return_type = NULL;
-	if (match(TOKEN_ARROW)) {
-		return_type = parse_type_record();
-	} else {
-		return_type = new_type_rec(&current->type_arena, ANY_TYPE);
-	}
-	// Set on the inner compiler so return_statement can validate
-	// return expressions against it.
+	consume(TOKEN_ARROW, "Expect '->' after parameter list.");
+	TypeRecord *return_type = parse_type_record();
 	current->return_type = return_type;
 
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
@@ -3634,6 +3637,8 @@ static void string(bool can_assign)
 
 	if (srcLength == 0) {
 		ObjectString *string = copy_string(current->owner, "", 0);
+		push_type_record(
+			new_type_rec(&current->type_arena, STRING_TYPE));
 		emit_constant(OBJECT_VAL(string));
 		FREE_ARRAY(current->owner, char, processed,
 			   parser.previous.length);
@@ -3804,6 +3809,26 @@ ParseRule rules[] = {
 	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
 	[TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_NIL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_BOOL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_INT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_FLOAT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_STRING_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_ARRAY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_TABLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_ERROR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_RESULT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_RANDOM_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_FILE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_STRUCT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_VECTOR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_COMPLEX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_MATRIX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_SET_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_TUPLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_BUFFER_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_RANGE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[TOKEN_ANY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
 };
 
 /**
@@ -3814,9 +3839,10 @@ static void parse_precedence(const Precedence precedence)
 {
 	advance();
 	ParseFn prefixRule;
-	prefixRule = get_rule(parser.previous.type)->prefix;
 	if (is_identifier_like(parser.previous.type)) {
 		prefixRule = get_rule(TOKEN_IDENTIFIER)->prefix;
+	} else {
+		prefixRule = get_rule(parser.previous.type)->prefix;
 	}
 	if (prefixRule == NULL) {
 		compiler_panic(&parser, "Expected expression.", SYNTAX);
@@ -3921,7 +3947,7 @@ static void pre_skip_type(void)
 	// (parens), followed by optional '[...]' subscript, followed by
 	// optional '|' union chains.
 	for (;;) {
-		CruxTokenType t = parser.current.type;
+		const CruxTokenType t = parser.current.type;
 
 		if (t == TOKEN_LEFT_PAREN) {
 			// Function type: (T, T) -> T
@@ -3977,7 +4003,7 @@ static void pre_collect_struct(void)
 	// Consume struct name.
 	if (parser.current.type != TOKEN_IDENTIFIER)
 		return;
-	Token name_token = parser.current;
+	const Token name_token = parser.current;
 	pre_advance();
 
 	// Expect '{' to start the struct body.
@@ -4211,38 +4237,31 @@ static void pre_scan_pass(bool collect_structs)
 // The scanner must be initialised with init_scanner(source) before calling.
 static void pre_scan(VM *vm, char *source, TypeTable *dest)
 {
-	// ── Sub-pass 1: collect struct declarations ──────────────────────────
+	// Sub-pass 1: collect struct declarations
 	init_scanner(source);
 	Compiler pre_compiler_structs;
 	init_compiler(&pre_compiler_structs, TYPE_SCRIPT, vm);
-	// Clear parser error state — the pre-pass is allowed to have syntax
-	// it doesn't understand; errors here are non-fatal.
+	// Clear parser error state — pre-pass is allowed to have errors
 	parser.had_error = false;
 	parser.panic_mode = false;
 	parser.source = source;
 
 	pre_scan_pass(true /* collect_structs */);
 
-	// ── Sub-pass 2: collect function signatures ──────────────────────────
-	// Re-initialise the scanner AND a new Compiler that already has the
-	// struct types from sub-pass 1, so struct-typed parameters resolve.
+	// Sub-pass 2: collect function signatures
 	init_scanner(source);
 	Compiler pre_compiler_fns;
 	init_compiler(&pre_compiler_fns, TYPE_SCRIPT, vm);
 	parser.had_error = false;
 	parser.panic_mode = false;
 
-	// Seed the fn-pass compiler with struct types from the first pass so
-	// parse_type_record() can resolve struct names in parameter
-	// annotations.
+	// Seed the fn-pass compiler with struct types from the first pass
 	type_table_add_all(&pre_compiler_structs.type_table,
 			   &pre_compiler_fns.type_table);
 
-	pre_scan_pass(false /* collect functions */);
+	pre_scan_pass(false);
 
-	// ── Merge into the destination table ─────────────────────────────────
-	// Structs first so that struct types are available when the main pass
-	// processes function signatures.
+	// Merge into the destination table
 	type_table_add_all(&pre_compiler_structs.type_table, dest);
 	type_table_add_all(&pre_compiler_fns.type_table, dest);
 
@@ -4295,7 +4314,7 @@ ObjectFunction *compile(VM *vm, char *source)
 	// TypeRecords (copy_type_rec_to_arena creates fresh copies, so the
 	// originals are no longer needed after the copy).
 	for (int i = 0; i < staging.capacity; i++) {
-		TypeEntry *entry = &staging.entries[i];
+		const TypeEntry *entry = &staging.entries[i];
 		if (entry->key == NULL)
 			continue;
 		TypeRecord *src = entry->value;

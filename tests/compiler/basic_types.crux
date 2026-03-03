@@ -1,5 +1,28 @@
 use println from "crux:io";
 use Random from "crux:random";
+use Buffer from "crux:buffer";
+use open from "crux:fs";
 
 let a: String = "test";
-let b: String = 123;
+let b: Int = 123;
+let c: Float = 3.14;
+let d: Bool = true;
+let e: Array[Int] = [1, 2, 3];
+let f: Array[String] = ["one", "two", "three"];
+let g: Table[String:Int] = {"one": 1, "two": 2, "three": 3};
+let h: File = open("test.txt", "w");
+let i: Buffer = Buffer();
+let j: Random = Random();
+
+fn test_func(num: Int) -> Nil {
+    println("test func with arg num:" + string(num));
+}
+
+test_func(42);
+
+let k: Nil = Nil;
+let l: (Int) -> Int = fn (num: Int) -> Int {
+    num + 1
+};
+
+println(l(42));

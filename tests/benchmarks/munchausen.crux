@@ -9,7 +9,7 @@ for let i = 1; i < 10; i += 1 {
     cache.push(i**i);
 }
 
-fn is_munchausen(number) {
+fn is_munchausen(number: Int) -> Bool {
     let n = number;
     let total = 0;
 
@@ -23,7 +23,7 @@ fn is_munchausen(number) {
     return total == number;
 }
 
-fn main() {
+fn main() -> Nil {
     let start_time = _time_ms();
     for let i = 0; i < max; i += 1 {
         if is_munchausen(i) {

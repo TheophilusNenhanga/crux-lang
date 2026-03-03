@@ -97,6 +97,9 @@ bool type_table_set(TypeTable *table, ObjectString *key, TypeRecord *value)
 bool type_table_get(const TypeTable *table, const ObjectString *key,
 		    TypeRecord **value)
 {
+	if (!table) {
+		return false;
+	}
 	if (table->count == 0)
 		return false;
 
@@ -194,7 +197,7 @@ TypeMask get_type_mask(Value value)
 	return ANY_TYPE;
 }
 
-void type_mask_name(TypeMask mask, char *buf, int buf_size)
+void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 {
 	if (mask == ANY_TYPE) {
 		snprintf(buf, buf_size, "Any");
@@ -231,19 +234,19 @@ void type_mask_name(TypeMask mask, char *buf, int buf_size)
 	}
 }
 
-bool runtime_types_compatible(TypeMask expected, Value actual)
+bool runtime_types_compatible(const TypeMask expected, const Value actual)
 {
 	if (expected == ANY_TYPE)
 		return true;
-	TypeMask actual_mask = get_type_mask(actual);
+	const TypeMask actual_mask = get_type_mask(actual);
 	return (expected & actual_mask) != 0;
 }
 
 static TypeRecord *type_arena_alloc(TypeArena *arena)
 {
 	// align to 8 bytes
-	size_t aligned = (arena->used + 7) & ~7;
-	size_t next = aligned + sizeof(TypeRecord);
+	const size_t aligned = (arena->used + 7) & ~7;
+	const size_t next = aligned + sizeof(TypeRecord);
 
 	if (next > TYPE_ARENA_CAPACITY) {
 		// compiler should panic
@@ -311,12 +314,12 @@ TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
 	return rec;
 }
 
-TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type)
+TypeRecord *new_vector_type_rec(TypeArena *arena, int dimensions)
 {
 	TypeRecord *rec = new_type_rec(arena, VECTOR_TYPE);
 	if (!rec)
 		return NULL;
-	rec->as.vector_type.element_type = element_type;
+	rec->as.vector_type.dimensions = dimensions;
 	return rec;
 }
 
@@ -329,12 +332,13 @@ TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type)
 	return rec;
 }
 
-TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type)
+TypeRecord *new_matrix_type_rec(TypeArena *arena, int rows, int cols)
 {
 	TypeRecord *rec = new_type_rec(arena, MATRIX_TYPE);
 	if (!rec)
 		return NULL;
-	rec->as.matrix_type.element_type = element_type;
+	rec->as.matrix_type.rows = rows;
+	rec->as.matrix_type.cols = cols;
 	return rec;
 }
 
@@ -409,12 +413,12 @@ bool types_equal(TypeRecord *a, TypeRecord *b)
 				   b->as.tuple_type.element_type);
 	}
 	case VECTOR_TYPE: {
-		return types_equal(a->as.vector_type.element_type,
-				   b->as.vector_type.element_type);
+		return a->as.vector_type.dimensions ==
+		       b->as.vector_type.dimensions;
 	}
 	case MATRIX_TYPE: {
-		return types_equal(a->as.matrix_type.element_type,
-				   b->as.matrix_type.element_type);
+		return a->as.matrix_type.cols == b->as.matrix_type.cols &&
+		       a->as.matrix_type.rows == b->as.matrix_type.rows;
 	}
 
 	case STRUCT_TYPE: {
@@ -443,10 +447,10 @@ bool types_equal(TypeRecord *a, TypeRecord *b)
 		if (a->as.shape_type.element_count !=
 		    b->as.shape_type.element_count)
 			return false;
-		TypeTable *a_table = a->as.shape_type.element_types;
-		TypeTable *b_table = b->as.shape_type.element_types;
+		const TypeTable *a_table = a->as.shape_type.element_types;
+		const TypeTable *b_table = b->as.shape_type.element_types;
 		for (int i = 0; i < a_table->capacity; i++) {
-			TypeEntry *entry = &a_table->entries[i];
+			const TypeEntry *entry = &a_table->entries[i];
 			if (entry->key == NULL)
 				continue;
 			TypeRecord *b_value = NULL;
@@ -527,16 +531,16 @@ TypeRecord *copy_type_rec_to_arena(TypeArena *dest, TypeRecord *src)
 			dest, src->as.result_type.ok_type);
 		break;
 	case VECTOR_TYPE:
-		copy->as.vector_type.element_type = copy_type_rec_to_arena(
-			dest, src->as.vector_type.element_type);
+		copy->as.vector_type.dimensions =
+			src->as.vector_type.dimensions;
 		break;
 	case TUPLE_TYPE:
 		copy->as.tuple_type.element_type = copy_type_rec_to_arena(
 			dest, src->as.tuple_type.element_type);
 		break;
 	case MATRIX_TYPE:
-		copy->as.matrix_type.element_type = copy_type_rec_to_arena(
-			dest, src->as.matrix_type.element_type);
+		copy->as.matrix_type.rows = src->as.matrix_type.rows;
+		copy->as.matrix_type.cols = src->as.matrix_type.cols;
 		break;
 	case SET_TYPE:
 		copy->as.set_type.element_type = copy_type_rec_to_arena(
