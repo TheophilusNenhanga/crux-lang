@@ -56,13 +56,18 @@ struct TypeRecord {
 			ObjectStruct *definition; // has the field names
 		} struct_type;
 		struct {
-			TypeRecord *element_type; // can be Int or Float
+			// values within a vector are always doubles so Int |
+			// Float doesn't matter
+			int dimensions;
 		} vector_type;
 		struct {
 			TypeRecord *element_type;
 		} tuple_type;
 		struct {
-			TypeRecord *element_type; // can be Int or Float
+			// values with a matrix are always doubles so Int |
+			// Float doesn't matter
+			int rows;
+			int cols;
 		} matrix_type;
 		struct {
 			TypeRecord **arg_types;
@@ -92,9 +97,9 @@ TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type,
 TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type);
 TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition,
 				TypeTable *field_types, int field_count);
-TypeRecord *new_vector_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_vector_type_rec(TypeArena *arena, int dimensions);
 TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type);
-TypeRecord *new_matrix_type_rec(TypeArena *arena, TypeRecord *element_type);
+TypeRecord *new_matrix_type_rec(TypeArena *arena, int rows, int cols);
 TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types,
 				  int arg_count, TypeRecord *return_type);
 TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type);

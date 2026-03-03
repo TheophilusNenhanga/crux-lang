@@ -21,47 +21,43 @@ let COLOR_SCALE = 255.999;
 let INV_WIDTH = 1.0 / (IMAGE_WIDTH - 1);
 let INV_HEIGHT = 1.0 / (IMAGE_HEIGHT - 1);
 
-let VEC3_ZERO = Vec(3, [0, 0, 0])?;
-let VEC3_WHITE = Vec(3, [1.0, 1.0, 1.0])?;
-let VEC3_BLUE = Vec(3, [0.5, 0.7, 1.0])?;
+let VEC3_ZERO: Vector[3] = Vec(3, [0, 0, 0])?;
+let VEC3_WHITE: Vector[3] = Vec(3, [1.0, 1.0, 1.0])?;
+let VEC3_BLUE: Vector[3] = Vec(3, [0.5, 0.7, 1.0])?;
 
 struct Ray {
-    origin,    // Vec
-    direction, // Vec
-    at         // (Float) -> Vec
+    origin: Vector[3],
+    direction: Vector[3],
+    at: (Float) -> Vector[3]        // (Float) -> Vec
 }
 
 struct HitRecord {
-    p,          // Vec
-    normal,     // Vec
-    t,          // Float
-    front_face, // Bool
-    material    // Material
+    p:          Vector[3],
+    normal:     Vector[3],
+    t:          Float,
+    front_face: Bool,
+    material:   Material
 }
 
 struct Material {
-    scatter, // (Ray, HitRecord) -> Table | Nil
-    albedo,  // Vec
-    fuzz     // Float | Nil
+    scatter:    (Ray, HitRecord) -> Table[String, Vector[3]] | Nil,
+    albedo:     Vector[3],
+    fuzz:       Float | Nil
 }
 
 struct Sphere {
-    center,         // Vec
-    radius,         // Float
-    radius_squared, // Float  -- pre-calculated to avoid recomputing per ray
-    material        // Material
+    center:         Vector[3],
+    radius:         Float,
+    radius_squared: Float, // pre-calculated to avoid recomputing per ray
+    material:       Material
 }
 
-// -------------------------------------------------------------------------
-// Vector helpers
-// -------------------------------------------------------------------------
-
-fn reflect(vector, normal) {
+fn reflect(vector: Vector[3], normal: Vector[3]) -> Vector[3] {
     let d = vector.dot(normal)?;
     return vector.subtract(normal.multiply(2.0 * d)?)?;
 }
 
-fn random_in_unit_sphere() {
+fn random_in_unit_sphere() -> Vector[3] {
     while true {
         let p = Vec(3, [
             g_random.float(-1.0, 1.0)?,
@@ -74,15 +70,11 @@ fn random_in_unit_sphere() {
     }
 }
 
-fn random_unit_vector() {
+fn random_unit_vector() -> Vector[3] {
     return random_in_unit_sphere().normalize()?;
 }
 
-// -------------------------------------------------------------------------
-// Constructors
-// -------------------------------------------------------------------------
-
-fn new_ray(origin, direction) {
+fn new_ray(origin, direction) -> Ray {
     return new Ray {
         origin:    origin,
         direction: direction,
@@ -126,7 +118,7 @@ fn new_metal(albedo, fuzz) {
 }
 
 // albedo: Vec
-fn new_lambertian(albedo) {
+fn new_lambertian(albedo: Vector[3]) {
     fn scatter(ray_in, rec) {
         let scatter_direction = rec.normal.add(random_unit_vector())?;
 
@@ -152,7 +144,7 @@ fn new_lambertian(albedo) {
 // Intersection
 // -------------------------------------------------------------------------
 
-fn hit_sphere(sphere, ray, t_min, t_max) {
+fn hit_sphere(sphere, ray, t_min, t_max) -> Nil | HitRecord {
     let oc          = ray.origin.subtract(sphere.center)?;
     let a           = ray.direction.dot(ray.direction)?;
     let half_b      = oc.dot(ray.direction)?;
@@ -208,10 +200,6 @@ fn hit_world(ray, world, t_min, t_max) {
     return final_rec;
 }
 
-// -------------------------------------------------------------------------
-// Shading
-// -------------------------------------------------------------------------
-
 fn ray_color(ray, depth, world) {
     if depth <= 0 {
         return VEC3_ZERO;
@@ -241,11 +229,7 @@ fn ray_color(ray, depth, world) {
     return VEC3_WHITE.multiply(1.0 - t)?.add(VEC3_BLUE.multiply(t)?)?;
 }
 
-// -------------------------------------------------------------------------
-// Main
-// -------------------------------------------------------------------------
-
-fn main() {
+fn main() -> Nil {
     println("Setting up scene...");
 
     let world = [];
