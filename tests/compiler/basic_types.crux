@@ -1,28 +1,131 @@
-use println from "crux:io";
+use print, println, assert from "crux:io";
 use Random from "crux:random";
 use Buffer from "crux:buffer";
 use open from "crux:fs";
+use Vec from "crux:vector";
+use Matrix from "crux:matrix";
+use Complex from "crux:complex";
+use Range from "crux:range";
+use Tuple from "crux:tuple";
+use Set from "crux:set";
 
+println("--- 1. PRIMITIVES & LITERALS ---");
 let a: String = "test";
 let b: Int = 123;
 let c: Float = 3.14;
 let d: Bool = true;
-let e: Array[Int] = [1, 2, 3];
-let f: Array[String] = ["one", "two", "three"];
-let g: Table[String,Int] = {"one": 1, "two": 2, "three": 3};
-let h: File = open("test.txt", "w")?;
-let i: Buffer = Buffer();
-let j: Random = Random();
+let e: Nil = nil;
+let f: Any = 42;
+f = "now I am a string"; // Any allows reassignment to different types
 
-fn test_func(num: Int) -> Nil {
-    println("test func with arg num:" + string(num));
+println("--- 2. COMPOUND TYPES & GENERICS ---");
+let arr_int: Array[Int] = [1, 2, 3];
+let arr_str: Array[String] = ["one", "two", "three"];
+let empty_arr: Array[Any] = []; // Empty array inference fallback to Any
+
+let tbl: Table[String, Int] = {"one": 1, "two": 2};
+let empty_tbl: Table[Any, Any] = {};
+
+let set_val: Set[Int] = Set([1, 2, 3]);
+let tup_val: Tuple[Int] = Tuple([10, 20, 30]);
+let rng_val: Range = Range(0, 10, 1);
+
+println("--- 3. MATH & BINARY OPERATOR PROMOTION ---");
+let math_int: Int = 10 + 5 * 2;
+let math_flt: Float = 10.0 / 3.0;
+let math_mixed: Float = math_int + math_flt; // Int + Float -> Float promotion!
+let bitwise: Int = (10 << 1) | 1; // Bitwise requires Ints
+
+let cmp_bool: Bool = (math_int > 5) and (math_flt <= 20.0) or not false;
+let str_concat: String = "Hello " + "World";
+
+println("--- 4. COMPOUND ASSIGNMENTS ---");
+let counter: Int = 0;
+counter += 10;
+counter *= 2;
+counter \= 3; // Int divide
+let f_counter: Float = 1.0;
+f_counter += 2.5;
+f_counter += counter; // Float += Int is allowed
+
+println("--- 5. UNIONS ---");
+let my_union: Int | String = 100;
+my_union = "string now";
+// my_union = 3.14; // Compile Error: Float not compatible with Int | String
+
+fn process_union(val: Int | Float) -> Float {
+    return float(val)? + 1.0;
+}
+assert(process_union(10) == 11.0, "Union function failed");
+assert(process_union(10.5) == 11.5, "Union function failed");
+
+println("--- 6. STRUCTS & INSTANCES ---");
+struct Player {
+    name: String,
+    score: Int | Float,
+    is_active: Bool
 }
 
-test_func(42);
+let p1: Player = new Player {
+    name: "Hero",
+    score: 1500, // Matches Int | Float
+    is_active: true
+};
+p1.score = 2000.5; // Struct property assignment
+let p1_score: Int | Float = p1.score; // Struct property get
 
-let k: Nil = nil;
-let l: (Int) -> Int = fn (num: Int) -> Int {
-    num + 1;
+println("--- 7. FUNCTIONS, CLOSURES & HIGHER ORDER ---");
+fn add(x: Int, y: Int) -> Int {
+    return x + y;
+}
+
+let closure_fn: (Int) -> Int = fn (num: Int) -> Int {
+    return num * counter; // Captures local 'counter'
 };
 
-println(l(42));
+fn apply_twice(func: (Int) -> Int, val: Int) -> Int {
+    return func(func(val));
+}
+assert(apply_twice(closure_fn, 2) == 80, "HOF failed");
+
+println("--- 8. STDLIB NATIVE OBJECTS & METHODS ---");
+let buf: Buffer = Buffer();
+buf.write_string("data");
+
+let rand: Random = Random();
+let r_val: Int = rand.int(0, 10);
+
+let comp: Complex = Complex(1.0, 2.0);
+
+println("--- 9. WILDCARD MATRICES & VECTORS ---");
+let v_exact: Vector[3] = Vec(3, [1.0, 2.0, 3.0]);
+let v_wild: Vector[] = Vec(5, [1.0, 2.0, 3.0, 4.0, 5.0]); // Vector[] accepts any dimension
+let m_wild: Matrix[,] = Matrix(4, 4);
+
+// v_exact = Vec(4, [1.0, 2.0, 3.0, 4.0]); // Compile Error: Vector[4] != Vector[3]
+v_wild = v_exact; // Vector[3] is compatible with Vector[]!
+
+println("--- 10. RESULT TYPES & MATCH EXPRESSIONS ---");
+fn might_fail(fail: Bool) -> Result[Int] {
+    if fail {
+        return err("It failed!");
+    }
+    return ok(42);
+}
+
+let res: Result[Int] = might_fail(false);
+
+// Unwrapping with operator
+let unwrapped: Int = res?;
+
+// Exhaustive match testing
+let match_val: String = match might_fail(true) {
+    Ok(val) => {
+        give "Success: " + string(val);
+    }
+    Err(e) => {
+        give "Error: " + e.message();
+    }
+};
+
+println("All type checks passed successfully!");
