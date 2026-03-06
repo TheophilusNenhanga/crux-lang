@@ -65,13 +65,13 @@ typedef struct {
 	Token name;
 	int depth;
 	bool is_captured;
-	TypeRecord *type;
+	ObjectTypeRecord *type;
 } Local;
 
 typedef struct {
 	uint8_t index;
 	bool is_local;
-	TypeRecord *type;
+	ObjectTypeRecord *type;
 } Upvalue;
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_ANONYMOUS } FunctionType;
@@ -82,7 +82,7 @@ typedef struct BreakJump BreakJump;
 
 struct BreakJump {
 	int jumpOffset;
-	struct BreakJump *next;
+	BreakJump *next;
 };
 
 typedef struct {
@@ -99,7 +99,7 @@ struct Compiler {
 	Compiler *enclosing;
 	ObjectFunction *function;
 	FunctionType type;
-	TypeRecord *return_type;
+	ObjectTypeRecord *return_type;
 	int local_count;
 	int scope_depth; // 0 is global scope
 	int match_depth;
@@ -107,17 +107,16 @@ struct Compiler {
 	LoopContext loop_stack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
-	TypeRecord *type_stack[UINT8_COUNT];
-	TypeArena type_arena;
+	ObjectTypeRecord *type_stack[UINT8_COUNT];
 	int type_stack_count;
-	TypeTable type_table;
-	TypeRecord *last_give_type;
+	ObjectTypeTable *type_table;
+	ObjectTypeRecord *last_give_type;
 };
 
-TypeRecord *parse_type_record();
+ObjectTypeRecord *parse_type_record();
 
-void push_type_record(TypeRecord *type_record);
-TypeRecord *pop_type_record(void);
-TypeRecord *peek_type_record(void);
+void push_type_record(ObjectTypeRecord *type_record);
+ObjectTypeRecord *pop_type_record(void);
+ObjectTypeRecord *peek_type_record(void);
 
 #endif // COMPILER_H

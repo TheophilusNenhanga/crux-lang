@@ -8,8 +8,8 @@ typedef struct {
 	const char *name;
 	CruxCallable function;
 	int arity;
-	TypeRecord **arg_types; // heap-allocated, may be NULL for 0-arity
-	TypeRecord *return_type; // arena-allocated
+	ObjectTypeRecord **arg_types; // may be NULL for 0-arity
+	ObjectTypeRecord *return_type;
 } Callable;
 
 bool initialize_std_lib(VM *vm);

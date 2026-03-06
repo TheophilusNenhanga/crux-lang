@@ -143,7 +143,7 @@ static void emit_words(const uint16_t word1, const uint16_t word2)
 	emit_word(word2);
 }
 
-static bool is_valid_table_key_type(TypeRecord *type)
+static bool is_valid_table_key_type(ObjectTypeRecord *type)
 {
 	if (!type)
 		return false;
@@ -152,37 +152,37 @@ static bool is_valid_table_key_type(TypeRecord *type)
 	return (type->base_type & HASHABLE_TYPE) != 0;
 }
 
-#define T_ANY new_type_rec(&current->type_arena, ANY_TYPE)
+#define T_ANY new_type_rec(current->owner, ANY_TYPE)
 
-TypeRecord *parse_type_record()
+ObjectTypeRecord *parse_type_record()
 {
-	TypeRecord *type_record = NULL;
+	ObjectTypeRecord *type_record = NULL;
 
 	if (match(TOKEN_INT_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, INT_TYPE);
+		type_record = new_type_rec(current->owner, INT_TYPE);
 	} else if (match(TOKEN_FLOAT_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, FLOAT_TYPE);
+		type_record = new_type_rec(current->owner, FLOAT_TYPE);
 	} else if (match(TOKEN_BOOL_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, BOOL_TYPE);
+		type_record = new_type_rec(current->owner, BOOL_TYPE);
 	} else if (match(TOKEN_STRING_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, STRING_TYPE);
+		type_record = new_type_rec(current->owner, STRING_TYPE);
 	} else if (match(TOKEN_NIL_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, NIL_TYPE);
+		type_record = new_type_rec(current->owner, NIL_TYPE);
 	} else if (match(TOKEN_ANY_TYPE)) {
 		type_record = T_ANY;
 	} else if (match(TOKEN_ARRAY_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, ARRAY_TYPE);
+			type_record = new_type_rec(current->owner, ARRAY_TYPE);
 			type_record->as.array_type.element_type = parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after array element type.");
 		} else {
 			compiler_panic(&parser, "Expected '[' for array type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_TABLE_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, TABLE_TYPE);
-			TypeRecord *key_type = parse_type_record();
+			type_record = new_type_rec(current->owner, TABLE_TYPE);
+			ObjectTypeRecord *key_type = parse_type_record();
 			// Task 4: enforce hashable key types
 			if (!is_valid_table_key_type(key_type)) {
 				char got[64], msg[192];
@@ -200,11 +200,11 @@ TypeRecord *parse_type_record()
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after table element type.");
 		} else {
 			compiler_panic(&parser, "Expected '[' for table type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_VECTOR_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, VECTOR_TYPE);
+			type_record = new_type_rec(current->owner, VECTOR_TYPE);
 
 			// consuming a generic vector type
 			if (match(TOKEN_RIGHT_SQUARE)) {
@@ -218,11 +218,11 @@ TypeRecord *parse_type_record()
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after vector element type.");
 		} else {
 			compiler_panic(&parser, "Expected '[' for vector type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_MATRIX_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, MATRIX_TYPE);
+			type_record = new_type_rec(current->owner, MATRIX_TYPE);
 			if (match(TOKEN_COMMA)) {
 				if (match(TOKEN_RIGHT_SQUARE)) {
 					type_record->as.matrix_type.cols = -1;
@@ -234,7 +234,7 @@ TypeRecord *parse_type_record()
 								   "definition of generic "
 								   "matrix type",
 								   SYNTAX);
-					type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+					type_record = new_type_rec(current->owner, ANY_TYPE);
 				}
 			}
 
@@ -247,60 +247,60 @@ TypeRecord *parse_type_record()
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after matrix element type.");
 		} else {
 			compiler_panic(&parser, "Expected '[' for matrix type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_BUFFER_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, BUFFER_TYPE);
+		type_record = new_type_rec(current->owner, BUFFER_TYPE);
 	} else if (match(TOKEN_ERROR_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, ERROR_TYPE);
+		type_record = new_type_rec(current->owner, ERROR_TYPE);
 	} else if (match(TOKEN_RESULT_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			TypeRecord *value_type = parse_type_record();
+			ObjectTypeRecord *value_type = parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after result value type.");
-			type_record = new_result_type_rec(&current->type_arena, value_type);
+			type_record = new_result_type_rec(current->owner, value_type);
 		} else {
 			compiler_panic(&parser, "Expected '[' for result type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_RANGE_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, RANGE_TYPE);
+		type_record = new_type_rec(current->owner, RANGE_TYPE);
 	} else if (match(TOKEN_TUPLE_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, TUPLE_TYPE);
+			type_record = new_type_rec(current->owner, TUPLE_TYPE);
 			type_record->as.tuple_type.element_type = parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element type.");
 		} else {
 			compiler_panic(&parser, "Expected '[' for tuple type definition.", TYPE);
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		}
 	} else if (match(TOKEN_COMPLEX_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, COMPLEX_TYPE);
+		type_record = new_type_rec(current->owner, COMPLEX_TYPE);
 	} else if (match(TOKEN_LEFT_PAREN)) {
 		// Function type: (ParamType, ...) -> ReturnType
 		// The arg_types array is heap-allocated and intentionally not
-		// freed here — it is owned by the TypeRecord for the duration
+		// freed here — it is owned by the ObjectTypeRecord for the duration
 		// of compilation and freed when the compiler is torn down.
 		int param_capacity = 4;
 		int param_count = 0;
-		TypeRecord **param_types = malloc(sizeof(TypeRecord *) * param_capacity);
+		ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
 		if (!param_types) {
 			compiler_panic(&parser, "Memory allocation failed.", MEMORY);
 			return T_ANY;
 		}
 
 		do {
-			TypeRecord *inner = parse_type_record();
+			ObjectTypeRecord *inner = parse_type_record();
 			if (!inner) {
 				compiler_panic(&parser, "Expected type.", TYPE);
-				inner = new_type_rec(&current->type_arena, ANY_TYPE);
+				inner = new_type_rec(current->owner, ANY_TYPE);
 			}
 			if (param_count == param_capacity) {
 				param_capacity *= 2;
-				TypeRecord **grown = realloc(param_types, sizeof(TypeRecord *) * param_capacity);
+				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
 				if (!grown) {
 					free(param_types);
 					compiler_panic(&parser, "Memory allocation failed.", MEMORY);
-					return new_type_rec(&current->type_arena, ANY_TYPE);
+					return new_type_rec(current->owner, ANY_TYPE);
 				}
 				param_types = grown;
 			}
@@ -310,7 +310,7 @@ TypeRecord *parse_type_record()
 
 		consume(TOKEN_ARROW, "Expected '->' to separate function "
 							 "argument types from return type.");
-		TypeRecord *return_type = parse_type_record();
+		ObjectTypeRecord *return_type = parse_type_record();
 		if (!return_type) {
 			compiler_panic(&parser, "Expected type.", TYPE);
 			free(param_types);
@@ -319,37 +319,37 @@ TypeRecord *parse_type_record()
 
 		// Shrink to exact size — we keep this array alive.
 		if (param_count > 0) {
-			TypeRecord **shrunk = realloc(param_types, sizeof(TypeRecord *) * param_count);
+			ObjectTypeRecord **shrunk = realloc(param_types, sizeof(ObjectTypeRecord *) * param_count);
 			if (shrunk)
 				param_types = shrunk;
 		}
 
-		type_record = new_type_rec(&current->type_arena, FUNCTION_TYPE);
+		type_record = new_type_rec(current->owner, FUNCTION_TYPE);
 		type_record->as.function_type.arg_types = param_types;
 		type_record->as.function_type.arg_count = param_count;
 		type_record->as.function_type.return_type = return_type;
 	} else if (match(TOKEN_SET_TYPE)) {
 		if (match(TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(&current->type_arena, SET_TYPE);
+			type_record = new_type_rec(current->owner, SET_TYPE);
 			type_record->as.set_type.element_type = parse_type_record();
 			consume(TOKEN_RIGHT_SQUARE, "Expected ']' after set element type.");
 		} else {
-			type_record = new_type_rec(&current->type_arena, SET_TYPE);
+			type_record = new_type_rec(current->owner, SET_TYPE);
 		}
 	} else if (match(TOKEN_RANDOM_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, RANDOM_TYPE);
+		type_record = new_type_rec(current->owner, RANDOM_TYPE);
 	} else if (match(TOKEN_FILE_TYPE)) {
-		type_record = new_type_rec(&current->type_arena, FILE_TYPE);
+		type_record = new_type_rec(current->owner, FILE_TYPE);
 	} else if (check(TOKEN_IDENTIFIER)) {
 		// Task 3: look up a user-defined struct (or other named) type.
 		// Walk the compiler chain so inner functions see enclosing
 		// struct declarations.
 		advance();
 		ObjectString *name_str = copy_string(current->owner, parser.previous.start, parser.previous.length);
-		TypeRecord *found = NULL;
+		ObjectTypeRecord *found = NULL;
 		Compiler *comp = current;
 		while (comp != NULL) {
-			if (type_table_get(&comp->type_table, name_str, &found))
+			if (type_table_get(comp->type_table, name_str, &found))
 				break;
 			comp = comp->enclosing;
 		}
@@ -357,7 +357,7 @@ TypeRecord *parse_type_record()
 			// Forward reference or unknown name — degrade to
 			// ANY_TYPE. The pre-scanner resolves most of these
 			// before the main pass begins.
-			type_record = new_type_rec(&current->type_arena, ANY_TYPE);
+			type_record = new_type_rec(current->owner, ANY_TYPE);
 		} else {
 			type_record = found;
 		}
@@ -367,7 +367,7 @@ TypeRecord *parse_type_record()
 	}
 
 	// Task 2: union type parsing — if a '|' follows the first type,
-	// collect additional variants into a union TypeRecord.
+	// collect additional variants into a union ObjectTypeRecord.
 	// Note: TOKEN_PIPE is also used as bitwise-OR in binary(), but
 	// parse_type_record() is only called in type-annotation context
 	// where '|' always means union.
@@ -375,8 +375,8 @@ TypeRecord *parse_type_record()
 		int cap = 4;
 		int count = 1;
 		// Heap-allocate the variants array; it is owned by the
-		// TypeRecord and lives for the duration of compilation.
-		TypeRecord **variants = malloc(sizeof(TypeRecord *) * cap);
+		// ObjectTypeRecord and lives for the duration of compilation.
+		ObjectTypeRecord **variants = malloc(sizeof(ObjectTypeRecord *) * cap);
 		if (!variants) {
 			compiler_panic(&parser, "Memory allocation failed.", MEMORY);
 			return type_record; // return first variant as fallback
@@ -386,7 +386,7 @@ TypeRecord *parse_type_record()
 		do {
 			if (count == cap) {
 				cap *= 2;
-				TypeRecord **grown = realloc(variants, sizeof(TypeRecord *) * cap);
+				ObjectTypeRecord **grown = realloc(variants, sizeof(ObjectTypeRecord *) * cap);
 				if (!grown) {
 					free(variants);
 					compiler_panic(&parser, "Memory allocation failed.", MEMORY);
@@ -398,10 +398,10 @@ TypeRecord *parse_type_record()
 		} while (match(TOKEN_PIPE));
 
 		// element_names can be NULL for anonymous unions.
-		type_record = new_union_type_rec(&current->type_arena, variants, NULL, count);
+		type_record = new_union_type_rec(current->owner, variants, NULL, count);
 		// Do NOT free(variants) — new_union_type_rec stores the
 		// pointer and it must remain valid for the life of the
-		// TypeRecord (compiler arena duration).
+		// ObjectTypeRecord (compiler arena duration).
 	}
 
 	return type_record;
@@ -520,12 +520,12 @@ static void add_break_jump(const int jumpOffset)
 	context->break_jumps = breakJump;
 }
 
-void push_type_record(TypeRecord *type_record)
+void push_type_record(ObjectTypeRecord *type_record)
 {
 	current->type_stack[current->type_stack_count++] = type_record;
 }
 
-TypeRecord *pop_type_record(void)
+ObjectTypeRecord *pop_type_record(void)
 {
 	if (current->type_stack_count <= 0) {
 		return T_ANY; // return Any type on underflow
@@ -533,7 +533,7 @@ TypeRecord *pop_type_record(void)
 	return current->type_stack[--current->type_stack_count];
 }
 
-TypeRecord *peek_type_record(void)
+ObjectTypeRecord *peek_type_record(void)
 {
 	if (current->type_stack_count <= 0)
 		return NULL;
@@ -552,8 +552,11 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 	compiler->loop_depth = 0;
 	compiler->owner = vm;
 
-	init_type_table(&compiler->type_table);
-	type_arena_reset(&compiler->type_arena);
+	compiler->type_table = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	// Load existing types from the module record if this is a script
+	if (type == TYPE_SCRIPT && vm->current_module_record) {
+		type_table_add_all(vm->current_module_record->types, compiler->type_table);
+	}
 
 	compiler->function = new_function(compiler->owner);
 	current = compiler;
@@ -670,7 +673,7 @@ static int get_current_continue_target(void)
  * @return The index of the added upvalue in the current function's upvalue
  * array.
  */
-static int add_upvalue(Compiler *compiler, const uint16_t index, const bool isLocal, TypeRecord *type)
+static int add_upvalue(Compiler *compiler, const uint16_t index, const bool isLocal, ObjectTypeRecord *type)
 {
 	const int upvalueCount = compiler->function->upvalue_count;
 
@@ -713,13 +716,13 @@ static int resolve_upvalue(Compiler *compiler, Token *name)
 	const int local = resolve_local(compiler->enclosing, name);
 	if (local != -1) {
 		(compiler->enclosing)->locals[local].is_captured = true;
-		TypeRecord *type = compiler->enclosing->locals[local].type;
+		ObjectTypeRecord *type = compiler->enclosing->locals[local].type;
 		return add_upvalue(compiler, (uint16_t)local, true, type);
 	}
 
 	const int upValue = resolve_upvalue(compiler->enclosing, name);
 	if (upValue != -1) {
-		TypeRecord *type = compiler->enclosing->upvalues[upValue].type;
+		ObjectTypeRecord *type = compiler->enclosing->upvalues[upValue].type;
 		return add_upvalue(compiler, (uint16_t)upValue, false, type);
 	}
 
@@ -731,7 +734,7 @@ static int resolve_upvalue(Compiler *compiler, Token *name)
  *
  * @param name The token representing the name of the local variable.
  */
-static void add_local(const Token name, TypeRecord *type)
+static void add_local(const Token name, ObjectTypeRecord *type)
 {
 	if (current->local_count == UINT16_MAX) {
 		compiler_panic(&parser, "Too many local variables in function.", LOCAL_EXTENT);
@@ -913,7 +916,7 @@ static void named_variable(Token name, const bool can_assign)
 {
 	uint16_t getOp, setOp;
 	int arg = resolve_local(current, &name);
-	TypeRecord *var_type = NULL;
+	ObjectTypeRecord *var_type = NULL;
 
 	if (arg != -1) {
 		getOp = OP_GET_LOCAL;
@@ -933,7 +936,7 @@ static void named_variable(Token name, const bool can_assign)
 		ObjectString *name_str = copy_string(current->owner, name.start, name.length);
 		Compiler *comp = current;
 		while (comp != NULL) {
-			if (type_table_get(&comp->type_table, name_str, &var_type))
+			if (type_table_get(comp->type_table, name_str, &var_type))
 				break;
 			comp = comp->enclosing;
 		}
@@ -943,7 +946,7 @@ static void named_variable(Token name, const bool can_assign)
 		// ---- Plain assignment: x = expr ----
 		if (match(TOKEN_EQUAL)) {
 			expression();
-			TypeRecord *value_type = pop_type_record();
+			ObjectTypeRecord *value_type = pop_type_record();
 
 			if (var_type && value_type && var_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE) {
 				if (!types_compatible(var_type, value_type)) {
@@ -984,7 +987,7 @@ static void named_variable(Token name, const bool can_assign)
 
 		if (isCompoundAssignment) {
 			expression();
-			TypeRecord *rhs_type = pop_type_record();
+			ObjectTypeRecord *rhs_type = pop_type_record();
 
 			if (var_type && rhs_type && var_type->base_type != ANY_TYPE && rhs_type->base_type != ANY_TYPE) {
 				const bool var_num = var_type->base_type == INT_TYPE || var_type->base_type == FLOAT_TYPE;
@@ -1033,7 +1036,7 @@ static void and_(bool can_assign)
 {
 	(void)can_assign;
 
-	const TypeRecord *left_type = pop_type_record();
+	const ObjectTypeRecord *left_type = pop_type_record();
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "Left operand of 'and' must be of type 'Bool'.", TYPE);
 	}
@@ -1042,14 +1045,14 @@ static void and_(bool can_assign)
 	emit_word(OP_POP);
 	parse_precedence(PREC_AND);
 
-	const TypeRecord *right_type = pop_type_record();
+	const ObjectTypeRecord *right_type = pop_type_record();
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "Right operand of 'and' must be of type 'Bool'.", TYPE);
 	}
 
 	patch_jump(endJump);
 
-	push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
+	push_type_record(new_type_rec(current->owner, BOOL_TYPE));
 }
 
 static void or_(bool can_assign)
@@ -1057,7 +1060,7 @@ static void or_(bool can_assign)
 	(void)can_assign;
 
 	// Same reasoning as and_ — left type is already on the stack.
-	TypeRecord *left_type = pop_type_record();
+	ObjectTypeRecord *left_type = pop_type_record();
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "Left operand of 'or' must be of type 'Bool'.", TYPE);
 	}
@@ -1068,7 +1071,7 @@ static void or_(bool can_assign)
 	emit_word(OP_POP);
 	parse_precedence(PREC_OR);
 
-	TypeRecord *right_type = pop_type_record();
+	ObjectTypeRecord *right_type = pop_type_record();
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "Right operand of 'or' must be of type 'Bool'.", TYPE);
 	}
@@ -1076,7 +1079,7 @@ static void or_(bool can_assign)
 	patch_jump(endJump);
 
 	// Always push so the stack stays balanced even after a panic.
-	push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
+	push_type_record(new_type_rec(current->owner, BOOL_TYPE));
 }
 
 static ObjectFunction *end_compiler(void)
@@ -1102,9 +1105,9 @@ static void binary(bool can_assign)
 	const ParseRule *rule = get_rule(operatorType);
 	parse_precedence(rule->precedence + 1);
 
-	TypeRecord *right_type = pop_type_record();
-	TypeRecord *left_type = pop_type_record();
-	TypeRecord *result_type = NULL;
+	ObjectTypeRecord *right_type = pop_type_record();
+	ObjectTypeRecord *left_type = pop_type_record();
+	ObjectTypeRecord *result_type = NULL;
 
 	const bool either_any = (left_type && left_type->base_type == ANY_TYPE) ||
 							(right_type && right_type->base_type == ANY_TYPE) || !left_type || !right_type;
@@ -1112,12 +1115,12 @@ static void binary(bool can_assign)
 	switch (operatorType) {
 	case TOKEN_EQUAL_EQUAL:
 		emit_word(OP_EQUAL);
-		result_type = new_type_rec(&current->type_arena, BOOL_TYPE);
+		result_type = new_type_rec(current->owner, BOOL_TYPE);
 		break;
 
 	case TOKEN_BANG_EQUAL:
 		emit_word(OP_NOT_EQUAL);
-		result_type = new_type_rec(&current->type_arena, BOOL_TYPE);
+		result_type = new_type_rec(current->owner, BOOL_TYPE);
 		break;
 
 	case TOKEN_GREATER:
@@ -1154,7 +1157,7 @@ static void binary(bool can_assign)
 			break;
 		}
 
-		result_type = new_type_rec(&current->type_arena, BOOL_TYPE);
+		result_type = new_type_rec(current->owner, BOOL_TYPE);
 		break;
 	}
 
@@ -1162,7 +1165,7 @@ static void binary(bool can_assign)
 		emit_word(OP_ADD);
 
 		if (either_any) {
-			result_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			result_type = new_type_rec(current->owner, ANY_TYPE);
 			break;
 		}
 
@@ -1176,7 +1179,7 @@ static void binary(bool can_assign)
 							   "non-String.",
 							   TYPE);
 			}
-			result_type = new_type_rec(&current->type_arena, STRING_TYPE);
+			result_type = new_type_rec(current->owner, STRING_TYPE);
 			break;
 		}
 
@@ -1192,9 +1195,9 @@ static void binary(bool can_assign)
 
 		// Int + Float => Float
 		if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = new_type_rec(&current->type_arena, FLOAT_TYPE);
+			result_type = new_type_rec(current->owner, FLOAT_TYPE);
 		} else {
-			result_type = new_type_rec(&current->type_arena, INT_TYPE);
+			result_type = new_type_rec(current->owner, INT_TYPE);
 		}
 		break;
 	}
@@ -1218,11 +1221,11 @@ static void binary(bool can_assign)
 		emit_word(operatorType == TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
 
 		if (either_any) {
-			result_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			result_type = new_type_rec(current->owner, ANY_TYPE);
 		} else if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = new_type_rec(&current->type_arena, FLOAT_TYPE);
+			result_type = new_type_rec(current->owner, FLOAT_TYPE);
 		} else {
-			result_type = new_type_rec(&current->type_arena, INT_TYPE);
+			result_type = new_type_rec(current->owner, INT_TYPE);
 		}
 		break;
 	}
@@ -1236,7 +1239,7 @@ static void binary(bool can_assign)
 			}
 		}
 		emit_word(OP_DIVIDE);
-		result_type = new_type_rec(&current->type_arena, FLOAT_TYPE);
+		result_type = new_type_rec(current->owner, FLOAT_TYPE);
 		break;
 	}
 
@@ -1251,7 +1254,7 @@ static void binary(bool can_assign)
 			}
 		}
 		emit_word(operatorType == TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
-		result_type = new_type_rec(&current->type_arena, INT_TYPE);
+		result_type = new_type_rec(current->owner, INT_TYPE);
 		break;
 	}
 
@@ -1289,7 +1292,7 @@ static void binary(bool can_assign)
 			break;
 		}
 
-		result_type = new_type_rec(&current->type_arena, INT_TYPE);
+		result_type = new_type_rec(current->owner, INT_TYPE);
 		break;
 	}
 
@@ -1302,7 +1305,7 @@ static void binary(bool can_assign)
 			}
 		}
 		emit_word(OP_POWER);
-		result_type = new_type_rec(&current->type_arena, FLOAT_TYPE);
+		result_type = new_type_rec(current->owner, FLOAT_TYPE);
 		break;
 	}
 
@@ -1319,9 +1322,9 @@ static void infix_call(bool can_assign)
 {
 	(void)can_assign;
 
-	const TypeRecord *func_type = pop_type_record();
+	const ObjectTypeRecord *func_type = pop_type_record();
 	uint16_t arg_count = 0;
-	TypeRecord *arg_types[UINT8_COUNT] = {0};
+	ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
 	if (!check(TOKEN_RIGHT_PAREN)) {
 		do {
@@ -1349,8 +1352,8 @@ static void infix_call(bool can_assign)
 							(int)arg_count);
 		} else {
 			for (int i = 0; i < (int)arg_count; i++) {
-				TypeRecord *expected = func_type->as.function_type.arg_types[i];
-				TypeRecord *got = arg_types[i];
+				ObjectTypeRecord *expected = func_type->as.function_type.arg_types[i];
+				ObjectTypeRecord *got = arg_types[i];
 				if (expected && got && expected->base_type != ANY_TYPE && got->base_type != ANY_TYPE) {
 					if (!types_compatible(expected, got)) {
 						char exp_name[128], got_name[128];
@@ -1366,7 +1369,7 @@ static void infix_call(bool can_assign)
 			}
 		}
 
-		TypeRecord *ret = func_type->as.function_type.return_type;
+		ObjectTypeRecord *ret = func_type->as.function_type.return_type;
 		push_type_record(ret ? ret : T_ANY);
 	} else {
 		compiler_panic(&parser, "Attempting to call - but compiler cannot gaurantee this is a function.", TYPE);
@@ -1381,15 +1384,15 @@ static void literal(bool can_assign)
 	switch (parser.previous.type) {
 	case TOKEN_FALSE:
 		emit_word(OP_FALSE);
-		push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
+		push_type_record(new_type_rec(current->owner, BOOL_TYPE));
 		break;
 	case TOKEN_NIL:
 		emit_word(OP_NIL);
-		push_type_record(new_type_rec(&current->type_arena, NIL_TYPE));
+		push_type_record(new_type_rec(current->owner, NIL_TYPE));
 		break;
 	case TOKEN_TRUE:
 		emit_word(OP_TRUE);
-		push_type_record(new_type_rec(&current->type_arena, BOOL_TYPE));
+		push_type_record(new_type_rec(current->owner, BOOL_TYPE));
 		break;
 	default:
 		return; // unreachable
@@ -1406,21 +1409,21 @@ static void dot(const bool can_assign)
 		compiler_panic(&parser, "Too many constants.", SYNTAX);
 	}
 
-	TypeRecord *object_type = pop_type_record();
+	ObjectTypeRecord *object_type = pop_type_record();
 	if (!object_type)
 		object_type = T_ANY;
 
 	// OP_SET_PROPERTY - this only works for structs
 	if (can_assign && match(TOKEN_EQUAL)) {
 		expression();
-		TypeRecord *value_type = pop_type_record();
+		ObjectTypeRecord *value_type = pop_type_record();
 
 		if (object_type->base_type == STRUCT_TYPE && value_type) {
-			const TypeTable *field_types = object_type->as.struct_type.field_types;
+			const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
 
 			const ObjectString *field_name = copy_string(current->owner, method_name_token.start,
 														 method_name_token.length);
-			TypeRecord *field_type = NULL;
+			ObjectTypeRecord *field_type = NULL;
 			if (type_table_get(field_types, field_name, &field_type)) {
 				if (field_type && field_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE &&
 					!types_compatible(field_type, value_type)) {
@@ -1439,14 +1442,14 @@ static void dot(const bool can_assign)
 		}
 
 		emit_words(OP_SET_PROPERTY, name_constant);
-		push_type_record(new_type_rec(&current->type_arena, NIL_TYPE));
+		push_type_record(new_type_rec(current->owner, NIL_TYPE));
 		return;
 	}
 
 	// OP_INVOKE
 	if (match(TOKEN_LEFT_PAREN)) {
 		uint16_t arg_count = 0;
-		TypeRecord *arg_types[UINT8_COUNT] = {0};
+		ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
 		if (!check(TOKEN_RIGHT_PAREN)) {
 			do {
@@ -1459,16 +1462,16 @@ static void dot(const bool can_assign)
 		emit_words(OP_INVOKE, name_constant);
 		emit_word(arg_count);
 
-		TypeRecord **method_arg_types = NULL;
-		TypeRecord *method_return = NULL;
+		ObjectTypeRecord **method_arg_types = NULL;
+		ObjectTypeRecord *method_return = NULL;
 		int method_arity = 0; // includes self as arg[0]
 		bool method_found = false;
 
 		if (object_type->base_type == STRUCT_TYPE) {
-			const TypeTable *field_types = object_type->as.struct_type.field_types;
+			const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
 			const ObjectString *field_name = copy_string(current->owner, method_name_token.start,
 														 method_name_token.length);
-			TypeRecord *fn_type = NULL;
+			ObjectTypeRecord *fn_type = NULL;
 			if (type_table_get(field_types, field_name, &fn_type) && fn_type && fn_type->base_type == FUNCTION_TYPE) {
 				method_arg_types = fn_type->as.function_type.arg_types;
 				method_arity = fn_type->as.function_type.arg_count;
@@ -1567,8 +1570,8 @@ static void dot(const bool can_assign)
 				compiler_panic(&parser, msg, ARGUMENT_MISMATCH);
 			} else {
 				for (int i = 0; i < (int)arg_count; i++) {
-					TypeRecord *expected = method_arg_types[i + param_offset];
-					TypeRecord *got_type = arg_types[i];
+					ObjectTypeRecord *expected = method_arg_types[i + param_offset];
+					ObjectTypeRecord *got_type = arg_types[i];
 					if (expected && got_type && expected->base_type != ANY_TYPE && got_type->base_type != ANY_TYPE &&
 						!types_compatible(expected, got_type)) {
 						char exp_name[128], got_name[128], msg[300];
@@ -1591,12 +1594,12 @@ static void dot(const bool can_assign)
 	// OP_GET_PROPERTY - only works on structs
 	emit_words(OP_GET_PROPERTY, name_constant);
 
-	TypeRecord *result_type = NULL;
+	ObjectTypeRecord *result_type = NULL;
 
 	if (object_type->base_type == STRUCT_TYPE) {
-		const TypeTable *field_types = object_type->as.struct_type.field_types;
+		const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
 		const ObjectString *field_name = copy_string(current->owner, method_name_token.start, method_name_token.length);
-		TypeRecord *field_type = NULL;
+		ObjectTypeRecord *field_type = NULL;
 		if (type_table_get(field_types, field_name, &field_type)) {
 			result_type = field_type;
 		} else {
@@ -1623,7 +1626,7 @@ void struct_instance(const bool can_assign)
 	// named_variable pushes the type of the name it resolved — for a
 	// struct this should be a STRUCT_TYPE record. Pop it now so we can
 	// use its field table during initializer validation.
-	TypeRecord *struct_type = pop_type_record();
+	ObjectTypeRecord *struct_type = pop_type_record();
 
 	// Validate that the name actually refers to a struct. ANY_TYPE means
 	// the pre-scan hasn't run yet or the name came from an import, so we
@@ -1668,7 +1671,7 @@ void struct_instance(const bool can_assign)
 							   SYNTAX);
 				if (field_seen)
 					FREE_ARRAY(current->owner, bool, field_seen, declared_field_count);
-				push_type_record(new_type_rec(&current->type_arena, ANY_TYPE));
+				push_type_record(new_type_rec(current->owner, ANY_TYPE));
 				return;
 			}
 
@@ -1678,10 +1681,10 @@ void struct_instance(const bool can_assign)
 			consume(TOKEN_COLON, "Expected ':' after struct field name.");
 
 			expression();
-			TypeRecord *value_type = pop_type_record();
+			ObjectTypeRecord *value_type = pop_type_record();
 
 			if (type_known) {
-				TypeTable *field_types = struct_type->as.struct_type.field_types;
+				ObjectTypeTable *field_types = struct_type->as.struct_type.field_types;
 				ObjectStruct *definition = struct_type->as.struct_type.definition;
 
 				// Check the field exists on the struct.
@@ -1709,7 +1712,7 @@ void struct_instance(const bool can_assign)
 
 					// Validate the value type against the
 					// declared field type.
-					TypeRecord *declared_field_type = NULL;
+					ObjectTypeRecord *declared_field_type = NULL;
 					type_table_get(field_types, fieldName, &declared_field_type);
 
 					if (declared_field_type && value_type && declared_field_type->base_type != ANY_TYPE &&
@@ -1810,7 +1813,7 @@ static void function(const FunctionType type)
 	// enclosing arena after end_compiler() restores current.
 	int param_capacity = 4;
 	int param_count = 0;
-	TypeRecord **param_types = malloc(sizeof(TypeRecord *) * param_capacity);
+	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
 	if (!param_types) {
 		compiler_panic(&parser, "Memory allocation failed.", MEMORY);
 		return;
@@ -1829,13 +1832,13 @@ static void function(const FunctionType type)
 			const uint16_t constant = parse_variable("Expected parameter name.");
 
 			consume(TOKEN_COLON, "Expect ':' after parameter name.");
-			TypeRecord *param_type = parse_type_record();
+			ObjectTypeRecord *param_type = parse_type_record();
 
 			current->locals[current->local_count - 1].type = param_type;
 
 			if (param_count == param_capacity) {
 				param_capacity *= 2;
-				TypeRecord **grown = realloc(param_types, sizeof(TypeRecord *) * param_capacity);
+				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
 				if (!grown) {
 					free(param_types);
 					compiler_panic(&parser, "Memory allocation failed.", MEMORY);
@@ -1852,15 +1855,12 @@ static void function(const FunctionType type)
 	consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
 	consume(TOKEN_ARROW, "Expect '->' after parameter list.");
-	TypeRecord *return_type = parse_type_record();
-	current->return_type = return_type;
+	ObjectTypeRecord *annotated_return_type = parse_type_record();
+	current->return_type = annotated_return_type;
 
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
 	block();
 
-	// end_compiler() restores current to the enclosing compiler.
-	// The local variable `compiler` is still on the stack and valid
-	// to read — use it to copy types into the enclosing arena.
 	ObjectFunction *fn = end_compiler();
 	emit_words(OP_CLOSURE, make_constant(OBJECT_VAL(fn)));
 
@@ -1869,28 +1869,8 @@ static void function(const FunctionType type)
 		emit_word(compiler.upvalues[i].index);
 	}
 
-	// Copy param types and return type into the enclosing compiler's arena
-	// before `compiler` (and its type_arena) goes out of scope.
-	TypeRecord **enclosing_param_types = NULL;
-	if (param_count > 0) {
-		enclosing_param_types = malloc(sizeof(TypeRecord *) * param_count);
-		if (!enclosing_param_types) {
-			free(param_types);
-			compiler_panic(&parser, "Memory allocation failed.", MEMORY);
-			return;
-		}
-		for (int i = 0; i < param_count; i++) {
-			enclosing_param_types[i] = copy_type_rec_to_arena(&current->type_arena, param_types[i]);
-		}
-	}
-
-	TypeRecord *enclosing_return_type = copy_type_rec_to_arena(&current->type_arena, return_type);
-
-	TypeRecord *func_type = new_function_type_rec(&current->type_arena, enclosing_param_types, param_count,
-												  enclosing_return_type);
-	free(param_types);
-
-	// Push so fn_declaration (or any expression context) can consume it.
+	ObjectTypeRecord *func_type = new_function_type_rec(current->owner, param_types, param_count,
+														annotated_return_type);
 	push_type_record(func_type);
 }
 
@@ -1908,15 +1888,15 @@ static void fn_declaration(void)
 	mark_initialized();
 	function(TYPE_FUNCTION);
 
-	// function() always pushes a TypeRecord — pop it and register it.
-	TypeRecord *fn_type = pop_type_record();
+	// function() always pushes a ObjectTypeRecord — pop it and register it.
+	ObjectTypeRecord *fn_type = pop_type_record();
 
 	if (fn_type) {
 		if (current->scope_depth == 0) {
 			// Global function: enter into the type table so
 			// named_variable can look it up from any scope.
 			ObjectString *name_str = copy_string(current->owner, fn_name_token.start, fn_name_token.length);
-			type_table_set(&current->type_table, name_str, fn_type);
+			type_table_set(current->type_table, name_str, fn_type);
 		} else {
 			// Local function: stamp the type directly onto the
 			// local slot that declare_variable already reserved.
@@ -1935,7 +1915,7 @@ static void anonymous_function(bool can_assign)
 
 	int param_capacity = 4;
 	int param_count = 0;
-	TypeRecord **param_types = malloc(sizeof(TypeRecord *) * param_capacity);
+	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
 	if (!param_types) {
 		compiler_panic(&parser, "Memory allocation failed.", MEMORY);
 		return;
@@ -1958,7 +1938,7 @@ static void anonymous_function(bool can_assign)
 			// Anonymous functions require type annotations on all
 			// parameters — there is no inference fallback.
 			consume(TOKEN_COLON, "Expected ':' after parameter name.");
-			TypeRecord *param_type = parse_type_record();
+			ObjectTypeRecord *param_type = parse_type_record();
 
 			// Store on the local slot that parse_variable just
 			// created via declare_variable -> add_local.
@@ -1966,7 +1946,7 @@ static void anonymous_function(bool can_assign)
 
 			if (param_count == param_capacity) {
 				param_capacity *= 2;
-				TypeRecord **grown = realloc(param_types, sizeof(TypeRecord *) * param_capacity);
+				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
 				if (!grown) {
 					free(param_types);
 					compiler_panic(&parser, "Memory allocation failed.", MEMORY);
@@ -1982,7 +1962,7 @@ static void anonymous_function(bool can_assign)
 
 	consume(TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
 	consume(TOKEN_ARROW, "Expected '->' after argument list.");
-	TypeRecord *annotated_return_type = parse_type_record();
+	ObjectTypeRecord *annotated_return_type = parse_type_record();
 
 	// Set on the inner compiler so return_statement validates correctly.
 	current->return_type = annotated_return_type;
@@ -1999,26 +1979,8 @@ static void anonymous_function(bool can_assign)
 		emit_word(compiler.upvalues[i].index);
 	}
 
-	// Copy types out of the inner compiler's stack-allocated arena
-	// before it goes out of scope.
-	TypeRecord **enclosing_param_types = NULL;
-	if (param_count > 0) {
-		enclosing_param_types = malloc(sizeof(TypeRecord *) * param_count);
-		if (!enclosing_param_types) {
-			free(param_types);
-			compiler_panic(&parser, "Memory allocation failed.", MEMORY);
-			return;
-		}
-		for (int i = 0; i < param_count; i++) {
-			enclosing_param_types[i] = copy_type_rec_to_arena(&current->type_arena, param_types[i]);
-		}
-	}
-
-	TypeRecord *enclosing_return_type = copy_type_rec_to_arena(&current->type_arena, annotated_return_type);
-
-	TypeRecord *func_type = new_function_type_rec(&current->type_arena, enclosing_param_types, param_count,
-												  enclosing_return_type);
-	free(param_types);
+	ObjectTypeRecord *func_type = new_function_type_rec(current->owner, param_types, param_count,
+														annotated_return_type);
 	push_type_record(func_type);
 }
 
@@ -2026,13 +1988,13 @@ static void array_literal(bool can_assign)
 {
 	(void)can_assign;
 	uint16_t elementCount = 0;
-	TypeRecord *element_type = NULL;
+	ObjectTypeRecord *element_type = NULL;
 
 	if (!match(TOKEN_RIGHT_SQUARE)) {
 		do {
 			expression();
 
-			TypeRecord *expr_type = pop_type_record();
+			ObjectTypeRecord *expr_type = pop_type_record();
 
 			if (elementCount == 0) {
 				// First element establishes the array's type.
@@ -2042,7 +2004,7 @@ static void array_literal(bool can_assign)
 				// ANY_TYPE on either side means we widen to
 				// Any.
 				if (element_type->base_type == ANY_TYPE || expr_type->base_type == ANY_TYPE) {
-					element_type = new_type_rec(&current->type_arena, ANY_TYPE);
+					element_type = new_type_rec(current->owner, ANY_TYPE);
 				} else if (!types_compatible(element_type, expr_type)) {
 					char expected[128], got[128], msg[300];
 					type_record_name(element_type, expected, sizeof(expected));
@@ -2075,7 +2037,7 @@ static void array_literal(bool can_assign)
 	emit_word(OP_ARRAY);
 	emit_word(elementCount);
 
-	TypeRecord *array_type = new_array_type_rec(&current->type_arena, element_type);
+	ObjectTypeRecord *array_type = new_array_type_rec(current->owner, element_type);
 	push_type_record(array_type);
 }
 
@@ -2083,16 +2045,16 @@ static void table_literal(bool can_assign)
 {
 	(void)can_assign;
 	uint16_t elementCount = 0;
-	TypeRecord *table_key_type = NULL;
-	TypeRecord *table_value_type = NULL;
+	ObjectTypeRecord *table_key_type = NULL;
+	ObjectTypeRecord *table_value_type = NULL;
 
 	if (!match(TOKEN_RIGHT_BRACE)) {
 		do {
 			expression();
-			TypeRecord *key_type = pop_type_record();
+			ObjectTypeRecord *key_type = pop_type_record();
 			consume(TOKEN_COLON, "Expected ':' after table key.");
 			expression();
-			TypeRecord *value_type = pop_type_record();
+			ObjectTypeRecord *value_type = pop_type_record();
 
 			if (!table_key_type) {
 				table_key_type = key_type;
@@ -2132,7 +2094,7 @@ static void table_literal(bool can_assign)
 				// Widen to Float if we see a mix of Int/Float.
 				if ((table_value_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
 					(table_value_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
-					table_value_type = new_type_rec(&current->type_arena, FLOAT_TYPE);
+					table_value_type = new_type_rec(current->owner, FLOAT_TYPE);
 				}
 			}
 
@@ -2156,7 +2118,7 @@ static void table_literal(bool can_assign)
 	emit_word(OP_TABLE);
 	emit_word(elementCount);
 
-	TypeRecord *table_type = new_table_type_rec(&current->type_arena, table_key_type, table_value_type);
+	ObjectTypeRecord *table_type = new_table_type_rec(current->owner, table_key_type, table_value_type);
 	push_type_record(table_type);
 }
 
@@ -2165,10 +2127,10 @@ static void collection_index(const bool can_assign)
 	// The collection's type is on the top of the type stack — pop it
 	// now so we know what element type to push after the index op, and
 	// so it doesn't leak.
-	TypeRecord *collection_type = pop_type_record();
+	ObjectTypeRecord *collection_type = pop_type_record();
 
 	expression();
-	TypeRecord *index_type = pop_type_record();
+	ObjectTypeRecord *index_type = pop_type_record();
 
 	// Validate the index type against the collection type.
 	if (collection_type && index_type && index_type->base_type != ANY_TYPE && collection_type->base_type != ANY_TYPE) {
@@ -2177,7 +2139,7 @@ static void collection_index(const bool can_assign)
 				compiler_panic(&parser, "Array index must be of type 'Int'.", TYPE);
 			}
 		} else if (collection_type->base_type == TABLE_TYPE) {
-			TypeRecord *key_type = collection_type->as.table_type.key_type;
+			ObjectTypeRecord *key_type = collection_type->as.table_type.key_type;
 			if (key_type && key_type->base_type != ANY_TYPE && !types_compatible(key_type, index_type)) {
 				char expected[128], got[128], msg[300];
 				type_record_name(key_type, expected, sizeof(expected));
@@ -2195,13 +2157,13 @@ static void collection_index(const bool can_assign)
 
 	if (can_assign && match(TOKEN_EQUAL)) {
 		expression();
-		TypeRecord *value_type = pop_type_record();
+		ObjectTypeRecord *value_type = pop_type_record();
 
 		// On a set, validate the value type against the collection's
 		// element/value type if known.
 		if (collection_type && value_type && value_type->base_type != ANY_TYPE &&
 			collection_type->base_type != ANY_TYPE) {
-			TypeRecord *expected_value = NULL;
+			ObjectTypeRecord *expected_value = NULL;
 			if (collection_type->base_type == ARRAY_TYPE) {
 				expected_value = collection_type->as.array_type.element_type;
 			} else if (collection_type->base_type == TABLE_TYPE) {
@@ -2222,13 +2184,13 @@ static void collection_index(const bool can_assign)
 
 		emit_word(OP_SET_COLLECTION);
 		// A set expression leaves no useful value — push Nil.
-		push_type_record(new_type_rec(&current->type_arena, NIL_TYPE));
+		push_type_record(new_type_rec(current->owner, NIL_TYPE));
 	} else {
 		emit_word(OP_GET_COLLECTION);
 
 		// Push the element type so downstream expressions know what
 		// they received.
-		TypeRecord *result_type = NULL;
+		ObjectTypeRecord *result_type = NULL;
 		if (collection_type) {
 			if (collection_type->base_type == ARRAY_TYPE) {
 				result_type = collection_type->as.array_type.element_type;
@@ -2237,7 +2199,7 @@ static void collection_index(const bool can_assign)
 			}
 		}
 		if (!result_type) {
-			result_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			result_type = new_type_rec(current->owner, ANY_TYPE);
 		}
 		push_type_record(result_type);
 	}
@@ -2249,12 +2211,12 @@ static void var_declaration(void)
 
 	const Token var_name = parser.previous;
 
-	TypeRecord *annotated_type = NULL;
+	ObjectTypeRecord *annotated_type = NULL;
 	if (match(TOKEN_COLON)) {
 		annotated_type = parse_type_record();
 	}
 
-	TypeRecord *value_type = NULL;
+	ObjectTypeRecord *value_type = NULL;
 	if (match(TOKEN_EQUAL)) {
 		expression();
 		value_type = pop_type_record();
@@ -2283,10 +2245,10 @@ static void var_declaration(void)
 						   TYPE);
 		}
 		emit_word(OP_NIL);
-		value_type = new_type_rec(&current->type_arena, NIL_TYPE);
+		value_type = new_type_rec(current->owner, NIL_TYPE);
 	}
 
-	TypeRecord *resolved_type = annotated_type ? annotated_type : value_type;
+	ObjectTypeRecord *resolved_type = annotated_type ? annotated_type : value_type;
 	if (!resolved_type) {
 		resolved_type = T_ANY;
 	}
@@ -2301,7 +2263,7 @@ static void var_declaration(void)
 		// Global: register name → type in this compiler's type table
 		// so named_variable can look it up on future reads/writes.
 		ObjectString *name_str = copy_string(current->owner, var_name.start, var_name.length);
-		type_table_set(&current->type_table, name_str, resolved_type);
+		type_table_set(current->type_table, name_str, resolved_type);
 	}
 	define_variable(global);
 }
@@ -2323,7 +2285,7 @@ static void while_statement(void)
 	expression();
 
 	// Condition must be Bool
-	TypeRecord *condition_type = pop_type_record();
+	ObjectTypeRecord *condition_type = pop_type_record();
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "'while' condition must be of type 'Bool'.", TYPE);
 	}
@@ -2358,7 +2320,7 @@ static void for_statement(void)
 		expression();
 
 		// Condition must be Bool
-		TypeRecord *condition_type = pop_type_record();
+		ObjectTypeRecord *condition_type = pop_type_record();
 		if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 			compiler_panic(&parser, "'for' condition must be of type 'Bool'.", TYPE);
 		}
@@ -2398,7 +2360,7 @@ static void if_statement(void)
 	expression();
 
 	// Condition must be Bool
-	TypeRecord *condition_type = pop_type_record();
+	ObjectTypeRecord *condition_type = pop_type_record();
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 		compiler_panic(&parser, "'if' condition must be of type 'Bool'.", TYPE);
 	}
@@ -2434,7 +2396,7 @@ static void return_statement(void)
 		expression();
 		consume(TOKEN_SEMICOLON, "Expected ';' after return value.");
 
-		TypeRecord *value_type = pop_type_record();
+		ObjectTypeRecord *value_type = pop_type_record();
 
 		// Only validate if both sides are known
 		if (value_type && current->return_type && current->return_type->base_type != ANY_TYPE &&
@@ -2566,7 +2528,7 @@ static void use_statement(void)
 		ObjectString *name_str = copy_string(current->owner, visible.start, visible.length);
 
 		// check if this name is from the stdlib
-		type_table_set(&current->type_table, name_str, T_ANY);
+		type_table_set(current->type_table, name_str, T_ANY);
 		if (current->scope_depth == 0) {
 			for (int j = 0; j < current->owner->native_modules.count; j++) {
 				const Table *current_table = current->owner->native_modules.modules[j].names;
@@ -2575,9 +2537,9 @@ static void use_statement(void)
 					continue;
 				if (IS_CRUX_NATIVE_CALLABLE(value)) {
 					const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(value);
-					TypeRecord *rec = new_function_type_rec(&current->type_arena, callable->arg_types, callable->arity,
-															callable->return_type);
-					type_table_set(&current->type_table, name_str, rec);
+					ObjectTypeRecord *rec = new_function_type_rec(current->owner, callable->arg_types,
+																  callable->arity, callable->return_type);
+					type_table_set(current->type_table, name_str, rec);
 				}
 			}
 		} else {
@@ -2587,7 +2549,7 @@ static void use_statement(void)
 			// name by the VM at runtime, but at compile time we
 			// don't have a local slot; we can only record it in
 			// the scope's type table.)
-			type_table_set(&current->type_table, name_str, T_ANY);
+			type_table_set(current->type_table, name_str, T_ANY);
 		}
 	}
 }
@@ -2618,10 +2580,9 @@ static void struct_declaration(void)
 
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
 
-	// Build a TypeTable mapping field name -> TypeRecord.
+	// Build a ObjectTypeTable mapping field name -> ObjectTypeRecord.
 	// This is heap-allocated so it outlives the compiler's type_arena.
-	TypeTable *field_types = ALLOCATE(current->owner, TypeTable, 1);
-	init_type_table(field_types);
+	ObjectTypeTable* field_types = new_type_table(current->owner, INITIAL_TYPE_TABLE_SIZE);
 	int fieldCount = 0;
 
 	if (!match(TOKEN_RIGHT_BRACE)) {
@@ -2646,11 +2607,11 @@ static void struct_declaration(void)
 			}
 
 			// Optional field type annotation: fieldName: Type
-			TypeRecord *field_type = NULL;
+			ObjectTypeRecord *field_type = NULL;
 			if (match(TOKEN_COLON)) {
 				field_type = parse_type_record();
 			} else {
-				field_type = new_type_rec(&current->type_arena, ANY_TYPE);
+				field_type = new_type_rec(current->owner, ANY_TYPE);
 			}
 
 			type_table_set(field_types, fieldName, field_type);
@@ -2666,14 +2627,14 @@ static void struct_declaration(void)
 
 	GC_PROTECT_END(current->owner->current_module_record);
 
-	// Build the TypeRecord for this struct and register it so that
+	// Build the ObjectTypeRecord for this struct and register it so that
 	// named_variable and parse_type_record can look it up by name.
-	TypeRecord *struct_type = new_struct_type_rec(&current->type_arena, structObject, field_types, fieldCount);
+	ObjectTypeRecord *struct_type = new_struct_type_rec(current->owner, structObject, field_types, fieldCount);
 
 	if (current->scope_depth == 0) {
 		// Global struct — enter it into the compiler's type table
 		// under the struct's own name.
-		type_table_set(&current->type_table, structNameString, struct_type);
+		type_table_set(current->type_table, structNameString, struct_type);
 	} else {
 		// Local struct — stamp the type onto the reserved local slot.
 		current->locals[local_index].type = struct_type;
@@ -2684,7 +2645,7 @@ static void result_unwrap(bool can_assign)
 {
 	(void)can_assign;
 
-	TypeRecord *type = pop_type_record();
+	ObjectTypeRecord *type = pop_type_record();
 
 	if (!type || type->base_type == ANY_TYPE) {
 		// Unknown type — allow it through, runtime will catch errors.
@@ -2703,7 +2664,7 @@ static void result_unwrap(bool can_assign)
 	emit_word(OP_UNWRAP);
 
 	// Push the inner ok_type, falling back to ANY_TYPE if unknown.
-	TypeRecord *ok_type = type->as.result_type.ok_type;
+	ObjectTypeRecord *ok_type = type->as.result_type.ok_type;
 	push_type_record(ok_type ? ok_type : T_ANY);
 }
 
@@ -2774,7 +2735,7 @@ static void give_statement(void)
 
 	if (match(TOKEN_SEMICOLON)) {
 		emit_word(OP_NIL);
-		current->last_give_type = new_type_rec(&current->type_arena, NIL_TYPE);
+		current->last_give_type = new_type_rec(current->owner, NIL_TYPE);
 	} else {
 		expression();
 		// Record for match_expression to check arm consistency.
@@ -2793,7 +2754,7 @@ static void match_expression(bool can_assign)
 	expression();
 
 	// The target's type tells us what patterns are valid.
-	TypeRecord *target_type = pop_type_record();
+	ObjectTypeRecord *target_type = pop_type_record();
 	if (!target_type)
 		target_type = T_ANY;
 
@@ -2811,7 +2772,7 @@ static void match_expression(bool can_assign)
 
 	// Track the type produced by each arm for consistency checking.
 	// NULL means we haven't seen an arm yet.
-	TypeRecord *arm_type = NULL;
+	ObjectTypeRecord *arm_type = NULL;
 
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
 		int jumpIfNotMatch = -1;
@@ -2852,9 +2813,10 @@ static void match_expression(bool can_assign)
 
 				// Stamp the binding's type from the Result's
 				// ok_type, falling back to ANY_TYPE.
-				TypeRecord *ok_type = (target_type->base_type == RESULT_TYPE) ? target_type->as.result_type.ok_type
-																			  : NULL;
-				current->locals[bindingSlot].type = ok_type ? ok_type : new_type_rec(&current->type_arena, ANY_TYPE);
+				ObjectTypeRecord *ok_type = (target_type->base_type == RESULT_TYPE)
+												? target_type->as.result_type.ok_type
+												: NULL;
+				current->locals[bindingSlot].type = ok_type ? ok_type : new_type_rec(current->owner, ANY_TYPE);
 
 				mark_initialized();
 				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
@@ -2882,7 +2844,7 @@ static void match_expression(bool can_assign)
 				bindingSlot = current->local_count - 1;
 
 				// Err bindings always hold an ObjectError.
-				current->locals[bindingSlot].type = new_type_rec(&current->type_arena, ERROR_TYPE);
+				current->locals[bindingSlot].type = new_type_rec(current->owner, ERROR_TYPE);
 
 				mark_initialized();
 				consume(TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
@@ -2892,7 +2854,7 @@ static void match_expression(bool can_assign)
 			// Value pattern: the expression must be compatible
 			// with the target type.
 			expression();
-			TypeRecord *pattern_type = pop_type_record();
+			ObjectTypeRecord *pattern_type = pop_type_record();
 
 			if (pattern_type && target_type && pattern_type->base_type != ANY_TYPE &&
 				target_type->base_type != ANY_TYPE) {
@@ -2919,17 +2881,17 @@ static void match_expression(bool can_assign)
 		}
 
 		// Compile arm body and track the type it produces.
-		TypeRecord *this_arm_type = NULL;
+		ObjectTypeRecord *this_arm_type = NULL;
 
 		if (match(TOKEN_LEFT_BRACE)) {
 			block();
 			// Blocks produce values only via give — read it back.
 			this_arm_type = current->last_give_type ? current->last_give_type
-													: new_type_rec(&current->type_arena, NIL_TYPE);
+													: new_type_rec(current->owner, NIL_TYPE);
 		} else if (match(TOKEN_GIVE)) {
 			if (match(TOKEN_SEMICOLON)) {
 				emit_word(OP_NIL);
-				this_arm_type = new_type_rec(&current->type_arena, NIL_TYPE);
+				this_arm_type = new_type_rec(current->owner, NIL_TYPE);
 			} else {
 				expression();
 				this_arm_type = pop_type_record();
@@ -2944,7 +2906,7 @@ static void match_expression(bool can_assign)
 
 		// Check arm type consistency.
 		if (!this_arm_type)
-			this_arm_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			this_arm_type = new_type_rec(current->owner, ANY_TYPE);
 
 		if (arm_type == NULL) {
 			arm_type = this_arm_type;
@@ -3034,7 +2996,7 @@ static void break_statement(void)
 static void panic_statement(void)
 {
 	expression();
-	TypeRecord *type = pop_type_record();
+	ObjectTypeRecord *type = pop_type_record();
 
 	if (type && type->base_type != STRING_TYPE && type->base_type != ANY_TYPE) {
 		char got[128], msg[300];
@@ -3116,7 +3078,7 @@ static void number(bool can_assign)
 	}
 	if (errno == ERANGE) {
 		emit_constant(FLOAT_VAL(number));
-		push_type_record(new_type_rec(&current->type_arena, FLOAT_TYPE));
+		push_type_record(new_type_rec(current->owner, FLOAT_TYPE));
 		return;
 	}
 	bool hasDecimalNotation = false;
@@ -3128,15 +3090,15 @@ static void number(bool can_assign)
 	}
 	if (hasDecimalNotation) {
 		emit_constant(FLOAT_VAL(number));
-		push_type_record(new_type_rec(&current->type_arena, FLOAT_TYPE));
+		push_type_record(new_type_rec(current->owner, FLOAT_TYPE));
 	} else {
 		const int32_t integer = (int32_t)number;
 		if ((double)integer == number) {
 			emit_constant(INT_VAL(integer));
-			push_type_record(new_type_rec(&current->type_arena, INT_TYPE));
+			push_type_record(new_type_rec(current->owner, INT_TYPE));
 		} else {
 			emit_constant(FLOAT_VAL(number));
-			push_type_record(new_type_rec(&current->type_arena, FLOAT_TYPE));
+			push_type_record(new_type_rec(current->owner, FLOAT_TYPE));
 		}
 	}
 }
@@ -3190,7 +3152,7 @@ static void string(bool can_assign)
 
 	if (srcLength == 0) {
 		ObjectString *string = copy_string(current->owner, "", 0);
-		push_type_record(new_type_rec(&current->type_arena, STRING_TYPE));
+		push_type_record(new_type_rec(current->owner, STRING_TYPE));
 		emit_constant(OBJECT_VAL(string));
 		FREE_ARRAY(current->owner, char, processed, parser.previous.length);
 		return;
@@ -3233,7 +3195,7 @@ static void string(bool can_assign)
 	processed = temp;
 	processed[processedLength] = '\0';
 	ObjectString *string = take_string(current->owner, processed, processedLength);
-	push_type_record(new_type_rec(&current->type_arena, STRING_TYPE));
+	push_type_record(new_type_rec(current->owner, STRING_TYPE));
 	emit_constant(OBJECT_VAL(string));
 }
 
@@ -3248,7 +3210,7 @@ static void unary(bool can_assign)
 	switch (operatorType) {
 	case TOKEN_NOT: {
 		// check if this is a boolean type
-		TypeRecord *bool_expected = pop_type_record();
+		ObjectTypeRecord *bool_expected = pop_type_record();
 		if (!bool_expected || bool_expected->base_type != BOOL_TYPE) {
 			compiler_panic(&parser, "Expected 'Bool'type for 'not' operator.", TYPE);
 		}
@@ -3258,7 +3220,7 @@ static void unary(bool can_assign)
 	}
 	case TOKEN_MINUS: {
 		// check if this is a negatable type
-		TypeRecord *num_expected = pop_type_record();
+		ObjectTypeRecord *num_expected = pop_type_record();
 		if (!num_expected || !(num_expected->base_type & (INT_TYPE | FLOAT_TYPE))) {
 			compiler_panic(&parser, "Expected 'Int | Float' type for '-' operator.", TYPE);
 		}
@@ -3277,7 +3239,7 @@ static void typeof_expression(bool can_assign)
 	parse_precedence(PREC_UNARY);
 	emit_word(OP_TYPEOF); // this will emit a string representation of the
 						  // type at runtime
-	push_type_record(new_type_rec(&current->type_arena, STRING_TYPE));
+	push_type_record(new_type_rec(current->owner, STRING_TYPE));
 }
 
 ParseRule rules[] = {
@@ -3523,7 +3485,7 @@ static void pre_skip_type(void)
 
 // Collect a single top-level struct declaration into pre_compiler's type_table.
 // On entry parser.current is TOKEN_STRUCT (already consumed by caller).
-static void pre_collect_struct(void)
+static void pre_collect_struct(VM* vm)
 {
 	// Consume struct name.
 	if (parser.current.type != TOKEN_IDENTIFIER)
@@ -3536,9 +3498,8 @@ static void pre_collect_struct(void)
 		return;
 	pre_advance(); // consume '{'
 
-	// Build a field_types TypeTable.
-	TypeTable *field_types = ALLOCATE(current->owner, TypeTable, 1);
-	init_type_table(field_types);
+	// Build a field_types ObjectTypeTable.
+	ObjectTypeTable* field_types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 	int field_count = 0;
 
 	// Create a lightweight ObjectStruct so new_struct_type_rec works.
@@ -3553,7 +3514,7 @@ static void pre_collect_struct(void)
 		ObjectString *field_name = copy_string(current->owner, field_tok.start, field_tok.length);
 		pre_advance();
 
-		TypeRecord *field_type = NULL;
+		ObjectTypeRecord *field_type = NULL;
 		if (parser.current.type == TOKEN_COLON) {
 			pre_advance(); // consume ':'
 			// parse_type_record uses the global current compiler
@@ -3561,7 +3522,7 @@ static void pre_collect_struct(void)
 			// initialised pre_compiler context.
 			field_type = parse_type_record();
 		} else {
-			field_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			field_type = new_type_rec(current->owner, ANY_TYPE);
 		}
 
 		type_table_set(field_types, field_name, field_type);
@@ -3577,10 +3538,10 @@ static void pre_collect_struct(void)
 	if (parser.current.type == TOKEN_RIGHT_BRACE)
 		pre_advance();
 
-	// Build and register the struct TypeRecord.
-	TypeRecord *struct_type = new_struct_type_rec(&current->type_arena, struct_obj, field_types, field_count);
+	// Build and register the struct ObjectTypeRecord.
+	ObjectTypeRecord *struct_type = new_struct_type_rec(current->owner, struct_obj, field_types, field_count);
 
-	type_table_set(&current->type_table, struct_name, struct_type);
+	type_table_set(current->type_table, struct_name, struct_type);
 }
 
 // Collect a single top-level function signature into pre_compiler's
@@ -3600,7 +3561,7 @@ static void pre_collect_function(void)
 
 	int param_cap = 4;
 	int param_count = 0;
-	TypeRecord **param_types = malloc(sizeof(TypeRecord *) * param_cap);
+	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_cap);
 	if (!param_types)
 		return;
 
@@ -3612,17 +3573,17 @@ static void pre_collect_function(void)
 		}
 		pre_advance(); // consume param name
 
-		TypeRecord *param_type = NULL;
+		ObjectTypeRecord *param_type = NULL;
 		if (parser.current.type == TOKEN_COLON) {
 			pre_advance(); // consume ':'
 			param_type = parse_type_record();
 		} else {
-			param_type = new_type_rec(&current->type_arena, ANY_TYPE);
+			param_type = new_type_rec(current->owner, ANY_TYPE);
 		}
 
 		if (param_count == param_cap) {
 			param_cap *= 2;
-			TypeRecord **grown = realloc(param_types, sizeof(TypeRecord *) * param_cap);
+			ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_cap);
 			if (!grown) {
 				free(param_types);
 				return;
@@ -3640,7 +3601,7 @@ static void pre_collect_function(void)
 		pre_advance();
 
 	// Optional return type annotation: -> Type
-	TypeRecord *return_type = NULL;
+	ObjectTypeRecord *return_type = NULL;
 	if (parser.current.type == TOKEN_ARROW) {
 		pre_advance(); // consume '->'
 		return_type = parse_type_record();
@@ -3648,11 +3609,11 @@ static void pre_collect_function(void)
 		return_type = T_ANY;
 	}
 
-	// Register the function TypeRecord.
-	TypeRecord *fn_type = new_function_type_rec(&current->type_arena, param_types, param_count, return_type);
+	// Register the function ObjectTypeRecord.
+	ObjectTypeRecord *fn_type = new_function_type_rec(current->owner, param_types, param_count, return_type);
 
 	ObjectString *fn_name = copy_string(current->owner, fn_name_token.start, fn_name_token.length);
-	type_table_set(&current->type_table, fn_name, fn_type);
+	type_table_set(current->type_table, fn_name, fn_type);
 
 	// Skip the function body so we don't accidentally parse its tokens
 	// as top-level declarations.
@@ -3662,7 +3623,7 @@ static void pre_collect_function(void)
 // Run a single forward-scan sub-pass over the token stream.
 // `collect_structs`: when true, collect struct declarations; when false,
 // collect function declarations (fn / pub fn).
-static void pre_scan_pass(bool collect_structs)
+static void pre_scan_pass(VM* vm, bool collect_structs)
 {
 	// Reset parser to a clean state (advance() will prime the first token
 	// after this is called from compile() with a fresh init_scanner).
@@ -3678,7 +3639,7 @@ static void pre_scan_pass(bool collect_structs)
 		if (t == TOKEN_STRUCT) {
 			pre_advance(); // consume 'struct'
 			if (collect_structs) {
-				pre_collect_struct();
+				pre_collect_struct(vm);
 			} else {
 				// Skip: name + block
 				if (parser.current.type == TOKEN_IDENTIFIER)
@@ -3722,7 +3683,7 @@ static void pre_scan_pass(bool collect_structs)
 			} else if (parser.current.type == TOKEN_STRUCT) {
 				pre_advance(); // consume 'struct'
 				if (collect_structs) {
-					pre_collect_struct();
+					pre_collect_struct(vm);
 				} else {
 					if (parser.current.type == TOKEN_IDENTIFIER)
 						pre_advance();
@@ -3741,7 +3702,7 @@ static void pre_scan_pass(bool collect_structs)
 
 // Run both pre-scan sub-passes and merge results into `dest`.
 // The scanner must be initialised with init_scanner(source) before calling.
-static void pre_scan(VM *vm, char *source, TypeTable *dest)
+static void pre_scan(VM *vm, char *source, ObjectTypeTable *dest)
 {
 	// Sub-pass 1: collect struct declarations
 	init_scanner(source);
@@ -3752,7 +3713,7 @@ static void pre_scan(VM *vm, char *source, TypeTable *dest)
 	parser.panic_mode = false;
 	parser.source = source;
 
-	pre_scan_pass(true /* collect_structs */);
+	pre_scan_pass(vm, true /* collect_structs */);
 
 	// Sub-pass 2: collect function signatures
 	init_scanner(source);
@@ -3762,25 +3723,25 @@ static void pre_scan(VM *vm, char *source, TypeTable *dest)
 	parser.panic_mode = false;
 
 	// Seed the fn-pass compiler with struct types from the first pass
-	type_table_add_all(&pre_compiler_structs.type_table, &pre_compiler_fns.type_table);
+	type_table_add_all(pre_compiler_structs.type_table, pre_compiler_fns.type_table);
 
-	pre_scan_pass(false);
+	pre_scan_pass(vm, false);
 
 	// Merge into the destination table
-	type_table_add_all(&pre_compiler_structs.type_table, dest);
-	type_table_add_all(&pre_compiler_fns.type_table, dest);
+	type_table_add_all(pre_compiler_structs.type_table, dest);
+	type_table_add_all(pre_compiler_fns.type_table, dest);
 
 	// Free the pre-compiler type_table entries arrays to avoid
-	// LeakSanitizer reports. The TypeRecord pointers they reference live in
+	// LeakSanitizer reports. The ObjectTypeRecord pointers they reference live in
 	// the stack- allocated arenas (valid until pre_scan returns); the
 	// caller will deep-copy them into the main compiler's arena before
 	// returning.
-	free_type_table(&pre_compiler_structs.type_table);
-	free_type_table(&pre_compiler_fns.type_table);
+	free_type_table(vm, pre_compiler_structs.type_table);
+	free_type_table(vm, pre_compiler_fns.type_table);
 
 	// Note: pre_compiler_structs and pre_compiler_fns are stack-allocated;
-	// their type_arenas go out of scope here. The TypeRecords they contain
-	// are pointed to by dest — those TypeRecords live in the arenas inside
+	// their type_arenas go out of scope here. The ObjectTypeRecords they contain
+	// are pointed to by dest — those ObjectTypeRecords live in the arenas inside
 	// the pre-compiler stack frames and will become dangling once this
 	// function returns.
 	//
@@ -3809,35 +3770,18 @@ ObjectFunction *compile(VM *vm, char *source)
 	parser.source = source;
 
 	// Run pre-scan, merging into a temporary staging table.
-	TypeTable staging;
-	init_type_table(&staging);
-	pre_scan(vm, source, &staging);
+	ObjectTypeTable* staging = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	pre_scan(vm, source, staging);
 
-	// Deep-copy each pre-scanned TypeRecord into the main compiler's arena
-	// and register it in the main compiler's type_table.
-	// Also free any heap-allocated arg_types arrays stored in the staging
-	// TypeRecords (copy_type_rec_to_arena creates fresh copies, so the
-	// originals are no longer needed after the copy).
-	for (int i = 0; i < staging.capacity; i++) {
-		const TypeEntry *entry = &staging.entries[i];
+	for (int i = 0; i < staging->capacity; i++) {
+		const TypeEntry *entry = &staging->entries[i];
 		if (entry->key == NULL)
 			continue;
-		TypeRecord *src = entry->value;
-		TypeRecord *copied = copy_type_rec_to_arena(&compiler.type_arena, src);
-		type_table_set(&compiler.type_table, entry->key, copied);
-		// Free the heap-allocated arg_types array from
-		// pre_collect_function — copy_type_rec_to_arena has already
-		// created its own copy.
-		if (src && src->base_type == FUNCTION_TYPE && src->as.function_type.arg_types != NULL) {
-			free(src->as.function_type.arg_types);
-			src->as.function_type.arg_types = NULL;
-		}
+		type_table_set(compiler.type_table, entry->key, entry->value);
 	}
-	free_type_table(&staging);
+	free_type_table(vm, staging);
 
-	// ── Main compile pass
-	// ───────────────────────────────────────────────── Rewind the scanner
-	// for the real compilation pass.
+	// Main compile pass
 	init_scanner(source);
 	parser.had_error = false;
 	parser.panic_mode = false;
@@ -3870,6 +3814,15 @@ void mark_compiler_roots(VM *vm)
 	const Compiler *compiler = current;
 	while (compiler != NULL) {
 		mark_object(vm, (CruxObject *)compiler->function);
+		mark_object(vm, (CruxObject*)compiler->return_type);
+		mark_object(vm, (CruxObject*) compiler->last_give_type);
+		mark_object_type_table(vm, compiler->type_table);
+		for (int i = 0; i < current->type_stack_count; i++) {
+			mark_object(vm, (CruxObject*)current->type_stack[i]);
+		}
+		for (int i = 0; i < current->local_count; i++) {
+			mark_object(vm, (CruxObject*)current->locals[i].type);
+		}
 		compiler = (Compiler *)compiler->enclosing;
 	}
 }
