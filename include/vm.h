@@ -81,12 +81,11 @@ struct VM {
 	SlabAllocator *slab_32;
 	SlabAllocator *slab_48;
 
-	Table strings;
-
-	Table module_cache;
 	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
 
+	Table module_cache;
+	Table strings;
 	Table core_fns;
 	Table random_type;
 	Table string_type;

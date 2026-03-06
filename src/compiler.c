@@ -276,12 +276,9 @@ ObjectTypeRecord *parse_type_record()
 	} else if (match(TOKEN_COMPLEX_TYPE)) {
 		type_record = new_type_rec(current->owner, COMPLEX_TYPE);
 	} else if (match(TOKEN_LEFT_PAREN)) {
-		// Function type: (ParamType, ...) -> ReturnType
-		// The arg_types array is heap-allocated and intentionally not
-		// freed here — it is owned by the ObjectTypeRecord for the duration
-		// of compilation and freed when the compiler is torn down.
 		int param_capacity = 4;
 		int param_count = 0;
+		// TODO: make this use GC allocation functions
 		ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
 		if (!param_types) {
 			compiler_panic(&parser, "Memory allocation failed.", MEMORY);
@@ -551,9 +548,31 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 	compiler->match_depth = 0;
 	compiler->loop_depth = 0;
 	compiler->owner = vm;
+	compiler->has_return = false;
 
 	compiler->type_table = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
-	// Load existing types from the module record if this is a script
+	// add core fn types
+	for (int i = 0; i < vm->core_fns.capacity; i++) {
+		if (vm->core_fns.entries[i].key != NULL) {
+			const Value val = vm->core_fns.entries[i].value;
+			if (IS_CRUX_NATIVE_CALLABLE(val)) {
+				const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(val);
+
+				ObjectTypeRecord **args_copy = NULL;
+				if (callable->arity > 0) {
+					args_copy = ALLOCATE(vm, ObjectTypeRecord*, callable->arity);
+					for (int j = 0; j < callable->arity; j++) {
+						args_copy[j] = callable->arg_types[j];
+					}
+				}
+
+				ObjectTypeRecord *fn_type = new_function_type_rec(vm, args_copy, callable->arity, callable->return_type);
+				type_table_set(compiler->type_table, vm->core_fns.entries[i].key, fn_type);
+			}
+		}
+	}
+
+	// Load existing types from the module record
 	if (type == TYPE_SCRIPT && vm->current_module_record) {
 		type_table_add_all(vm->current_module_record->types, compiler->type_table);
 	}
@@ -1861,6 +1880,16 @@ static void function(const FunctionType type)
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
 	block();
 
+	if (!compiler.has_return && annotated_return_type &&
+		annotated_return_type->base_type != NIL_TYPE &&
+		annotated_return_type->base_type != ANY_TYPE) {
+
+		char expected[128], msg[256];
+		type_record_name(annotated_return_type, expected, sizeof(expected));
+		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
+		compiler_panic(&parser, msg, TYPE);
+		}
+
 	ObjectFunction *fn = end_compiler();
 	emit_words(OP_CLOSURE, make_constant(OBJECT_VAL(fn)));
 
@@ -1969,6 +1998,16 @@ static void anonymous_function(bool can_assign)
 
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before function body.");
 	block();
+
+	if (!compiler.has_return && annotated_return_type &&
+		annotated_return_type->base_type != NIL_TYPE &&
+		annotated_return_type->base_type != ANY_TYPE) {
+
+		char expected[128], msg[256];
+		type_record_name(annotated_return_type, expected, sizeof(expected));
+		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
+		compiler_panic(&parser, msg, TYPE);
+		}
 
 	ObjectFunction *fn = end_compiler();
 	const uint16_t constantIndex = make_constant(OBJECT_VAL(fn));
@@ -2385,6 +2424,8 @@ static void return_statement(void)
 		compiler_panic(&parser, "Cannot use <return> outside of a function.", SYNTAX);
 	}
 
+	current->has_return = true;
+
 	if (match(TOKEN_SEMICOLON)) {
 		// check that the function expects Nil
 		if (current->return_type && current->return_type->base_type != NIL_TYPE &&
@@ -2537,7 +2578,18 @@ static void use_statement(void)
 					continue;
 				if (IS_CRUX_NATIVE_CALLABLE(value)) {
 					const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(value);
-					ObjectTypeRecord *rec = new_function_type_rec(current->owner, callable->arg_types,
+
+					// We must duplicate the arg_types array so that the GC doesn't double-free it!
+					ObjectTypeRecord **args_copy = NULL;
+					if (callable->arity > 0) {
+						args_copy = ALLOCATE(current->owner, ObjectTypeRecord*, callable->arity);
+						for (int k = 0; k < callable->arity; k++) {
+							args_copy[k] = callable->arg_types[k];
+						}
+					}
+
+					// Pass args_copy instead of callable->arg_types
+					ObjectTypeRecord *rec = new_function_type_rec(current->owner, args_copy,
 																  callable->arity, callable->return_type);
 					type_table_set(current->type_table, name_str, rec);
 				}

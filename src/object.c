@@ -1249,7 +1249,7 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 	free_object_module_record(vm, module_record);
 }
 
-ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path, const bool is_repl, const bool is_main)
+ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const bool is_repl, const bool is_main)
 {
 	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;

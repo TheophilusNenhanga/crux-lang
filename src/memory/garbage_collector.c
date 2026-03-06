@@ -696,7 +696,8 @@ void mark_roots(VM *vm)
 	}
 
 	mark_table(vm, &vm->module_cache);
-
+	mark_table(vm, &vm->strings);
+	mark_table(vm, &vm->core_fns);
 	mark_table(vm, &vm->random_type);
 	mark_table(vm, &vm->string_type);
 	mark_table(vm, &vm->array_type);
@@ -705,6 +706,12 @@ void mark_roots(VM *vm)
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
 	mark_table(vm, &vm->vector_type);
+	mark_table(vm, &vm->complex_type);
+	mark_table(vm, &vm->matrix_type);
+	mark_table(vm, &vm->range_type);
+	mark_table(vm, &vm->set_type);
+	mark_table(vm, &vm->tuple_type);
+	mark_table(vm, &vm->buffer_type);
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 

@@ -111,6 +111,7 @@ struct Compiler {
 	int type_stack_count;
 	ObjectTypeTable *type_table;
 	ObjectTypeRecord *last_give_type;
+	bool has_return;
 };
 
 ObjectTypeRecord *parse_type_record();
