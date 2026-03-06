@@ -3783,24 +3783,7 @@ static void pre_scan(VM *vm, char *source, ObjectTypeTable *dest)
 	type_table_add_all(pre_compiler_structs.type_table, dest);
 	type_table_add_all(pre_compiler_fns.type_table, dest);
 
-	// Free the pre-compiler type_table entries arrays to avoid
-	// LeakSanitizer reports. The ObjectTypeRecord pointers they reference live in
-	// the stack- allocated arenas (valid until pre_scan returns); the
-	// caller will deep-copy them into the main compiler's arena before
-	// returning.
-	free_type_table(vm, pre_compiler_structs.type_table);
-	free_type_table(vm, pre_compiler_fns.type_table);
-
-	// Note: pre_compiler_structs and pre_compiler_fns are stack-allocated;
-	// their type_arenas go out of scope here. The ObjectTypeRecords they contain
-	// are pointed to by dest — those ObjectTypeRecords live in the arenas inside
-	// the pre-compiler stack frames and will become dangling once this
-	// function returns.
-	//
-	// To avoid dangling pointers we deep-copy every entry in dest into the
-	// main compiler's arena. The caller (compile()) does this immediately
-	// after pre_scan() returns, before the pre-compiler frames are gone.
-	// (The arenas are still valid while we're inside pre_scan().)
+	// tables will be gc'd
 }
 
 // ── Main compilation entry point ─────────────────────────────────────────────
@@ -3831,7 +3814,6 @@ ObjectFunction *compile(VM *vm, char *source)
 			continue;
 		type_table_set(compiler.type_table, entry->key, entry->value);
 	}
-	free_type_table(vm, staging);
 
 	// Main compile pass
 	init_scanner(source);

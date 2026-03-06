@@ -74,8 +74,8 @@ println("index() test passed");
 // Test contains
 println("--- Testing contains ---");
 let arr10 = [1, 2, 3];
-assert(arr10.contains(2)? == true, "contains should find element");
-assert(arr10.contains(99)? == false, "contains should return false for missing");
+assert(arr10.contains(2) == true, "contains should find element");
+assert(arr10.contains(99) == false, "contains should return false for missing");
 println("contains() test passed");
 
 // Test sort (Note: sort modifies in place)
