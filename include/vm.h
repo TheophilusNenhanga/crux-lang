@@ -89,6 +89,7 @@ struct VM {
 	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
 
+	Table core_fns;
 	Table random_type;
 	Table string_type;
 	Table array_type;
@@ -103,8 +104,6 @@ struct VM {
 	Table set_type;
 	Table tuple_type;
 	Table buffer_type;
-	Table key_type;
-	Table event_type;
 
 	StructInstanceStack struct_instance_stack;
 
@@ -121,6 +120,7 @@ struct VM {
 	GC_STATUS gc_status;
 
 	int import_count;
+	TypeArena *type_arena;
 };
 
 #define push(module_record, value)                                             \

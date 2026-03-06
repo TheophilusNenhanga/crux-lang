@@ -246,7 +246,8 @@ typedef struct { // 64
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
-	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
+	TypeRecord **arg_types;
+	TypeRecord *return_type;
 } ObjectNativeCallable;
 
 typedef struct { // 24
@@ -430,9 +431,10 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
-ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function,
-					  int arity, ObjectString *name,
-					  const TypeMask *arg_types);
+ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
+					  const int arity, ObjectString *name,
+					  TypeRecord **arg_types,
+					  TypeRecord *return_type);
 
 /**
  * @brief Creates a new function object.

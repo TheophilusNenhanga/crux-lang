@@ -958,11 +958,13 @@ ObjectFunction *new_function(VM *vm)
  * @param name The name of the function
  * @param arg_types The types of the function arguments. This should be an owned
  * array
+ * @param return_type The type of the function's returned value
  * @return The GC owned object
  */
 ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
 					  const int arity, ObjectString *name,
-					  const TypeMask *arg_types)
+					  TypeRecord **arg_types,
+					  TypeRecord *return_type)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
 	ObjectNativeCallable *native = ALLOCATE_OBJECT(vm, ObjectNativeCallable,
@@ -971,6 +973,8 @@ ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
+	native->arg_types = arg_types;
+	native->return_type = return_type;
 	memcpy(native->arg_types, arg_types, arity * sizeof(TypeMask));
 	return native;
 }

@@ -209,11 +209,9 @@ Value error_type_method(VM *vm, const Value *args)
 Value err_function(VM *vm, const Value *args)
 {
 	ObjectString *message = to_string(vm, args[0]);
-	push(vm->current_module_record, OBJECT_VAL(message));
 	ObjectError *error = new_error(vm, message, RUNTIME, false);
 	push(vm->current_module_record, OBJECT_VAL(error));
 	ObjectResult *res = new_error_result(vm, error);
-	pop(vm->current_module_record);
 	pop(vm->current_module_record);
 	return OBJECT_VAL(res);
 }
