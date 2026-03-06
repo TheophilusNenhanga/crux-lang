@@ -26,8 +26,9 @@ static void build_prefix_table(const char *pattern,
 
 /**
  * Returns the first character of a string
+ * If the string is empty returns ""
  * arg0 -> string: String
- * Returns Result<String>
+ * Returns String
  */
 Value string_first_method(VM *vm, const Value *args)
 {
@@ -35,44 +36,32 @@ Value string_first_method(VM *vm, const Value *args)
 	const ObjectString *string = AS_CRUX_STRING(value);
 
 	if (string->length == 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"'string' must have at least one character to get the "
-			"first character.",
-			VALUE);
+		ObjectString *str = copy_string(vm, "", 0);
+		return OBJECT_VAL(str);
 	}
 
 	ObjectString *str = copy_string(vm, &string->chars[0], 1);
-	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
-	pop(vm->current_module_record);
-
-	return OBJECT_VAL(res);
+	return OBJECT_VAL(str);
 }
 
 /**
  * Returns the last character of a string
+ * If the string is empty returns ""
  * arg0 -> string: String
- * Returns Result<String>
+ * Returns String
  */
 Value string_last_method(VM *vm, const Value *args)
 {
 	const Value value = args[0];
 	const ObjectString *string = AS_CRUX_STRING(value);
 	if (string->length == 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"'string' must have at least one character to get the "
-			"last character.",
-			VALUE);
+		ObjectString *str = copy_string(vm, "", 0);
+		return OBJECT_VAL(str);
 	}
 
 	ObjectString *str = copy_string(vm, &string->chars[string->length - 1],
 					1);
-	push(vm->current_module_record, OBJECT_VAL(str));
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(str));
-	pop(vm->current_module_record);
-	return OBJECT_VAL(res);
+	return OBJECT_VAL(str);
 }
 
 /**
@@ -723,10 +712,6 @@ Value string_is_empty_method(VM *vm, const Value *args)
 	return BOOL_VAL(string->length == 0);
 }
 
-/*
- * arg0 -> the string this is called on
- * arg1 -> the string that will be concatenated
- */
 /**
  * Concatenates two strings together
  * arg0 -> string: String
@@ -741,7 +726,7 @@ Value string_concat_method(VM *vm, const Value *args)
 	const uint32_t length = string->length + current->length;
 	if (length < current->length) {
 		return MAKE_GC_SAFE_ERROR(vm,
-					  "Resultant string is too greater "
+					  "Resultant string is greater "
 					  "than the supported length.",
 					  LIMIT);
 	}
@@ -750,8 +735,13 @@ Value string_concat_method(VM *vm, const Value *args)
 	memcpy(result_string, current->chars, current->length);
 	memcpy(result_string + current->length, string->chars, string->length);
 	result_string[length] = '\0';
-	/* take string will free length + 1 --- which is what we allocated */
-	ObjectString *res = take_string(vm, result_string, length);
+	/* take string will free length + 1 */
+	ObjectString *result_object_string = take_string(vm, result_string,
+							 length);
+	push(vm->current_module_record, OBJECT_VAL(result_object_string));
+	ObjectResult *result = new_ok_result(vm,
+					     OBJECT_VAL(result_object_string));
+	pop(vm->current_module_record);
 
-	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(res)));
+	return OBJECT_VAL(result);
 }

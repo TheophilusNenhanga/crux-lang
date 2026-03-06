@@ -197,26 +197,6 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 
 		const Value *args = current_module_record->stack_top -
 				    arg_count;
-		for (int i = 0; i < arg_count; i++) {
-			if (!runtime_types_compatible(native->arg_types[i],
-						      args[i])) {
-				char expected_name[128];
-				char actual_name[128];
-				type_mask_name(native->arg_types[i],
-					       expected_name,
-					       sizeof(expected_name));
-				TypeMask actual_mask = get_type_mask(args[i]);
-				type_mask_name(actual_mask, actual_name,
-					       sizeof(actual_name));
-				runtime_panic(current_module_record, false,
-					      TYPE,
-					      "In %s() --- arg %d: expected "
-					      "%s, got %s",
-					      native->name->chars, i + 1,
-					      expected_name, actual_name);
-				return false;
-			}
-		}
 
 		const Value result_value = native->function(vm, args);
 
@@ -447,28 +427,6 @@ static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name,
 		return call_value(
 			vm, instance->fields[(uint16_t)AS_INT(indexValue)],
 			arg_count);
-	}
-	undefined_method_return(vm->current_module_record, name);
-}
-
-static bool handle_key_invoke(VM *vm, const ObjectString *name,
-			      const int arg_count, const Value original,
-			      const Value receiver)
-{
-	Value value;
-	if (table_get(&vm->key_type, name, &value)) {
-		return handle_invoke(vm, arg_count, receiver, original, value);
-	}
-	undefined_method_return(vm->current_module_record, name);
-}
-
-static bool handle_event_invoke(VM *vm, const ObjectString *name,
-				const int arg_count, const Value original,
-				const Value receiver)
-{
-	Value value;
-	if (table_get(&vm->event_type, name, &value)) {
-		return handle_invoke(vm, arg_count, receiver, original, value);
 	}
 	undefined_method_return(vm->current_module_record, name);
 }
@@ -716,6 +674,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 
 	reset_stack(vm->current_module_record);
 
+	vm->type_arena = malloc(sizeof(TypeArena));
+
 	init_table(&vm->string_type);
 	init_table(&vm->array_type);
 	init_table(&vm->table_type);
@@ -730,8 +690,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->set_type);
 	init_table(&vm->tuple_type);
 	init_table(&vm->buffer_type);
-	init_table(&vm->key_type);
-	init_table(&vm->event_type);
+	init_table(&vm->core_fns);
 	init_table(&vm->module_cache);
 
 	init_table(&vm->strings);
@@ -802,8 +761,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->set_type);
 	free_table(vm, &vm->tuple_type);
 	free_table(vm, &vm->buffer_type);
-	free_table(vm, &vm->key_type);
-	free_table(vm, &vm->event_type);
+	free_table(vm, &vm->core_fns);
 
 	for (int i = 0; i < vm->native_modules.count; i++) {
 		const NativeModule module = vm->native_modules.modules[i];

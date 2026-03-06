@@ -318,7 +318,7 @@ Value array_function(VM *vm, const Value *args)
 Value table_function(VM *vm, const Value *args)
 {
 	const Value table = cast_table(vm, args);
-	return OBJECT_VAL(new_ok_result(vm, table));
+	return OBJECT_VAL(table);
 }
 
 /**

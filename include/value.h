@@ -8,6 +8,8 @@ typedef struct VM VM;
 typedef struct ObjectString ObjectString;
 typedef struct CruxObject CruxObject;
 typedef struct PoolObject PoolObject;
+typedef struct TypeRecord TypeRecord;
+typedef struct TypeArena TypeArena;
 
 #define QNAN ((uint64_t)0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t)0x8000000000000000)

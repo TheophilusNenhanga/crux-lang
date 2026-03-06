@@ -8,12 +8,10 @@ typedef struct {
 	const char *name;
 	CruxCallable function;
 	int arity;
-	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
+	TypeRecord **arg_types; // heap-allocated, may be NULL for 0-arity
+	TypeRecord *return_type; // arena-allocated
 } Callable;
 
 bool initialize_std_lib(VM *vm);
-
-bool register_native_method(VM *vm, Table *method_table, const char *method_name,
-			  CruxCallable method_function, int arity, const TypeMask *arg_types);
 
 #endif // STD_H
