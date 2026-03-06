@@ -9,8 +9,8 @@ let c: Float = 3.14;
 let d: Bool = true;
 let e: Array[Int] = [1, 2, 3];
 let f: Array[String] = ["one", "two", "three"];
-let g: Table[String:Int] = {"one": 1, "two": 2, "three": 3};
-let h: File = open("test.txt", "w");
+let g: Table[String,Int] = {"one": 1, "two": 2, "three": 3};
+let h: File = open("test.txt", "w")?;
 let i: Buffer = Buffer();
 let j: Random = Random();
 
@@ -20,9 +20,9 @@ fn test_func(num: Int) -> Nil {
 
 test_func(42);
 
-let k: Nil = Nil;
+let k: Nil = nil;
 let l: (Int) -> Int = fn (num: Int) -> Int {
-    num + 1
+    num + 1;
 };
 
 println(l(42));

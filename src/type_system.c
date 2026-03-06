@@ -7,19 +7,6 @@
 
 #define TYPE_GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
 
-void init_type_table(TypeTable *table)
-{
-	table->count = 0;
-	table->capacity = 0;
-	table->entries = NULL;
-}
-
-void free_type_table(TypeTable *table)
-{
-	free(table->entries);
-	init_type_table(table);
-}
-
 static bool compare_strings(const ObjectString *a, const ObjectString *b)
 {
 	if (a->length != b->length)
@@ -48,7 +35,7 @@ static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const 
 	}
 }
 
-static void type_adjust_capacity(TypeTable *table, const int capacity)
+static void type_adjust_capacity(ObjectTypeTable *table, const int capacity)
 {
 	TypeEntry *entries = calloc(capacity, sizeof(TypeEntry));
 	for (int i = 0; i < capacity; i++) {
@@ -71,7 +58,7 @@ static void type_adjust_capacity(TypeTable *table, const int capacity)
 	table->capacity = capacity;
 }
 
-bool type_table_set(TypeTable *table, ObjectString *key, TypeRecord *value)
+bool type_table_set(ObjectTypeTable *table, ObjectString *key, ObjectTypeRecord *value)
 {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
 		const int capacity = TYPE_GROW_CAPACITY(table->capacity);
@@ -90,7 +77,7 @@ bool type_table_set(TypeTable *table, ObjectString *key, TypeRecord *value)
 	return isNewKey;
 }
 
-bool type_table_get(const TypeTable *table, const ObjectString *key, TypeRecord **value)
+bool type_table_get(const ObjectTypeTable *table, const ObjectString *key, ObjectTypeRecord **value)
 {
 	if (!table) {
 		return false;
@@ -105,7 +92,7 @@ bool type_table_get(const TypeTable *table, const ObjectString *key, TypeRecord 
 	return true;
 }
 
-bool type_table_delete(const TypeTable *table, const ObjectString *key)
+bool type_table_delete(const ObjectTypeTable *table, const ObjectString *key)
 {
 	if (table->count == 0)
 		return false;
@@ -119,7 +106,7 @@ bool type_table_delete(const TypeTable *table, const ObjectString *key)
 	return true;
 }
 
-void type_table_add_all(const TypeTable *from, TypeTable *to)
+void type_table_add_all(const ObjectTypeTable *from, ObjectTypeTable *to)
 {
 	for (int i = 0; i < from->capacity; i++) {
 		const TypeEntry *entry = &from->entries[i];
@@ -168,7 +155,7 @@ TypeMask get_type_mask(Value value)
 		case OBJECT_MODULE_RECORD:
 			return MODULE_TYPE;
 		case OBJECT_UPVALUE: {
-			ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+			const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
 			return get_type_mask(upvalue->closed);
 		}
 		case OBJECT_CLOSURE:
@@ -228,184 +215,126 @@ bool runtime_types_compatible(const TypeMask expected, const Value actual)
 	return (expected & actual_mask) != 0;
 }
 
-static TypeRecord *type_arena_alloc(TypeArena *arena)
+ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type)
 {
-	// align to 8 bytes
-	const size_t aligned = (arena->used + 7) & ~7;
-	const size_t next = aligned + sizeof(TypeRecord);
-
-	if (next > TYPE_ARENA_CAPACITY) {
-		// compiler should panic
-		return NULL;
-	}
-
-	arena->used = next;
-	TypeRecord *rec = (TypeRecord *)(arena->data + aligned);
-	memset(rec, 0, sizeof(TypeRecord));
-	return rec;
-}
-
-void type_arena_reset(TypeArena *arena)
-{
-	arena->used = 0;
-}
-
-TypeRecord *new_type_rec(TypeArena *arena, TypeMask base_type)
-{
-	TypeRecord *rec = type_arena_alloc(arena);
-	if (!rec)
-		return NULL;
-	rec->base_type = base_type;
-	return rec;
-}
-
-TypeRecord *new_array_type_rec(TypeArena *arena, TypeRecord *element_type)
-{
-	TypeRecord *rec = new_type_rec(arena, ARRAY_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, ARRAY_TYPE);
 	rec->as.array_type.element_type = element_type;
 	return rec;
 }
 
-TypeRecord *new_table_type_rec(TypeArena *arena, TypeRecord *key_type, TypeRecord *value_type)
+ObjectTypeRecord *new_table_type_rec(VM *vm, ObjectTypeRecord *key_type, ObjectTypeRecord *value_type)
 {
-	TypeRecord *rec = new_type_rec(arena, TABLE_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, TABLE_TYPE);
 	rec->as.table_type.key_type = key_type;
 	rec->as.table_type.value_type = value_type;
 	return rec;
 }
 
-TypeRecord *new_result_type_rec(TypeArena *arena, TypeRecord *ok_type)
+ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type)
 {
-	TypeRecord *rec = new_type_rec(arena, RESULT_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, RESULT_TYPE);
 	rec->as.result_type.ok_type = ok_type;
 	return rec;
 }
 
-TypeRecord *new_struct_type_rec(TypeArena *arena, ObjectStruct *definition, TypeTable *field_types, int field_count)
+ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types, int field_count)
 {
-	TypeRecord *rec = new_type_rec(arena, STRUCT_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, STRUCT_TYPE);
 	rec->as.struct_type.definition = definition;
 	rec->as.struct_type.field_types = field_types;
 	rec->as.struct_type.field_count = field_count;
 	return rec;
 }
 
-TypeRecord *new_vector_type_rec(TypeArena *arena, int dimensions)
+ObjectTypeRecord *new_vector_type_rec(VM *vm, int dimensions)
 {
-	TypeRecord *rec = new_type_rec(arena, VECTOR_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, VECTOR_TYPE);
 	rec->as.vector_type.dimensions = dimensions;
 	return rec;
 }
 
-TypeRecord *new_tuple_type_rec(TypeArena *arena, TypeRecord *element_type)
+ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_rec(arena, TUPLE_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, TUPLE_TYPE);
 	rec->as.tuple_type.element_type = element_type;
 	return rec;
 }
 
-TypeRecord *new_matrix_type_rec(TypeArena *arena, int rows, int cols)
+ObjectTypeRecord *new_matrix_type_rec(VM *vm, int rows, int cols)
 {
-	TypeRecord *rec = new_type_rec(arena, MATRIX_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, MATRIX_TYPE);
 	rec->as.matrix_type.rows = rows;
 	rec->as.matrix_type.cols = cols;
 	return rec;
 }
 
-TypeRecord *new_function_type_rec(TypeArena *arena, TypeRecord **arg_types, int arg_count, TypeRecord *return_type)
+ObjectTypeRecord *new_function_type_rec(VM *vm, ObjectTypeRecord **arg_types, int arg_count,
+										ObjectTypeRecord *return_type)
 {
-	TypeRecord *rec = new_type_rec(arena, FUNCTION_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, FUNCTION_TYPE);
 	rec->as.function_type.arg_types = arg_types;
 	rec->as.function_type.arg_count = arg_count;
 	rec->as.function_type.return_type = return_type;
 	return rec;
 }
 
-TypeRecord *new_set_type_rec(TypeArena *arena, TypeRecord *element_type)
+ObjectTypeRecord *new_set_type_rec(VM *vm, ObjectTypeRecord *element_type)
 {
-	TypeRecord *rec = new_type_rec(arena, SET_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, SET_TYPE);
 	rec->as.set_type.element_type = element_type;
 	return rec;
 }
 
-TypeRecord *new_shape_type_rec(TypeArena *arena, TypeTable *element_types, int element_count)
+ObjectTypeRecord *new_shape_type_rec(VM *vm, ObjectTypeTable *element_types, int element_count)
 {
-	TypeRecord *rec = new_type_rec(arena, SHAPE_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, SHAPE_TYPE);
 	rec->as.shape_type.element_types = element_types;
 	rec->as.shape_type.element_count = element_count;
 	return rec;
 }
 
-TypeRecord *new_union_type_rec(TypeArena *arena, TypeRecord **element_types, ObjectString **element_names,
-							   int element_count)
+ObjectTypeRecord *new_union_type_rec(VM *vm, ObjectTypeRecord **element_types, ObjectString **element_names,
+									 int element_count)
 {
-	TypeRecord *rec = new_type_rec(arena, UNION_TYPE);
-	if (!rec)
-		return NULL;
+	ObjectTypeRecord *rec = new_type_rec(vm, UNION_TYPE);
 	rec->as.union_type.element_types = element_types;
 	rec->as.union_type.element_names = element_names;
 	rec->as.union_type.element_count = element_count;
 	return rec;
 }
 
-bool types_equal(TypeRecord *a, TypeRecord *b)
+bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 {
 	if (!a || !b)
 		return false;
 
-	// For simple types/bitmasks, they must match exactly
+	if (a == b)
+		return true;
+
 	if (a->base_type != b->base_type)
 		return false;
 
 	switch (a->base_type) {
-	case ARRAY_TYPE: {
+	case ARRAY_TYPE:
 		return types_equal(a->as.array_type.element_type, b->as.array_type.element_type);
-	}
-	case TABLE_TYPE: {
+	case TABLE_TYPE:
 		return types_equal(a->as.table_type.key_type, b->as.table_type.key_type) &&
 			   types_equal(a->as.table_type.value_type, b->as.table_type.value_type);
-	}
-	case RESULT_TYPE: {
+	case RESULT_TYPE:
 		return types_equal(a->as.result_type.ok_type, b->as.result_type.ok_type);
-	}
-	case TUPLE_TYPE: {
+	case TUPLE_TYPE:
 		return types_equal(a->as.tuple_type.element_type, b->as.tuple_type.element_type);
-	}
-	case VECTOR_TYPE: {
+	case VECTOR_TYPE:
 		return a->as.vector_type.dimensions == b->as.vector_type.dimensions;
-	}
-	case MATRIX_TYPE: {
+	case MATRIX_TYPE:
 		return a->as.matrix_type.cols == b->as.matrix_type.cols && a->as.matrix_type.rows == b->as.matrix_type.rows;
-	}
-
 	case STRUCT_TYPE: {
 		const ObjectStruct *a_struct = a->as.struct_type.definition;
 		const ObjectStruct *b_struct = b->as.struct_type.definition;
 		if (!a_struct || !b_struct)
 			return a_struct == b_struct;
-		return a_struct->name == b_struct->name; // should work because of interning
+		return a_struct->name == b_struct->name;
 	}
-
 	case FUNCTION_TYPE: {
 		if (a->as.function_type.arg_count != b->as.function_type.arg_count)
 			return false;
@@ -420,13 +349,13 @@ bool types_equal(TypeRecord *a, TypeRecord *b)
 	case SHAPE_TYPE: {
 		if (a->as.shape_type.element_count != b->as.shape_type.element_count)
 			return false;
-		const TypeTable *a_table = a->as.shape_type.element_types;
-		const TypeTable *b_table = b->as.shape_type.element_types;
+		const ObjectTypeTable *a_table = a->as.shape_type.element_types;
+		const ObjectTypeTable *b_table = b->as.shape_type.element_types;
 		for (int i = 0; i < a_table->capacity; i++) {
 			const TypeEntry *entry = &a_table->entries[i];
 			if (entry->key == NULL)
 				continue;
-			TypeRecord *b_value = NULL;
+			ObjectTypeRecord *b_value = NULL;
 			if (!type_table_get(b_table, entry->key, &b_value))
 				return false;
 			if (!types_equal(entry->value, b_value))
@@ -437,76 +366,108 @@ bool types_equal(TypeRecord *a, TypeRecord *b)
 	case UNION_TYPE: {
 		if (a->as.union_type.element_count != b->as.union_type.element_count)
 			return false;
+		// Order independent comparison: Int | String == String | Int
 		for (int i = 0; i < a->as.union_type.element_count; i++) {
-			if (!types_equal(a->as.union_type.element_types[i], b->as.union_type.element_types[i]))
-				return false;
+			bool found = false;
+			for (int j = 0; j < b->as.union_type.element_count; j++) {
+				if (types_equal(a->as.union_type.element_types[i], b->as.union_type.element_types[j])) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) return false;
 		}
 		return true;
 	}
 	default:
-		// All other types only checked by base_type match above
 		return true;
 	}
 }
 
-bool types_compatible(TypeRecord *a, TypeRecord *b)
+bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 {
-	if (!a || !b)
+	if (!expected || !got)
 		return false;
 
-	if (a->base_type == ANY_TYPE)
+	if (expected == got)
 		return true;
 
-	// Check if b is a subset of a (bitmask check)
-	// If both are simple types or a is a union bitmask, this handles it.
-	if ((a->base_type & b->base_type) == b->base_type) {
-		// If it's a complex type, we need to recursively check components
-		switch (b->base_type) {
-		case ARRAY_TYPE:
-			return types_compatible(a->as.array_type.element_type, b->as.array_type.element_type);
-		case TABLE_TYPE:
-			return types_compatible(a->as.table_type.key_type, b->as.table_type.key_type) &&
-				   types_compatible(a->as.table_type.value_type, b->as.table_type.value_type);
-		case RESULT_TYPE:
-			return types_compatible(a->as.result_type.ok_type, b->as.result_type.ok_type);
-		case TUPLE_TYPE:
-			return types_compatible(a->as.tuple_type.element_type, b->as.tuple_type.element_type);
-		case SET_TYPE:
-			return types_compatible(a->as.set_type.element_type, b->as.set_type.element_type);
-		case VECTOR_TYPE:
-			return a->as.vector_type.dimensions == -1 || a->as.vector_type.dimensions == b->as.vector_type.dimensions;
-		case MATRIX_TYPE:
-			return (a->as.matrix_type.cols == -1 && a->as.matrix_type.rows == -1) ||
-				   (a->as.matrix_type.cols == b->as.matrix_type.cols &&
-					a->as.matrix_type.rows == b->as.matrix_type.rows);
-		case FUNCTION_TYPE:
-			if (a->as.function_type.arg_count != b->as.function_type.arg_count)
-				return false;
-			for (int i = 0; i < a->as.function_type.arg_count; i++) {
-				// Contravariance for arguments would be better, but
-				// for now let's use exact compatibility or symmetry
-				if (!types_compatible(a->as.function_type.arg_types[i], b->as.function_type.arg_types[i]))
+	if (expected->base_type == ANY_TYPE)
+		return true;
+
+	if (expected->base_type == UNION_TYPE) {
+		if (got->base_type == UNION_TYPE) {
+			// Every type in 'got' must fit into 'expected'
+			for (int i = 0; i < got->as.union_type.element_count; i++) {
+				if (!types_compatible(expected, got->as.union_type.element_types[i]))
 					return false;
 			}
-			return types_compatible(a->as.function_type.return_type, b->as.function_type.return_type);
+			return true;
+		}
+
+		// 'got' is a single type, it must match at least one option in 'expected'
+		for (int i = 0; i < expected->as.union_type.element_count; i++) {
+			if (types_compatible(expected->as.union_type.element_types[i], got))
+				return true;
+		}
+		return false;
+	}
+
+	// 2. If 'got' is a Union, but 'expected' is not
+	if (got->base_type == UNION_TYPE) {
+		// Every possible type in 'got' must satisfy 'expected'
+		for (int i = 0; i < got->as.union_type.element_count; i++) {
+			if (!types_compatible(expected, got->as.union_type.element_types[i]))
+				return false;
+		}
+		return true;
+	}
+
+	// 3. Special case: Float accepts Int
+	if (expected->base_type == FLOAT_TYPE && got->base_type == INT_TYPE)
+		return true;
+
+	// 4. Check if 'got' is a subset of 'expected' (handles NUMERIC_TYPE bitmask aliases)
+	if ((expected->base_type & got->base_type) == got->base_type) {
+		// If it's a complex type, recursively check components
+		switch (got->base_type) {
+		case ARRAY_TYPE:
+			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
+		case TABLE_TYPE:
+			return types_compatible(expected->as.table_type.key_type, got->as.table_type.key_type) &&
+				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
+		case RESULT_TYPE:
+			return types_compatible(expected->as.result_type.ok_type, got->as.result_type.ok_type);
+		case TUPLE_TYPE:
+			return types_compatible(expected->as.tuple_type.element_type, got->as.tuple_type.element_type);
+		case SET_TYPE:
+			return types_compatible(expected->as.set_type.element_type, got->as.set_type.element_type);
+		case VECTOR_TYPE:
+			return expected->as.vector_type.dimensions == -1 ||
+			       expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
+		case MATRIX_TYPE:
+			return (expected->as.matrix_type.cols == -1 && expected->as.matrix_type.rows == -1) ||
+				   (expected->as.matrix_type.cols == got->as.matrix_type.cols &&
+					expected->as.matrix_type.rows == got->as.matrix_type.rows);
+		case FUNCTION_TYPE:
+			if (expected->as.function_type.arg_count != got->as.function_type.arg_count)
+				return false;
+			for (int i = 0; i < expected->as.function_type.arg_count; i++) {
+				if (!types_compatible(expected->as.function_type.arg_types[i], got->as.function_type.arg_types[i]))
+					return false;
+			}
+			return types_compatible(expected->as.function_type.return_type, got->as.function_type.return_type);
 		case STRUCT_TYPE:
-			return types_equal(a, b);
-		case UNION_TYPE:
-			// Full UNION_TYPE implementation would go here
-			return types_equal(a, b);
+			return types_equal(expected, got);
 		default:
 			return true;
 		}
 	}
 
-	// Special case: Float is compatible with Int
-	if (a->base_type == FLOAT_TYPE && b->base_type == INT_TYPE)
-		return true;
-
 	return false;
 }
 
-void type_record_name(const TypeRecord *rec, char *buf, const int buf_size)
+void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size)
 {
 	if (!rec) {
 		snprintf(buf, buf_size, "Unknown");
@@ -518,8 +479,6 @@ void type_record_name(const TypeRecord *rec, char *buf, const int buf_size)
 		return;
 	}
 
-	// Handle simple types and bitmasks first
-	// If it's not one of the complex types, just use type_mask_name
 	TypeMask complex_mask = ARRAY_TYPE | TABLE_TYPE | RESULT_TYPE | TUPLE_TYPE | SET_TYPE | FUNCTION_TYPE |
 							STRUCT_TYPE | VECTOR_TYPE | MATRIX_TYPE | UNION_TYPE | SHAPE_TYPE;
 
@@ -568,7 +527,7 @@ void type_record_name(const TypeRecord *rec, char *buf, const int buf_size)
 		break;
 	case MATRIX_TYPE:
 		if (rec->as.matrix_type.rows == -1)
-			snprintf(buf, buf_size, "Matrix[]");
+			snprintf(buf, buf_size, "Matrix[,]"); // Updated to print [,] explicitly as requested
 		else
 			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows, rec->as.matrix_type.cols);
 		break;
@@ -590,66 +549,18 @@ void type_record_name(const TypeRecord *rec, char *buf, const int buf_size)
 		snprintf(buf + offset, buf_size - offset, ") -> %s", ret);
 		break;
 	}
+	case UNION_TYPE: {
+		int offset = 0;
+		for (int i = 0; i < rec->as.union_type.element_count; i++) {
+			char inner[128];
+			type_record_name(rec->as.union_type.element_types[i], inner, sizeof(inner));
+			// Print ' | ' between types, but not before the first one
+			offset += snprintf(buf + offset, buf_size - offset, "%s%s", i == 0 ? "" : " | ", inner);
+		}
+		break;
+	}
 	default:
 		type_mask_name(rec->base_type, buf, buf_size);
 		break;
 	}
-}
-
-// Deep-copies a TypeRecord from any source arena into dest.
-// For function types, the arg_types array is heap-allocated.
-TypeRecord *copy_type_rec_to_arena(TypeArena *dest, TypeRecord *src)
-{
-	if (!src)
-		return NULL;
-
-	TypeRecord *copy = new_type_rec(dest, src->base_type);
-	if (!copy)
-		return NULL;
-
-	switch (src->base_type) {
-	case ARRAY_TYPE:
-		copy->as.array_type.element_type = copy_type_rec_to_arena(dest, src->as.array_type.element_type);
-		break;
-	case TABLE_TYPE:
-		copy->as.table_type.key_type = copy_type_rec_to_arena(dest, src->as.table_type.key_type);
-		copy->as.table_type.value_type = copy_type_rec_to_arena(dest, src->as.table_type.value_type);
-		break;
-	case RESULT_TYPE:
-		copy->as.result_type.ok_type = copy_type_rec_to_arena(dest, src->as.result_type.ok_type);
-		break;
-	case VECTOR_TYPE:
-		copy->as.vector_type.dimensions = src->as.vector_type.dimensions;
-		break;
-	case TUPLE_TYPE:
-		copy->as.tuple_type.element_type = copy_type_rec_to_arena(dest, src->as.tuple_type.element_type);
-		break;
-	case MATRIX_TYPE:
-		copy->as.matrix_type.rows = src->as.matrix_type.rows;
-		copy->as.matrix_type.cols = src->as.matrix_type.cols;
-		break;
-	case SET_TYPE:
-		copy->as.set_type.element_type = copy_type_rec_to_arena(dest, src->as.set_type.element_type);
-		break;
-	case FUNCTION_TYPE: {
-		int count = src->as.function_type.arg_count;
-		TypeRecord **args = NULL;
-		if (count > 0) {
-			args = malloc(sizeof(TypeRecord *) * count);
-			for (int i = 0; i < count; i++) {
-				args[i] = copy_type_rec_to_arena(dest, src->as.function_type.arg_types[i]);
-			}
-		}
-		copy->as.function_type.arg_types = args;
-		copy->as.function_type.arg_count = count;
-		copy->as.function_type.return_type = copy_type_rec_to_arena(dest, src->as.function_type.return_type);
-		break;
-	}
-	// Struct, shape, union have pointers to external ObjectStruct /
-	// TypeTable — those are GC-managed or long-lived so no deep copy
-	// needed for their nested pointers.
-	default:
-		break;
-	}
-	return copy;
 }

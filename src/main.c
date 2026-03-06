@@ -5,9 +5,6 @@
 #include "file_handler.h"
 #include "vm.h"
 
-/**
- * Starts the (REPL)
- */
 static void repl(VM *vm)
 {
 	while (true) {

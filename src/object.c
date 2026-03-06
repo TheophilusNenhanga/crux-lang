@@ -20,31 +20,26 @@
 static uint32_t get_new_pool_object(ObjectPool *pool)
 {
 	if (pool->free_top == 0) {
-		const uint32_t new_capacity = pool->capacity *
-					      OBJECT_POOL_GROWTH_FACTOR;
+		const uint32_t new_capacity = pool->capacity * OBJECT_POOL_GROWTH_FACTOR;
 		if (new_capacity < pool->capacity) { // overflow
 			fprintf(stderr, "Fatal Error: Cannot index memory. "
-					"Shutting Down!");
+							"Shutting Down!");
 			exit(1);
 		}
-		PoolObject *new_objects = realloc(pool->objects,
-						  new_capacity *
-							  sizeof(PoolObject));
+		PoolObject *new_objects = realloc(pool->objects, new_capacity * sizeof(PoolObject));
 		if (new_objects == NULL) {
 			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-					"to reallocate space for object pool. "
-					"Shutting down!");
+							"to reallocate space for object pool. "
+							"Shutting down!");
 			exit(1);
 		}
 		pool->objects = new_objects;
 
-		uint32_t *new_free_list = realloc(pool->free_list,
-						  new_capacity *
-							  sizeof(uint32_t));
+		uint32_t *new_free_list = realloc(pool->free_list, new_capacity * sizeof(uint32_t));
 		if (new_free_list == NULL) {
 			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-					"to reallocate space for object pool. "
-					"Shutting down!");
+							"to reallocate space for object pool. "
+							"Shutting down!");
 			exit(1);
 		}
 		pool->free_list = new_free_list;
@@ -72,8 +67,7 @@ static uint32_t get_new_pool_object(ObjectPool *pool)
  * @return A pointer to the newly allocated and initialized Object.
  */
 
-static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
-					  const ObjectType type)
+CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 
@@ -94,9 +88,7 @@ static CruxObject *allocate_pooled_object(VM *vm, const size_t size,
 	return object;
 }
 
-static CruxObject *allocate_pooled_object_without_gc(const VM *vm,
-						     const size_t size,
-						     const ObjectType type)
+CruxObject *allocate_pooled_object_without_gc(const VM *vm, const size_t size, const ObjectType type)
 {
 	CruxObject *object = allocate_object_without_gc(size);
 
@@ -115,20 +107,6 @@ static CruxObject *allocate_pooled_object_without_gc(const VM *vm,
 #endif
 	return object;
 }
-
-/**
- * @brief Macro to allocate a specific type of object.
- * @param vm The virtual machine.
- * @param type The C type of the object to allocate (e.g., ObjectString).
- * @param objectType The ObjectType enum value for the object.
- *
- * @return A pointer to the newly allocated object, cast to the specified type.
- */
-#define ALLOCATE_OBJECT(vm, type, objectType)                                  \
-	(type *)allocate_pooled_object(vm, sizeof(type), objectType)
-
-#define ALLOCATE_OBJECT_WITHOUT_GC(vm, type, objectType)                       \
-	(type *)allocate_pooled_object_without_gc(vm, sizeof(type), objectType)
 
 /**
  * @brief Calculates the next power of 2 capacity for a collection.
@@ -188,102 +166,111 @@ static uint32_t hashValue(const Value value)
 void print_type_to(FILE *stream, const Value value)
 {
 	if (IS_INT(value)) {
-		fprintf(stream, "'Int'");
+		fprintf(stream, "Int");
 		return;
 	}
 	if (IS_FLOAT(value)) {
-		fprintf(stream, "'Float'");
+		fprintf(stream, "Float");
 		return;
 	}
 	if (IS_BOOL(value)) {
-		fprintf(stream, "'Bool'");
+		fprintf(stream, "Bool");
 		return;
 	}
 	if (IS_NIL(value)) {
-		fprintf(stream, "'Nil'");
+		fprintf(stream, "Nil");
 		return;
 	}
 	switch (OBJECT_TYPE(value)) {
 	case OBJECT_STRING:
-		fprintf(stream, "'String'");
+		fprintf(stream, "String");
 		break;
 	case OBJECT_FUNCTION:
 	case OBJECT_NATIVE_CALLABLE:
 	case OBJECT_CLOSURE:
-		fprintf(stream, "'Function'");
+		fprintf(stream, "Function");
 		break;
 	case OBJECT_UPVALUE: {
 		const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
 		print_type_to(stream, upvalue->closed);
 		break;
 	}
-	case OBJECT_ARRAY:
-		fprintf(stream, "'Array'");
+	case OBJECT_ARRAY: {
+		const ObjectArray *array = AS_CRUX_ARRAY(value);
+		if (array->size > 0) {
+			fprintf(stream, "Array[");
+			print_type_to(stream, array->values[0]);
+			fprintf(stream, "]");
+		} else {
+			fprintf(stream, "Array");
+		}
 		break;
+	}
 	case OBJECT_TABLE:
-		fprintf(stream, "'Table'");
+		fprintf(stream, "Table");
 		break;
 	case OBJECT_ERROR:
-		fprintf(stream, "'Error'");
+		fprintf(stream, "Error");
 		break;
-	case OBJECT_RESULT:
-		fprintf(stream, "'Result'");
+	case OBJECT_RESULT: {
+		const ObjectResult *result = AS_CRUX_RESULT(value);
+		if (result->is_ok) {
+			fprintf(stream, "Result[");
+			print_type_to(stream, result->as.value);
+			fprintf(stream, "]");
+		} else {
+			fprintf(stream, "Result[Error]");
+		}
 		break;
+	}
 	case OBJECT_RANDOM:
-		fprintf(stream, "'Random'");
+		fprintf(stream, "Random");
 		break;
 	case OBJECT_FILE:
-		fprintf(stream, "'File'");
+		fprintf(stream, "File");
 		break;
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		fprintf(stream, "'Vec<%d>'", vector->dimensions);
+		fprintf(stream, "Vector[%d]", vector->dimensions);
 		break;
 	}
 	case OBJECT_MODULE_RECORD: {
-		fprintf(stream, "'module'");
+		fprintf(stream, "Module");
 		break;
 	}
 	case OBJECT_STRUCT_INSTANCE: {
-		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
-			value);
-		fprintf(stream, "'%s instance'",
-			instance->struct_type->name->chars);
+		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
+		fprintf(stream, "Struct %s", instance->struct_type->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT: {
 		const ObjectStruct *struct_ = AS_CRUX_STRUCT(value);
-		fprintf(stream, "'%s struct'", struct_->name->chars);
+		fprintf(stream, "Struct %s", struct_->name->chars);
 		break;
 	}
 	case OBJECT_COMPLEX: {
-		fprintf(stream, "'Complex'");
+		fprintf(stream, "Complex");
 		break;
 	}
 	case OBJECT_MATRIX: {
 		const ObjectMatrix *matrix = AS_CRUX_MATRIX(value);
-		fprintf(stream, "'Matrix<%d, %d>'", matrix->row_dim,
-			matrix->col_dim);
+		fprintf(stream, "Matrix[%d, %d]", matrix->row_dim, matrix->col_dim);
 		break;
 	}
 	case OBJECT_RANGE: {
-		const ObjectRange *range = AS_CRUX_RANGE(value);
-		fprintf(stream, "'Range'");
+		fprintf(stream, "Range");
 		break;
 	}
 	case OBJECT_TUPLE: {
-		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
-		fprintf(stream, "'Tuple'");
+		fprintf(stream, "Tuple");
 		break;
 	}
 	case OBJECT_BUFFER: {
-		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
-		fprintf(stream, "'Buffer'");
+		fprintf(stream, "Buffer");
 		break;
 	}
 	case OBJECT_SET: {
-		const ObjectSet *set = AS_CRUX_SET(value);
-		fprintf(stream, "'Set'");
+		fprintf(stream, "Set");
 		break;
 	}
 	case OBJECT_COMPLEX: {
@@ -291,14 +278,13 @@ void print_type_to(FILE *stream, const Value value)
 		break;
 	}
 	default:
-		fprintf(stream, "'unknown'");
+		fprintf(stream, "Unknown");
 	}
 }
 
 ObjectUpvalue *new_upvalue(VM *vm, Value *slot)
 {
-	ObjectUpvalue *upvalue = ALLOCATE_OBJECT(vm, ObjectUpvalue,
-						 OBJECT_UPVALUE);
+	ObjectUpvalue *upvalue = ALLOCATE_OBJECT(vm, ObjectUpvalue, OBJECT_UPVALUE);
 	upvalue->location = slot;
 	upvalue->next = NULL;
 	upvalue->closed = NIL_VAL;
@@ -308,15 +294,13 @@ ObjectUpvalue *new_upvalue(VM *vm, Value *slot)
 ObjectClosure *new_closure(VM *vm, ObjectFunction *function)
 {
 	push(vm->current_module_record, OBJECT_VAL(function));
-	ObjectUpvalue **upvalues = ALLOCATE(vm, ObjectUpvalue *,
-					    function->upvalue_count);
+	ObjectUpvalue **upvalues = ALLOCATE(vm, ObjectUpvalue *, function->upvalue_count);
 	push(vm->current_module_record, OBJECT_VAL(upvalues));
 	for (int i = 0; i < function->upvalue_count; i++) {
 		upvalues[i] = NULL;
 	}
 
-	ObjectClosure *closure = ALLOCATE_OBJECT(vm, ObjectClosure,
-						 OBJECT_CLOSURE);
+	ObjectClosure *closure = ALLOCATE_OBJECT(vm, ObjectClosure, OBJECT_CLOSURE);
 	pop(vm->current_module_record);
 	pop(vm->current_module_record);
 	closure->function = function;
@@ -337,8 +321,7 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function)
  *
  * @return A pointer to the newly created and interned ObjectString.
  */
-static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length,
-				    const uint32_t hash)
+static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length, const uint32_t hash)
 {
 	ObjectString *string = ALLOCATE_OBJECT(vm, ObjectString, OBJECT_STRING);
 	string->length = length;
@@ -379,15 +362,14 @@ ObjectString *copy_string(VM *vm, const char *chars, const uint32_t length)
 {
 	const uint32_t hash = hash_string(chars, length);
 
-	ObjectString *interned = table_find_string(&vm->strings, chars, length,
-						   hash);
+	ObjectString *interned = table_find_string(&vm->strings, chars, length, hash);
 	if (interned != NULL)
 		return interned;
 
 	char *heapChars = ALLOCATE(vm, char, length + 1);
 	memcpy(heapChars, chars, length);
 	heapChars[length] = '\0'; // terminating the string because it is not
-				  // terminated in the source
+							  // terminated in the source
 	return allocateString(vm, heapChars, length, hash);
 }
 
@@ -490,8 +472,7 @@ static void print_function_to(FILE *stream, const ObjectFunction *function)
 	fprintf(stream, "<fn %s>", function->name->chars);
 }
 
-static void print_array_to(FILE *stream, const Value *values,
-			   const uint32_t size)
+static void print_array_to(FILE *stream, const Value *values, const uint32_t size)
 {
 	fprintf(stream, "[");
 	for (uint32_t i = 0; i < size; i++) {
@@ -503,8 +484,7 @@ static void print_array_to(FILE *stream, const Value *values,
 	fprintf(stream, "]");
 }
 
-static void print_table_to(FILE *stream, const ObjectTableEntry *entries,
-			   const uint32_t capacity, const uint32_t size)
+static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size)
 {
 	uint32_t printed = 0;
 	fprintf(stream, "{");
@@ -522,8 +502,7 @@ static void print_table_to(FILE *stream, const ObjectTableEntry *entries,
 	fprintf(stream, "}");
 }
 
-static void print_struct_instance_to(FILE *stream,
-				     const ObjectStructInstance *instance)
+static void print_struct_instance_to(FILE *stream, const ObjectStructInstance *instance)
 {
 	fprintf(stream, "{");
 	int printed = 0;
@@ -534,10 +513,8 @@ static void print_struct_instance_to(FILE *stream,
 	}
 	for (int i = 0; i < type->fields.capacity; i++) {
 		if (type->fields.entries[i].key != NULL) {
-			const uint16_t index = (uint16_t)AS_INT(
-				type->fields.entries[i].value);
-			const ObjectString *fieldName =
-				type->fields.entries[i].key;
+			const uint16_t index = (uint16_t)AS_INT(type->fields.entries[i].value);
+			const ObjectString *fieldName = type->fields.entries[i].key;
 			fprintf(stream, "%s: ", fieldName->chars);
 			print_value_to(stream, instance->fields[index], true);
 			if (printed != type->fields.count - 1) {
@@ -578,11 +555,9 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		break;
 	}
 	case OBJECT_NATIVE_CALLABLE: {
-		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
-			value);
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(value);
 		if (native->name != NULL) {
-			fprintf(stream, "<native callable %s>",
-				native->name->chars);
+			fprintf(stream, "<native callable %s>", native->name->chars);
 		} else {
 			fprintf(stream, "<native callable>");
 		}
@@ -603,8 +578,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TABLE: {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		print_table_to(stream, table->entries, table->capacity,
-			       table->size);
+		print_table_to(stream, table->entries, table->capacity, table->size);
 		break;
 	}
 	case OBJECT_ERROR: {
@@ -630,13 +604,11 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		break;
 	}
 	case OBJECT_STRUCT: {
-		fprintf(stream, "<struct type %s>",
-			AS_CRUX_STRUCT(value)->name->chars);
+		fprintf(stream, "<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT_INSTANCE: {
-		print_struct_instance_to(stream,
-					 AS_CRUX_STRUCT_INSTANCE(value));
+		print_struct_instance_to(stream, AS_CRUX_STRUCT_INSTANCE(value));
 		break;
 	}
 	case OBJECT_VECTOR: {
@@ -715,8 +687,7 @@ ObjectString *take_string(VM *vm, char *chars, const uint32_t length)
 {
 	const uint32_t hash = hash_string(chars, length);
 
-	ObjectString *interned = table_find_string(&vm->strings, chars, length,
-						   hash);
+	ObjectString *interned = table_find_string(&vm->strings, chars, length, hash);
 	if (interned != NULL) {
 		// free the string that was passed to us.
 		FREE_ARRAY(vm, char, chars, length + 1);
@@ -758,26 +729,20 @@ ObjectString *to_string(VM *vm, const Value value)
 			return copy_string(vm, "<script>", 8);
 		}
 		char buffer[64];
-		const int length = snprintf(buffer, sizeof(buffer), "<fn %s>",
-					    function->name->chars);
+		const int length = snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
 		return copy_string(vm, buffer, length);
 	}
 
 	case OBJECT_NATIVE_CALLABLE: {
-		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
-			value);
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(value);
 		if (native->name != NULL) {
 			const char *start = "<native fn ";
 			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
+			char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
 			strcpy(buffer, start);
 			strcat(buffer, native->name->chars);
 			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
+			ObjectString *result = take_string(vm, buffer, strlen(buffer));
 			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
 			return result;
 		}
@@ -785,14 +750,12 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 
 	case OBJECT_CLOSURE: {
-		const ObjectFunction *function =
-			AS_CRUX_CLOSURE(value)->function;
+		const ObjectFunction *function = AS_CRUX_CLOSURE(value)->function;
 		if (function->name == NULL) {
 			return copy_string(vm, "<script>", 8);
 		}
 		char buffer[256];
-		const int length = snprintf(buffer, sizeof(buffer), "<fn %s>",
-					    function->name->chars);
+		const int length = snprintf(buffer, sizeof(buffer), "<fn %s>", function->name->chars);
 		return copy_string(vm, buffer, length);
 	}
 
@@ -804,8 +767,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
 		size_t bufSize = 2; // [] minimum
 		for (uint32_t i = 0; i < array->size; i++) {
-			const ObjectString *element =
-				to_string(vm, array->values[i]);
+			const ObjectString *element = to_string(vm, array->values[i]);
 			bufSize += element->length + 2; // element + ", "
 		}
 
@@ -818,8 +780,7 @@ ObjectString *to_string(VM *vm, const Value value)
 				*ptr++ = ',';
 				*ptr++ = ' ';
 			}
-			const ObjectString *element =
-				to_string(vm, array->values[i]);
+			const ObjectString *element = to_string(vm, array->values[i]);
 			memcpy(ptr, element->chars, element->length);
 			ptr += element->length;
 		}
@@ -834,12 +795,9 @@ ObjectString *to_string(VM *vm, const Value value)
 		size_t bufSize = 2; // {} minimum
 		for (uint32_t i = 0; i < table->capacity; i++) {
 			if (table->entries[i].is_occupied) {
-				const ObjectString *k =
-					to_string(vm, table->entries[i].key);
-				const ObjectString *v =
-					to_string(vm, table->entries[i].value);
-				bufSize += k->length + v->length +
-					   4; // key:value
+				const ObjectString *k = to_string(vm, table->entries[i].key);
+				const ObjectString *v = to_string(vm, table->entries[i].value);
+				bufSize += k->length + v->length + 4; // key:value
 			}
 		}
 
@@ -856,10 +814,8 @@ ObjectString *to_string(VM *vm, const Value value)
 				}
 				first = false;
 
-				const ObjectString *key =
-					to_string(vm, table->entries[i].key);
-				const ObjectString *val =
-					to_string(vm, table->entries[i].value);
+				const ObjectString *key = to_string(vm, table->entries[i].key);
+				const ObjectString *val = to_string(vm, table->entries[i].value);
 
 				memcpy(ptr, key->chars, key->length);
 				ptr += key->length;
@@ -877,9 +833,7 @@ ObjectString *to_string(VM *vm, const Value value)
 	case OBJECT_ERROR: {
 		const ObjectError *error = AS_CRUX_ERROR(value);
 		char buffer[1024];
-		const int length = snprintf(buffer, sizeof(buffer),
-					    "<Error: %s>",
-					    error->message->chars);
+		const int length = snprintf(buffer, sizeof(buffer), "<Error: %s>", error->message->chars);
 		return copy_string(vm, buffer, length);
 	}
 
@@ -940,8 +894,7 @@ ObjectString *to_string(VM *vm, const Value value)
 
 ObjectFunction *new_function(VM *vm)
 {
-	ObjectFunction *function = ALLOCATE_OBJECT(vm, ObjectFunction,
-						   OBJECT_FUNCTION);
+	ObjectFunction *function = ALLOCATE_OBJECT(vm, ObjectFunction, OBJECT_FUNCTION);
 	function->arity = 0;
 	function->name = NULL;
 	function->upvalue_count = 0;
@@ -961,21 +914,17 @@ ObjectFunction *new_function(VM *vm)
  * @param return_type The type of the function's returned value
  * @return The GC owned object
  */
-ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
-					  const int arity, ObjectString *name,
-					  TypeRecord **arg_types,
-					  TypeRecord *return_type)
+ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function, const int arity, ObjectString *name,
+										  ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeCallable *native = ALLOCATE_OBJECT(vm, ObjectNativeCallable,
-						       OBJECT_NATIVE_CALLABLE);
+	ObjectNativeCallable *native = ALLOCATE_OBJECT(vm, ObjectNativeCallable, OBJECT_NATIVE_CALLABLE);
 	pop(vm->current_module_record);
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
 	native->arg_types = arg_types;
 	native->return_type = return_type;
-	memcpy(native->arg_types, arg_types, arity * sizeof(TypeMask));
 	return native;
 }
 
@@ -985,10 +934,7 @@ ObjectTable *new_object_table(VM *vm, const int element_count)
 	push(vm->current_module_record, OBJECT_VAL(table));
 	table->size = 0;
 	table->entries = NULL;
-	const uint32_t newCapacity = element_count < 16
-					     ? 16
-					     : calculateCollectionCapacity(
-						       element_count);
+	const uint32_t newCapacity = element_count < 16 ? 16 : calculateCollectionCapacity(element_count);
 	table->capacity = newCapacity;
 	table->entries = ALLOCATE(vm, ObjectTableEntry, table->capacity);
 	for (uint32_t i = 0; i < table->capacity; i++) {
@@ -1033,8 +979,7 @@ ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
  * @return A pointer to the ObjectTableEntry for the key, or a pointer to an
  * empty entry (possibly a tombstone) if the key is not found.
  */
-static ObjectTableEntry *find_entry(ObjectTableEntry *entries,
-				    const uint16_t capacity, const Value key)
+static ObjectTableEntry *find_entry(ObjectTableEntry *entries, const uint16_t capacity, const Value key)
 {
 	const uint32_t hash = hashValue(key);
 	uint32_t index = hash & (capacity - 1);
@@ -1089,8 +1034,7 @@ static bool adjust_capacity(VM *vm, ObjectTable *table, const int capacity)
 			continue;
 		}
 
-		ObjectTableEntry *destination = find_entry(entries, capacity,
-							   entry->key);
+		ObjectTableEntry *destination = find_entry(entries, capacity, entry->key);
 
 		destination->key = entry->key;
 		destination->value = entry->value;
@@ -1104,8 +1048,7 @@ static bool adjust_capacity(VM *vm, ObjectTable *table, const int capacity)
 	return true;
 }
 
-bool object_table_set(VM *vm, ObjectTable *table, const Value key,
-		      const Value value)
+bool object_table_set(VM *vm, ObjectTable *table, const Value key, const Value value)
 {
 	if (table->size + 1 > table->capacity * TABLE_MAX_LOAD) {
 		const int capacity = GROW_CAPACITY(table->capacity);
@@ -1114,8 +1057,7 @@ bool object_table_set(VM *vm, ObjectTable *table, const Value key,
 		}
 	}
 
-	ObjectTableEntry *entry = find_entry(table->entries, table->capacity,
-					     key);
+	ObjectTableEntry *entry = find_entry(table->entries, table->capacity, key);
 	const bool isNewKey = !entry->is_occupied;
 
 	if (isNewKey) {
@@ -1139,8 +1081,7 @@ bool object_table_remove(ObjectTable *table, const Value key)
 	if (!table) {
 		return false;
 	}
-	ObjectTableEntry *entry = find_entry(table->entries, table->capacity,
-					     key);
+	ObjectTableEntry *entry = find_entry(table->entries, table->capacity, key);
 	if (!entry->is_occupied) {
 		return false;
 	}
@@ -1158,13 +1099,11 @@ bool object_table_contains_key(ObjectTable *table, const Value key)
 	if (table->size == 0)
 		return false;
 
-	const ObjectTableEntry *entry = find_entry(table->entries,
-						   table->capacity, key);
+	const ObjectTableEntry *entry = find_entry(table->entries, table->capacity, key);
 	return entry->is_occupied;
 }
 
-bool entriesContainsKey(ObjectTableEntry *entries, const Value key,
-			const uint32_t capacity)
+bool entriesContainsKey(ObjectTableEntry *entries, const Value key, const uint32_t capacity)
 {
 	if (!entries)
 		return false;
@@ -1172,8 +1111,8 @@ bool entriesContainsKey(ObjectTableEntry *entries, const Value key,
 	return entry->is_occupied;
 }
 
-bool object_table_get(ObjectTableEntry *entries, const uint32_t size,
-		      const uint32_t capacity, const Value key, Value *value)
+bool object_table_get(ObjectTableEntry *entries, const uint32_t size, const uint32_t capacity, const Value key,
+					  Value *value)
 {
 	if (size == 0) {
 		return false;
@@ -1214,8 +1153,7 @@ bool ensure_capacity(VM *vm, ObjectArray *array, const uint32_t capacity_needed)
 		newCapacity *= 2;
 	}
 	push(vm->current_module_record, OBJECT_VAL(array));
-	Value *newArray = GROW_ARRAY(vm, Value, array->values, array->capacity,
-				     newCapacity);
+	Value *newArray = GROW_ARRAY(vm, Value, array->values, array->capacity, newCapacity);
 	pop(vm->current_module_record);
 	if (newArray == NULL) {
 		return false;
@@ -1228,8 +1166,7 @@ bool ensure_capacity(VM *vm, ObjectArray *array, const uint32_t capacity_needed)
 	return true;
 }
 
-bool array_set(VM *vm, const ObjectArray *array, const uint32_t index,
-	       const Value value)
+bool array_set(VM *vm, const ObjectArray *array, const uint32_t index, const Value value)
 {
 	if (index >= array->size) {
 		return false;
@@ -1241,8 +1178,7 @@ bool array_set(VM *vm, const ObjectArray *array, const uint32_t index,
 	return true;
 }
 
-bool array_add(VM *vm, ObjectArray *array, const Value value,
-	       const uint32_t index)
+bool array_add(VM *vm, ObjectArray *array, const Value value, const uint32_t index)
 {
 	if (!ensure_capacity(vm, array, array->size + 1)) {
 		return false;
@@ -1265,8 +1201,7 @@ bool array_add_back(VM *vm, ObjectArray *array, const Value value)
 	return true;
 }
 
-ObjectError *new_error(VM *vm, ObjectString *message, const ErrorType type,
-		       const bool is_panic)
+ObjectError *new_error(VM *vm, ObjectString *message, const ErrorType type, const bool is_panic)
 {
 	push(vm->current_module_record, OBJECT_VAL(message));
 	ObjectError *error = ALLOCATE_OBJECT(vm, ObjectError, OBJECT_ERROR);
@@ -1301,8 +1236,7 @@ ObjectRandom *new_random(VM *vm)
 {
 	ObjectRandom *random = ALLOCATE_OBJECT(vm, ObjectRandom, OBJECT_RANDOM);
 #ifdef _WIN32
-	random->seed = (uint64_t)time(NULL) ^ GetTickCount() ^
-		       (uint64_t)GetCurrentProcessId();
+	random->seed = (uint64_t)time(NULL) ^ GetTickCount() ^ (uint64_t)GetCurrentProcessId();
 #else
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -1319,15 +1253,14 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 	free_object_module_record(vm, module_record);
 }
 
-ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
-					     const bool is_repl,
-					     const bool is_main)
+ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path, const bool is_repl, const bool is_main)
 {
-	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(
-		vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
 	init_table(&moduleRecord->publics);
+
+	moduleRecord->types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 	moduleRecord->state = STATE_LOADING;
 	moduleRecord->module_closure = NULL;
 	moduleRecord->enclosing_module = NULL;
@@ -1337,8 +1270,7 @@ ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
 	moduleRecord->stack_limit = moduleRecord->stack + STACK_MAX;
 	moduleRecord->open_upvalues = NULL;
 
-	moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX *
-						   sizeof(CallFrame));
+	moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
 	moduleRecord->frame_count = 0;
 	moduleRecord->frame_capacity = FRAMES_MAX;
 
@@ -1361,25 +1293,23 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record)
 	record->stack = NULL;
 	free_table(vm, &record->globals);
 	free_table(vm, &record->publics);
+	free_type_table(vm, record->types);
 }
 
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct,
-						     OBJECT_STRUCT);
+	ObjectStruct *structObject = ALLOCATE_OBJECT(vm, ObjectStruct, OBJECT_STRUCT);
 	pop(vm->current_module_record);
 	structObject->name = name;
 	init_table(&structObject->fields);
 	return structObject;
 }
 
-ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
-					  const uint16_t field_count)
+ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type, const uint16_t field_count)
 {
 	push(vm->current_module_record, OBJECT_VAL(struct_type));
-	ObjectStructInstance *struct_instance = ALLOCATE_OBJECT(
-		vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
+	ObjectStructInstance *struct_instance = ALLOCATE_OBJECT(vm, ObjectStructInstance, OBJECT_STRUCT_INSTANCE);
 	push(vm->current_module_record, OBJECT_VAL(struct_instance));
 	struct_instance->struct_type = struct_type;
 	struct_instance->fields = NULL;
@@ -1406,11 +1336,9 @@ ObjectVector *new_vector(VM *vm, const uint32_t dimensions)
 	return vector;
 }
 
-ObjectComplex *new_complex_number(VM *vm, const double real,
-				  const double imaginary)
+ObjectComplex *new_complex_number(VM *vm, const double real, const double imaginary)
 {
-	ObjectComplex *complex_number = ALLOCATE_OBJECT(vm, ObjectComplex,
-							OBJECT_COMPLEX);
+	ObjectComplex *complex_number = ALLOCATE_OBJECT(vm, ObjectComplex, OBJECT_COMPLEX);
 	complex_number->real = real;
 	complex_number->imag = imaginary;
 	return complex_number;
@@ -1468,3 +1396,37 @@ ObjectTuple *new_tuple(VM *vm, uint32_t size)
 	pop(vm->current_module_record);
 	return tuple;
 }
+
+ObjectTypeRecord *new_type_rec(VM *vm, TypeMask base_type)
+{
+	ObjectTypeRecord *rec = ALLOCATE_OBJECT(vm, ObjectTypeRecord, OBJECT_TYPE_RECORD);
+	rec->base_type = base_type;
+	memset(&rec->as, 0, sizeof(rec->as));
+	return rec;
+}
+
+ObjectTypeTable *new_type_table(VM *vm, const int capacity)
+{
+	ObjectTypeTable *table = ALLOCATE_OBJECT(vm, ObjectTypeTable, OBJECT_TYPE_TABLE);
+	table->capacity = capacity;
+	table->count = 0;
+	table->entries = ALLOCATE(vm, TypeEntry, table->capacity);
+	for (int i = 0; i < table->capacity; i++) {
+		table->entries[i].key = NULL;
+		table->entries[i].value = NULL;
+	}
+	return table;
+}
+
+
+void free_type_table(VM* vm, ObjectTypeTable *table) {
+	FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
+}
+
+void mark_object_type_table(VM *vm, ObjectTypeTable *table) {
+	for (int i = 0; i < table->capacity; i++) {
+		mark_object(vm, (CruxObject*)table->entries[i].key);
+		mark_object(vm, (CruxObject*)table->entries[i].value);
+	}
+}
+

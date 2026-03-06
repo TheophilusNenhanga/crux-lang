@@ -29,9 +29,7 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
-		vm->gray_stack = (CruxObject **)
-			realloc(vm->gray_stack,
-				vm->gray_capacity * sizeof(CruxObject *));
+		vm->gray_stack = (CruxObject **)realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
 	}
 	if (vm->gray_stack == NULL) {
 		exit(1);
@@ -46,15 +44,6 @@ void mark_value(VM *vm, const Value value)
 	}
 }
 
-/**
- * @brief Marks all objects within a ValueArray as reachable.
- *
- * Iterates through the `values` array of the `ValueArray` and calls `markValue`
- * for each element, marking any contained objects.
- *
- * @param vm The virtual machine.
- * @param array The ValueArray whose elements should be marked.
- */
 void mark_array(VM *vm, const ValueArray *array)
 {
 	for (int i = 0; i < array->count; i++) {
@@ -62,16 +51,6 @@ void mark_array(VM *vm, const ValueArray *array)
 	}
 }
 
-/**
- * @brief Marks all objects within an ObjectArray as reachable.
- *
- * Iterates through the `array` of the `ObjectArray` and calls `markValue`
- * for each element, marking any contained objects.
- *
- * @param vm The virtual machine.
- * @param values the values of the array
- * @param size The size of the array
- */
 void mark_object_array(VM *vm, const Value *values, const uint32_t size)
 {
 	for (uint32_t i = 0; i < size; i++) {
@@ -79,19 +58,7 @@ void mark_object_array(VM *vm, const Value *values, const uint32_t size)
 	}
 }
 
-/**
- * @brief Marks all objects within an ObjectTable as reachable.
- *
- * Iterates through the entries of the `ObjectTable` and calls `markValue`
- * for both the key and the value of each occupied entry, marking any contained
- * objects.
- *
- * @param vm The virtual machine.
- * @param entries The entries in the table
- * @param capacity The capacity of the table
- */
-void mark_object_table(VM *vm, const ObjectTableEntry *entries,
-		       const uint32_t capacity)
+void mark_object_table(VM *vm, const ObjectTableEntry *entries, const uint32_t capacity)
 {
 	if (!entries)
 		return;
@@ -101,6 +68,20 @@ void mark_object_table(VM *vm, const ObjectTableEntry *entries,
 			mark_value(vm, entries[i].key);
 		}
 	}
+}
+
+void mark_type_table(VM *vm, ObjectTypeTable *table)
+{
+	if (!table)
+		return;
+	mark_object(vm, (CruxObject *)table);
+}
+
+void mark_type_record(VM *vm, ObjectTypeRecord *rec)
+{
+	if (!rec)
+		return;
+	mark_object(vm, (CruxObject *)rec);
 }
 
 static void mark_object_struct(VM *vm, ObjectStruct *structure)
@@ -119,16 +100,6 @@ static void mark_struct_instance(VM *vm, ObjectStructInstance *instance)
 	mark_object(vm, (CruxObject *)instance);
 }
 
-/**
- * @brief Blackens an object, marking all objects it references.
- *
- * This function moves an object from the gray set to the black set in the
- * garbage collection mark phase. It examines the object's type and recursively
- * marks all objects referenced by it, ensuring transitive reachability.
- *
- * @param vm The virtual machine.
- * @param object The object to blacken.
- */
 typedef void (*BlackenFunction)(VM *vm, CruxObject *object);
 typedef void (*FreeFunction)(VM *vm, CruxObject *object);
 
@@ -154,8 +125,8 @@ static void blacken_buffer(VM *vm, CruxObject *object);
 static void blacken_tuple(VM *vm, CruxObject *object);
 static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_matrix(VM *vm, CruxObject *object);
-static void blacken_key(VM *vm, CruxObject *object);
-static void blacken_event(VM *vm, CruxObject *object);
+static void blacken_type_record(VM *vm, CruxObject *object);
+static void blacken_type_table(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
@@ -179,6 +150,8 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_BUFFER] = blacken_buffer,
 	[OBJECT_TUPLE] = blacken_tuple,
 	[OBJECT_MATRIX] = blacken_matrix,
+	[OBJECT_TYPE_RECORD] = blacken_type_record,
+	[OBJECT_TYPE_TABLE] = blacken_type_table,
 };
 
 static void blacken_object(VM *vm, CruxObject *object)
@@ -189,9 +162,8 @@ static void blacken_object(VM *vm, CruxObject *object)
 	printf("\n");
 #endif
 
-	const ObjectType type = OBJECT_TYPE(OBJECT_VAL(object));
-	if (type < (ObjectType)(sizeof(blacken_dispatch) /
-				sizeof(blacken_dispatch[0]))) {
+	const ObjectType type = object->type;
+	if (type < (ObjectType)(sizeof(blacken_dispatch) / sizeof(blacken_dispatch[0]))) {
 		blacken_dispatch[type](vm, object);
 	}
 }
@@ -240,6 +212,12 @@ static void blacken_native_callable(VM *vm, CruxObject *object)
 {
 	const ObjectNativeCallable *native = (ObjectNativeCallable *)object;
 	mark_object(vm, (CruxObject *)native->name);
+	if (native->arg_types) {
+		for (int i = 0; i < native->arity; i++) {
+			mark_type_record(vm, native->arg_types[i]);
+		}
+	}
+	mark_type_record(vm, native->return_type);
 }
 
 static void blacken_result(VM *vm, CruxObject *object)
@@ -271,18 +249,17 @@ static void blacken_module_record(VM *vm, CruxObject *object)
 	mark_object(vm, (CruxObject *)module->path);
 	mark_table(vm, &module->globals);
 	mark_table(vm, &module->publics);
+	mark_type_table(vm, module->types);
 	mark_object(vm, (CruxObject *)module->module_closure);
-	mark_object(vm, (CruxObject *)module->enclosing_module); // Can be NULL
+	mark_object(vm, (CruxObject *)module->enclosing_module);
 
-	for (const Value *slot = module->stack; slot < module->stack_top;
-	     slot++) {
+	for (const Value *slot = module->stack; slot < module->stack_top; slot++) {
 		mark_value(vm, *slot);
 	}
 	for (int i = 0; i < module->frame_count; i++) {
 		mark_object(vm, (CruxObject *)module->frames[i].closure);
 	}
-	for (ObjectUpvalue *upvalue = module->open_upvalues; upvalue != NULL;
-	     upvalue = upvalue->next) {
+	for (ObjectUpvalue *upvalue = module->open_upvalues; upvalue != NULL; upvalue = upvalue->next) {
 		mark_object(vm, (CruxObject *)upvalue);
 	}
 }
@@ -328,11 +305,6 @@ static void blacken_range(VM *vm, CruxObject *object)
 	(void)vm;
 	(void)object;
 }
-static void blacken_key(VM *vm, CruxObject *object)
-{
-	(void)vm;
-	(void)object;
-}
 
 static void blacken_set(VM *vm, CruxObject *object)
 {
@@ -348,21 +320,77 @@ static void blacken_buffer(VM *vm, CruxObject *object)
 
 static void blacken_tuple(VM *vm, CruxObject *object)
 {
-	(void)vm;
-	(void)object;
+	const ObjectTuple *tuple = (ObjectTuple *)object;
+	mark_object_array(vm, tuple->elements, tuple->size);
 }
 
-/**
- * @brief Frees the memory associated with an object based on its type.
- *
- * This function frees the memory allocated for the given `object`. It handles
- * different object types and their specific memory management needs, such as
- * freeing character arrays for strings, chunks for functions, and upvalue
- * arrays for closures.
- *
- * @param vm The virtual machine.
- * @param object The object to free.
- */
+static void blacken_type_table(VM *vm, CruxObject *object)
+{
+	ObjectTypeTable *table = (ObjectTypeTable *)object;
+	if (!table->entries)
+		return;
+	for (int i = 0; i < table->capacity; i++) {
+		TypeEntry *entry = &table->entries[i];
+		if (entry->key == NULL)
+			continue;
+		mark_object(vm, (CruxObject *)entry->key);
+		mark_type_record(vm, entry->value);
+	}
+}
+
+static void blacken_type_record(VM *vm, CruxObject *object)
+{
+	ObjectTypeRecord *rec = (ObjectTypeRecord *)object;
+	switch (rec->base_type) {
+	case ARRAY_TYPE:
+		mark_type_record(vm, rec->as.array_type.element_type);
+		break;
+	case TABLE_TYPE:
+		mark_type_record(vm, rec->as.table_type.key_type);
+		mark_type_record(vm, rec->as.table_type.value_type);
+		break;
+	case RESULT_TYPE:
+		mark_type_record(vm, rec->as.result_type.ok_type);
+		break;
+	case STRUCT_TYPE:
+		if (rec->as.struct_type.definition) {
+			mark_object(vm, (CruxObject *)rec->as.struct_type.definition);
+		}
+		mark_type_table(vm, rec->as.struct_type.field_types);
+		break;
+	case FUNCTION_TYPE:
+		if (rec->as.function_type.arg_types) {
+			for (int i = 0; i < rec->as.function_type.arg_count; i++) {
+				mark_type_record(vm, rec->as.function_type.arg_types[i]);
+			}
+		}
+		mark_type_record(vm, rec->as.function_type.return_type);
+		break;
+	case SET_TYPE:
+		mark_type_record(vm, rec->as.set_type.element_type);
+		break;
+	case TUPLE_TYPE:
+		mark_type_record(vm, rec->as.tuple_type.element_type);
+		break;
+	case UNION_TYPE:
+		if (rec->as.union_type.element_types) {
+			for (int i = 0; i < rec->as.union_type.element_count; i++) {
+				mark_type_record(vm, rec->as.union_type.element_types[i]);
+			}
+		}
+		if (rec->as.union_type.element_names) {
+			for (int i = 0; i < rec->as.union_type.element_count; i++) {
+				mark_object(vm, (CruxObject *)rec->as.union_type.element_names[i]);
+			}
+		}
+		break;
+	case SHAPE_TYPE:
+		mark_type_table(vm, rec->as.shape_type.element_types);
+		break;
+	default:
+		break;
+	}
+}
 
 static void free_object_string(VM *vm, CruxObject *object);
 static void free_object_function(VM *vm, CruxObject *object);
@@ -385,6 +413,8 @@ static void free_object_range(VM *vm, CruxObject *object);
 static void free_object_buffer(VM *vm, CruxObject *object);
 static void free_object_tuple(VM *vm, CruxObject *object);
 static void free_object_matrix(VM *vm, CruxObject *object);
+static void free_object_type_record(VM *vm, CruxObject *object);
+static void free_object_type_table(VM *vm, CruxObject *object);
 
 static const FreeFunction free_dispatch[] = {
 	[OBJECT_STRING] = free_object_string,
@@ -408,13 +438,14 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_BUFFER] = free_object_buffer,
 	[OBJECT_TUPLE] = free_object_tuple,
 	[OBJECT_MATRIX] = free_object_matrix,
+	[OBJECT_TYPE_RECORD] = free_object_type_record,
+	[OBJECT_TYPE_TABLE] = free_object_type_table,
 };
 
 static void free_object(VM *vm, CruxObject *object)
 {
 #ifdef DEBUG_LOG_GC
-	printf("%p free type %d\n", (void *)object,
-	       OBJECT_TYPE(OBJECT_VAL(object)));
+	printf("%p free type %d\n", (void *)object, object->type);
 #endif
 	if (object == NULL) {
 		return;
@@ -429,8 +460,7 @@ static void free_object(VM *vm, CruxObject *object)
 	}
 
 	const ObjectType type = object->type;
-	if (type <
-	    (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
+	if (type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
 		free_dispatch[type](vm, object);
 	}
 
@@ -459,14 +489,17 @@ static void free_object_function(VM *vm, CruxObject *object)
 
 static void free_object_native_callable(VM *vm, CruxObject *object)
 {
+	ObjectNativeCallable *native = (ObjectNativeCallable *)object;
+	if (native->arg_types) {
+		FREE_ARRAY(vm, ObjectTypeRecord *, native->arg_types, native->arity);
+	}
 	FREE_OBJECT(vm, ObjectNativeCallable, object);
 }
 
 static void free_object_closure(VM *vm, CruxObject *object)
 {
 	const ObjectClosure *closure = (ObjectClosure *)object;
-	FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues,
-		   closure->upvalue_count);
+	FREE_ARRAY(vm, ObjectUpvalue *, closure->upvalues, closure->upvalue_count);
 	FREE_OBJECT(vm, ObjectClosure, object);
 }
 
@@ -516,9 +549,7 @@ static void free_object_file(VM *vm, CruxObject *object)
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object)
 {
 	ObjectModuleRecord *moduleRecord = (ObjectModuleRecord *)object;
-	// First free the internal data
 	free_object_module_record(vm, moduleRecord);
-	// Then free the object itself
 	FREE_OBJECT(vm, ObjectModuleRecord, object);
 }
 
@@ -540,8 +571,7 @@ static void free_object_vector(VM *vm, CruxObject *object)
 {
 	const ObjectVector *vector = (ObjectVector *)object;
 	if (vector->dimensions > 4) {
-		FREE_ARRAY(vm, double, vector->as.h_components,
-			   vector->dimensions);
+		FREE_ARRAY(vm, double, vector->as.h_components, vector->dimensions);
 	}
 	FREE_OBJECT(vm, ObjectVector, object);
 }
@@ -581,9 +611,35 @@ static void free_object_tuple(VM *vm, CruxObject *object)
 static void free_object_matrix(VM *vm, CruxObject *object)
 {
 	const ObjectMatrix *matrix = (ObjectMatrix *)object;
-	FREE_ARRAY(vm, double, matrix->data,
-		   (uint32_t)matrix->row_dim * matrix->col_dim);
+	FREE_ARRAY(vm, double, matrix->data, (uint32_t)matrix->row_dim * matrix->col_dim);
 	FREE_OBJECT(vm, ObjectMatrix, object);
+}
+
+static void free_object_type_record(VM *vm, CruxObject *object)
+{
+	ObjectTypeRecord *rec = (ObjectTypeRecord *)object;
+	if (rec->base_type == FUNCTION_TYPE) {
+		if (rec->as.function_type.arg_types) {
+			FREE_ARRAY(vm, ObjectTypeRecord *, rec->as.function_type.arg_types, rec->as.function_type.arg_count);
+		}
+	} else if (rec->base_type == UNION_TYPE) {
+		if (rec->as.union_type.element_types) {
+			FREE_ARRAY(vm, ObjectTypeRecord *, rec->as.union_type.element_types, rec->as.union_type.element_count);
+		}
+		if (rec->as.union_type.element_names) {
+			FREE_ARRAY(vm, ObjectString *, rec->as.union_type.element_names, rec->as.union_type.element_count);
+		}
+	}
+	FREE_OBJECT(vm, ObjectTypeRecord, object);
+}
+
+static void free_object_type_table(VM *vm, CruxObject *object)
+{
+	ObjectTypeTable *table = (ObjectTypeTable *)object;
+	if (table->entries) {
+		free(table->entries);
+	}
+	FREE_OBJECT(vm, ObjectTypeTable, object);
 }
 
 void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
@@ -595,11 +651,11 @@ void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
 	mark_object(vm, (CruxObject *)moduleRecord->path);
 	mark_table(vm, &moduleRecord->globals);
 	mark_table(vm, &moduleRecord->publics);
+	mark_type_table(vm, moduleRecord->types);
 	mark_object(vm, (CruxObject *)moduleRecord->module_closure);
 	mark_object(vm, (CruxObject *)moduleRecord->enclosing_module);
 
-	for (const Value *slot = moduleRecord->stack;
-	     slot < moduleRecord->stack_top; slot++) {
+	for (const Value *slot = moduleRecord->stack; slot < moduleRecord->stack_top; slot++) {
 		mark_value(vm, *slot);
 	}
 
@@ -607,8 +663,7 @@ void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
 		mark_object(vm, (CruxObject *)moduleRecord->frames[i].closure);
 	}
 
-	for (ObjectUpvalue *upvalue = moduleRecord->open_upvalues;
-	     upvalue != NULL; upvalue = upvalue->next) {
+	for (ObjectUpvalue *upvalue = moduleRecord->open_upvalues; upvalue != NULL; upvalue = upvalue->next) {
 		mark_object(vm, (CruxObject *)upvalue);
 	}
 
@@ -624,15 +679,6 @@ void mark_struct_instance_stack(VM *vm, const StructInstanceStack *stack)
 	}
 }
 
-/**
- * @brief Marks all root objects reachable by the VM.
- *
- * This function marks objects that are considered roots for garbage collection.
- * These roots are directly accessible by the VM and include the stack, call
- * frames, open upvalues, global variables, compiler roots and the init string.
- *
- * @param vm The virtual machine.
- */
 void mark_roots(VM *vm)
 {
 	if (vm->current_module_record) {
@@ -646,9 +692,7 @@ void mark_roots(VM *vm)
 	if (vm->native_modules.modules != NULL) {
 		for (int i = 0; i < vm->native_modules.count; i++) {
 			mark_table(vm, vm->native_modules.modules[i].names);
-			mark_object(vm,
-				    (CruxObject *)vm->native_modules.modules[i]
-					    .name);
+			mark_object(vm, (CruxObject *)vm->native_modules.modules[i].name);
 		}
 	}
 
@@ -671,10 +715,6 @@ void mark_roots(VM *vm)
 	mark_value(vm, vm->match_handler.match_target);
 }
 
-/**
- * @brief Traces references from gray objects, blackening them.
- * @param vm The virtual machine.
- */
 static void trace_references(VM *vm)
 {
 	while (vm->gray_count > 0) {
@@ -683,10 +723,6 @@ static void trace_references(VM *vm)
 	}
 }
 
-/**
- * @brief Sweeps unmarked objects, freeing their memory.
- * @param vm The virtual machine.
- */
 static void sweep(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
@@ -722,9 +758,8 @@ void collect_garbage(VM *vm)
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");
-	printf("    collected %zu bytes (from %zu to %zu) next at %zu\n",
-	       before - vm->bytes_allocated, before, vm->bytes_allocated,
-	       vm->next_gc);
+	printf("    collected %zu bytes (from %zu to %zu) next at %zu\n", before - vm->bytes_allocated, before,
+		   vm->bytes_allocated, vm->next_gc);
 #endif
 }
 
