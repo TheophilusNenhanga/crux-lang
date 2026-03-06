@@ -457,7 +457,7 @@ bool array_add(VM *vm, ObjectArray *array, Value value, uint32_t index);
 bool array_add_back(VM *vm, ObjectArray *array, Value value);
 ObjectRandom *new_random(VM *vm);
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
-ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path, bool is_repl, bool is_main);
+ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, bool is_repl, bool is_main);
 bool object_table_remove(ObjectTable *table, Value key);
 bool object_table_contains_key(ObjectTable *table, Value key);
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);

@@ -58,6 +58,10 @@ static void type_adjust_capacity(ObjectTypeTable *table, const int capacity)
 	table->capacity = capacity;
 }
 
+/**
+ * Set a type in the type table
+ * @return true if new type was set false otherwise
+ */
 bool type_table_set(ObjectTypeTable *table, ObjectString *key, ObjectTypeRecord *value)
 {
 	if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
