@@ -48,12 +48,12 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 }
 
 #define NAMES(...)                                                                                                     \
-make_names(vm, (ObjectString *[]){__VA_ARGS__},                                                                    \
-(int)(sizeof((ObjectString *[]){__VA_ARGS__}) / sizeof(ObjectString *)))
+	make_names(vm, (ObjectString *[]){__VA_ARGS__},                                                                    \
+			   (int)(sizeof((ObjectString *[]){__VA_ARGS__}) / sizeof(ObjectString *)))
 
 #define ARGS(...)                                                                                                      \
-make_args(vm, (ObjectTypeRecord *[]){__VA_ARGS__},                                                                 \
-(int)(sizeof((ObjectTypeRecord *[]){__VA_ARGS__}) / sizeof(ObjectTypeRecord *)))
+	make_args(vm, (ObjectTypeRecord *[]){__VA_ARGS__},                                                                 \
+			  (int)(sizeof((ObjectTypeRecord *[]){__VA_ARGS__}) / sizeof(ObjectTypeRecord *)))
 
 #define ARGS0 NULL
 
@@ -88,7 +88,8 @@ make_args(vm, (ObjectTypeRecord *[]){__VA_ARGS__},                              
 #define t_rang REC(RANGE_TYPE)
 #define t_buf REC(BUFFER_TYPE)
 
-#define hashable UNI(ARGS(t_nil, t_int, t_flt, t_bool, t_str), NAMES(name_nil, name_int, name_float, name_bool, name_string), 5)
+#define hashable                                                                                                       \
+	UNI(ARGS(t_nil, t_int, t_flt, t_bool, t_str), NAMES(name_nil, name_int, name_float, name_bool, name_string), 5)
 #define numeric UNI(ARGS(t_int, t_flt), NAMES(name_int, name_float), 2)
 
 // Compound types used across multiple groups.
@@ -198,10 +199,16 @@ bool initialize_std_lib(VM *vm)
 			{"array", array_function, 1, ARGS(t_any), arr_any},
 			{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
 		};
-		if (!register_native_functions(vm, &vm->current_module_record->globals, fns, ARRAY_COUNT(fns)))
-			return false;
+
 		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns)))
 			return false;
+
+		for (int i = 0; i < vm->core_fns.capacity; i++) {
+			if (vm->core_fns.entries[i].key != NULL) {
+				table_set(vm, &vm->current_module_record->globals, vm->core_fns.entries[i].key,
+						  vm->core_fns.entries[i].value);
+			}
+		}
 	}
 
 	// string methods
@@ -244,7 +251,7 @@ bool initialize_std_lib(VM *vm)
 			{"index", array_index_of_method, 2, ARGS(arr_any, t_any), res_int},
 			{"map", array_map_method, 2, ARGS(arr_any, FUNC(ARGS(t_any), 1, t_any)), RES(arr_any)},
 			{"filter", array_filter_method, 2, ARGS(arr_any, FUNC(ARGS(t_any), 1, t_any)), RES(arr_any)},
-			{"reduce", array_reduce_method, 3, ARGS(arr_any, FUNC(ARGS(t_any), 1, t_any), t_any), res_any},
+			{"reduce", array_reduce_method, 3, ARGS(arr_any, FUNC(ARGS(t_any, t_any), 2, t_any), t_any), res_any},
 			{"sort", array_sort_method, 1, ARGS(arr_any), RES(arr_any)},
 			{"join", array_join_method, 2, ARGS(arr_any, t_str), res_str},
 			{"contains", array_contains_method, 2, ARGS(arr_any, t_any), t_bool},
@@ -307,11 +314,11 @@ bool initialize_std_lib(VM *vm)
 	{
 		const Callable methods[] = {
 			{"seed", random_seed_method, 2, ARGS(t_rnd, t_int), t_nil},
-			{"int", random_int_method, 3, ARGS(t_rnd, t_int, t_int), t_int},
-			{"float", random_float_method, 3, ARGS(t_rnd, numeric, numeric), t_flt},
-			{"bool", random_bool_method, 2, ARGS(t_rnd, numeric), t_bool},
-			{"choice", random_choice_method, 2, ARGS(t_rnd, arr_any), res_any},
-			{"_next", random_next_method, 1, ARGS(t_rnd), t_int},
+			{"int", random_int_method, 3, ARGS(t_rnd, t_int, t_int), RES(t_int)},
+			{"float", random_float_method, 3, ARGS(t_rnd, numeric, numeric), RES(t_flt)},
+			{"bool", random_bool_method, 2, ARGS(t_rnd, numeric), RES(t_bool)},
+			{"choice", random_choice_method, 2, ARGS(t_rnd, arr_any), RES(res_any)},
+			{"next", random_next_method, 1, ARGS(t_rnd), t_flt},
 		};
 		init_type_method_table(vm, &vm->random_type, methods, ARRAY_COUNT(methods));
 
@@ -325,18 +332,18 @@ bool initialize_std_lib(VM *vm)
 	// Vector methods  +  module constructor
 	{
 		const Callable methods[] = {
-			{"dot", vector_dot_method, 2, ARGS(vec_any, vec_any), t_flt},
-			{"add", vector_add_method, 2, ARGS(vec_any, vec_any), vec_any},
-			{"subtract", vector_subtract_method, 2, ARGS(vec_any, vec_any), vec_any},
-			{"multiply", vector_multiply_method, 2, ARGS(vec_any, numeric), vec_any},
-			{"divide", vector_divide_method, 2, ARGS(vec_any, numeric), vec_any},
+			{"dot", vector_dot_method, 2, ARGS(vec_any, vec_any), RES(t_flt)},
+			{"add", vector_add_method, 2, ARGS(vec_any, vec_any), RES(vec_any)},
+			{"subtract", vector_subtract_method, 2, ARGS(vec_any, vec_any), RES(vec_any)},
+			{"multiply", vector_multiply_method, 2, ARGS(vec_any, numeric), RES(vec_any)},
+			{"divide", vector_divide_method, 2, ARGS(vec_any, numeric), RES(vec_any)},
 			{"magnitude", vector_magnitude_method, 1, ARGS(vec_any), t_flt},
-			{"normalize", vector_normalize_method, 1, ARGS(vec_any), vec_any},
-			{"distance", vector_distance_method, 2, ARGS(vec_any, vec_any), t_flt},
-			{"angle_between", vector_angle_between_method, 2, ARGS(vec_any, vec_any), t_flt},
-			{"cross", vector_cross_method, 2, ARGS(vec_any, vec_any), vec_any},
-			{"lerp", vector_lerp_method, 3, ARGS(vec_any, vec_any, numeric), vec_any},
-			{"reflect", vector_reflect_method, 2, ARGS(vec_any, vec_any), vec_any},
+			{"normalize", vector_normalize_method, 1, ARGS(vec_any), RES(vec_any)},
+			{"distance", vector_distance_method, 2, ARGS(vec_any, vec_any), RES(t_flt)},
+			{"angle_between", vector_angle_between_method, 2, ARGS(vec_any, vec_any), RES(t_flt)},
+			{"cross", vector_cross_method, 2, ARGS(vec_any, vec_any), RES(vec_any)},
+			{"lerp", vector_lerp_method, 3, ARGS(vec_any, vec_any, numeric), RES(vec_any)},
+			{"reflect", vector_reflect_method, 2, ARGS(vec_any, vec_any), RES(vec_any)},
 			{"equals", vector_equals_method, 2, ARGS(vec_any, vec_any), t_bool},
 			{"x", vector_x_method, 1, ARGS(vec_any), t_flt},
 			{"y", vector_y_method, 1, ARGS(vec_any), t_flt},
@@ -347,7 +354,7 @@ bool initialize_std_lib(VM *vm)
 		init_type_method_table(vm, &vm->vector_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Vec", new_vector_function, 2, ARGS(t_int, arr_num), vec_any},
+			{"Vec", new_vector_function, 2, ARGS(t_int, arr_num), RES(vec_any)},
 		};
 		if (!init_module(vm, "vector", fns, ARRAY_COUNT(fns)))
 			return false;
@@ -526,7 +533,7 @@ bool initialize_std_lib(VM *vm)
 	{
 		const Callable fns[] = {
 			{"pow", pow_function, 2, ARGS(numeric, numeric), t_flt},
-			{"sqrt", sqrt_function, 1, ARGS(numeric), t_flt},
+			{"sqrt", sqrt_function, 1, ARGS(numeric), RES(t_flt)},
 			{"ceil", ceil_function, 1, ARGS(numeric), t_int},
 			{"floor", floor_function, 1, ARGS(numeric), t_int},
 			{"abs", abs_function, 1, ARGS(numeric), numeric},

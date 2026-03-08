@@ -1289,7 +1289,6 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record)
 	record->stack = NULL;
 	free_table(vm, &record->globals);
 	free_table(vm, &record->publics);
-	free_type_table(vm, record->types);
 }
 
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name)
