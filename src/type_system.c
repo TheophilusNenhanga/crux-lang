@@ -379,7 +379,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 					break;
 				}
 			}
-			if (!found) return false;
+			if (!found)
+				return false;
 		}
 		return true;
 	}
@@ -397,6 +398,9 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		return true;
 
 	if (expected->base_type == ANY_TYPE)
+		return true;
+
+	if (got->base_type == ANY_TYPE)
 		return true;
 
 	if (expected->base_type == UNION_TYPE) {
@@ -448,9 +452,11 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 			return types_compatible(expected->as.set_type.element_type, got->as.set_type.element_type);
 		case VECTOR_TYPE:
 			return expected->as.vector_type.dimensions == -1 ||
-			       expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
+				   got->as.vector_type.dimensions == -1 ||
+				   expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
 		case MATRIX_TYPE:
 			return (expected->as.matrix_type.cols == -1 && expected->as.matrix_type.rows == -1) ||
+				   (got->as.matrix_type.cols == -1 && got->as.matrix_type.rows == -1) ||
 				   (expected->as.matrix_type.cols == got->as.matrix_type.cols &&
 					expected->as.matrix_type.rows == got->as.matrix_type.rows);
 		case FUNCTION_TYPE:
@@ -568,3 +574,4 @@ void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size
 		break;
 	}
 }
+

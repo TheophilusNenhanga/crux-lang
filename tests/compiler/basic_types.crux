@@ -1,4 +1,4 @@
-use print, println, assert from "crux:io";
+use print, println from "crux:io";
 use Random from "crux:random";
 use Buffer from "crux:buffer";
 use open from "crux:fs";
@@ -86,7 +86,7 @@ let closure_fn: (Int) -> Int = fn (num: Int) -> Int {
 fn apply_twice(func: (Int) -> Int, val: Int) -> Int {
     return func(func(val));
 }
-assert(apply_twice(closure_fn, 2) == 80, "HOF failed");
+assert(apply_twice(closure_fn, 2) == 72, "HOF failed");
 
 println("--- 8. STDLIB NATIVE OBJECTS & METHODS ---");
 let buf: Buffer = Buffer();

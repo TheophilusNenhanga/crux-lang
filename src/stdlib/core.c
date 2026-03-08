@@ -220,8 +220,15 @@ static Value cast_float(VM *vm, const Value *args, bool *success)
 	(void)vm;
 	const Value value = args[0];
 
-	if (IS_INT(value)) {
+	if (IS_FLOAT(value)) {
+		*success = true;
 		return value;
+	}
+
+	if (IS_INT(value)) {
+		const double v = TO_DOUBLE(value);
+		*success = true;
+		return FLOAT_VAL(v);
 	}
 
 	if (IS_CRUX_STRING(value)) {

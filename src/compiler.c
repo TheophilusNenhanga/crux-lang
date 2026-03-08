@@ -560,13 +560,14 @@ static void init_compiler(Compiler *compiler, const FunctionType type, VM *vm)
 
 				ObjectTypeRecord **args_copy = NULL;
 				if (callable->arity > 0) {
-					args_copy = ALLOCATE(vm, ObjectTypeRecord*, callable->arity);
+					args_copy = ALLOCATE(vm, ObjectTypeRecord *, callable->arity);
 					for (int j = 0; j < callable->arity; j++) {
 						args_copy[j] = callable->arg_types[j];
 					}
 				}
 
-				ObjectTypeRecord *fn_type = new_function_type_rec(vm, args_copy, callable->arity, callable->return_type);
+				ObjectTypeRecord *fn_type = new_function_type_rec(vm, args_copy, callable->arity,
+																  callable->return_type);
 				type_table_set(compiler->type_table, vm->core_fns.entries[i].key, fn_type);
 			}
 		}
@@ -1391,8 +1392,7 @@ static void infix_call(bool can_assign)
 		ObjectTypeRecord *ret = func_type->as.function_type.return_type;
 		push_type_record(ret ? ret : T_ANY);
 	} else {
-		compiler_panic(&parser, "Attempting to call - but compiler cannot gaurantee this is a function.", TYPE);
-		// Unknown callee type — allow through without checking.
+		// unknown callee type
 		push_type_record(T_ANY);
 	}
 }
@@ -1577,8 +1577,10 @@ static void dot(const bool can_assign)
 		// Validate user-supplied args against declared parameter types.
 		// Slot 0 of method_arg_types is always the receiver (self), so
 		// user args are validated against slots [1 .. method_arity-1].
+
+		// struct methods do not have an implicit self
 		if (method_found && method_arg_types) {
-			int param_offset = 1; // skip receiver
+			int param_offset = (object_type->base_type == STRUCT_TYPE) ? 0 : 1;
 			int user_params = method_arity - param_offset;
 			if (user_params < 0)
 				user_params = 0;
@@ -1880,15 +1882,13 @@ static void function(const FunctionType type)
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
 	block();
 
-	if (!compiler.has_return && annotated_return_type &&
-		annotated_return_type->base_type != NIL_TYPE &&
+	if (!compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
 		annotated_return_type->base_type != ANY_TYPE) {
-
 		char expected[128], msg[256];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
 		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
 		compiler_panic(&parser, msg, TYPE);
-		}
+	}
 
 	ObjectFunction *fn = end_compiler();
 	emit_words(OP_CLOSURE, make_constant(OBJECT_VAL(fn)));
@@ -1999,15 +1999,13 @@ static void anonymous_function(bool can_assign)
 	consume(TOKEN_LEFT_BRACE, "Expected '{' before function body.");
 	block();
 
-	if (!compiler.has_return && annotated_return_type &&
-		annotated_return_type->base_type != NIL_TYPE &&
+	if (!compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
 		annotated_return_type->base_type != ANY_TYPE) {
-
 		char expected[128], msg[256];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
 		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
 		compiler_panic(&parser, msg, TYPE);
-		}
+	}
 
 	ObjectFunction *fn = end_compiler();
 	const uint16_t constantIndex = make_constant(OBJECT_VAL(fn));
@@ -2033,27 +2031,20 @@ static void array_literal(bool can_assign)
 		do {
 			expression();
 
-			ObjectTypeRecord *expr_type = pop_type_record();
+			ObjectTypeRecord *value_type = pop_type_record();
 
-			if (elementCount == 0) {
-				// First element establishes the array's type.
-				element_type = expr_type;
-			} else if (element_type && expr_type) {
-				// Subsequent elements must be compatible.
-				// ANY_TYPE on either side means we widen to
-				// Any.
-				if (element_type->base_type == ANY_TYPE || expr_type->base_type == ANY_TYPE) {
-					element_type = new_type_rec(current->owner, ANY_TYPE);
-				} else if (!types_compatible(element_type, expr_type)) {
-					char expected[128], got[128], msg[300];
-					type_record_name(element_type, expected, sizeof(expected));
-					type_record_name(expr_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg),
-							 "Inconsistent element types "
-							 "in array literal: expected "
-							 "'%s', got '%s'.",
-							 expected, got);
-					compiler_panic(&parser, msg, TYPE);
+			if (!element_type) {
+				element_type = value_type;
+			} else if (element_type->base_type != ANY_TYPE && value_type && value_type->base_type != ANY_TYPE) {
+				if (!types_compatible(element_type, value_type)) {
+					// Widen to Float if mix of Int/Float
+					if ((element_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
+						(element_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
+						element_type = new_type_rec(current->owner, FLOAT_TYPE);
+						} else {
+							// widening for mixed tables
+							element_type = T_ANY;
+						}
 				}
 			}
 
@@ -2098,8 +2089,7 @@ static void table_literal(bool can_assign)
 			if (!table_key_type) {
 				table_key_type = key_type;
 			} else if (table_key_type->base_type != ANY_TYPE && key_type && key_type->base_type != ANY_TYPE) {
-				// Keys must be exactly equal — a table can't
-				// have mixed key types at runtime.
+				// Keys must be exactly equal — a table can't have mixed key types
 				if (!types_equal(table_key_type, key_type)) {
 					char expected[128], got[128], msg[300];
 					type_record_name(table_key_type, expected, sizeof(expected));
@@ -2116,24 +2106,15 @@ static void table_literal(bool can_assign)
 			if (!table_value_type) {
 				table_value_type = value_type;
 			} else if (table_value_type->base_type != ANY_TYPE && value_type && value_type->base_type != ANY_TYPE) {
-				// Values use compatible rather than equal so
-				// Int and Float can coexist — both widen to
-				// Float.
 				if (!types_compatible(table_value_type, value_type)) {
-					char expected[128], got[128], msg[300];
-					type_record_name(table_value_type, expected, sizeof(expected));
-					type_record_name(value_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg),
-							 "Inconsistent value types in "
-							 "table literal: expected "
-							 "'%s', got '%s'.",
-							 expected, got);
-					compiler_panic(&parser, msg, TYPE);
-				}
-				// Widen to Float if we see a mix of Int/Float.
-				if ((table_value_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
-					(table_value_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
-					table_value_type = new_type_rec(current->owner, FLOAT_TYPE);
+					// Widen to Float if mix of Int/Float
+					if ((table_value_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
+						(table_value_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
+						table_value_type = new_type_rec(current->owner, FLOAT_TYPE);
+						} else {
+							// widening for mixed tables
+							table_value_type = T_ANY;
+						}
 				}
 			}
 
@@ -2582,15 +2563,15 @@ static void use_statement(void)
 					// We must duplicate the arg_types array so that the GC doesn't double-free it!
 					ObjectTypeRecord **args_copy = NULL;
 					if (callable->arity > 0) {
-						args_copy = ALLOCATE(current->owner, ObjectTypeRecord*, callable->arity);
+						args_copy = ALLOCATE(current->owner, ObjectTypeRecord *, callable->arity);
 						for (int k = 0; k < callable->arity; k++) {
 							args_copy[k] = callable->arg_types[k];
 						}
 					}
 
 					// Pass args_copy instead of callable->arg_types
-					ObjectTypeRecord *rec = new_function_type_rec(current->owner, args_copy,
-																  callable->arity, callable->return_type);
+					ObjectTypeRecord *rec = new_function_type_rec(current->owner, args_copy, callable->arity,
+																  callable->return_type);
 					type_table_set(current->type_table, name_str, rec);
 				}
 			}
@@ -2634,7 +2615,7 @@ static void struct_declaration(void)
 
 	// Build a ObjectTypeTable mapping field name -> ObjectTypeRecord.
 	// This is heap-allocated so it outlives the compiler's type_arena.
-	ObjectTypeTable* field_types = new_type_table(current->owner, INITIAL_TYPE_TABLE_SIZE);
+	ObjectTypeTable *field_types = new_type_table(current->owner, INITIAL_TYPE_TABLE_SIZE);
 	int fieldCount = 0;
 
 	if (!match(TOKEN_RIGHT_BRACE)) {
@@ -2938,8 +2919,7 @@ static void match_expression(bool can_assign)
 		if (match(TOKEN_LEFT_BRACE)) {
 			block();
 			// Blocks produce values only via give — read it back.
-			this_arm_type = current->last_give_type ? current->last_give_type
-													: new_type_rec(current->owner, NIL_TYPE);
+			this_arm_type = current->last_give_type ? current->last_give_type : new_type_rec(current->owner, NIL_TYPE);
 		} else if (match(TOKEN_GIVE)) {
 			if (match(TOKEN_SEMICOLON)) {
 				emit_word(OP_NIL);
@@ -3537,7 +3517,7 @@ static void pre_skip_type(void)
 
 // Collect a single top-level struct declaration into pre_compiler's type_table.
 // On entry parser.current is TOKEN_STRUCT (already consumed by caller).
-static void pre_collect_struct(VM* vm)
+static void pre_collect_struct(VM *vm)
 {
 	// Consume struct name.
 	if (parser.current.type != TOKEN_IDENTIFIER)
@@ -3551,7 +3531,7 @@ static void pre_collect_struct(VM* vm)
 	pre_advance(); // consume '{'
 
 	// Build a field_types ObjectTypeTable.
-	ObjectTypeTable* field_types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	ObjectTypeTable *field_types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 	int field_count = 0;
 
 	// Create a lightweight ObjectStruct so new_struct_type_rec works.
@@ -3675,7 +3655,7 @@ static void pre_collect_function(void)
 // Run a single forward-scan sub-pass over the token stream.
 // `collect_structs`: when true, collect struct declarations; when false,
 // collect function declarations (fn / pub fn).
-static void pre_scan_pass(VM* vm, bool collect_structs)
+static void pre_scan_pass(VM *vm, bool collect_structs)
 {
 	// Reset parser to a clean state (advance() will prime the first token
 	// after this is called from compile() with a fresh init_scanner).
@@ -3805,7 +3785,7 @@ ObjectFunction *compile(VM *vm, char *source)
 	parser.source = source;
 
 	// Run pre-scan, merging into a temporary staging table.
-	ObjectTypeTable* staging = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	ObjectTypeTable *staging = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 	pre_scan(vm, source, staging);
 
 	for (int i = 0; i < staging->capacity; i++) {
@@ -3848,14 +3828,14 @@ void mark_compiler_roots(VM *vm)
 	const Compiler *compiler = current;
 	while (compiler != NULL) {
 		mark_object(vm, (CruxObject *)compiler->function);
-		mark_object(vm, (CruxObject*)compiler->return_type);
-		mark_object(vm, (CruxObject*) compiler->last_give_type);
+		mark_object(vm, (CruxObject *)compiler->return_type);
+		mark_object(vm, (CruxObject *)compiler->last_give_type);
 		mark_object_type_table(vm, compiler->type_table);
 		for (int i = 0; i < current->type_stack_count; i++) {
-			mark_object(vm, (CruxObject*)current->type_stack[i]);
+			mark_object(vm, (CruxObject *)current->type_stack[i]);
 		}
 		for (int i = 0; i < current->local_count; i++) {
-			mark_object(vm, (CruxObject*)current->locals[i].type);
+			mark_object(vm, (CruxObject *)current->locals[i].type);
 		}
 		compiler = (Compiler *)compiler->enclosing;
 	}
