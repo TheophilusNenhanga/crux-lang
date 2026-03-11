@@ -265,7 +265,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		int param_capacity = 4;
 		int param_count = 0;
 		// TODO: make this use GC allocation functions
-		ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
+		ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
 		if (!param_types) {
 			compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 			return T_ANY;
@@ -278,10 +278,11 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				inner = new_type_rec(compiler->owner, ANY_TYPE);
 			}
 			if (param_count == param_capacity) {
-				param_capacity *= 2;
-				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
+				param_capacity = GROW_CAPACITY(param_capacity);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count,
+													  param_capacity);
 				if (!grown) {
-					free(param_types);
+					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
 					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 					return new_type_rec(compiler->owner, ANY_TYPE);
 				}
@@ -295,15 +296,13 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		ObjectTypeRecord *return_type = parse_type_record(compiler);
 		if (!return_type) {
 			compiler_panic(compiler->parser, "Expected type.", TYPE);
-			free(param_types);
+			FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity);
 			return T_ANY;
 		}
 
 		// Shrink to exact size
-		if (param_count > 0) {
-			ObjectTypeRecord **shrunk = realloc(param_types, sizeof(ObjectTypeRecord *) * param_count);
-			if (shrunk)
-				param_types = shrunk;
+		if (param_count < param_capacity) {
+			param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 		}
 
 		type_record = new_type_rec(compiler->owner, FUNCTION_TYPE);
@@ -350,9 +349,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	if (type_record && match(compiler, TOKEN_PIPE)) {
 		int cap = 4;
 		int count = 1;
-		// Heap-allocate the variants array; it is owned by the
-		// ObjectTypeRecord and lives for the duration of compilation.
-		ObjectTypeRecord **variants = malloc(sizeof(ObjectTypeRecord *) * cap);
+		ObjectTypeRecord **variants = ALLOCATE(compiler->owner, ObjectTypeRecord *, cap);
 		if (!variants) {
 			compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 			return type_record; // return first variant as fallback
@@ -362,9 +359,9 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		do {
 			if (count == cap) {
 				cap *= 2;
-				ObjectTypeRecord **grown = realloc(variants, sizeof(ObjectTypeRecord *) * cap);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, count, cap);
 				if (!grown) {
-					free(variants);
+					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, variants, count);
 					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 					return type_record;
 				}
@@ -373,6 +370,9 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			variants[count++] = parse_type_record(compiler);
 		} while (match(compiler, TOKEN_PIPE));
 
+		if (count < cap) {
+			variants = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, cap, count);
+		}
 		// element_names can be NULL for anonymous unions.
 		type_record = new_union_type_rec(compiler->owner, variants, NULL, count);
 	}
@@ -1839,7 +1839,7 @@ static void function(Compiler *compiler, const FunctionType type)
 	// enclosing arena after end_compiler() restores current.
 	int param_capacity = 4;
 	int param_count = 0;
-	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
+	ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
 	if (!param_types) {
 		compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 		return;
@@ -1863,10 +1863,11 @@ static void function(Compiler *compiler, const FunctionType type)
 			function_compiler.locals[function_compiler.local_count - 1].type = param_type;
 
 			if (param_count == param_capacity) {
-				param_capacity *= 2;
-				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
+				param_capacity = GROW_CAPACITY(param_capacity);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count,
+													  param_capacity);
 				if (!grown) {
-					free(param_types);
+					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
 					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 					return;
 				}
@@ -1877,6 +1878,9 @@ static void function(Compiler *compiler, const FunctionType type)
 			define_variable(&function_compiler, constant);
 		} while (match(compiler, TOKEN_COMMA));
 	}
+
+	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
+
 	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
 	consume(&function_compiler, TOKEN_ARROW, "Expect '->' after parameter list.");
@@ -1951,7 +1955,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 
 	int param_capacity = 4;
 	int param_count = 0;
-	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_capacity);
+	ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
 	if (!param_types) {
 		compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 		return;
@@ -1981,10 +1985,12 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 			function_compiler.locals[function_compiler.local_count - 1].type = param_type;
 
 			if (param_count == param_capacity) {
-				param_capacity *= 2;
-				ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_capacity);
+				int old_cap = param_capacity;
+				param_capacity = GROW_CAPACITY(param_capacity);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap,
+													  param_capacity);
 				if (!grown) {
-					free(param_types);
+					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap);
 					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 					return;
 				}
@@ -2022,6 +2028,8 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 		emit_word(compiler, function_compiler.upvalues[i].is_local ? 1 : 0);
 		emit_word(compiler, function_compiler.upvalues[i].index);
 	}
+
+	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 
 	ObjectTypeRecord *func_type = new_function_type_rec(compiler->owner, param_types, param_count,
 														annotated_return_type);
@@ -3585,31 +3593,28 @@ static void pre_collect_struct(Compiler *compiler)
 	type_table_set(compiler->type_table, struct_name, struct_type);
 }
 
-// Collect a single top-level function signature into pre_compiler's
-// type_table. On entry parser.current is TOKEN_FN (already consumed by caller).
+// Collect a single top-level function signature into pre_compiler's type_table.
 static void pre_collect_function(Compiler *compiler)
 {
-	// Consume function name.
 	if (compiler->parser->current.type != TOKEN_IDENTIFIER)
 		return;
 	Token fn_name_token = compiler->parser->current;
 	pre_advance(compiler);
 
-	// Expect '(' to start parameter list.
 	if (compiler->parser->current.type != TOKEN_LEFT_PAREN)
 		return;
 	pre_advance(compiler); // consume '('
 
 	int param_cap = 4;
 	int param_count = 0;
-	ObjectTypeRecord **param_types = malloc(sizeof(ObjectTypeRecord *) * param_cap);
+	ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_cap);
 	if (!param_types)
 		return;
 
 	while (compiler->parser->current.type != TOKEN_RIGHT_PAREN && compiler->parser->current.type != TOKEN_EOF) {
 		// Parameter name (identifier).
 		if (compiler->parser->current.type != TOKEN_IDENTIFIER) {
-			free(param_types);
+			FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
 			return;
 		}
 		pre_advance(compiler); // consume param name
@@ -3623,10 +3628,11 @@ static void pre_collect_function(Compiler *compiler)
 		}
 
 		if (param_count == param_cap) {
-			param_cap *= 2;
-			ObjectTypeRecord **grown = realloc(param_types, sizeof(ObjectTypeRecord *) * param_cap);
+			int old_cap = param_cap;
+			param_cap = GROW_CAPACITY(param_cap);
+			ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap, param_cap);
 			if (!grown) {
-				free(param_types);
+				FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap);
 				return;
 			}
 			param_types = grown;
@@ -3637,11 +3643,11 @@ static void pre_collect_function(Compiler *compiler)
 			pre_advance(compiler);
 	}
 
-	// Consume ')'.
+	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_cap, param_count);
+
 	if (compiler->parser->current.type == TOKEN_RIGHT_PAREN)
 		pre_advance(compiler);
 
-	// Optional return type annotation: -> Type
 	ObjectTypeRecord *return_type = NULL;
 	if (compiler->parser->current.type == TOKEN_ARROW) {
 		pre_advance(compiler); // consume '->'
