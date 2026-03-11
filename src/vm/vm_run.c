@@ -14,8 +14,8 @@
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH() goto *dispatchTable[endIndex]
 #else
-#define DISPATCH()                                                             \
-	instruction = READ_SHORT();                                            \
+#define DISPATCH()                                                                                                     \
+	instruction = READ_SHORT();                                                                                        \
 	goto *dispatchTable[instruction]
 #endif
 
@@ -29,106 +29,101 @@
 InterpretResult run(VM *vm, const bool is_anonymous_frame)
 {
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-	CallFrame *frame =
-		&currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
+	CallFrame *frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 
 #define READ_SHORT() (*frame->ip++)
-#define READ_CONSTANT()                                                        \
-	(frame->closure->function->chunk.constants.values[READ_SHORT()])
+#define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_SHORT()])
 #define READ_STRING() AS_CRUX_STRING(READ_CONSTANT())
 
 	static void *dispatchTable[] = {&&OP_RETURN,
-					&&OP_CONSTANT,
-					&&OP_NIL,
-					&&OP_TRUE,
-					&&OP_FALSE,
-					&&OP_NEGATE,
-					&&OP_EQUAL,
-					&&OP_GREATER,
-					&&OP_LESS,
-					&&OP_LESS_EQUAL,
-					&&OP_GREATER_EQUAL,
-					&&OP_NOT_EQUAL,
-					&&OP_ADD,
-					&&OP_NOT,
-					&&OP_SUBTRACT,
-					&&OP_MULTIPLY,
-					&&OP_DIVIDE,
-					&&OP_POP,
-					&&OP_DEFINE_GLOBAL,
-					&&OP_GET_GLOBAL,
-					&&OP_SET_GLOBAL,
-					&&OP_GET_LOCAL,
-					&&OP_SET_LOCAL,
-					&&OP_JUMP_IF_FALSE,
-					&&OP_JUMP,
-					&&OP_LOOP,
-					&&OP_CALL,
-					&&OP_CLOSURE,
-					&&OP_GET_UPVALUE,
-					&&OP_SET_UPVALUE,
-					&&OP_CLOSE_UPVALUE,
-					&&OP_GET_PROPERTY,
-					&&OP_SET_PROPERTY,
-					&&OP_INVOKE,
-					&&OP_ARRAY,
-					&&OP_GET_COLLECTION,
-					&&OP_SET_COLLECTION,
-					&&OP_MODULUS,
-					&&OP_LEFT_SHIFT,
-					&&OP_RIGHT_SHIFT,
-					&&OP_SET_LOCAL_SLASH,
-					&&OP_SET_LOCAL_STAR,
-					&&OP_SET_LOCAL_PLUS,
-					&&OP_SET_LOCAL_MINUS,
-					&&OP_SET_UPVALUE_SLASH,
-					&&OP_SET_UPVALUE_STAR,
-					&&OP_SET_UPVALUE_PLUS,
-					&&OP_SET_UPVALUE_MINUS,
-					&&OP_SET_GLOBAL_SLASH,
-					&&OP_SET_GLOBAL_STAR,
-					&&OP_SET_GLOBAL_PLUS,
-					&&OP_SET_GLOBAL_MINUS,
-					&&OP_TABLE,
-					&&OP_ANON_FUNCTION,
-					&&OP_PUB,
-					&&OP_MATCH,
-					&&OP_MATCH_JUMP,
-					&&OP_MATCH_END,
-					&&OP_RESULT_MATCH_OK,
-					&&OP_RESULT_MATCH_ERR,
-					&&OP_RESULT_BIND,
-					&&OP_GIVE,
-					&&OP_INT_DIVIDE,
-					&&OP_POWER,
-					&&OP_SET_GLOBAL_INT_DIVIDE,
-					&&OP_SET_GLOBAL_MODULUS,
-					&&OP_SET_LOCAL_INT_DIVIDE,
-					&&OP_SET_LOCAL_MODULUS,
-					&&OP_SET_UPVALUE_INT_DIVIDE,
-					&&OP_SET_UPVALUE_MODULUS,
-					&&OP_USE_NATIVE,
-					&&OP_USE_MODULE,
-					&&OP_FINISH_USE,
-					&&OP_TYPEOF,
-					&&OP_STRUCT,
-					&&OP_STRUCT_INSTANCE_START,
-					&&OP_STRUCT_NAMED_FIELD,
-					&&OP_STRUCT_INSTANCE_END,
-					&&OP_NIL_RETURN,
-					&&OP_UNWRAP,
-					&&OP_PANIC,
-					&&OP_BITWISE_AND,
-					&&OP_BITWISE_XOR,
-					&&OP_BITWISE_OR,
-					&&end};
+									&&OP_CONSTANT,
+									&&OP_NIL,
+									&&OP_TRUE,
+									&&OP_FALSE,
+									&&OP_NEGATE,
+									&&OP_EQUAL,
+									&&OP_GREATER,
+									&&OP_LESS,
+									&&OP_LESS_EQUAL,
+									&&OP_GREATER_EQUAL,
+									&&OP_NOT_EQUAL,
+									&&OP_ADD,
+									&&OP_NOT,
+									&&OP_SUBTRACT,
+									&&OP_MULTIPLY,
+									&&OP_DIVIDE,
+									&&OP_POP,
+									&&OP_DEFINE_GLOBAL,
+									&&OP_GET_GLOBAL,
+									&&OP_SET_GLOBAL,
+									&&OP_GET_LOCAL,
+									&&OP_SET_LOCAL,
+									&&OP_JUMP_IF_FALSE,
+									&&OP_JUMP,
+									&&OP_LOOP,
+									&&OP_CALL,
+									&&OP_CLOSURE,
+									&&OP_GET_UPVALUE,
+									&&OP_SET_UPVALUE,
+									&&OP_CLOSE_UPVALUE,
+									&&OP_GET_PROPERTY,
+									&&OP_SET_PROPERTY,
+									&&OP_INVOKE,
+									&&OP_ARRAY,
+									&&OP_GET_COLLECTION,
+									&&OP_SET_COLLECTION,
+									&&OP_MODULUS,
+									&&OP_LEFT_SHIFT,
+									&&OP_RIGHT_SHIFT,
+									&&OP_SET_LOCAL_SLASH,
+									&&OP_SET_LOCAL_STAR,
+									&&OP_SET_LOCAL_PLUS,
+									&&OP_SET_LOCAL_MINUS,
+									&&OP_SET_UPVALUE_SLASH,
+									&&OP_SET_UPVALUE_STAR,
+									&&OP_SET_UPVALUE_PLUS,
+									&&OP_SET_UPVALUE_MINUS,
+									&&OP_SET_GLOBAL_SLASH,
+									&&OP_SET_GLOBAL_STAR,
+									&&OP_SET_GLOBAL_PLUS,
+									&&OP_SET_GLOBAL_MINUS,
+									&&OP_TABLE,
+									&&OP_ANON_FUNCTION,
+									&&OP_PUB,
+									&&OP_MATCH,
+									&&OP_MATCH_JUMP,
+									&&OP_MATCH_END,
+									&&OP_RESULT_MATCH_OK,
+									&&OP_RESULT_MATCH_ERR,
+									&&OP_RESULT_BIND,
+									&&OP_GIVE,
+									&&OP_INT_DIVIDE,
+									&&OP_POWER,
+									&&OP_SET_GLOBAL_INT_DIVIDE,
+									&&OP_SET_GLOBAL_MODULUS,
+									&&OP_SET_LOCAL_INT_DIVIDE,
+									&&OP_SET_LOCAL_MODULUS,
+									&&OP_SET_UPVALUE_INT_DIVIDE,
+									&&OP_SET_UPVALUE_MODULUS,
+									&&OP_USE_NATIVE,
+									&&OP_USE_MODULE,
+									&&OP_FINISH_USE,
+									&&OP_TYPEOF,
+									&&OP_STRUCT,
+									&&OP_STRUCT_INSTANCE_START,
+									&&OP_STRUCT_NAMED_FIELD,
+									&&OP_STRUCT_INSTANCE_END,
+									&&OP_NIL_RETURN,
+									&&OP_UNWRAP,
+									&&OP_PANIC,
+									&&OP_BITWISE_AND,
+									&&OP_BITWISE_XOR,
+									&&OP_BITWISE_OR,
+									&&end};
 
 	uint16_t instruction;
 #ifdef DEBUG_TRACE_EXECUTION
-	static uint16_t endIndex = sizeof(dispatchTable) /
-					   sizeof(dispatchTable[0]) -
-				   1;
+	static uint16_t endIndex = sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
 #endif
 	DISPATCH();
 OP_RETURN: {
@@ -141,8 +136,7 @@ OP_RETURN: {
 	}
 	currentModuleRecord->stack_top = frame->slots;
 	push(currentModuleRecord, result);
-	frame = &currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 
 	if (is_anonymous_frame)
 		return INTERPRET_OK;
@@ -175,8 +169,7 @@ OP_NEGATE: {
 	if (IS_INT(operand)) {
 		int32_t iVal = AS_INT(operand);
 		if (iVal == INT32_MIN) {
-			pop_push(currentModuleRecord,
-				 FLOAT_VAL(-(double)INT32_MIN));
+			pop_push(currentModuleRecord, FLOAT_VAL(-(double)INT32_MIN));
 		} else {
 			pop_push(currentModuleRecord, INT_VAL(-iVal));
 		}
@@ -184,8 +177,7 @@ OP_NEGATE: {
 		pop_push(currentModuleRecord, FLOAT_VAL(-AS_FLOAT(operand)));
 	} else {
 		pop(currentModuleRecord);
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      type_error_message(vm, operand, "int' | 'float"));
+		runtime_panic(currentModuleRecord, false, TYPE, type_error_message(vm, operand, "int' | 'float"));
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -234,8 +226,7 @@ OP_NOT_EQUAL: {
 }
 
 OP_ADD: {
-	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) &&
-	    IS_CRUX_STRING(PEEK(currentModuleRecord, 1))) {
+	if (IS_CRUX_STRING(PEEK(currentModuleRecord, 0)) && IS_CRUX_STRING(PEEK(currentModuleRecord, 1))) {
 		if (!concatenate(vm)) {
 			return INTERPRET_RUNTIME_ERROR;
 		}
@@ -284,22 +275,18 @@ OP_DEFINE_GLOBAL: {
 	if (check_previous_instruction(frame, 3, OP_PUB)) {
 		isPublic = true;
 	}
-	if (table_set(vm, &currentModuleRecord->globals, name,
-		      PEEK(currentModuleRecord, 0))) {
+	if (table_set(vm, &currentModuleRecord->globals, name, PEEK(currentModuleRecord, 0))) {
 		if (isPublic) {
-			table_set(vm, &currentModuleRecord->publics, name,
-				  PEEK(currentModuleRecord, 0));
+			table_set(vm, &currentModuleRecord->publics, name, PEEK(currentModuleRecord, 0));
 		}
 		pop(currentModuleRecord);
 		DISPATCH();
 	}
-	runtime_panic(
-		currentModuleRecord, false, NAME,
-		currentModuleRecord->is_repl
-			? "Defined a name that already had a "
-			  "definition"
-			: "Cannot define '%s' because it is already defined.",
-		name->chars);
+	runtime_panic(currentModuleRecord, false, NAME,
+				  currentModuleRecord->is_repl ? "Defined a name that already had a "
+												 "definition"
+											   : "Cannot define '%s' because it is already defined.",
+				  name->chars);
 	return INTERPRET_RUNTIME_ERROR;
 }
 
@@ -310,21 +297,18 @@ OP_GET_GLOBAL: {
 		push(currentModuleRecord, value);
 		DISPATCH();
 	}
-	runtime_panic(currentModuleRecord, false, NAME,
-		      "Undefined variable '%s'.", name->chars);
+	runtime_panic(currentModuleRecord, false, NAME, "Undefined variable '%s'.", name->chars);
 	return INTERPRET_RUNTIME_ERROR;
 }
 
 OP_SET_GLOBAL: {
 	ObjectString *name = READ_STRING();
-	if (table_set(vm, &currentModuleRecord->globals, name,
-		      PEEK(currentModuleRecord, 0))) {
-		runtime_panic(
-			currentModuleRecord, false, NAME,
-			"Cannot give variable '%s' a value because it has "
-			"not been "
-			"defined\nDid you forget 'let'?",
-			name->chars);
+	if (table_set(vm, &currentModuleRecord->globals, name, PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, false, NAME,
+					  "Cannot give variable '%s' a value because it has "
+					  "not been "
+					  "defined\nDid you forget 'let'?",
+					  name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -368,8 +352,7 @@ OP_CALL: {
 	if (!call_value(vm, PEEK(currentModuleRecord, arg_count), arg_count)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	frame = &currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 	DISPATCH();
 }
 
@@ -383,9 +366,7 @@ OP_CLOSURE: {
 		uint16_t index = READ_SHORT();
 
 		if (isLocal) {
-			closure->upvalues[i] = capture_upvalue(vm,
-							       frame->slots +
-								       index);
+			closure->upvalues[i] = capture_upvalue(vm, frame->slots + index);
 		} else {
 			closure->upvalues[i] = frame->closure->upvalues[index];
 		}
@@ -401,8 +382,7 @@ OP_GET_UPVALUE: {
 
 OP_SET_UPVALUE: {
 	uint16_t slot = READ_SHORT();
-	*frame->closure->upvalues[slot]->location = PEEK(currentModuleRecord,
-							 0);
+	*frame->closure->upvalues[slot]->location = PEEK(currentModuleRecord, 0);
 	DISPATCH();
 }
 
@@ -415,9 +395,7 @@ OP_CLOSE_UPVALUE: {
 OP_GET_PROPERTY: {
 	Value receiver = pop(currentModuleRecord);
 	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
-		runtime_panic(
-			currentModuleRecord, false, TYPE,
-			"Cannot get property on non 'struct instance' type.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Cannot get property on non 'struct instance' type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -427,14 +405,12 @@ OP_GET_PROPERTY: {
 
 	Value indexValue;
 	if (!table_get(&structType->fields, name, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, NAME,
-			      "Property '%s' does not exist on struct '%s'.",
-			      name->chars, structType->name->chars);
+		runtime_panic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars,
+					  structType->name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	push(currentModuleRecord,
-	     instance->fields[(uint16_t)AS_INT(indexValue)]);
+	push(currentModuleRecord, instance->fields[(uint16_t)AS_INT(indexValue)]);
 	DISPATCH();
 }
 
@@ -445,11 +421,9 @@ OP_SET_PROPERTY: {
 	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
 		ObjectString *name = READ_STRING();
 		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Cannot set property '%s' on non struct instance "
-			      "value. %s",
-			      name->chars,
-			      type_error_message(vm, receiver,
-						 "struct instance"));
+					  "Cannot set property '%s' on non struct instance "
+					  "value. %s",
+					  name->chars, type_error_message(vm, receiver, "struct instance"));
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -459,9 +433,8 @@ OP_SET_PROPERTY: {
 
 	Value indexValue;
 	if (!table_get(&structType->fields, name, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, NAME,
-			      "Property '%s' does not exist on struct '%s'.",
-			      name->chars, structType->name->chars);
+		runtime_panic(currentModuleRecord, false, NAME, "Property '%s' does not exist on struct '%s'.", name->chars,
+					  structType->name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -477,8 +450,7 @@ OP_INVOKE: {
 	if (!invoke(vm, methodName, arg_count)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	frame = &currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 	DISPATCH();
 }
 
@@ -495,28 +467,21 @@ OP_ARRAY: {
 OP_GET_COLLECTION: {
 	Value indexValue = pop(currentModuleRecord);
 	if (!IS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Cannot get from a non-collection type.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Cannot get from a non-collection type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	switch (AS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))->type) {
 	case OBJECT_TABLE: {
 		if (IS_CRUX_HASHABLE(indexValue)) {
-			ObjectTable *table = AS_CRUX_TABLE(
-				PEEK(currentModuleRecord, 0));
+			ObjectTable *table = AS_CRUX_TABLE(PEEK(currentModuleRecord, 0));
 			Value value;
-			if (!object_table_get(table->entries, table->size,
-					      table->capacity, indexValue,
-					      &value)) {
-				runtime_panic(currentModuleRecord, false,
-					      COLLECTION_GET,
-					      "Failed to get value from table");
+			if (!object_table_get(table->entries, table->size, table->capacity, indexValue, &value)) {
+				runtime_panic(currentModuleRecord, false, COLLECTION_GET, "Failed to get value from table");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 			pop_push(currentModuleRecord, value);
 		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.", READ_STRING());
+			runtime_panic(currentModuleRecord, false, TYPE, "Key cannot be hashed.", READ_STRING());
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		DISPATCH();
@@ -524,44 +489,38 @@ OP_GET_COLLECTION: {
 	case OBJECT_ARRAY: {
 		if (!IS_INT(indexValue)) {
 			char buf[64];
-			type_mask_name(get_type_mask(indexValue), buf,
-				       sizeof(buf));
+			type_mask_name(get_type_mask(indexValue), buf, sizeof(buf));
 			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Index must be of type 'Int' but "
-				      "got type '%s'.",
-				      buf);
+						  "Index must be of type 'Int' but "
+						  "got type '%s'.",
+						  buf);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		uint32_t index = (uint32_t)AS_INT(indexValue);
-		ObjectArray *array = AS_CRUX_ARRAY(
-			PEEK(currentModuleRecord, 0));
+		ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 0));
 
 		if (index >= array->size) {
-			runtime_panic(currentModuleRecord, false, BOUNDS,
-				      "Index out of bounds.");
+			runtime_panic(currentModuleRecord, false, BOUNDS, "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
 		Value value = array->values[index];
 
 		pop_push(currentModuleRecord,
-			 value); // pop the array off the stack // push the
-				 // value onto the stack
+				 value); // pop the array off the stack // push the
+						 // value onto the stack
 		DISPATCH();
 	}
 	case OBJECT_STRING: {
 		if (!IS_INT(indexValue)) {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Index must be of type 'int'.");
+			runtime_panic(currentModuleRecord, false, TYPE, "Index must be of type 'int'.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		uint32_t index = (uint32_t)AS_INT(indexValue);
-		ObjectString *string = AS_CRUX_STRING(
-			PEEK(currentModuleRecord, 0));
+		ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
 		ObjectString *ch;
 		if (index >= string->length) {
-			runtime_panic(currentModuleRecord, false, BOUNDS,
-				      "Index out of bounds.");
+			runtime_panic(currentModuleRecord, false, BOUNDS, "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		// Only single character indexing
@@ -571,8 +530,7 @@ OP_GET_COLLECTION: {
 	}
 
 	default: {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Cannot get from a non-collection type.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Cannot get from a non-collection type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	}
@@ -589,14 +547,11 @@ OP_SET_COLLECTION: {
 		ObjectTable *table = AS_CRUX_TABLE(collection);
 		if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
 			if (!object_table_set(vm, table, indexValue, value)) {
-				runtime_panic(currentModuleRecord, false,
-					      COLLECTION_GET,
-					      "Failed to set value in table");
+				runtime_panic(currentModuleRecord, false, COLLECTION_GET, "Failed to set value in table");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.");
+			runtime_panic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		break;
@@ -606,15 +561,13 @@ OP_SET_COLLECTION: {
 		ObjectArray *array = AS_CRUX_ARRAY(collection);
 		int index = AS_INT(indexValue);
 		if (!array_set(vm, array, index, value)) {
-			runtime_panic(currentModuleRecord, false, BOUNDS,
-				      "Cannot set a value in an empty array.");
+			runtime_panic(currentModuleRecord, false, BOUNDS, "Cannot set a value in an empty array.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		break;
 	}
 	default: {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Value is not a mutable collection type.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Value is not a mutable collection type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	}
@@ -655,23 +608,18 @@ OP_SET_LOCAL_SLASH: {
 	bool operandIsInt = IS_INT(operandValue);
 	bool operandIsFloat = IS_FLOAT(operandValue);
 
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '/=' must be numbers.");
+	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+		runtime_panic(currentModuleRecord, false, TYPE, "Operands for '/=' must be numbers.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
 	Value resultValue;
 
-	double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-					 : (double)AS_INT(currentValue);
-	double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-					 : (double)AS_INT(operandValue);
+	double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double)AS_INT(currentValue);
+	double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 
 	if (doperand == 0.0) {
-		runtime_panic(currentModuleRecord, false, MATH,
-			      "Division by zero in '/=' assignment.");
+		runtime_panic(currentModuleRecord, false, MATH, "Division by zero in '/=' assignment.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -690,10 +638,8 @@ OP_SET_LOCAL_STAR: {
 	bool operandIsInt = IS_INT(operandValue);
 	bool operandIsFloat = IS_FLOAT(operandValue);
 
-	if (!((currentIsInt || currentIsFloat) &&
-	      (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Operands for '*=' must be numbers.");
+	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
+		runtime_panic(currentModuleRecord, false, TYPE, "Operands for '*=' must be numbers.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -709,10 +655,8 @@ OP_SET_LOCAL_STAR: {
 			resultValue = FLOAT_VAL((double)result); // Promote
 		}
 	} else {
-		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue)
-						 : (double)AS_INT(currentValue);
-		double doperand = operandIsFloat ? AS_FLOAT(operandValue)
-						 : (double)AS_INT(operandValue);
+		double dcurrent = currentIsFloat ? AS_FLOAT(currentValue) : (double)AS_INT(currentValue);
+		double doperand = operandIsFloat ? AS_FLOAT(operandValue) : (double)AS_INT(operandValue);
 		resultValue = FLOAT_VAL(dcurrent * doperand);
 	}
 
@@ -722,10 +666,8 @@ OP_SET_LOCAL_STAR: {
 
 OP_SET_LOCAL_PLUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
-					PEEK(currentModuleRecord, 0),
-					OP_SET_LOCAL_PLUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, &frame->slots[slot], PEEK(currentModuleRecord, 0),
+									OP_SET_LOCAL_PLUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -733,10 +675,8 @@ OP_SET_LOCAL_PLUS: {
 
 OP_SET_LOCAL_MINUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
-					PEEK(currentModuleRecord, 0),
-					OP_SET_LOCAL_MINUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, &frame->slots[slot], PEEK(currentModuleRecord, 0),
+									OP_SET_LOCAL_MINUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -744,10 +684,8 @@ OP_SET_LOCAL_MINUS: {
 
 OP_SET_UPVALUE_SLASH: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_SLASH)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_SLASH)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -755,10 +693,8 @@ OP_SET_UPVALUE_SLASH: {
 
 OP_SET_UPVALUE_STAR: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_STAR)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_STAR)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -766,10 +702,8 @@ OP_SET_UPVALUE_STAR: {
 
 OP_SET_UPVALUE_PLUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_PLUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_PLUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -777,10 +711,8 @@ OP_SET_UPVALUE_PLUS: {
 
 OP_SET_UPVALUE_MINUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MINUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MINUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -788,8 +720,7 @@ OP_SET_UPVALUE_MINUS: {
 
 OP_SET_GLOBAL_SLASH: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_SLASH, "/=") ==
-	    INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_SLASH, "/=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -797,8 +728,7 @@ OP_SET_GLOBAL_SLASH: {
 
 OP_SET_GLOBAL_STAR: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_STAR, "*=") ==
-	    INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_STAR, "*=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -806,8 +736,7 @@ OP_SET_GLOBAL_STAR: {
 
 OP_SET_GLOBAL_PLUS: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_PLUS, "+=") ==
-	    INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_PLUS, "+=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -815,8 +744,7 @@ OP_SET_GLOBAL_PLUS: {
 
 OP_SET_GLOBAL_MINUS: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_MINUS, "-=") ==
-	    INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_MINUS, "-=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -830,14 +758,11 @@ OP_TABLE: {
 		Value key = pop(currentModuleRecord);
 		if (IS_CRUX_HASHABLE(key)) {
 			if (!object_table_set(vm, table, key, value)) {
-				runtime_panic(currentModuleRecord, false,
-					      COLLECTION_SET,
-					      "Failed to set value in table.");
+				runtime_panic(currentModuleRecord, false, COLLECTION_SET, "Failed to set value in table.");
 				return INTERPRET_RUNTIME_ERROR;
 			}
 		} else {
-			runtime_panic(currentModuleRecord, false, TYPE,
-				      "Key cannot be hashed.");
+			runtime_panic(currentModuleRecord, false, TYPE, "Key cannot be hashed.");
 			return INTERPRET_RUNTIME_ERROR;
 		}
 	}
@@ -854,9 +779,7 @@ OP_ANON_FUNCTION: {
 		uint16_t index = READ_SHORT();
 
 		if (isLocal) {
-			closure->upvalues[i] = capture_upvalue(vm,
-							       frame->slots +
-								       index);
+			closure->upvalues[i] = capture_upvalue(vm, frame->slots + index);
 		} else {
 			closure->upvalues[i] = frame->closure->upvalues[index];
 		}
@@ -951,8 +874,7 @@ OP_POWER: {
 
 OP_SET_GLOBAL_INT_DIVIDE: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_INT_DIVIDE,
-				      "\\=") == INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_INT_DIVIDE, "\\=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -960,8 +882,7 @@ OP_SET_GLOBAL_INT_DIVIDE: {
 
 OP_SET_GLOBAL_MODULUS: {
 	ObjectString *name = READ_STRING();
-	if (global_compound_operation(vm, name, OP_SET_GLOBAL_MODULUS, "%=") ==
-	    INTERPRET_RUNTIME_ERROR) {
+	if (global_compound_operation(vm, name, OP_SET_GLOBAL_MODULUS, "%=") == INTERPRET_RUNTIME_ERROR) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -969,20 +890,16 @@ OP_SET_GLOBAL_MODULUS: {
 
 OP_SET_LOCAL_INT_DIVIDE: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
-					PEEK(currentModuleRecord, 0),
-					OP_SET_LOCAL_INT_DIVIDE)) {
+	if (!handle_compound_assignment(currentModuleRecord, &frame->slots[slot], PEEK(currentModuleRecord, 0),
+									OP_SET_LOCAL_INT_DIVIDE)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
 }
 OP_SET_LOCAL_MODULUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(currentModuleRecord,
-					&frame->slots[slot],
-					PEEK(currentModuleRecord, 0),
-					OP_SET_LOCAL_MODULUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, &frame->slots[slot], PEEK(currentModuleRecord, 0),
+									OP_SET_LOCAL_MODULUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -990,10 +907,8 @@ OP_SET_LOCAL_MODULUS: {
 
 OP_SET_UPVALUE_INT_DIVIDE: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_INT_DIVIDE)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_INT_DIVIDE)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -1001,10 +916,8 @@ OP_SET_UPVALUE_INT_DIVIDE: {
 
 OP_SET_UPVALUE_MODULUS: {
 	uint16_t slot = READ_SHORT();
-	if (!handle_compound_assignment(
-		    currentModuleRecord,
-		    frame->closure->upvalues[slot]->location,
-		    PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MODULUS)) {
+	if (!handle_compound_assignment(currentModuleRecord, frame->closure->upvalues[slot]->location,
+									PEEK(currentModuleRecord, 0), OP_SET_UPVALUE_MODULUS)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -1031,8 +944,7 @@ OP_USE_NATIVE: {
 		}
 	}
 	if (moduleIndex == -1) {
-		runtime_panic(currentModuleRecord, false, IMPORT,
-			      "Module '%s' not found.", moduleName->chars);
+		runtime_panic(currentModuleRecord, false, IMPORT, "Module '%s' not found.", moduleName->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1041,20 +953,16 @@ OP_USE_NATIVE: {
 		Value value;
 		bool getSuccess = table_get(moduleTable, names[i], &value);
 		if (!getSuccess) {
-			runtime_panic(currentModuleRecord, false, IMPORT,
-				      "Failed to import '%s' from '%s'.",
-				      names[i]->chars, moduleName->chars);
+			runtime_panic(currentModuleRecord, false, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+						  moduleName->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		push(currentModuleRecord, OBJECT_VAL(value));
-		bool setSuccess = table_set(vm,
-					    &vm->current_module_record->globals,
-					    aliases[i], value);
+		bool setSuccess = table_set(vm, &vm->current_module_record->globals, aliases[i], value);
 
 		if (!setSuccess) {
-			runtime_panic(currentModuleRecord, false, IMPORT,
-				      "Failed to import '%s' from '%s'.",
-				      names[i]->chars, moduleName->chars);
+			runtime_panic(currentModuleRecord, false, IMPORT, "Failed to import '%s' from '%s'.", names[i]->chars,
+						  moduleName->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 		pop(currentModuleRecord);
@@ -1067,24 +975,20 @@ OP_USE_MODULE: {
 	ObjectString *moduleName = READ_STRING();
 
 	if (is_in_import_stack(vm, moduleName)) {
-		runtime_panic(currentModuleRecord, false, IMPORT,
-			      "Circular dependency detected when importing: %s",
-			      moduleName->chars);
+		runtime_panic(currentModuleRecord, false, IMPORT, "Circular dependency detected when importing: %s",
+					  moduleName->chars);
 		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	char *resolvedPathChars = resolve_path(
-		vm->current_module_record->path->chars, moduleName->chars);
+	char *resolvedPathChars = resolve_path(vm->current_module_record->path->chars, moduleName->chars);
 	if (resolvedPathChars == NULL) {
-		runtime_panic(currentModuleRecord, false, IMPORT,
-			      "Failed to resolve import path");
+		runtime_panic(currentModuleRecord, false, IMPORT, "Failed to resolve import path");
 		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	ObjectString *resolvedPath =
-		take_string(vm, resolvedPathChars,
-			    strlen(resolvedPathChars)); // VM takes ownership
+	ObjectString *resolvedPath = take_string(vm, resolvedPathChars,
+											 strlen(resolvedPathChars)); // VM takes ownership
 
 	Value cachedModule;
 	if (table_get(&vm->module_cache, resolvedPath, &cachedModule)) {
@@ -1093,8 +997,7 @@ OP_USE_MODULE: {
 	}
 
 	if (vm->import_count + 1 > IMPORT_MAX) {
-		runtime_panic(currentModuleRecord, false, IMPORT,
-			      "Import limit reached");
+		runtime_panic(currentModuleRecord, false, IMPORT, "Import limit reached");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	vm->import_count++;
@@ -1105,15 +1008,12 @@ OP_USE_MODULE: {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	ObjectModuleRecord *module = new_object_module_record(vm, resolvedPath,
-							      false, false);
+	ObjectModuleRecord *module = new_object_module_record(vm, resolvedPath, false, false);
 	module->enclosing_module = vm->current_module_record;
 	reset_stack(module);
 	if (module->frames == NULL) {
-		runtime_panic(
-			currentModuleRecord, false, MEMORY,
-			"Failed to allocate memory for new module from \"%s\".",
-			resolvedPath->chars);
+		runtime_panic(currentModuleRecord, false, MEMORY, "Failed to allocate memory for new module from \"%s\".",
+					  resolvedPath->chars);
 		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -1126,23 +1026,21 @@ OP_USE_MODULE: {
 	init_table(&vm->current_module_record->publics);
 
 	if (!initialize_std_lib(vm)) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to initialize stdlib for module:\"%s\".",
-			      module->path->chars);
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to initialize stdlib for module:\"%s\".",
+					  module->path->chars);
 		module->state = STATE_ERROR;
 		pop_import_stack(vm);
 		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	ObjectFunction *function = compile(vm, file.content);
+	Compiler compiler;
+	ObjectFunction *function = compile(vm, &compiler, file.content);
 	free_file_result(file);
 
 	if (function == NULL) {
 		module->state = STATE_ERROR;
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to compile '%s'.", resolvedPath->chars);
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
 		pop_import_stack(vm);
 		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
@@ -1159,8 +1057,7 @@ OP_USE_MODULE: {
 
 	if (!call(currentModuleRecord, closure, 0)) {
 		module->state = STATE_ERROR;
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to call module.");
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to call module.");
 		pop_import_stack(vm);
 		vm->current_module_record = previousModuleRecord;
 		push(currentModuleRecord, OBJECT_VAL(module));
@@ -1197,17 +1094,15 @@ OP_FINISH_USE: {
 		aliases[i] = READ_STRING();
 	}
 	if (!IS_CRUX_MODULE_RECORD(PEEK(currentModuleRecord, 0))) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Module record creation could not be completed.");
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Module record creation could not be completed.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	Value moduleValue = pop(currentModuleRecord);
 	ObjectModuleRecord *importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
 
 	if (importedModule->state == STATE_ERROR) {
-		runtime_panic(currentModuleRecord, false, IMPORT,
-			      "Failed to import module from %s",
-			      importedModule->path->chars);
+		runtime_panic(currentModuleRecord, false, IMPORT, "Failed to import module from %s",
+					  importedModule->path->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1218,19 +1113,16 @@ OP_FINISH_USE: {
 
 		Value value;
 		if (!table_get(&importedModule->publics, name, &value)) {
-			runtime_panic(currentModuleRecord, false, IMPORT,
-				      "'%s' is not an exported name.",
-				      name->chars);
+			runtime_panic(currentModuleRecord, false, IMPORT, "'%s' is not an exported name.", name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		if (!table_set(vm, &vm->current_module_record->globals, alias,
-			       value)) {
+		if (!table_set(vm, &vm->current_module_record->globals, alias, value)) {
 			runtime_panic(currentModuleRecord, false, IMPORT,
-				      "Failed to import '%s'. This name may "
-				      "already be in use in "
-				      "this scope.",
-				      name->chars);
+						  "Failed to import '%s'. This name may "
+						  "already be in use in "
+						  "this scope.",
+						  name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 	}
@@ -1255,12 +1147,10 @@ OP_STRUCT: {
 OP_STRUCT_INSTANCE_START: {
 	Value value = PEEK(currentModuleRecord, 0);
 	ObjectStruct *objectStruct = AS_CRUX_STRUCT(value);
-	ObjectStructInstance *structInstance = new_struct_instance(
-		vm, objectStruct, objectStruct->fields.count);
+	ObjectStructInstance *structInstance = new_struct_instance(vm, objectStruct, objectStruct->fields.count);
 	pop(currentModuleRecord); // struct type
 	if (!pushStructStack(vm, structInstance)) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to push struct onto stack.");
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to push struct onto stack.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	DISPATCH();
@@ -1269,8 +1159,7 @@ OP_STRUCT_INSTANCE_START: {
 OP_STRUCT_NAMED_FIELD: {
 	ObjectStructInstance *structInstance = peek_struct_stack(vm);
 	if (structInstance == NULL) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to get struct from stack.");
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to get struct from stack.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1279,9 +1168,8 @@ OP_STRUCT_NAMED_FIELD: {
 	ObjectStruct *structType = structInstance->struct_type;
 	Value indexValue;
 	if (!table_get(&structType->fields, fieldName, &indexValue)) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Field '%s' does not exist on strut type '%s'.",
-			      fieldName->chars, structType->name->chars);
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Field '%s' does not exist on strut type '%s'.",
+					  fieldName->chars, structType->name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1293,8 +1181,7 @@ OP_STRUCT_NAMED_FIELD: {
 OP_STRUCT_INSTANCE_END: {
 	ObjectStructInstance *structInstance = pop_struct_stack(vm);
 	if (structInstance == NULL) {
-		runtime_panic(currentModuleRecord, false, RUNTIME,
-			      "Failed to pop struct from stack.");
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to pop struct from stack.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push(currentModuleRecord, OBJECT_VAL(structInstance));
@@ -1310,8 +1197,7 @@ OP_NIL_RETURN: {
 	}
 	currentModuleRecord->stack_top = frame->slots;
 	push(currentModuleRecord, NIL_VAL);
-	frame = &currentModuleRecord
-			 ->frames[currentModuleRecord->frame_count - 1];
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 
 	if (is_anonymous_frame)
 		return INTERPRET_OK;
@@ -1321,8 +1207,7 @@ OP_NIL_RETURN: {
 OP_UNWRAP: {
 	Value value = pop(currentModuleRecord);
 	if (!IS_CRUX_RESULT(value)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Only the 'result' type supports unwrapping.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Only the 'result' type supports unwrapping.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	ObjectResult *result = AS_CRUX_RESULT(value);
@@ -1338,8 +1223,7 @@ OP_PANIC: {
 	Value value = pop(currentModuleRecord);
 	ObjectString *message = to_string(vm, value);
 	// TODO: Don't hard exit, cleanup first
-	runtime_panic(vm->current_module_record, true, RUNTIME, "Panic: %s",
-		      message->chars);
+	runtime_panic(vm->current_module_record, true, RUNTIME, "Panic: %s", message->chars);
 	DISPATCH();
 }
 
@@ -1347,8 +1231,7 @@ OP_BITWISE_AND: {
 	Value left = pop(currentModuleRecord);
 	Value right = pop(currentModuleRecord);
 	if (!IS_INT(left) || !IS_INT(right)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Bitwise AND operation requires type 'Int'.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Bitwise AND operation requires type 'Int'.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push(currentModuleRecord, INT_VAL(INT_VAL(left) & INT_VAL(right)));
@@ -1359,8 +1242,7 @@ OP_BITWISE_XOR: {
 	Value left = pop(currentModuleRecord);
 	Value right = pop(currentModuleRecord);
 	if (!IS_INT(left) || !IS_INT(right)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Bitwise XOR operation requires type 'Int'.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Bitwise XOR operation requires type 'Int'.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push(currentModuleRecord, INT_VAL(INT_VAL(left) ^ INT_VAL(right)));
@@ -1371,8 +1253,7 @@ OP_BITWISE_OR: {
 	Value left = pop(currentModuleRecord);
 	Value right = pop(currentModuleRecord);
 	if (!IS_INT(left) || !IS_INT(right)) {
-		runtime_panic(currentModuleRecord, false, TYPE,
-			      "Bitwise OR operation requires type 'Int'.");
+		runtime_panic(currentModuleRecord, false, TYPE, "Bitwise OR operation requires type 'Int'.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push(currentModuleRecord, INT_VAL(INT_VAL(left) | INT_VAL(right)));
@@ -1381,17 +1262,14 @@ OP_BITWISE_OR: {
 
 end: {
 	printf("        ");
-	for (Value *slot = currentModuleRecord->stack;
-	     slot < currentModuleRecord->stack_top; slot++) {
+	for (Value *slot = currentModuleRecord->stack; slot < currentModuleRecord->stack_top; slot++) {
 		printf("[");
 		print_value(*slot, false);
 		printf("]");
 	}
 	printf("\n");
 
-	disassemble_instruction(&frame->closure->function->chunk,
-				(int)(frame->ip -
-				      frame->closure->function->chunk.code));
+	disassemble_instruction(&frame->closure->function->chunk, (int)(frame->ip - frame->closure->function->chunk.code));
 
 	instruction = READ_SHORT();
 	goto *dispatchTable[instruction];

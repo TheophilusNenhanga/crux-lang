@@ -13,6 +13,7 @@ typedef struct ObjectStructInstance ObjectStructInstance;
 typedef struct ObjectTypeRecord ObjectTypeRecord;
 typedef struct ObjectTypeTable ObjectTypeTable;
 typedef struct SlabAllocator SlabAllocator;
+typedef struct Compiler Compiler;
 
 typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } InterpretResult;
 
@@ -118,6 +119,7 @@ struct VM {
 
 	int import_count;
 	ObjectTypeTable *type_table;
+	Compiler *main_compiler;
 };
 
 #define push(module_record, value)                                                                                     \

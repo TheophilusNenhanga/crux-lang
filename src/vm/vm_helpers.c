@@ -621,6 +621,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_capacity = 0;
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
+	vm->main_compiler = NULL;
 
 	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
 
@@ -1299,7 +1300,16 @@ bool check_previous_instruction(const CallFrame *frame, const int instructions_a
 
 InterpretResult interpret(VM *vm, char *source)
 {
-	ObjectFunction *function = compile(vm, source);
+	Compiler *compiler = malloc(sizeof(Compiler));
+	if (compiler == NULL) {
+		return INTERPRET_COMPILE_ERROR;
+	}
+	vm->main_compiler = compiler;
+
+	ObjectFunction *function = compile(vm, compiler, source);
+	free(compiler);
+	vm->main_compiler = NULL;
+
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	if (function == NULL) {
 		current_module_record->state = STATE_ERROR;

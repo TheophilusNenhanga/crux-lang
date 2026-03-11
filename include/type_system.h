@@ -1,7 +1,6 @@
 #ifndef CRUX_LANG_TYPE_SYSTEM_H
 #define CRUX_LANG_TYPE_SYSTEM_H
 
-#include "garbage_collector.h"
 #include "object.h"
 #include "value.h"
 
