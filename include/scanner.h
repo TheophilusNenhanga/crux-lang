@@ -1,6 +1,12 @@
 #ifndef SCANNER_H
 #define SCANNER_H
 
+typedef struct {
+	const char *start;
+	const char *current;
+	int line;
+} Scanner;
+
 typedef enum {
 	// Single-character tokens.
 	TOKEN_LEFT_PAREN, // (
@@ -111,16 +117,7 @@ typedef struct {
 	int line;
 } Token;
 
-/**
- * Initializes the scanner with the given source code.
- * @param source Pointer to the source code string
- */
-void init_scanner(const char *source);
-
-/**
- * Scans the next token from the source code.
- * @return The scanned token
- */
-Token scan_token(void);
+void init_scanner(Scanner* scanner, const char *source);
+Token scan_token(Scanner* scanner);
 
 #endif // SCANNER_H

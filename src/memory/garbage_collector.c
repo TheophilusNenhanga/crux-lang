@@ -716,7 +716,9 @@ void mark_roots(VM *vm)
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 
-	mark_compiler_roots(vm);
+	if (vm->main_compiler) {
+		mark_compiler_roots(vm, vm->main_compiler);
+	}
 
 	mark_value(vm, vm->match_handler.match_bind);
 	mark_value(vm, vm->match_handler.match_target);

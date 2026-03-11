@@ -2,7 +2,7 @@
 #define VALUE_H
 
 #include <stdint.h>
-#include "common.h"
+#include <stdbool.h>
 
 typedef struct VM VM;
 typedef struct ObjectString ObjectString;

@@ -1417,15 +1417,16 @@ ObjectTypeTable *new_type_table(VM *vm, const int capacity)
 	return table;
 }
 
-
-void free_type_table(VM* vm, ObjectTypeTable *table) {
+void free_type_table(VM *vm, ObjectTypeTable *table)
+{
 	FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
+	table->entries = NULL;
 }
 
-void mark_object_type_table(VM *vm, ObjectTypeTable *table) {
+void mark_object_type_table(VM *vm, ObjectTypeTable *table)
+{
 	for (int i = 0; i < table->capacity; i++) {
-		mark_object(vm, (CruxObject*)table->entries[i].key);
-		mark_object(vm, (CruxObject*)table->entries[i].value);
+		mark_object(vm, (CruxObject *)table->entries[i].key);
+		mark_object(vm, (CruxObject *)table->entries[i].value);
 	}
 }
-

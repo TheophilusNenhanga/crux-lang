@@ -93,16 +93,16 @@ let buf: Buffer = Buffer();
 buf.write_string("data");
 
 let rand: Random = Random();
-let r_val: Int = rand.int(0, 10);
+let r_val: Int = rand.int(0, 10)?;
 
 let comp: Complex = Complex(1.0, 2.0);
 
 println("--- 9. WILDCARD MATRICES & VECTORS ---");
-let v_exact: Vector[3] = Vec(3, [1.0, 2.0, 3.0]);
-let v_wild: Vector[] = Vec(5, [1.0, 2.0, 3.0, 4.0, 5.0]); // Vector[] accepts any dimension
+let v_exact: Vector[3] = Vec(3, [1.0, 2.0, 3.0])?;
+let v_wild: Vector[] = Vec(5, [1.0, 2.0, 3.0, 4.0, 5.0])?; // Vector[] accepts any dimension
 let m_wild: Matrix[,] = Matrix(4, 4);
 
-// v_exact = Vec(4, [1.0, 2.0, 3.0, 4.0]); // Compile Error: Vector[4] != Vector[3]
+// v_exact = Vec(4, [1.0, 2.0, 3.0, 4.0])?; // Compile Error: Vector[4] != Vector[3]
 v_wild = v_exact; // Vector[3] is compatible with Vector[]!
 
 println("--- 10. RESULT TYPES & MATCH EXPRESSIONS ---");
