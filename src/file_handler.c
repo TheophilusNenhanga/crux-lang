@@ -1,8 +1,18 @@
 #include "file_handler.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 /**
  * @brief Extracts the directory name from a file path,
@@ -31,8 +41,7 @@ static char *dirName(const char *path)
 		return strdup(".");
 	}
 
-	while (pathLen > 1 && (pathCopy[pathLen - 1] == '/' ||
-			       pathCopy[pathLen - 1] == '\\')) {
+	while (pathLen > 1 && (pathCopy[pathLen - 1] == '/' || pathCopy[pathLen - 1] == '\\')) {
 		pathCopy[pathLen--] = '\0';
 	}
 
@@ -117,25 +126,14 @@ static char *get_directory_from_path(const char *path)
 	return result;
 }
 
-/**
- * @brief Combines a base path with a relative path
- *
- * Joins two path components together, handling path separators appropriately.
- * If the relative path is absolute, returns a copy of the relative path.
- *
- * @param base The base directory path
- * @param relative The relative path to append
- * @return Dynamically allocated string containing the combined path (caller
- * must free)
- */
-static char *combinePaths(const char *base, const char *relative)
+char *combine_paths(const char *base, const char *relative)
 {
 	if (base == NULL || relative == NULL)
 		return NULL;
 
 	if (relative[0] == '/'
 #ifdef _WIN32
-	    || (strlen(relative) > 2 && relative[1] == ':')
+		|| (strlen(relative) > 2 && relative[1] == ':')
 #endif
 	) {
 		return strdup(relative);
@@ -143,8 +141,7 @@ static char *combinePaths(const char *base, const char *relative)
 
 	const size_t base_len = strlen(base);
 	const size_t relative_len = strlen(relative);
-	const size_t total_len = base_len + 1 + relative_len +
-				 1; // +1 : '/' +1 '\0'
+	const size_t total_len = base_len + 1 + relative_len + 1; // +1 : '/' +1 '\0'
 
 	char *result = malloc(total_len);
 	if (result == NULL)
@@ -152,8 +149,7 @@ static char *combinePaths(const char *base, const char *relative)
 
 	strcpy(result, base);
 
-	if (base_len > 0 && base[base_len - 1] != '/' &&
-	    base[base_len - 1] != '\\') {
+	if (base_len > 0 && base[base_len - 1] != '/' && base[base_len - 1] != '\\') {
 #ifdef _WIN32
 		strcat(result, "\\");
 #else
@@ -172,13 +168,12 @@ char *resolve_path(const char *base_path, const char *import_path)
 
 	if (base_path == NULL || import_path[0] == '/'
 #ifdef _WIN32
-	    || (strlen(import_path) > 2 && import_path[1] == ':')
+		|| (strlen(import_path) > 2 && import_path[1] == ':')
 #endif
 	) {
 #ifdef _WIN32
 		char *resolved_path = malloc(MAX_PATH_LENGTH);
-		if (_fullpath(resolved_path, import_path, MAX_PATH_LENGTH) ==
-		    NULL) {
+		if (_fullpath(resolved_path, import_path, MAX_PATH_LENGTH) == NULL) {
 			free(resolved_path);
 			return NULL;
 		}
@@ -196,7 +191,7 @@ char *resolve_path(const char *base_path, const char *import_path)
 	if (baseDir == NULL)
 		return NULL;
 
-	char *combinedPath = combinePaths(baseDir, import_path);
+	char *combinedPath = combine_paths(baseDir, import_path);
 	free(baseDir);
 	if (combinedPath == NULL)
 		return NULL;
@@ -231,8 +226,7 @@ FileResult read_file(const char *path)
 		const size_t errorLen = strlen(path) + 32;
 		result.error = (char *)malloc(errorLen);
 		if (result.error != NULL) {
-			snprintf(result.error, errorLen,
-				 "Could not open file \"%s\"", path);
+			snprintf(result.error, errorLen, "Could not open file \"%s\"", path);
 		}
 		return result;
 	}
@@ -266,4 +260,50 @@ void free_file_result(const FileResult result)
 {
 	free(result.content);
 	free(result.error);
+}
+
+bool ensure_dir_exists(const char *path)
+{
+	if (mkdir(path, 0700) == 0) {
+		return true;
+	}
+
+	if (errno == EEXIST) {
+		return true;
+	}
+
+	return false;
+}
+
+char *get_home_dir(void)
+{
+	char *home = getenv("HOME");
+#ifdef _WIN32
+	if (home == NULL) {
+		home = getenv("USERPROFILE");
+	}
+#endif
+	return home ? strdup(home) : NULL;
+}
+
+char *get_crux_dir(void)
+{
+	char *home = get_home_dir();
+	if (home == NULL) {
+		return NULL;
+	}
+
+	char *cruxDir = combine_paths(home, ".crux");
+	free(home);
+
+	if (cruxDir == NULL) {
+		return NULL;
+	}
+
+	if (!ensure_dir_exists(cruxDir)) {
+		free(cruxDir);
+		return NULL;
+	}
+
+	return cruxDir;
 }

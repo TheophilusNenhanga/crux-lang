@@ -1,6 +1,6 @@
 # crux-lang
 
-A memory-managed, interpreted programming language.
+A gradually typed, memory-managed, interpreted programming language.
 
 ## Getting Started
 

@@ -1,24 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "file_handler.h"
+#include "linenoise.h"
 #include "vm.h"
 
 static void repl(VM *vm)
 {
-	while (true) {
-		char line[1024];
-		printf(CYAN "> " RESET);
-		printf(GREEN);
-		fflush(stdout);
-		if (!fgets(line, sizeof(line), stdin)) {
-			printf(RESET "\n");
-			break;
-		}
-		printf(RESET);
-		interpret(vm, line);
+	char *cruxDir = get_crux_dir();
+	char *historyPath = NULL;
+	if (cruxDir) {
+		historyPath = combine_paths(cruxDir, "history");
+		free(cruxDir);
 	}
+
+	const char *finalPath = historyPath ? historyPath : ".crux_history";
+
+	linenoiseHistoryLoad(finalPath);
+	char *line;
+
+	while ((line = linenoise(CYAN "> " RESET)) != NULL) {
+		if (line[0] != '\0') {
+			linenoiseHistoryAdd(line);
+			linenoiseHistorySave(finalPath);
+			interpret(vm, line);
+		}
+		linenoiseFree(line);
+	}
+
+	if (historyPath)
+		free(historyPath);
 }
 
 /**
@@ -32,12 +45,10 @@ static void runFile(VM *vm, const char *path)
 {
 	const FileResult fileResult = read_file(path);
 	if (fileResult.error) {
-		fprintf(stderr, "Error reading file: %s\n",
-			fileResult.error);
+		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
 		exit(2);
 	}
-	const InterpretResult interpretResult = interpret(vm,
-							  fileResult.content);
+	const InterpretResult interpretResult = interpret(vm, fileResult.content);
 	free(fileResult.content);
 
 	if (interpretResult == INTERPRET_COMPILE_ERROR)
