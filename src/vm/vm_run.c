@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "chunk.h"
 #include "file_handler.h"
 #include "stdlib/stdlib.h"
 #include "type_system.h"
@@ -119,6 +120,7 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_BITWISE_AND,
 									&&OP_BITWISE_XOR,
 									&&OP_BITWISE_OR,
+
 									&&end};
 
 	uint16_t instruction;
@@ -269,15 +271,19 @@ OP_POP: {
 	DISPATCH();
 }
 
+	// using module record from function to resolve names from imported modules
+
 OP_DEFINE_GLOBAL: {
 	ObjectString *name = READ_STRING();
 	bool isPublic = false;
 	if (check_previous_instruction(frame, 3, OP_PUB)) {
 		isPublic = true;
 	}
-	if (table_set(vm, &currentModuleRecord->globals, name, PEEK(currentModuleRecord, 0))) {
+
+	ObjectModuleRecord *frame_module_record = frame->closure->function->module_record;
+	if (table_set(vm, &frame_module_record->globals, name, PEEK(currentModuleRecord, 0))) {
 		if (isPublic) {
-			table_set(vm, &currentModuleRecord->publics, name, PEEK(currentModuleRecord, 0));
+			table_set(vm, &frame_module_record->publics, name, PEEK(currentModuleRecord, 0));
 		}
 		pop(currentModuleRecord);
 		DISPATCH();
@@ -293,7 +299,8 @@ OP_DEFINE_GLOBAL: {
 OP_GET_GLOBAL: {
 	ObjectString *name = READ_STRING();
 	Value value;
-	if (table_get(&currentModuleRecord->globals, name, &value)) {
+	ObjectModuleRecord *frame_module_record = frame->closure->function->module_record;
+	if (table_get(&frame_module_record->globals, name, &value)) {
 		push(currentModuleRecord, value);
 		DISPATCH();
 	}
@@ -303,11 +310,10 @@ OP_GET_GLOBAL: {
 
 OP_SET_GLOBAL: {
 	ObjectString *name = READ_STRING();
-	if (table_set(vm, &currentModuleRecord->globals, name, PEEK(currentModuleRecord, 0))) {
+	ObjectModuleRecord *frame_module_record = frame->closure->function->module_record;
+	if (table_set(vm, &frame_module_record->globals, name, PEEK(currentModuleRecord, 0))) {
 		runtime_panic(currentModuleRecord, false, NAME,
-					  "Cannot give variable '%s' a value because it has "
-					  "not been "
-					  "defined\nDid you forget 'let'?",
+					  "Cannot give variable '%s' a value because it has not been defined\nDid you forget 'let'?",
 					  name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
@@ -925,8 +931,8 @@ OP_SET_UPVALUE_MODULUS: {
 
 OP_USE_NATIVE: {
 	uint16_t nameCount = READ_SHORT();
-	ObjectString *names[UINT8_MAX];
-	ObjectString *aliases[UINT8_MAX];
+	ObjectString *names[UINT8_MAX] = {0};
+	ObjectString *aliases[UINT8_MAX] = {0};
 
 	for (uint16_t i = 0; i < nameCount; i++) {
 		names[i] = READ_STRING();
@@ -987,15 +993,43 @@ OP_USE_MODULE: {
 		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	ObjectString *resolvedPath = take_string(vm, resolvedPathChars,
-											 strlen(resolvedPathChars)); // VM takes ownership
+	ObjectString *resolvedPath = take_string(vm, resolvedPathChars, strlen(resolvedPathChars));
 
 	Value cachedModule;
 	if (table_get(&vm->module_cache, resolvedPath, &cachedModule)) {
-		push(currentModuleRecord, cachedModule);
+		ObjectModuleRecord *module = AS_CRUX_MODULE_RECORD(cachedModule);
+
+		if (module->state == STATE_LOADED) {
+			push_import_stack(vm, resolvedPath);
+			ObjectModuleRecord *previousModuleRecord = vm->current_module_record;
+			vm->current_module_record = module;
+
+			// Initialize runtime globals
+			init_table(&module->globals);
+			init_table(&module->publics);
+
+			initialize_std_lib(vm);
+
+			// Execute the top-level module code
+			push(module, OBJECT_VAL(module->module_closure));
+			call(module, module->module_closure, 0);
+
+			InterpretResult result = run(vm, false);
+
+			vm->current_module_record = previousModuleRecord;
+			pop_import_stack(vm);
+
+			if (result != INTERPRET_OK) {
+				module->state = STATE_ERROR;
+				return result;
+			}
+			module->state = STATE_EXECUTED;
+		}
+		push(currentModuleRecord, OBJECT_VAL(module));
 		DISPATCH();
 	}
 
+	// dynamic import
 	if (vm->import_count + 1 > IMPORT_MAX) {
 		runtime_panic(currentModuleRecord, false, IMPORT, "Import limit reached");
 		return INTERPRET_RUNTIME_ERROR;
@@ -1011,72 +1045,48 @@ OP_USE_MODULE: {
 	ObjectModuleRecord *module = new_object_module_record(vm, resolvedPath, false, false);
 	module->enclosing_module = vm->current_module_record;
 	reset_stack(module);
-	if (module->frames == NULL) {
-		runtime_panic(currentModuleRecord, false, MEMORY, "Failed to allocate memory for new module from \"%s\".",
-					  resolvedPath->chars);
-		vm->current_module_record->state = STATE_ERROR;
-		return INTERPRET_RUNTIME_ERROR;
-	}
 	push_import_stack(vm, resolvedPath);
 
 	ObjectModuleRecord *previousModuleRecord = vm->current_module_record;
 	vm->current_module_record = module;
 
-	init_table(&vm->current_module_record->globals);
-	init_table(&vm->current_module_record->publics);
+	init_table(&module->globals);
+	init_table(&module->publics);
 
 	if (!initialize_std_lib(vm)) {
-		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to initialize stdlib for module:\"%s\".",
-					  module->path->chars);
 		module->state = STATE_ERROR;
-		pop_import_stack(vm);
-		vm->current_module_record = previousModuleRecord;
-		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_RUNTIME_ERROR;
 	}
+
+	// Dynamically compile the file
 	Compiler compiler;
-	ObjectFunction *function = compile(vm, &compiler, file.content);
+	ObjectFunction *function = compile(vm, &compiler, vm->main_compiler, file.content);
 	free_file_result(file);
 
 	if (function == NULL) {
 		module->state = STATE_ERROR;
-		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to compile '%s'.", resolvedPath->chars);
-		pop_import_stack(vm);
-		vm->current_module_record = previousModuleRecord;
-		push(currentModuleRecord, OBJECT_VAL(module));
 		return INTERPRET_COMPILE_ERROR;
 	}
-	push(currentModuleRecord, OBJECT_VAL(function));
+
 	ObjectClosure *closure = new_closure(vm, function);
-	pop(currentModuleRecord);
-	push(currentModuleRecord, OBJECT_VAL(closure));
-
 	module->module_closure = closure;
-
 	table_set(vm, &vm->module_cache, resolvedPath, OBJECT_VAL(module));
 
-	if (!call(currentModuleRecord, closure, 0)) {
-		module->state = STATE_ERROR;
-		runtime_panic(currentModuleRecord, false, RUNTIME, "Failed to call module.");
-		pop_import_stack(vm);
-		vm->current_module_record = previousModuleRecord;
-		push(currentModuleRecord, OBJECT_VAL(module));
-		return INTERPRET_RUNTIME_ERROR;
-	}
+	// Execute it immediately
+	push(module, OBJECT_VAL(closure));
+	call(module, closure, 0);
 
 	InterpretResult result = run(vm, false);
+
+	vm->current_module_record = previousModuleRecord;
+	pop_import_stack(vm);
+
 	if (result != INTERPRET_OK) {
 		module->state = STATE_ERROR;
-		pop_import_stack(vm);
-		vm->current_module_record = previousModuleRecord;
-		push(currentModuleRecord, OBJECT_VAL(module));
 		return result;
 	}
 
 	module->state = STATE_LOADED;
-
-	pop_import_stack(vm);
-	vm->current_module_record = previousModuleRecord;
 	push(currentModuleRecord, OBJECT_VAL(module));
 
 	DISPATCH();
@@ -1084,20 +1094,19 @@ OP_USE_MODULE: {
 
 OP_FINISH_USE: {
 	uint16_t nameCount = READ_SHORT();
-	ObjectString *names[UINT8_MAX];
-	ObjectString *aliases[UINT8_MAX];
+	ObjectString *names[UINT8_MAX] = {0};
+	ObjectString *aliases[UINT8_MAX] = {0};
 
-	for (int i = 0; i < nameCount; i++) {
+	for (int i = 0; i < nameCount; i++)
 		names[i] = READ_STRING();
-	}
-	for (int i = 0; i < nameCount; i++) {
+	for (int i = 0; i < nameCount; i++)
 		aliases[i] = READ_STRING();
-	}
-	if (!IS_CRUX_MODULE_RECORD(PEEK(currentModuleRecord, 0))) {
-		runtime_panic(currentModuleRecord, false, RUNTIME, "Module record creation could not be completed.");
+
+	Value moduleValue = pop(currentModuleRecord);
+	if (!IS_CRUX_MODULE_RECORD(moduleValue)) {
+		runtime_panic(currentModuleRecord, false, RUNTIME, "Stack corrupted during import.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	Value moduleValue = pop(currentModuleRecord);
 	ObjectModuleRecord *importedModule = AS_CRUX_MODULE_RECORD(moduleValue);
 
 	if (importedModule->state == STATE_ERROR) {
@@ -1106,7 +1115,7 @@ OP_FINISH_USE: {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	// copy names
+	// copy exported names into the current module's globals
 	for (uint16_t i = 0; i < nameCount; i++) {
 		ObjectString *name = names[i];
 		ObjectString *alias = aliases[i];
@@ -1118,15 +1127,16 @@ OP_FINISH_USE: {
 		}
 
 		if (!table_set(vm, &vm->current_module_record->globals, alias, value)) {
-			runtime_panic(currentModuleRecord, false, IMPORT,
-						  "Failed to import '%s'. This name may "
-						  "already be in use in "
-						  "this scope.",
+			runtime_panic(currentModuleRecord, false, IMPORT, "Failed to import '%s'. Name already in use.",
 						  name->chars);
 			return INTERPRET_RUNTIME_ERROR;
 		}
 	}
-	vm->import_count--;
+
+	// Only decrement if we dynamically loaded it
+	if (vm->import_count > 0)
+		vm->import_count--;
+
 	DISPATCH();
 }
 

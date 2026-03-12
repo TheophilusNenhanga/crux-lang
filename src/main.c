@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "common.h"
 #include "file_handler.h"
@@ -12,7 +11,7 @@ static void repl(VM *vm)
 	char *cruxDir = get_crux_dir();
 	char *historyPath = NULL;
 	if (cruxDir) {
-		historyPath = combine_paths(cruxDir, "history");
+		historyPath = combine_paths(cruxDir, "repl_history");
 		free(cruxDir);
 	}
 

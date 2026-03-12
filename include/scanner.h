@@ -87,6 +87,8 @@ typedef enum {
 	TOKEN_PANIC, // panic
 	TOKEN_STRUCT, // struct
 	TOKEN_SHAPE, // shape
+	TOKEN_DYN_USE, // dynuse
+	TOKEN_IMPL, // impl
 
 	TOKEN_NIL_TYPE, // Nil
 	TOKEN_BOOL_TYPE, // Bool

@@ -18,8 +18,7 @@ void write_value_array(VM *vm, ValueArray *array, const Value value)
 	if (array->capacity < array->count + 1) {
 		const int oldCapacity = array->capacity;
 		array->capacity = GROW_CAPACITY(oldCapacity);
-		array->values = GROW_ARRAY(vm, Value, array->values,
-					   oldCapacity, array->capacity);
+		array->values = GROW_ARRAY(vm, Value, array->values, oldCapacity, array->capacity);
 	}
 
 	array->values[array->count] = value;

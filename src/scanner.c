@@ -235,7 +235,18 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'd': {
-		return check_keyword(scanner, 1, 6, "efault", TOKEN_DEFAULT);
+		if (scanner->current - scanner->start > 1) {
+			switch (scanner->start[1]) {
+			case 'y': {
+				return check_keyword(scanner, 2, 4, "nuse", TOKEN_DYN_USE);
+			}
+			case 'e': {
+				return check_keyword(scanner, 2, 5, "fault", TOKEN_DEFAULT);
+			}
+			default:;
+			}
+		}
+		break;
 	}
 	case 'e':
 		return check_keyword(scanner, 1, 3, "lse", TOKEN_ELSE);
@@ -243,6 +254,17 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		return check_keyword(scanner, 1, 3, "ive", TOKEN_GIVE);
 	}
 	case 'i':
+		if (scanner->current - scanner->start > 1) {
+			switch (scanner->start[1]) {
+			case 'm': {
+				return check_keyword(scanner, 2, 1, "pl", TOKEN_IMPL);
+			}
+			case 'f': {
+				return TOKEN_IF;
+			}
+			default:;
+			}
+		}
 		return check_keyword(scanner, 1, 1, "f", TOKEN_IF);
 	case 'l':
 		return check_keyword(scanner, 1, 2, "et", TOKEN_LET);
@@ -271,9 +293,10 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 't': {
-				if (scanner->current - scanner->start > 2) {
-					return check_keyword(scanner, 2, 4, "ruct", TOKEN_STRUCT);
-				}
+				return check_keyword(scanner, 2, 4, "ruct", TOKEN_STRUCT);
+			}
+			case 'h': {
+				return check_keyword(scanner, 2, 3, "ape", TOKEN_SHAPE);
 			}
 			default:;
 			}

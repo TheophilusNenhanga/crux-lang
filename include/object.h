@@ -376,6 +376,7 @@ typedef enum {
 	STATE_LOADING,
 	STATE_LOADED,
 	STATE_ERROR,
+	STATE_EXECUTED,
 } ModuleState;
 
 struct ObjectModuleRecord { // 120

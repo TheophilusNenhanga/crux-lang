@@ -1,0 +1,9 @@
+use println from "crux:io";
+
+pub fn say_divide(a: Int, b: Int) -> Bool {
+    if b == 0 {
+        return false;
+    }
+    println(a/b);
+    return true;
+}

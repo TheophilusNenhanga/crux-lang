@@ -35,6 +35,8 @@ static void statement(Compiler *compiler);
 
 static void declaration(Compiler *compiler);
 
+static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectString *path);
+
 static Chunk *current_chunk(const Compiler *compiler)
 {
 	return &compiler->function->chunk;
@@ -523,11 +525,16 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 		return false;
 
 	compiler->enclosed = NULL;
+	compiler->enclosing = enclosing;
 
 	if (enclosing) {
-		compiler->parser = enclosing->parser;
 		enclosing->enclosed = compiler;
-	} else {
+	}
+
+	// if we have a parent compiler, and the type is not TYPE_SCRIPT, share the parser
+	if (enclosing && type != TYPE_SCRIPT) {
+		compiler->parser = enclosing->parser;
+	} else { // otherwise, allocate a new parser
 		compiler->parser = malloc(sizeof(Parser));
 		if (compiler->parser == NULL)
 			return false;
@@ -548,7 +555,6 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	}
 
 	compiler->type_stack_count = 0;
-	compiler->enclosing = enclosing;
 	compiler->function = NULL;
 	compiler->type = type;
 	compiler->local_count = 0;
@@ -970,24 +976,28 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 				break;
 			comp = comp->enclosing;
 		}
+
+		if (!var_type) {
+			compiler_panicf(compiler->parser, TYPE,
+							"Undeclared variable '%.*s'. Did you forget to declare or import it?", name.length,
+							name.start);
+			var_type = T_ANY;
+		}
 	}
 
 	if (can_assign) {
-		// ---- Plain assignment: x = expr ----
+		// assignment: x = expression
 		if (match(compiler, TOKEN_EQUAL)) {
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
 			if (var_type && value_type && var_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE) {
 				if (!types_compatible(var_type, value_type)) {
-					char expected[128], got[128], msg[300];
+					char expected[128], got[128];
 					type_record_name(var_type, expected, sizeof(expected));
 					type_record_name(value_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg),
-							 "Cannot assign '%s' to "
-							 "variable of type '%s'.",
-							 got, expected);
-					compiler_panic(compiler->parser, msg, TYPE);
+					compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to variable of type '%s'.", got,
+									expected);
 				}
 			}
 
@@ -995,7 +1005,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 			return;
 		}
 
-		// ---- Compound assignment: x += expr, etc. ----
+		// compound assignment: x += expr
 		CompoundOp op;
 		bool isCompoundAssignment = true;
 
@@ -1056,9 +1066,8 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 		}
 	}
 
-	// ---- Read ----
 	emit_words(compiler, getOp, arg);
-	push_type_record(compiler, var_type ? var_type : T_ANY);
+	push_type_record(compiler, var_type);
 }
 
 static void and_(Compiler *compiler, bool can_assign)
@@ -1911,13 +1920,14 @@ static void function(Compiler *compiler, const FunctionType type)
 	push_type_record(compiler, func_type);
 }
 
-static void fn_declaration(Compiler *compiler)
+static void fn_declaration(Compiler *compiler, bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected function name.");
 
 	// compiler->parser->previous is the function name identifier right now.
 	// Capture it before function() calls consume() and advances the token.
 	const Token fn_name_token = compiler->parser->previous;
+	ObjectString *name_str = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
 
 	// Save local index in case this is a local-scope function.
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
@@ -1925,8 +1935,10 @@ static void fn_declaration(Compiler *compiler)
 	mark_initialized(compiler);
 	function(compiler, TYPE_FUNCTION);
 
-	// function() always pushes a ObjectTypeRecord — pop it and register it.
 	ObjectTypeRecord *fn_type = pop_type_record(compiler);
+	if (is_public) {
+		type_table_set(compiler->owner->current_module_record->types, name_str, fn_type);
+	}
 
 	if (fn_type) {
 		if (compiler->scope_depth == 0) {
@@ -2240,11 +2252,12 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 	}
 }
 
-static void var_declaration(Compiler *compiler)
+static void var_declaration(Compiler *compiler, bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected Variable Name.");
 
 	const Token var_name = compiler->parser->previous;
+	ObjectString *name_str = copy_string(compiler->owner, var_name.start, var_name.length);
 
 	ObjectTypeRecord *annotated_type = NULL;
 	if (match(compiler, TOKEN_COLON)) {
@@ -2287,17 +2300,16 @@ static void var_declaration(Compiler *compiler)
 	if (!resolved_type) {
 		resolved_type = T_ANY;
 	}
+	if (is_public) {
+		type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
+	}
 
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 
+	// register types
 	if (compiler->scope_depth > 0) {
-		// Local: stamp the type onto the slot before marking it live.
-		// local_count - 1 is the slot add_local just created.
 		compiler->locals[compiler->local_count - 1].type = resolved_type;
 	} else {
-		// Global: register name → type in this compiler's type table
-		// so named_variable can look it up on future reads/writes.
-		ObjectString *name_str = copy_string(compiler->owner, var_name.start, var_name.length);
 		type_table_set(compiler->type_table, name_str, resolved_type);
 	}
 	define_variable(compiler, global);
@@ -2319,7 +2331,6 @@ static void while_statement(Compiler *compiler)
 
 	expression(compiler);
 
-	// Condition must be Bool
 	ObjectTypeRecord *condition_type = pop_type_record(compiler);
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 		compiler_panic(compiler->parser, "'while' condition must be of type 'Bool'.", TYPE);
@@ -2343,7 +2354,7 @@ static void for_statement(Compiler *compiler)
 	if (match(compiler, TOKEN_SEMICOLON)) {
 		// no initializer
 	} else if (match(compiler, TOKEN_LET)) {
-		var_declaration(compiler);
+		var_declaration(compiler, false);
 	} else {
 		expression_statement(compiler);
 	}
@@ -2455,7 +2466,7 @@ static void return_statement(Compiler *compiler)
 	}
 }
 
-static void use_statement(Compiler *compiler)
+static void import_statement(Compiler *compiler, bool is_dynamic)
 {
 	bool hasParen = false;
 	if (compiler->parser->current.type == TOKEN_LEFT_PAREN) {
@@ -2464,44 +2475,30 @@ static void use_statement(Compiler *compiler)
 	}
 
 	uint16_t nameCount = 0;
-	uint16_t names[UINT8_MAX];
-	uint16_t aliases[UINT8_MAX];
-	bool aliasPresence[UINT8_MAX];
+	uint16_t names[UINT8_MAX] = {0};
+	uint16_t aliases[UINT8_MAX] = {0};
+	bool aliasPresence[UINT8_MAX] = {0};
 
-	// Keep the token text for each name so we can register types.
-	Token nameTokens[UINT8_MAX];
-	Token aliasTokens[UINT8_MAX];
-
-	for (int i = 0; i < UINT8_MAX; i++) {
-		names[i] = 0;
-		aliases[i] = 0;
-		aliasPresence[i] = false;
-	}
+	Token nameTokens[UINT8_MAX] = {0};
+	Token aliasTokens[UINT8_MAX] = {0};
 
 	do {
 		if (nameCount >= UINT8_MAX) {
-			compiler_panic(compiler->parser,
-						   "Cannot import more than 255 names "
-						   "from another module.",
-						   IMPORT_EXTENT);
+			compiler_panic(compiler->parser, "Cannot import more than 255 names.", IMPORT_EXTENT);
 		}
 		consume_identifier_like(compiler, "Expected name to import from module.");
-		uint16_t name;
+
+		nameTokens[nameCount] = compiler->parser->previous;
+		names[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
+
 		if (compiler->parser->current.type == TOKEN_AS) {
-			nameTokens[nameCount] = compiler->parser->previous;
-			name = identifier_constant(compiler, &compiler->parser->previous);
 			consume(compiler, TOKEN_AS, "Expected 'as' keyword.");
 			consume(compiler, TOKEN_IDENTIFIER, "Expected alias name after 'as'.");
 			aliasTokens[nameCount] = compiler->parser->previous;
-			const uint16_t alias = identifier_constant(compiler, &compiler->parser->previous);
-			aliases[nameCount] = alias;
+			aliases[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
 			aliasPresence[nameCount] = true;
-		} else {
-			nameTokens[nameCount] = compiler->parser->previous;
-			name = identifier_constant(compiler, &compiler->parser->previous);
 		}
 
-		names[nameCount] = name;
 		nameCount++;
 	} while (match(compiler, TOKEN_COMMA));
 
@@ -2509,110 +2506,122 @@ static void use_statement(Compiler *compiler)
 		consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
 	}
 
-	consume(compiler, TOKEN_FROM, "Expected 'from' after 'use' statement.");
+	consume(compiler, TOKEN_FROM, "Expected 'from' after import statement.");
 	consume(compiler, TOKEN_STRING, "Expected string literal for module name.");
 
-	bool isNative = false;
-	if (memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0) {
-		isNative = true;
+	bool isNative = (memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0);
+
+	if (is_dynamic && isNative) {
+		compiler_panic(compiler->parser, "Cannot use dynamic import for native modules. Use 'use'.", SYNTAX);
+		return;
 	}
 
-	uint16_t module;
+	uint16_t module_const;
+	ObjectModuleRecord *statically_imported_mod = NULL;
+
 	if (isNative) {
-		module = make_constant(compiler, OBJECT_VAL(copy_string(compiler->owner, compiler->parser->previous.start + 6,
-																compiler->parser->previous.length - 7)));
+		module_const = make_constant(compiler,
+									 OBJECT_VAL(copy_string(compiler->owner, compiler->parser->previous.start + 6,
+															compiler->parser->previous.length - 7)));
 		emit_words(compiler, OP_USE_NATIVE, nameCount);
-		for (uint16_t i = 0; i < nameCount; i++) {
-			emit_word(compiler, names[i]);
-		}
-		for (uint16_t i = 0; i < nameCount; i++) {
-			if (aliasPresence[i]) {
-				emit_word(compiler, aliases[i]);
-			} else {
-				emit_word(compiler, names[i]);
-			}
-		}
-		emit_word(compiler, module);
 	} else {
-		module = make_constant(compiler, OBJECT_VAL(copy_string(compiler->owner, compiler->parser->previous.start + 1,
-																compiler->parser->previous.length - 2)));
-		emit_words(compiler, OP_USE_MODULE, module);
-		emit_words(compiler, OP_FINISH_USE, nameCount);
-		for (uint16_t i = 0; i < nameCount; i++) {
-			emit_word(compiler, names[i]);
-		}
-		for (uint16_t i = 0; i < nameCount; i++) {
-			if (aliasPresence[i]) {
-				emit_word(compiler, aliases[i]);
-			} else {
-				emit_word(compiler, names[i]);
+		ObjectString *path_str = copy_string(compiler->owner, compiler->parser->previous.start + 1,
+											 compiler->parser->previous.length - 2);
+		module_const = make_constant(compiler, OBJECT_VAL(path_str));
+
+		// If it's a static 'use', compile it right now!
+		if (!is_dynamic) {
+			statically_imported_mod = compile_module_statically(compiler, path_str);
+			if (!statically_imported_mod || statically_imported_mod->state == STATE_ERROR) {
+				compiler_panicf(compiler->parser, IMPORT, "Failed to compile module '%s'.", path_str->chars);
+				return;
 			}
 		}
+
+		// Emit the standard runtime opcodes (they work for both static and dynamic!)
+		emit_words(compiler, OP_USE_MODULE, module_const);
+		emit_words(compiler, OP_FINISH_USE, nameCount);
+	}
+
+	// Emit names and aliases for the VM to bind at runtime
+	for (uint16_t i = 0; i < nameCount; i++)
+		emit_word(compiler, names[i]);
+	for (uint16_t i = 0; i < nameCount; i++)
+		emit_word(compiler, aliasPresence[i] ? aliases[i] : names[i]);
+
+	if (isNative) {
+		emit_word(compiler, module_const);
 	}
 
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after import statement.");
 
-	// Register each imported name in the type table as ANY_TYPE.
-	// The VM resolves real values at runtime; we just need the names
-	// present so named_variable doesn't treat them as unknown globals
-	// and produce false type errors. The pre-pass will replace these
-	// with accurate types once it exists.
+	// --- TYPE RESOLUTION ---
 	for (uint16_t i = 0; i < nameCount; i++) {
-		// The visible name is the alias when present, otherwise the
-		// original name.
 		Token visible = aliasPresence[i] ? aliasTokens[i] : nameTokens[i];
 		ObjectString *name_str = copy_string(compiler->owner, visible.start, visible.length);
 
-		// check if this name is from the stdlib
-		type_table_set(compiler->type_table, name_str, T_ANY);
+		ObjectTypeRecord *resolved_type = NULL;
+
 		if (compiler->scope_depth == 0) {
-			for (int j = 0; j < compiler->owner->native_modules.count; j++) {
-				const Table *current_table = compiler->owner->native_modules.modules[j].names;
-				Value value;
-				if (!table_get(current_table, name_str, &value))
-					continue;
-				if (IS_CRUX_NATIVE_CALLABLE(value)) {
-					const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(value);
-
-					// We must duplicate the arg_types array so that the GC doesn't double-free it!
-					ObjectTypeRecord **args_copy = NULL;
-					if (callable->arity > 0) {
-						args_copy = ALLOCATE(compiler->owner, ObjectTypeRecord *, callable->arity);
-						for (int k = 0; k < callable->arity; k++) {
-							args_copy[k] = callable->arg_types[k];
+			if (isNative) {
+				// 1. Native Stdlib Module Type Resolution
+				for (int j = 0; j < compiler->owner->native_modules.count; j++) {
+					const Table *current_table = compiler->owner->native_modules.modules[j].names;
+					Value value;
+					if (table_get(current_table, name_str, &value) && IS_CRUX_NATIVE_CALLABLE(value)) {
+						const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(value);
+						ObjectTypeRecord **args_copy = NULL;
+						if (callable->arity > 0) {
+							args_copy = ALLOCATE(compiler->owner, ObjectTypeRecord *, callable->arity);
+							for (int k = 0; k < callable->arity; k++)
+								args_copy[k] = callable->arg_types[k];
 						}
+						resolved_type = new_function_type_rec(compiler->owner, args_copy, callable->arity,
+															  callable->return_type);
+						break;
 					}
-
-					// Pass args_copy instead of callable->arg_types
-					ObjectTypeRecord *rec = new_function_type_rec(compiler->owner, args_copy, callable->arity,
-																  callable->return_type);
-					type_table_set(compiler->type_table, name_str, rec);
+				}
+			} else if (!is_dynamic && statically_imported_mod) {
+				// 2. Static User Module Type Resolution
+				if (!type_table_get(statically_imported_mod->types, name_str, &resolved_type)) {
+					char msg[128];
+					snprintf(msg, sizeof(msg), "Module does not export '%s'", name_str->chars);
+					compiler_panic(compiler->parser, msg, NAME);
+					resolved_type = T_ANY; // Fallback to prevent crashes during panic
 				}
 			}
-		} else {
-			// Local-scope imports are unusual but legal — stamp
-			// the type onto the most recently declared local.
-			// (declare_variable has already been called for each
-			// name by the VM at runtime, but at compile time we
-			// don't have a local slot; we can only record it in
-			// the scope's type table.)
-			type_table_set(compiler->type_table, name_str, T_ANY);
 		}
+
+		// 3. Dynamic import or Local Scope fallback
+		if (!resolved_type) {
+			resolved_type = T_ANY;
+		}
+
+		type_table_set(compiler->type_table, name_str, resolved_type);
 	}
 }
 
-static void struct_declaration(Compiler *compiler)
+static void use_statement(Compiler *compiler)
+{
+	import_statement(compiler, false);
+}
+static void dynuse_statement(Compiler *compiler)
+{
+	import_statement(compiler, true);
+}
+
+static void struct_declaration(Compiler *compiler, bool is_public)
 {
 	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name.");
 	const Token structName = compiler->parser->previous;
 
 	GC_PROTECT_START(compiler->owner->current_module_record);
 
-	ObjectString *structNameString = copy_string(compiler->owner, structName.start, structName.length);
-	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(structNameString));
+	ObjectString *struct_name_str = copy_string(compiler->owner, structName.start, structName.length);
+	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(struct_name_str));
 
 	const uint16_t nameConstant = identifier_constant(compiler, &structName);
-	ObjectStruct *structObject = new_struct_type(compiler->owner, structNameString);
+	ObjectStruct *structObject = new_struct_type(compiler->owner, struct_name_str);
 	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(structObject));
 
 	// Reserve the local slot (or note the global name) before we start
@@ -2675,17 +2684,16 @@ static void struct_declaration(Compiler *compiler)
 
 	GC_PROTECT_END(compiler->owner->current_module_record);
 
-	// Build the ObjectTypeRecord for this struct and register it so that
-	// named_variable and parse_type_record can look it up by name.
 	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, structObject, field_types, fieldCount);
 
+	// type registration
 	if (compiler->scope_depth == 0) {
-		// Global struct — enter it into the compiler's type table
-		// under the struct's own name.
-		type_table_set(compiler->type_table, structNameString, struct_type);
+		type_table_set(compiler->type_table, struct_name_str, struct_type);
 	} else {
-		// Local struct — stamp the type onto the reserved local slot.
 		compiler->locals[local_index].type = struct_type;
+	}
+	if (is_public) {
+		type_table_set(compiler->type_table, struct_name_str, struct_type);
 	}
 }
 
@@ -2696,7 +2704,7 @@ static void result_unwrap(Compiler *compiler, bool can_assign)
 	ObjectTypeRecord *type = pop_type_record(compiler);
 
 	if (!type || type->base_type == ANY_TYPE) {
-		// Unknown type — allow it through, runtime will catch errors.
+		// Unknown type — vm will catch errors.
 		emit_word(compiler, OP_UNWRAP);
 		push_type_record(compiler, T_ANY);
 		return;
@@ -2704,14 +2712,11 @@ static void result_unwrap(Compiler *compiler, bool can_assign)
 
 	if (type->base_type != RESULT_TYPE) {
 		compiler_panic(compiler->parser, "'?' operator requires a 'Result' type.", TYPE);
-		// Push ANY_TYPE so the stack stays balanced after the panic.
 		push_type_record(compiler, T_ANY);
 		return;
 	}
-
 	emit_word(compiler, OP_UNWRAP);
 
-	// Push the inner ok_type, falling back to ANY_TYPE if unknown.
 	ObjectTypeRecord *ok_type = type->as.result_type.ok_type;
 	push_type_record(compiler, ok_type ? ok_type : T_ANY);
 }
@@ -2738,27 +2743,11 @@ static void synchronize(Compiler *compiler)
 		case TOKEN_IF:
 		case TOKEN_WHILE:
 		case TOKEN_RETURN:
+		case TOKEN_PANIC:
 			return;
 		default:;
 		}
 		advance(compiler);
-	}
-}
-
-static void public_declaration(Compiler *compiler)
-{
-	if (compiler->scope_depth > 0) {
-		compiler_panic(compiler->parser, "Cannot declare public members in a local scope.", SYNTAX);
-	}
-	emit_word(compiler, OP_PUB);
-	if (match(compiler, TOKEN_FN)) {
-		fn_declaration(compiler);
-	} else if (match(compiler, TOKEN_LET)) {
-		var_declaration(compiler);
-	} else if (match(compiler, TOKEN_STRUCT)) {
-		struct_declaration(compiler);
-	} else {
-		compiler_panic(compiler->parser, "Expected 'fn', 'let', or 'struct' after 'pub'.", SYNTAX);
 	}
 }
 
@@ -3059,14 +3048,31 @@ static void panic_statement(Compiler *compiler)
 	emit_word(compiler, OP_PANIC);
 }
 
+static void public_declaration(Compiler *compiler)
+{
+	if (compiler->scope_depth > 0) {
+		compiler_panic(compiler->parser, "Cannot declare public members in a local scope.", SYNTAX);
+	}
+	emit_word(compiler, OP_PUB);
+	if (match(compiler, TOKEN_FN)) {
+		fn_declaration(compiler, true);
+	} else if (match(compiler, TOKEN_LET)) {
+		var_declaration(compiler, true);
+	} else if (match(compiler, TOKEN_STRUCT)) {
+		struct_declaration(compiler, false);
+	} else {
+		compiler_panic(compiler->parser, "Expected 'fn', 'let', or 'struct' after 'pub'.", SYNTAX);
+	}
+}
+
 static void declaration(Compiler *compiler)
 {
 	if (match(compiler, TOKEN_LET)) {
-		var_declaration(compiler);
+		var_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_FN)) {
-		fn_declaration(compiler);
+		fn_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_STRUCT)) {
-		struct_declaration(compiler);
+		struct_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_PUB)) {
 		public_declaration(compiler);
 	} else {
@@ -3091,6 +3097,8 @@ static void statement(Compiler *compiler)
 		for_statement(compiler);
 	} else if (match(compiler, TOKEN_RETURN)) {
 		return_statement(compiler);
+	} else if (match(compiler, TOKEN_DYN_USE)) {
+		dynuse_statement(compiler);
 	} else if (match(compiler, TOKEN_USE)) {
 		use_statement(compiler);
 	} else if (match(compiler, TOKEN_GIVE)) {
@@ -3290,6 +3298,49 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 	emit_word(compiler, OP_TYPEOF); // this will emit a string representation of the
 									// type at runtime
 	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
+}
+
+static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectString *path)
+{
+	Value cached_val;
+	if (table_get(&compiler->owner->module_cache, path, &cached_val)) {
+		ObjectModuleRecord *mod = AS_CRUX_MODULE_RECORD(cached_val);
+		if (mod->state == STATE_LOADING) {
+			compiler_panicf(compiler->parser, IMPORT, "Circular dependency detected while loading module '%s'.",
+							path->chars);
+			return mod;
+		}
+		return mod;
+	}
+
+	FileResult result = read_file(path->chars);
+	if (result.error) {
+		compiler_panicf(compiler->parser, IMPORT, "Could not read file '%s': %s", path->chars, result.error);
+		return NULL;
+	}
+	char *source = result.content;
+
+	ObjectModuleRecord *new_module = new_object_module_record(compiler->owner, path, false, false);
+	table_set(compiler->owner, &compiler->owner->module_cache, path, OBJECT_VAL(new_module));
+
+	ObjectModuleRecord *previous_module = compiler->owner->current_module_record;
+	compiler->owner->current_module_record = new_module;
+
+	Compiler imported_compiler;
+	ObjectFunction *module_func = compile(compiler->owner, &imported_compiler, compiler, source);
+	free(result.content);
+	source = NULL;
+
+	if (module_func != NULL) {
+		new_module->module_closure = new_closure(compiler->owner, module_func);
+		new_module->state = STATE_LOADED;
+	} else {
+		new_module->state = STATE_ERROR;
+	}
+
+	compiler->owner->current_module_record = previous_module;
+
+	return new_module;
 }
 
 ParseRule rules[] = {
@@ -3753,44 +3804,48 @@ static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 {
 	// Sub-pass 1: collect struct declarations
 	Compiler pre_compiler_structs;
-	init_compiler(compiler->owner, &pre_compiler_structs, NULL, TYPE_SCRIPT);
+	init_compiler(compiler->owner, &pre_compiler_structs, compiler, TYPE_SCRIPT);
 	init_scanner(pre_compiler_structs.parser->scanner, source);
-	// Clear parser error state — pre-pass is allowed
+
 	pre_compiler_structs.parser->had_error = false;
 	pre_compiler_structs.parser->panic_mode = false;
 	pre_compiler_structs.parser->source = source;
 
 	pre_scan_pass(&pre_compiler_structs, true);
 
+	// CRITICAL: Unlink before the local struct goes out of scope!
+	compiler->enclosed = NULL;
 	free(pre_compiler_structs.parser->scanner);
 	free(pre_compiler_structs.parser);
 
 	// Sub-pass 2: collect function signatures
 	Compiler pre_compiler_fns;
-	init_compiler(compiler->owner, &pre_compiler_fns, NULL, TYPE_SCRIPT);
+	init_compiler(compiler->owner, &pre_compiler_fns, compiler, TYPE_SCRIPT);
 	init_scanner(pre_compiler_fns.parser->scanner, source);
 	pre_compiler_fns.parser->had_error = false;
 	pre_compiler_fns.parser->panic_mode = false;
 
-	// Seed the fn-pass compiler with struct types from the first pass
 	type_table_add_all(pre_compiler_structs.type_table, pre_compiler_fns.type_table);
 
 	pre_scan_pass(&pre_compiler_fns, false);
 
+	// CRITICAL: Unlink!
+	compiler->enclosed = NULL;
 	free(pre_compiler_fns.parser->scanner);
 	free(pre_compiler_fns.parser);
 
-	// Merge into the destination table
 	type_table_add_all(pre_compiler_structs.type_table, dest);
 	type_table_add_all(pre_compiler_fns.type_table, dest);
-
-	// tables will be gc'd
 }
 
-ObjectFunction *compile(VM *vm, Compiler *compiler, char *source)
+/**
+ * Compile a source string into a function object.
+ * Expects the compiler to be initialized.
+ */
+ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *source)
 {
 	// Pre-scan pass
-	if (!init_compiler(vm, compiler, NULL, TYPE_SCRIPT)) {
+	if (!init_compiler(vm, compiler, enclosing, TYPE_SCRIPT)) {
 		return NULL;
 	}
 	init_scanner(compiler->parser->scanner, source);
@@ -3810,7 +3865,7 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, char *source)
 		type_table_set(compiler->type_table, entry->key, entry->value);
 	}
 
-	// Main compile pass
+	// Main compiler pass
 	init_scanner(compiler->parser->scanner, source);
 	compiler->parser->had_error = false;
 	compiler->parser->panic_mode = false;
