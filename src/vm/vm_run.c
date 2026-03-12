@@ -120,7 +120,7 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_BITWISE_AND,
 									&&OP_BITWISE_XOR,
 									&&OP_BITWISE_OR,
-
+									&&OP_METHOD,
 									&&end};
 
 	uint16_t instruction;
@@ -1256,6 +1256,18 @@ OP_BITWISE_OR: {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	push(currentModuleRecord, INT_VAL(INT_VAL(left) | INT_VAL(right)));
+	DISPATCH();
+}
+
+OP_METHOD: {
+	ObjectString *method_name = READ_STRING();
+	Value method_closure = PEEK(currentModuleRecord, 0);
+	Value struct_val = PEEK(currentModuleRecord, 1);
+
+	ObjectStruct *struct_obj = AS_CRUX_STRUCT(struct_val);
+	table_set(vm, &struct_obj->methods, method_name, method_closure);
+
+	pop(currentModuleRecord); // closure
 	DISPATCH();
 }
 

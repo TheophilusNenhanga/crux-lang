@@ -1,5 +1,5 @@
 use println from "crux:io";
-use say_divide from "/home/theo-go/git/crux-lang/tests/importing/ext_mod.crux";
+use say_divide from "./ext_mod.crux";
 
 fn main() -> Nil {
     let result: Bool = say_divide(10, 2);

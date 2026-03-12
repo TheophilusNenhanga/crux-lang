@@ -231,10 +231,10 @@ struct ObjectResult { // 24
 typedef struct { // 32
 	CruxObject object;
 	ObjectString *name;
-	Table fields; // <field_name: index>
+	Table fields;
+	Table methods;
 } ObjectStruct;
 
-typedef struct ObjectTypeRecord ObjectTypeRecord;
 typedef struct ObjectTypeTable ObjectTypeTable;
 
 typedef struct {
@@ -269,16 +269,12 @@ struct ObjectTypeRecord {
 			ObjectStruct *definition; // has the field names
 		} struct_type;
 		struct {
-			// values within a vector are always doubles so Int |
-			// Float doesn't matter
 			int dimensions;
 		} vector_type;
 		struct {
 			ObjectTypeRecord *element_type;
 		} tuple_type;
 		struct {
-			// values with a matrix are always doubles so Int |
-			// Float doesn't matter
 			int rows;
 			int cols;
 		} matrix_type;

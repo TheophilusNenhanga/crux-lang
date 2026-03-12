@@ -1302,6 +1302,7 @@ ObjectStruct *new_struct_type(VM *vm, ObjectString *name)
 	pop(vm->current_module_record);
 	structObject->name = name;
 	init_table(&structObject->fields);
+	init_table(&structObject->methods);
 	return structObject;
 }
 

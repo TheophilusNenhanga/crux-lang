@@ -257,7 +257,7 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'm': {
-				return check_keyword(scanner, 2, 1, "pl", TOKEN_IMPL);
+				return check_keyword(scanner, 2, 2, "pl", TOKEN_IMPL);
 			}
 			case 'f': {
 				return TOKEN_IF;
