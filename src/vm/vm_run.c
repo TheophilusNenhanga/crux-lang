@@ -978,22 +978,15 @@ OP_USE_NATIVE: {
 }
 
 OP_USE_MODULE: {
-	ObjectString *moduleName = READ_STRING();
+	// resolved by the compiler
+	ObjectString *resolvedPath = READ_STRING();
 
-	if (is_in_import_stack(vm, moduleName)) {
+	if (is_in_import_stack(vm, resolvedPath)) {
 		runtime_panic(currentModuleRecord, false, IMPORT, "Circular dependency detected when importing: %s",
-					  moduleName->chars);
+					  resolvedPath->chars);
 		vm->current_module_record->state = STATE_ERROR;
 		return INTERPRET_RUNTIME_ERROR;
 	}
-
-	char *resolvedPathChars = resolve_path(vm->current_module_record->path->chars, moduleName->chars);
-	if (resolvedPathChars == NULL) {
-		runtime_panic(currentModuleRecord, false, IMPORT, "Failed to resolve import path");
-		vm->current_module_record->state = STATE_ERROR;
-		return INTERPRET_RUNTIME_ERROR;
-	}
-	ObjectString *resolvedPath = take_string(vm, resolvedPathChars, strlen(resolvedPathChars));
 
 	Value cachedModule;
 	if (table_get(&vm->module_cache, resolvedPath, &cachedModule)) {
@@ -1008,9 +1001,7 @@ OP_USE_MODULE: {
 			init_table(&module->globals);
 			init_table(&module->publics);
 
-			initialize_std_lib(vm);
-
-			// Execute the top-level module code
+			// Execute the module code
 			push(module, OBJECT_VAL(module->module_closure));
 			call(module, module->module_closure, 0);
 
@@ -1029,7 +1020,7 @@ OP_USE_MODULE: {
 		DISPATCH();
 	}
 
-	// dynamic import
+	// dynamic import (dynuse)
 	if (vm->import_count + 1 > IMPORT_MAX) {
 		runtime_panic(currentModuleRecord, false, IMPORT, "Import limit reached");
 		return INTERPRET_RUNTIME_ERROR;
@@ -1058,7 +1049,6 @@ OP_USE_MODULE: {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	// Dynamically compile the file
 	Compiler compiler;
 	ObjectFunction *function = compile(vm, &compiler, vm->main_compiler, file.content);
 	free_file_result(file);
@@ -1072,7 +1062,6 @@ OP_USE_MODULE: {
 	module->module_closure = closure;
 	table_set(vm, &vm->module_cache, resolvedPath, OBJECT_VAL(module));
 
-	// Execute it immediately
 	push(module, OBJECT_VAL(closure));
 	call(module, closure, 0);
 
@@ -1133,7 +1122,7 @@ OP_FINISH_USE: {
 		}
 	}
 
-	// Only decrement if we dynamically loaded it
+	// Only for dynamic imports
 	if (vm->import_count > 0)
 		vm->import_count--;
 

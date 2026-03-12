@@ -2525,11 +2525,27 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 															compiler->parser->previous.length - 7)));
 		emit_words(compiler, OP_USE_NATIVE, nameCount);
 	} else {
-		ObjectString *path_str = copy_string(compiler->owner, compiler->parser->previous.start + 1,
-											 compiler->parser->previous.length - 2);
+		ObjectString *raw_path_str = copy_string(compiler->owner, compiler->parser->previous.start + 1,
+												 compiler->parser->previous.length - 2);
+
+		const char *base_path = NULL;
+		if (compiler->owner->current_module_record && compiler->owner->current_module_record->path) {
+			base_path = compiler->owner->current_module_record->path->chars;
+		} else {
+			base_path = ".";
+		}
+
+		char *resolved_chars = resolve_path(base_path, raw_path_str->chars);
+		if (resolved_chars == NULL) {
+			compiler_panicf(compiler->parser, IMPORT, "Failed to resolve import path: '%s'", raw_path_str->chars);
+			return;
+		}
+
+		ObjectString *path_str = copy_string(compiler->owner, resolved_chars, strlen(resolved_chars));
+		free(resolved_chars);
+
 		module_const = make_constant(compiler, OBJECT_VAL(path_str));
 
-		// If it's a static 'use', compile it right now!
 		if (!is_dynamic) {
 			statically_imported_mod = compile_module_statically(compiler, path_str);
 			if (!statically_imported_mod || statically_imported_mod->state == STATE_ERROR) {
@@ -2538,12 +2554,11 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 			}
 		}
 
-		// Emit the standard runtime opcodes (they work for both static and dynamic!)
 		emit_words(compiler, OP_USE_MODULE, module_const);
 		emit_words(compiler, OP_FINISH_USE, nameCount);
 	}
 
-	// Emit names and aliases for the VM to bind at runtime
+	// vm will bind names/aliases at runtime
 	for (uint16_t i = 0; i < nameCount; i++)
 		emit_word(compiler, names[i]);
 	for (uint16_t i = 0; i < nameCount; i++)
@@ -2555,7 +2570,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after import statement.");
 
-	// --- TYPE RESOLUTION ---
+	// type resolution
 	for (uint16_t i = 0; i < nameCount; i++) {
 		Token visible = aliasPresence[i] ? aliasTokens[i] : nameTokens[i];
 		ObjectString *name_str = copy_string(compiler->owner, visible.start, visible.length);
@@ -2564,7 +2579,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 
 		if (compiler->scope_depth == 0) {
 			if (isNative) {
-				// 1. Native Stdlib Module Type Resolution
+				// Native Stdlib Module
 				for (int j = 0; j < compiler->owner->native_modules.count; j++) {
 					const Table *current_table = compiler->owner->native_modules.modules[j].names;
 					Value value;
@@ -2582,7 +2597,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 					}
 				}
 			} else if (!is_dynamic && statically_imported_mod) {
-				// 2. Static User Module Type Resolution
+				// Static User Module
 				if (!type_table_get(statically_imported_mod->types, name_str, &resolved_type)) {
 					char msg[128];
 					snprintf(msg, sizeof(msg), "Module does not export '%s'", name_str->chars);
@@ -2592,7 +2607,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 			}
 		}
 
-		// 3. Dynamic import or Local Scope fallback
+		// Dynamic fallback
 		if (!resolved_type) {
 			resolved_type = T_ANY;
 		}
@@ -2624,8 +2639,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	ObjectStruct *structObject = new_struct_type(compiler->owner, struct_name_str);
 	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(structObject));
 
-	// Reserve the local slot (or note the global name) before we start
-	// parsing the body so the struct can refer to itself recursively.
+	// Reserve name before parsing the body so the struct can refer to itself recursively.
 	declare_variable(compiler);
 
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
@@ -2636,8 +2650,6 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 
 	consume(compiler, TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
 
-	// Build a ObjectTypeTable mapping field name -> ObjectTypeRecord.
-	// This is heap-allocated so it outlives the compiler's type_arena.
 	ObjectTypeTable *field_types = new_type_table(compiler->owner, INITIAL_TYPE_TABLE_SIZE);
 	int fieldCount = 0;
 
@@ -2668,7 +2680,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 			if (match(compiler, TOKEN_COLON)) {
 				field_type = parse_type_record(compiler);
 			} else {
-				field_type = new_type_rec(compiler->owner, ANY_TYPE);
+				field_type = T_ANY;
 			}
 
 			type_table_set(field_types, fieldName, field_type);
