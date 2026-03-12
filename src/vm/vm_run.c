@@ -121,6 +121,12 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_BITWISE_XOR,
 									&&OP_BITWISE_OR,
 									&&OP_METHOD,
+									&&OP_SET_PROPERTY_PLUS,
+									&&OP_SET_PROPERTY_MINUS,
+									&&OP_SET_PROPERTY_STAR,
+									&&OP_SET_PROPERTY_SLASH,
+									&&OP_SET_PROPERTY_INT_DIVIDE,
+									&&OP_SET_PROPERTY_MODULUS,
 									&&end};
 
 	uint16_t instruction;
@@ -1269,6 +1275,56 @@ OP_METHOD: {
 
 	pop(currentModuleRecord); // closure
 	DISPATCH();
+}
+
+OP_SET_PROPERTY_PLUS:
+OP_SET_PROPERTY_MINUS:
+OP_SET_PROPERTY_STAR:
+OP_SET_PROPERTY_SLASH:
+OP_SET_PROPERTY_INT_DIVIDE:
+OP_SET_PROPERTY_MODULUS: {
+	ObjectString *name = READ_STRING();
+	Value operand = pop(currentModuleRecord);
+	Value instance_val = PEEK(currentModuleRecord, 0);
+
+	if (!IS_CRUX_STRUCT_INSTANCE(instance_val)) {
+		runtime_panic(currentModuleRecord, false, TYPE, "Only instances have properties.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(instance_val);
+
+	Value indexValue;
+	if (table_get(&instance->struct_type->fields, name, &indexValue)) {
+		uint16_t index = (uint16_t)AS_INT(indexValue);
+		Value current_val = instance->fields[index];
+
+		OpCode math_op;
+		if (instruction == OP_SET_PROPERTY_PLUS)
+			math_op = OP_SET_LOCAL_PLUS;
+		else if (instruction == OP_SET_PROPERTY_MINUS)
+			math_op = OP_SET_LOCAL_MINUS;
+		else if (instruction == OP_SET_PROPERTY_STAR)
+			math_op = OP_SET_LOCAL_STAR;
+		else if (instruction == OP_SET_PROPERTY_SLASH)
+			math_op = OP_SET_LOCAL_SLASH;
+		else if (instruction == OP_SET_PROPERTY_INT_DIVIDE)
+			math_op = OP_SET_LOCAL_INT_DIVIDE;
+		else
+			math_op = OP_SET_LOCAL_MODULUS;
+
+		if (!handle_compound_assignment(currentModuleRecord, &current_val, operand, math_op)) {
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		instance->fields[index] = current_val;
+
+		pop(currentModuleRecord);
+		push(currentModuleRecord, current_val);
+		DISPATCH();
+	}
+
+	runtime_panic(currentModuleRecord, false, NAME, "Undefined property '%s'.", name->chars);
+	return INTERPRET_RUNTIME_ERROR;
 }
 
 end: {
