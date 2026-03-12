@@ -1,0 +1,13 @@
+use println from "crux:io";
+use say_divide from "/home/theo-go/git/crux-lang/tests/importing/ext_mod.crux";
+
+fn main() -> Nil {
+    let result: Bool = say_divide(10, 2);
+    if result {
+        println("Divide successful");
+    } else {
+        println("Divide failed");
+    }
+}
+
+main();

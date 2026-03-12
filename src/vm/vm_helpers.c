@@ -1306,7 +1306,7 @@ InterpretResult interpret(VM *vm, char *source)
 	}
 	vm->main_compiler = compiler;
 
-	ObjectFunction *function = compile(vm, compiler, source);
+	ObjectFunction *function = compile(vm, compiler, NULL, source);
 	free(compiler);
 	vm->main_compiler = NULL;
 

@@ -97,8 +97,8 @@ struct Compiler {
 	int type_stack_count;
 	ObjectTypeTable *type_table;
 	ObjectTypeRecord *last_give_type;
-	bool has_return;
 	Parser* parser;
+	bool has_return;
 };
 typedef void (*ParseFn)(Compiler *compiler, bool can_assign);
 
@@ -111,7 +111,7 @@ typedef struct {
 
 
 void mark_compiler_roots(VM *vm, Compiler *compiler);
-ObjectFunction *compile(VM *vm, Compiler* compiler, char *source);
+ObjectFunction *compile(VM *vm, Compiler* compiler, Compiler* enclosing, char *source);
 
 ObjectTypeRecord *parse_type_record(Compiler* compiler);
 void push_type_record(Compiler* compiler, ObjectTypeRecord *type_record);

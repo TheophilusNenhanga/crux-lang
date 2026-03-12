@@ -3,7 +3,7 @@ import subprocess
 from typing import List
 
 EXE_PATH: str = "../build/crux"
-directories: list[str] = ["builtins", "features", "modules"]
+directories: list[str] = ["builtins", "features", "modules", "importing", "compiler"]
 files: list[str] = []
 
 
