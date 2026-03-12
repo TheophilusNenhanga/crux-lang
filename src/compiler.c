@@ -838,6 +838,46 @@ static uint16_t parse_variable(Compiler *compiler, const char *errorMessage)
 	return identifier_constant(compiler, &compiler->parser->previous);
 }
 
+// Helper to detect compound operators
+static int match_compound_op(Compiler *compiler)
+{
+	if (match(compiler, TOKEN_PLUS_EQUAL))
+		return COMPOUND_OP_PLUS;
+	if (match(compiler, TOKEN_MINUS_EQUAL))
+		return COMPOUND_OP_MINUS;
+	if (match(compiler, TOKEN_STAR_EQUAL))
+		return COMPOUND_OP_STAR;
+	if (match(compiler, TOKEN_SLASH_EQUAL))
+		return COMPOUND_OP_SLASH;
+	if (match(compiler, TOKEN_BACK_SLASH_EQUAL))
+		return COMPOUND_OP_BACK_SLASH;
+	if (match(compiler, TOKEN_PERCENT_EQUAL))
+		return COMPOUND_OP_PERCENT;
+	return -1;
+}
+
+// Helper to check math types for all compound assignments
+static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_type, ObjectTypeRecord *rhs_type, int op)
+{
+	if (!lhs_type || !rhs_type || lhs_type->base_type == ANY_TYPE || rhs_type->base_type == ANY_TYPE)
+		return;
+
+	const bool lhs_num = lhs_type->base_type == INT_TYPE || lhs_type->base_type == FLOAT_TYPE;
+	const bool rhs_num = rhs_type->base_type == INT_TYPE || rhs_type->base_type == FLOAT_TYPE;
+
+	if (op == COMPOUND_OP_PLUS && lhs_type->base_type == STRING_TYPE) {
+		if (rhs_type->base_type != STRING_TYPE) {
+			compiler_panic(compiler->parser, "'+=' on a String requires a String right-hand side.", TYPE);
+		}
+	} else if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
+		if (lhs_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
+			compiler_panic(compiler->parser, "This compound operator requires Int operands.", TYPE);
+		}
+	} else if (!lhs_num || !rhs_num) {
+		compiler_panic(compiler->parser, "Compound assignment requires numeric operands.", TYPE);
+	}
+}
+
 /**
  * Defines a variable, emitting the bytecode to store its value.
  *
@@ -860,84 +900,29 @@ static void define_variable(Compiler *compiler, const uint16_t global)
 	emit_words(compiler, OP_DEFINE_GLOBAL, global);
 }
 
-static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const CompoundOp op)
+static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const int op)
 {
-	switch (setOp) {
-	case OP_SET_LOCAL: {
-		switch (op) {
-		case COMPOUND_OP_PLUS:
-			return OP_SET_LOCAL_PLUS;
-		case COMPOUND_OP_MINUS:
-			return OP_SET_LOCAL_MINUS;
-		case COMPOUND_OP_STAR:
-			return OP_SET_LOCAL_STAR;
-		case COMPOUND_OP_SLASH:
-			return OP_SET_LOCAL_SLASH;
-		case COMPOUND_OP_BACK_SLASH:
-			return OP_SET_LOCAL_INT_DIVIDE;
-		case COMPOUND_OP_PERCENT:
-			return OP_SET_LOCAL_MODULUS;
-		default: {
-			compiler_panic(compiler->parser,
-						   "Compiler Error: Failed to create "
-						   "bytecode for compound operation.",
-						   RUNTIME);
-			break;
-		}
-		}
-		break;
-	}
-	case OP_SET_UPVALUE: {
-		switch (op) {
-		case COMPOUND_OP_PLUS:
-			return OP_SET_UPVALUE_PLUS;
-		case COMPOUND_OP_MINUS:
-			return OP_SET_UPVALUE_MINUS;
-		case COMPOUND_OP_STAR:
-			return OP_SET_UPVALUE_STAR;
-		case COMPOUND_OP_SLASH:
-			return OP_SET_UPVALUE_SLASH;
-		case COMPOUND_OP_BACK_SLASH:
-			return OP_SET_UPVALUE_INT_DIVIDE;
-		case COMPOUND_OP_PERCENT:
-			return OP_SET_UPVALUE_MODULUS;
-		default: {
-			compiler_panic(compiler->parser,
-						   "Compiler Error: Failed to create "
-						   "bytecode for compound operation.",
-						   RUNTIME);
-			break;
-		}
-		}
-		break;
-	}
-	case OP_SET_GLOBAL: {
-		switch (op) {
-		case COMPOUND_OP_PLUS:
-			return OP_SET_GLOBAL_PLUS;
-		case COMPOUND_OP_MINUS:
-			return OP_SET_GLOBAL_MINUS;
-		case COMPOUND_OP_STAR:
-			return OP_SET_GLOBAL_STAR;
-		case COMPOUND_OP_SLASH:
-			return OP_SET_GLOBAL_SLASH;
-		case COMPOUND_OP_BACK_SLASH:
-			return OP_SET_GLOBAL_INT_DIVIDE;
-		case COMPOUND_OP_PERCENT:
-			return OP_SET_GLOBAL_MODULUS;
-		default: {
-			compiler_panic(compiler->parser,
-						   "Compiler Error: Failed to create "
-						   "bytecode for compound operation.",
-						   RUNTIME);
-			break;
-		}
-		}
-		break;
-	}
-	default:
-		return setOp; // Should never happen
-	}
+	static const OpCode local_ops[] = {OP_SET_LOCAL_PLUS,  OP_SET_LOCAL_MINUS,		OP_SET_LOCAL_STAR,
+									   OP_SET_LOCAL_SLASH, OP_SET_LOCAL_INT_DIVIDE, OP_SET_LOCAL_MODULUS};
+	static const OpCode upvalue_ops[] = {OP_SET_UPVALUE_PLUS,  OP_SET_UPVALUE_MINUS,	  OP_SET_UPVALUE_STAR,
+										 OP_SET_UPVALUE_SLASH, OP_SET_UPVALUE_INT_DIVIDE, OP_SET_UPVALUE_MODULUS};
+	static const OpCode global_ops[] = {OP_SET_GLOBAL_PLUS,	 OP_SET_GLOBAL_MINUS,	   OP_SET_GLOBAL_STAR,
+										OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
+
+	// NEW! We are adding property support so `self.count += 1` works!
+	static const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,	 OP_SET_PROPERTY_MINUS,		 OP_SET_PROPERTY_STAR,
+										  OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
+
+	if (setOp == OP_SET_LOCAL)
+		return local_ops[op];
+	if (setOp == OP_SET_UPVALUE)
+		return upvalue_ops[op];
+	if (setOp == OP_SET_GLOBAL)
+		return global_ops[op];
+	if (setOp == OP_SET_PROPERTY)
+		return property_ops[op];
+
+	compiler_panic(compiler->parser, "Compiler Error: Failed to create bytecode for compound operation.", RUNTIME);
 	return setOp;
 }
 
@@ -968,7 +953,6 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 		getOp = OP_GET_GLOBAL;
 		setOp = OP_SET_GLOBAL;
 
-		// Walk the compiler chain so inner functions can see globals
 		ObjectString *name_str = copy_string(compiler->owner, name.start, name.length);
 		Compiler *comp = compiler;
 		while (comp != NULL) {
@@ -986,82 +970,31 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 	}
 
 	if (can_assign) {
-		// assignment: x = expression
 		if (match(compiler, TOKEN_EQUAL)) {
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
 			if (var_type && value_type && var_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE) {
 				if (!types_compatible(var_type, value_type)) {
-					char expected[128], got[128];
-					type_record_name(var_type, expected, sizeof(expected));
+					char exp[128], got[128];
+					type_record_name(var_type, exp, sizeof(exp));
 					type_record_name(value_type, got, sizeof(got));
-					compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to variable of type '%s'.", got,
-									expected);
+					compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to variable of type '%s'.", got, exp);
 				}
 			}
-
 			emit_words(compiler, setOp, arg);
+			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE)); // Keep type stack balanced!
 			return;
 		}
 
-		// compound assignment: x += expr
-		CompoundOp op;
-		bool isCompoundAssignment = true;
-
-		if (match(compiler, TOKEN_PLUS_EQUAL)) {
-			op = COMPOUND_OP_PLUS;
-		} else if (match(compiler, TOKEN_MINUS_EQUAL)) {
-			op = COMPOUND_OP_MINUS;
-		} else if (match(compiler, TOKEN_STAR_EQUAL)) {
-			op = COMPOUND_OP_STAR;
-		} else if (match(compiler, TOKEN_SLASH_EQUAL)) {
-			op = COMPOUND_OP_SLASH;
-		} else if (match(compiler, TOKEN_BACK_SLASH_EQUAL)) {
-			op = COMPOUND_OP_BACK_SLASH;
-		} else if (match(compiler, TOKEN_PERCENT_EQUAL)) {
-			op = COMPOUND_OP_PERCENT;
-		} else {
-			isCompoundAssignment = false;
-		}
-
-		if (isCompoundAssignment) {
+		int op = match_compound_op(compiler);
+		if (op != -1) {
 			expression(compiler);
 			ObjectTypeRecord *rhs_type = pop_type_record(compiler);
+			check_compound_type_math(compiler, var_type, rhs_type, op);
 
-			if (var_type && rhs_type && var_type->base_type != ANY_TYPE && rhs_type->base_type != ANY_TYPE) {
-				const bool var_num = var_type->base_type == INT_TYPE || var_type->base_type == FLOAT_TYPE;
-				const bool rhs_num = rhs_type->base_type == INT_TYPE || rhs_type->base_type == FLOAT_TYPE;
-
-				if (op == COMPOUND_OP_PLUS && var_type->base_type == STRING_TYPE) {
-					// String += String only
-					if (rhs_type->base_type != STRING_TYPE) {
-						compiler_panic(compiler->parser,
-									   "'+=' on a String "
-									   "requires a String "
-									   "right-hand side.",
-									   TYPE);
-					}
-				} else if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
-					// Integer-only operators
-					if (var_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
-						compiler_panic(compiler->parser,
-									   "This compound "
-									   "operator "
-									   "requires Int "
-									   "operands.",
-									   TYPE);
-					}
-				} else if (!var_num || !rhs_num) {
-					compiler_panic(compiler->parser,
-								   "Compound assignment requires "
-								   "numeric operands.",
-								   TYPE);
-				}
-			}
-
-			const OpCode compoundOp = get_compound_opcode(compiler, setOp, op);
-			emit_words(compiler, compoundOp, arg);
+			emit_words(compiler, get_compound_opcode(compiler, setOp, op), arg);
+			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE)); // Keep type stack balanced!
 			return;
 		}
 	}
@@ -1452,36 +1385,53 @@ static void dot(Compiler *compiler, const bool can_assign)
 		object_type = T_ANY;
 
 	// OP_SET_PROPERTY - this only works for structs
-	if (can_assign && match(compiler, TOKEN_EQUAL)) {
-		expression(compiler);
-		ObjectTypeRecord *value_type = pop_type_record(compiler);
+	if (can_assign) {
+		const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
 
-		if (object_type->base_type == STRUCT_TYPE && value_type) {
-			const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
+		const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
+													 method_name_token.length);
+		ObjectTypeRecord *field_type = NULL;
+		type_table_get(field_types, field_name, &field_type);
 
-			const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
-														 method_name_token.length);
-			ObjectTypeRecord *field_type = NULL;
-			if (type_table_get(field_types, field_name, &field_type)) {
-				if (field_type && field_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE &&
-					!types_compatible(field_type, value_type)) {
-					char exp[128], got[128], msg[300];
+		if (match(compiler, TOKEN_EQUAL)) {
+			expression(compiler);
+			ObjectTypeRecord *value_type = pop_type_record(compiler);
+
+			if (object_type->base_type == STRUCT_TYPE && !field_type) {
+				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", method_name_token.length,
+								method_name_token.start);
+			}
+
+			if (field_type && field_type->base_type != ANY_TYPE && value_type->base_type != ANY_TYPE) {
+				if (!types_compatible(field_type, value_type)) {
+					char exp[128], got[128];
 					type_record_name(field_type, exp, sizeof(exp));
 					type_record_name(value_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg), "Cannot assign '%s' to field of type '%s'.", got, exp);
-					compiler_panic(compiler->parser, msg, TYPE);
+					compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to field of type '%s'.", got, exp);
 				}
-			} else {
-				char msg[160];
-				snprintf(msg, sizeof(msg), "Struct has no field '%.*s'.", (int)method_name_token.length,
-						 method_name_token.start);
-				compiler_panic(compiler->parser, msg, NAME);
 			}
+
+			emit_words(compiler, OP_SET_PROPERTY, name_constant);
+			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
+			return;
 		}
 
-		emit_words(compiler, OP_SET_PROPERTY, name_constant);
-		push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
-		return;
+		// Handle properties with compound op
+		int op = match_compound_op(compiler);
+		if (op != -1) {
+			if (object_type->base_type == STRUCT_TYPE && !field_type) {
+				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", method_name_token.length,
+								method_name_token.start);
+			}
+
+			expression(compiler);
+			ObjectTypeRecord *rhs_type = pop_type_record(compiler);
+			check_compound_type_math(compiler, field_type ? field_type : T_ANY, rhs_type, op);
+
+			emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY, op), name_constant);
+			push_type_record(compiler, rhs_type); // assignment leaves the value on the stack
+			return;
+		}
 	}
 
 	// OP_INVOKE
@@ -2254,28 +2204,17 @@ static void var_declaration(Compiler *compiler, bool is_public)
 		expression(compiler);
 		value_type = pop_type_record(compiler);
 
-		// Only validate if both sides are known (annotated_type is NULL
-		// when no annotation was given; types_compatible returns false
-		// for NULL, which would cause a NULL dereference below).
 		if (annotated_type && value_type && annotated_type->base_type != ANY_TYPE &&
 			value_type->base_type != ANY_TYPE && !types_compatible(annotated_type, value_type)) {
 			char expected[128], got[128];
 			type_record_name(annotated_type, expected, sizeof(expected));
 			type_record_name(value_type, got, sizeof(got));
-			compiler_panicf(compiler->parser, TYPE,
-							"Type mismatch in variable "
-							"declaration: expected '%s', got '%s'.",
+			compiler_panicf(compiler->parser, TYPE, "Type mismatch in variable declaration: expected '%s', got '%s'.",
 							expected, got);
 		}
 	} else {
-		// No initializer — implicit nil.
-		// If an annotation was given, nil is only acceptable for
-		// Nil-typed or Any-typed variables.
 		if (annotated_type && annotated_type->base_type != NIL_TYPE && annotated_type->base_type != ANY_TYPE) {
-			compiler_panic(compiler->parser,
-						   "Variable with non-Nil type must be "
-						   "initialized.",
-						   TYPE);
+			compiler_panic(compiler->parser, "Variable with non-Nil type must be initialized.", TYPE);
 		}
 		emit_word(compiler, OP_NIL);
 		value_type = new_type_rec(compiler->owner, NIL_TYPE);
@@ -2295,7 +2234,9 @@ static void var_declaration(Compiler *compiler, bool is_public)
 	if (compiler->scope_depth > 0) {
 		compiler->locals[compiler->local_count - 1].type = resolved_type;
 	} else {
-		type_table_set(compiler->type_table, name_str, resolved_type);
+		if (!type_table_set(compiler->type_table, name_str, resolved_type)) {
+			compiler_panic(compiler->parser, "Failed to add type to type table.", TYPE);
+		}
 	}
 	define_variable(compiler, global);
 }
