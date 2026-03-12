@@ -266,7 +266,6 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, TOKEN_LEFT_PAREN)) {
 		int param_capacity = 4;
 		int param_count = 0;
-		// TODO: make this use GC allocation functions
 		ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
 		if (!param_types) {
 			compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
@@ -944,6 +943,7 @@ static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const 
 
 /**
  * Parses a named variable (local, upvalue, or global).
+ * pushes the type of the variable onto the type stack.
  *
  * @param name The token representing the variable name.
  * @param can_assign Whether the variable expression can be the target of an
@@ -1588,16 +1588,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 					compiler_panic(compiler->parser, msg, NAME);
 				}
 			}
-			// If type_table is NULL the type has no methods — panic was
-			// already emitted above for known primitive types; for truly
-			// unknown types we fall through to push ANY_TYPE below.
 		}
 
-		// Validate user-supplied args against declared parameter types.
-		// Slot 0 of method_arg_types is always the receiver (self), so
-		// user args are validated against slots [1 .. method_arity-1].
-
-		// struct methods do not have an implicit self
 		if (method_found && method_arg_types) {
 			int param_offset = (object_type->base_type == STRUCT_TYPE) ? 0 : 1;
 			int user_params = method_arity - param_offset;
@@ -1605,9 +1597,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 				user_params = 0;
 
 			if ((int)arg_count != user_params) {
-				char msg[128];
-				snprintf(msg, sizeof(msg), "Method expects %d argument(s), got %d.", user_params, (int)arg_count);
-				compiler_panic(compiler->parser, msg, ARGUMENT_MISMATCH);
+				compiler_panicf(compiler->parser, ARGUMENT_MISMATCH, "Method '%.*s' expects %d argument(s), got %d.",
+								(int)method_name_token.length, method_name_token.start, user_params, (int)arg_count);
 			} else {
 				for (int i = 0; i < (int)arg_count; i++) {
 					ObjectTypeRecord *expected = method_arg_types[i + param_offset];
@@ -1617,10 +1608,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 						char exp_name[128], got_name[128], msg[300];
 						type_record_name(expected, exp_name, sizeof(exp_name));
 						type_record_name(got_type, got_name, sizeof(got_name));
-						snprintf(msg, sizeof(msg),
-								 "Argument %d type mismatch: "
-								 "expected '%s', got '%s'.",
-								 i + 1, exp_name, got_name);
+						snprintf(msg, sizeof(msg), "Argument %d type mismatch: expected '%s', got '%s'.", i + 1,
+								 exp_name, got_name);
 						compiler_panic(compiler->parser, msg, TYPE);
 					}
 				}
@@ -1660,18 +1649,13 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
 
 	const Token struct_name_token = compiler->parser->previous;
-	(void)struct_name_token; // used for error messages below
 
 	named_variable(compiler, compiler->parser->previous, can_assign);
 
-	// named_variable pushes the type of the name it resolved — for a
-	// struct this should be a STRUCT_TYPE record. Pop it now so we can
-	// use its field table during initializer validation.
 	ObjectTypeRecord *struct_type = pop_type_record(compiler);
 
 	// Validate that the name actually refers to a struct. ANY_TYPE means
-	// the pre-scan hasn't run yet or the name came from an import, so we
-	// allow it through and skip field-level checking.
+	// the pre-scan hasn't run yet or the name came from an import.
 	const bool type_known = struct_type && struct_type->base_type != ANY_TYPE;
 	if (type_known && struct_type->base_type != STRUCT_TYPE) {
 		compiler_panic(compiler->parser, "'new' requires a struct type name.", TYPE);
@@ -1716,7 +1700,8 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				return;
 			}
 
-			consume(compiler, TOKEN_IDENTIFIER, "Expected field name.");
+			consume(compiler, TOKEN_IDENTIFIER,
+					"Expected field name. Trailing commas after final field are not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
 
@@ -2660,7 +2645,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 				break;
 			}
 
-			consume(compiler, TOKEN_IDENTIFIER, "Expected field name.");
+			consume(compiler, TOKEN_IDENTIFIER, "Expected field name. Trailing comma after last field is not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
 
@@ -2707,6 +2692,45 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	if (is_public) {
 		type_table_set(compiler->type_table, struct_name_str, struct_type);
 	}
+}
+
+static void impl_declaration(Compiler *compiler)
+{
+	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name after 'impl'.");
+	Token struct_name_token = compiler->parser->previous;
+	ObjectString *struct_name_str = copy_string(compiler->owner, struct_name_token.start, struct_name_token.length);
+
+	ObjectTypeRecord *struct_type = NULL;
+	if (!type_table_get(compiler->type_table, struct_name_str, &struct_type) || struct_type->base_type != STRUCT_TYPE) {
+		compiler_panic(compiler->parser, "Cannot implement methods for a non-struct type.", TYPE);
+		return;
+	}
+
+	named_variable(compiler, struct_name_token, false);
+	pop_type_record(compiler);
+
+	consume(compiler, TOKEN_LEFT_BRACE, "Expected '{' before impl body.");
+
+	while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+		consume(compiler, TOKEN_FN, "Expected 'fn' inside impl block.");
+		consume(compiler, TOKEN_IDENTIFIER, "Expected method name.");
+
+		Token method_name_tok = compiler->parser->previous;
+		ObjectString *method_name_str = copy_string(compiler->owner, method_name_tok.start, method_name_tok.length);
+		uint16_t method_name_const = make_constant(compiler, OBJECT_VAL(method_name_str));
+
+		// slot 0 is preserved for self
+		function(compiler, TYPE_METHOD);
+
+		ObjectTypeRecord *method_type = pop_type_record(compiler);
+		type_table_set(struct_type->as.struct_type.field_types, method_name_str, method_type);
+
+		emit_words(compiler, OP_METHOD, method_name_const);
+	}
+
+	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after impl body.");
+
+	emit_word(compiler, OP_POP);
 }
 
 static void result_unwrap(Compiler *compiler, bool can_assign)
@@ -3087,6 +3111,8 @@ static void declaration(Compiler *compiler)
 		struct_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_PUB)) {
 		public_declaration(compiler);
+	} else if (match(compiler, TOKEN_IMPL)) {
+		impl_declaration(compiler);
 	} else {
 		statement(compiler);
 	}

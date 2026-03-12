@@ -382,10 +382,18 @@ static bool handle_struct_instance_invoke(VM *vm, const ObjectString *name, int 
 	(void)original;
 	arg_count--;
 	const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+
+	Value method_val;
+	if (table_get(&instance->struct_type->methods, name, &method_val)) {
+		return call_value(vm, method_val, arg_count);
+	}
+
+	// Allow function calls from struct fields
 	Value indexValue;
 	if (table_get(&instance->struct_type->fields, name, &indexValue)) {
 		return call_value(vm, instance->fields[(uint16_t)AS_INT(indexValue)], arg_count);
 	}
+
 	undefined_method_return(vm->current_module_record, name);
 }
 

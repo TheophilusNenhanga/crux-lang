@@ -89,6 +89,7 @@ typedef enum {
 	OP_BITWISE_AND,
 	OP_BITWISE_XOR,
 	OP_BITWISE_OR,
+	OP_METHOD,
 } OpCode;
 
 typedef struct {

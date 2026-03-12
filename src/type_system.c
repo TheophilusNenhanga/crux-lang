@@ -191,13 +191,14 @@ void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 	static const struct {
 		TypeMask bit;
 		const char *name;
-	} entries[] = {
-		{NIL_TYPE, "Nil"},		   {BOOL_TYPE, "Bool"},		{INT_TYPE, "Int"},		 {FLOAT_TYPE, "Float"},
-		{STRING_TYPE, "String"},   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},	 {FUNCTION_TYPE, "Function"},
-		{ERROR_TYPE, "Error"},	   {RESULT_TYPE, "Result"}, {FILE_TYPE, "File"},	 {VECTOR_TYPE, "Vector"},
-		{COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"}, {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},
-		{SET_TYPE, "Set"},		   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"}, {RANGE_TYPE, "Range"},
-	};
+	} entries[] = {{NIL_TYPE, "Nil"},		{BOOL_TYPE, "Bool"},	   {INT_TYPE, "Int"},
+				   {FLOAT_TYPE, "Float"},	{SHAPE_TYPE, "Shape"},	   {STRING_TYPE, "String"},
+				   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},	   {FUNCTION_TYPE, "Function"},
+				   {ERROR_TYPE, "Error"},	{RESULT_TYPE, "Result"},   {FILE_TYPE, "File"},
+				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
+				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},   {SET_TYPE, "Set"},
+				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
+				   {UNION_TYPE, "Union"}};
 
 	int offset = 0;
 	bool first = true;
@@ -451,8 +452,7 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		case SET_TYPE:
 			return types_compatible(expected->as.set_type.element_type, got->as.set_type.element_type);
 		case VECTOR_TYPE:
-			return expected->as.vector_type.dimensions == -1 ||
-				   got->as.vector_type.dimensions == -1 ||
+			return expected->as.vector_type.dimensions == -1 || got->as.vector_type.dimensions == -1 ||
 				   expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
 		case MATRIX_TYPE:
 			return (expected->as.matrix_type.cols == -1 && expected->as.matrix_type.rows == -1) ||
@@ -574,4 +574,3 @@ void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size
 		break;
 	}
 }
-
