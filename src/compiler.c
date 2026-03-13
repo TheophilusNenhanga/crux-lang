@@ -173,7 +173,8 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			if (!check(compiler, TOKEN_RIGHT_BRACE)) {
 				do {
 					consume(compiler, TOKEN_IDENTIFIER, "Expected field name.");
-					ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start, compiler->parser->previous.length);
+					ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
+														  compiler->parser->previous.length);
 					consume(compiler, TOKEN_COLON, "Expected ':' after field name.");
 					ObjectTypeRecord *field_type = parse_type_record(compiler);
 					type_table_set(field_types, fieldName, field_type);
@@ -286,7 +287,8 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 					if (param_count == param_capacity) {
 						int old_capacity = param_capacity;
 						param_capacity = GROW_CAPACITY(param_capacity);
-						param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_capacity, param_capacity);
+						param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_capacity,
+												 param_capacity);
 					}
 					param_types[param_count++] = parse_type_record(compiler);
 				} while (match(compiler, TOKEN_COMMA));
@@ -654,6 +656,15 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 		local->name.length = 4;
 	}
 
+	compiler->current_narrowing.tracked_local_index = -1;
+	compiler->current_narrowing.tracked_global_name = NULL;
+	compiler->current_narrowing.tracked_is_typeof = false;
+	compiler->current_narrowing.tracked_literal_type = NULL;
+	compiler->current_narrowing.local_index = -1;
+	compiler->current_narrowing.global_name = NULL;
+	compiler->current_narrowing.narrowed_to = NULL;
+	compiler->current_narrowing.stripped_down = NULL;
+
 	return true;
 }
 
@@ -908,23 +919,22 @@ static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_t
 		if (rhs_type->base_type != STRING_TYPE) {
 			char got[128];
 			type_record_name(rhs_type, got, sizeof(got));
-			compiler_panicf(compiler->parser, TYPE, "'+=' on a String requires a String right-hand side, got '%s'.", got);
+			compiler_panicf(compiler->parser, TYPE, "'+=' on a String requires a String right-hand side, got '%s'.",
+							got);
 		}
 	} else if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
 		if (lhs_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
 			char left_name[128], right_name[128];
 			type_record_name(lhs_type, left_name, sizeof(left_name));
 			type_record_name(rhs_type, right_name, sizeof(right_name));
-			compiler_panicf(compiler->parser, TYPE,
-							"This compound operator requires Int operands, got '%s' and '%s'.",
+			compiler_panicf(compiler->parser, TYPE, "This compound operator requires Int operands, got '%s' and '%s'.",
 							left_name, right_name);
 		}
 	} else if (!lhs_num || !rhs_num) {
 		char left_name[128], right_name[128];
 		type_record_name(lhs_type, left_name, sizeof(left_name));
 		type_record_name(rhs_type, right_name, sizeof(right_name));
-		compiler_panicf(compiler->parser, TYPE,
-						"Compound assignment requires numeric operands, got '%s' and '%s'.",
+		compiler_panicf(compiler->parser, TYPE, "Compound assignment requires numeric operands, got '%s' and '%s'.",
 						left_name, right_name);
 	}
 }
@@ -987,6 +997,7 @@ static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const 
  */
 static void named_variable(Compiler *compiler, Token name, const bool can_assign)
 {
+	ObjectString *name_str = copy_string(compiler->owner, name.start, name.length);
 	uint16_t getOp, setOp;
 	int arg = resolve_local(compiler, &name);
 	ObjectTypeRecord *var_type = NULL;
@@ -1050,6 +1061,17 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 		}
 	}
 
+	if (getOp == OP_GET_LOCAL) {
+		compiler->current_narrowing.tracked_local_index = arg;
+		compiler->current_narrowing.tracked_global_name = NULL;
+	} else if (getOp == OP_GET_GLOBAL) {
+		compiler->current_narrowing.tracked_global_name = name_str;
+		compiler->current_narrowing.tracked_local_index = -1;
+	} else {
+		compiler->current_narrowing.tracked_local_index = -1;
+		compiler->current_narrowing.tracked_global_name = NULL;
+	}
+
 	emit_words(compiler, getOp, arg);
 	push_type_record(compiler, var_type);
 }
@@ -1065,9 +1087,43 @@ static void and_(Compiler *compiler, bool can_assign)
 		compiler_panicf(compiler->parser, TYPE, "Left operand of 'and' must be of type 'Bool', got '%s'.", got);
 	}
 
+	NarrowingInfo left_narrowing = compiler->current_narrowing;
+
+	// Reset tracking for the right side
+	compiler->current_narrowing.tracked_local_index = -1;
+	compiler->current_narrowing.tracked_is_typeof = false;
+	compiler->current_narrowing.tracked_literal_type = NULL;
+	compiler->current_narrowing.local_index = -1;
+	compiler->current_narrowing.narrowed_to = NULL;
+	compiler->current_narrowing.stripped_down = NULL;
+	compiler->current_narrowing.tracked_global_name = NULL;
+	compiler->current_narrowing.global_name = NULL;
+
 	const int endJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 	emit_word(compiler, OP_POP);
+
+	// If the left side narrowed a variable, we want to apply it temporarily while compiling the right side!
+	ObjectTypeRecord *original_type = NULL;
+	if (left_narrowing.narrowed_to) {
+		if (left_narrowing.local_index != -1) {
+			original_type = compiler->locals[left_narrowing.local_index].type;
+			compiler->locals[left_narrowing.local_index].type = left_narrowing.narrowed_to;
+		} else if (left_narrowing.global_name) {
+			type_table_get(compiler->type_table, left_narrowing.global_name, &original_type);
+			type_table_set(compiler->type_table, left_narrowing.global_name, left_narrowing.narrowed_to);
+		}
+	}
+
 	parse_precedence(compiler, PREC_AND);
+
+	// Restore original type if we temporarily narrowed it
+	if (left_narrowing.narrowed_to) {
+		if (left_narrowing.local_index != -1) {
+			compiler->locals[left_narrowing.local_index].type = original_type;
+		} else if (left_narrowing.global_name) {
+			type_table_set(compiler->type_table, left_narrowing.global_name, original_type);
+		}
+	}
 
 	const ObjectTypeRecord *right_type = pop_type_record(compiler);
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
@@ -1079,6 +1135,11 @@ static void and_(Compiler *compiler, bool can_assign)
 	patch_jump(compiler, endJump);
 
 	push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
+
+	// For 'and', if the right side didn't narrow anything (local OR global), preserve the left side's narrowing
+	if (compiler->current_narrowing.local_index == -1 && compiler->current_narrowing.global_name == NULL) {
+		compiler->current_narrowing = left_narrowing;
+	}
 }
 
 static void or_(Compiler *compiler, bool can_assign)
@@ -1091,6 +1152,16 @@ static void or_(Compiler *compiler, bool can_assign)
 		type_record_name(left_type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "Left operand of 'or' must be of type 'Bool', got '%s'.", got);
 	}
+
+	// For 'or', we can't guarantee either side is true in the 'then' block, so we MUST discard narrowing.
+	compiler->current_narrowing.tracked_local_index = -1;
+	compiler->current_narrowing.tracked_is_typeof = false;
+	compiler->current_narrowing.tracked_literal_type = NULL;
+	compiler->current_narrowing.local_index = -1;
+	compiler->current_narrowing.narrowed_to = NULL;
+	compiler->current_narrowing.stripped_down = NULL;
+	compiler->current_narrowing.tracked_global_name = NULL;
+	compiler->current_narrowing.global_name = NULL;
 
 	const int elseJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 	const int endJump = emit_jump(compiler, OP_JUMP);
@@ -1106,6 +1177,16 @@ static void or_(Compiler *compiler, bool can_assign)
 	}
 
 	patch_jump(compiler, endJump);
+
+	// Discard right side narrowing as well for 'or'
+	compiler->current_narrowing.tracked_local_index = -1;
+	compiler->current_narrowing.tracked_is_typeof = false;
+	compiler->current_narrowing.tracked_literal_type = NULL;
+	compiler->current_narrowing.local_index = -1;
+	compiler->current_narrowing.narrowed_to = NULL;
+	compiler->current_narrowing.stripped_down = NULL;
+	compiler->current_narrowing.tracked_global_name = NULL;
+	compiler->current_narrowing.global_name = NULL;
 
 	push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
 }
@@ -1145,13 +1226,46 @@ static void binary(Compiler *compiler, bool can_assign)
 
 	switch (operatorType) {
 	case TOKEN_EQUAL_EQUAL:
-		emit_word(compiler, OP_EQUAL);
-		result_type = new_type_rec(compiler->owner, BOOL_TYPE);
-		break;
-
 	case TOKEN_BANG_EQUAL:
-		emit_word(compiler, OP_NOT_EQUAL);
+		if (operatorType == TOKEN_EQUAL_EQUAL) {
+			emit_word(compiler, OP_EQUAL);
+		} else {
+			emit_word(compiler, OP_NOT_EQUAL);
+		}
 		result_type = new_type_rec(compiler->owner, BOOL_TYPE);
+
+		if ((compiler->current_narrowing.tracked_local_index != -1 ||
+			 compiler->current_narrowing.tracked_global_name != NULL) &&
+			compiler->current_narrowing.tracked_literal_type != NULL) {
+			compiler->current_narrowing.local_index = compiler->current_narrowing.tracked_local_index;
+			compiler->current_narrowing.global_name = compiler->current_narrowing.tracked_global_name;
+
+			ObjectTypeRecord *var_type = NULL;
+			if (compiler->current_narrowing.local_index != -1) {
+				var_type = compiler->locals[compiler->current_narrowing.local_index].type;
+			} else {
+				type_table_get(compiler->type_table, compiler->current_narrowing.global_name, &var_type);
+			}
+
+			ObjectTypeRecord *narrow = NULL;
+			ObjectTypeRecord *stripped = NULL;
+
+			if (compiler->current_narrowing.tracked_is_typeof) {
+				narrow = compiler->current_narrowing.tracked_literal_type;
+				stripped = strip_type(compiler->owner, var_type, narrow);
+			} else if (compiler->current_narrowing.tracked_literal_type->base_type == NIL_TYPE) {
+				narrow = compiler->current_narrowing.tracked_literal_type;
+				stripped = strip_type(compiler->owner, var_type, narrow);
+			}
+
+			if (operatorType == TOKEN_EQUAL_EQUAL) {
+				compiler->current_narrowing.narrowed_to = narrow;
+				compiler->current_narrowing.stripped_down = stripped;
+			} else {
+				compiler->current_narrowing.narrowed_to = stripped;
+				compiler->current_narrowing.stripped_down = narrow;
+			}
+		}
 		break;
 
 	case TOKEN_GREATER:
@@ -1243,10 +1357,8 @@ static void binary(Compiler *compiler, bool can_assign)
 				char left_name[128], right_name[128];
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE,
-								"%s requires numeric operands, got '%s' and '%s'.",
-								operatorType == TOKEN_MINUS ? "'-'" : "'*'", left_name,
-								right_name);
+				compiler_panicf(compiler->parser, TYPE, "%s requires numeric operands, got '%s' and '%s'.",
+								operatorType == TOKEN_MINUS ? "'-'" : "'*'", left_name, right_name);
 			}
 		}
 
@@ -1270,9 +1382,8 @@ static void binary(Compiler *compiler, bool can_assign)
 				char left_name[128], right_name[128];
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE,
-								"'/' requires numeric operands, got '%s' and '%s'.",
-								left_name, right_name);
+				compiler_panicf(compiler->parser, TYPE, "'/' requires numeric operands, got '%s' and '%s'.", left_name,
+								right_name);
 			}
 		}
 		emit_word(compiler, OP_DIVIDE);
@@ -1287,10 +1398,8 @@ static void binary(Compiler *compiler, bool can_assign)
 				char left_name[128], right_name[128];
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE,
-								"%s requires Int operands, got '%s' and '%s'.",
-								operatorType == TOKEN_PERCENT ? "'%'" : "'\\'", left_name,
-								right_name);
+				compiler_panicf(compiler->parser, TYPE, "%s requires Int operands, got '%s' and '%s'.",
+								operatorType == TOKEN_PERCENT ? "'%'" : "'\\'", left_name, right_name);
 			}
 		}
 		emit_word(compiler, operatorType == TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
@@ -1344,9 +1453,8 @@ static void binary(Compiler *compiler, bool can_assign)
 				char left_name[128], right_name[128];
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE,
-								"'**' requires numeric operands, got '%s' and '%s'.",
-								left_name, right_name);
+				compiler_panicf(compiler->parser, TYPE, "'**' requires numeric operands, got '%s' and '%s'.", left_name,
+								right_name);
 			}
 		}
 		emit_word(compiler, OP_POWER);
@@ -1431,6 +1539,7 @@ static void literal(Compiler *compiler, bool can_assign)
 		push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
 		break;
 	case TOKEN_NIL:
+		compiler->current_narrowing.tracked_literal_type = new_type_rec(compiler->owner, NIL_TYPE);
 		emit_word(compiler, OP_NIL);
 		push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
 		break;
@@ -1541,8 +1650,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 				method_return = fn_type->as.function_type.return_type;
 				method_found = true;
 			} else {
-				compiler_panicf(compiler->parser, TYPE, "Struct field '%.*s' is not callable.", (int)method_name_token.length,
-						 method_name_token.start);
+				compiler_panicf(compiler->parser, TYPE, "Struct field '%.*s' is not callable.",
+								(int)method_name_token.length, method_name_token.start);
 			}
 
 		} else if (object_type->base_type != ANY_TYPE) {
@@ -1606,8 +1715,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 				} else {
 					char type_name[128];
 					type_record_name(object_type, type_name, sizeof(type_name));
-					compiler_panicf(compiler->parser, NAME, "'%s' has no method '%.*s'.", type_name, (int)method_name_token.length,
-							 method_name_token.start);
+					compiler_panicf(compiler->parser, NAME, "'%s' has no method '%.*s'.", type_name,
+									(int)method_name_token.length, method_name_token.start);
 				}
 			}
 		}
@@ -1630,8 +1739,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 						char exp_name[128], got_name[128];
 						type_record_name(expected, exp_name, sizeof(exp_name));
 						type_record_name(got_type, got_name, sizeof(got_name));
-						compiler_panicf(compiler->parser, TYPE, "Argument %d type mismatch: expected '%s', got '%s'.", i + 1,
-								 exp_name, got_name);
+						compiler_panicf(compiler->parser, TYPE, "Argument %d type mismatch: expected '%s', got '%s'.",
+										i + 1, exp_name, got_name);
 					}
 				}
 			}
@@ -1655,7 +1764,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			result_type = field_type;
 		} else {
 			compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)method_name_token.length,
-					 method_name_token.start);
+							method_name_token.start);
 		}
 	}
 	// NOTE: Could add stdlib members here
@@ -1738,14 +1847,15 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				// Check the field exists on the struct.
 				Value field_index_val;
 				if (!table_get(&definition->fields, fieldName, &field_index_val)) {
-					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length, fieldName->chars);
+					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length,
+									fieldName->chars);
 				} else {
 					// Mark as seen.
 					const int field_index = (int)AS_INT(field_index_val);
 					if (field_index >= 0 && field_index < declared_field_count) {
 						if (field_seen[field_index]) {
-							compiler_panicf(compiler->parser, NAME, "Field '%.*s' specified more than once.", (int)fieldName->length,
-									 fieldName->chars);
+							compiler_panicf(compiler->parser, NAME, "Field '%.*s' specified more than once.",
+											(int)fieldName->length, fieldName->chars);
 						}
 						field_seen[field_index] = true;
 					}
@@ -1762,7 +1872,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 							type_record_name(declared_field_type, expected, sizeof(expected));
 							type_record_name(value_type, got, sizeof(got));
 							compiler_panicf(compiler->parser, TYPE, "Field '%.*s' expects type '%s', got '%s'.",
-									 (int)fieldName->length, fieldName->chars, expected, got);
+											(int)fieldName->length, fieldName->chars, expected, got);
 						}
 					}
 				}
@@ -1794,8 +1904,8 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 						break;
 					}
 				}
-				compiler_panicf(compiler->parser, NAME, "Missing required field '%.*s' in struct initializer.", missing_len,
-						 missing);
+				compiler_panicf(compiler->parser, NAME, "Missing required field '%.*s' in struct initializer.",
+								missing_len, missing);
 				break; // Report one missing field at a time.
 			}
 		}
@@ -1910,7 +2020,8 @@ static void function(Compiler *compiler, const FunctionType type)
 		annotated_return_type->base_type != ANY_TYPE) {
 		char expected[128];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
-		compiler_panicf(compiler->parser, TYPE, "Function expects to return '%s' but has no return statement.", expected);
+		compiler_panicf(compiler->parser, TYPE, "Function expects to return '%s' but has no return statement.",
+						expected);
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
@@ -2041,7 +2152,8 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 		annotated_return_type->base_type != ANY_TYPE) {
 		char expected[128];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
-		compiler_panicf(function_compiler.parser, TYPE, "Function expects to return '%s' but has no return statement.", expected);
+		compiler_panicf(function_compiler.parser, TYPE, "Function expects to return '%s' but has no return statement.",
+						expected);
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
@@ -2134,10 +2246,10 @@ static void table_literal(Compiler *compiler, bool can_assign)
 					type_record_name(table_key_type, expected, sizeof(expected));
 					type_record_name(key_type, got, sizeof(got));
 					compiler_panicf(compiler->parser, TYPE,
-							 "Inconsistent key types in "
-							 "table literal: expected "
-							 "'%s', got '%s'.",
-							 expected, got);
+									"Inconsistent key types in "
+									"table literal: expected "
+									"'%s', got '%s'.",
+									expected, got);
 				}
 			}
 
@@ -2205,9 +2317,9 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 				type_record_name(key_type, expected, sizeof(expected));
 				type_record_name(index_type, got, sizeof(got));
 				compiler_panicf(compiler->parser, TYPE,
-						 "Table key type mismatch: expected "
-						 "'%s', got '%s'.",
-						 expected, got);
+								"Table key type mismatch: expected "
+								"'%s', got '%s'.",
+								expected, got);
 			}
 		}
 	}
@@ -2234,9 +2346,9 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 				type_record_name(expected_value, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
 				compiler_panicf(compiler->parser, TYPE,
-						 "Cannot assign '%s' to collection "
-						 "of element type '%s'.",
-						 got, expected);
+								"Cannot assign '%s' to collection "
+								"of element type '%s'.",
+								got, expected);
 			}
 		}
 
@@ -2409,28 +2521,73 @@ static void for_statement(Compiler *compiler)
 
 static void if_statement(Compiler *compiler)
 {
+	compiler->current_narrowing.tracked_local_index = -1;
+	compiler->current_narrowing.tracked_global_name = NULL;
+	compiler->current_narrowing.tracked_is_typeof = false;
+	compiler->current_narrowing.tracked_literal_type = NULL;
+	compiler->current_narrowing.local_index = -1;
+	compiler->current_narrowing.global_name = NULL;
+	compiler->current_narrowing.narrowed_to = NULL;
+	compiler->current_narrowing.stripped_down = NULL;
+
 	expression(compiler);
+
+	NarrowingInfo narrow_state = compiler->current_narrowing;
+	ObjectTypeRecord *original_type = NULL;
 
 	// Condition must be Bool
 	ObjectTypeRecord *condition_type = pop_type_record(compiler);
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
-		char got[128];
-		type_record_name(condition_type, got, sizeof(got));
-		compiler_panicf(compiler->parser, TYPE, "'if' condition must be of type 'Bool', got '%s'.", got);
+		compiler_panic(compiler->parser, "'if' condition must be of type 'Bool'.", TYPE);
 	}
 
 	const int thenJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 	emit_word(compiler, OP_POP);
+
+	// APPLY NARROWING FOR THEN BLOCK
+	if (narrow_state.narrowed_to) {
+		if (narrow_state.local_index != -1) {
+			original_type = compiler->locals[narrow_state.local_index].type;
+			compiler->locals[narrow_state.local_index].type = narrow_state.narrowed_to;
+		} else if (narrow_state.global_name) {
+			type_table_get(compiler->type_table, narrow_state.global_name, &original_type);
+			type_table_set(compiler->type_table, narrow_state.global_name, narrow_state.narrowed_to);
+		}
+	}
+
 	statement(compiler);
 
 	const int elseJump = emit_jump(compiler, OP_JUMP);
 	patch_jump(compiler, thenJump);
 	emit_word(compiler, OP_POP);
 
-	if (match(compiler, TOKEN_ELSE))
+	// apply stripped down type for else
+	if (narrow_state.stripped_down) {
+		if (narrow_state.local_index != -1) {
+			compiler->locals[narrow_state.local_index].type = narrow_state.stripped_down;
+		} else if (narrow_state.global_name) {
+			type_table_set(compiler->type_table, narrow_state.global_name, narrow_state.stripped_down);
+		}
+	} else {
+		if (narrow_state.local_index != -1) {
+			compiler->locals[narrow_state.local_index].type = original_type;
+		} else if (narrow_state.global_name) {
+			type_table_set(compiler->type_table, narrow_state.global_name, original_type);
+		}
+	}
+
+	if (match(compiler, TOKEN_ELSE)) {
 		statement(compiler);
+	}
 
 	patch_jump(compiler, elseJump);
+
+	// restore original type
+	if (narrow_state.local_index != -1) {
+		compiler->locals[narrow_state.local_index].type = original_type;
+	} else if (narrow_state.global_name) {
+		type_table_set(compiler->type_table, narrow_state.global_name, original_type);
+	}
 }
 
 static void return_statement(Compiler *compiler)
@@ -2463,9 +2620,9 @@ static void return_statement(Compiler *compiler)
 				type_record_name(compiler->return_type, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
 				compiler_panicf(compiler->parser, TYPE,
-						 "Return type mismatch: expected '%s', "
-						 "got '%s'.",
-						 expected, got);
+								"Return type mismatch: expected '%s', "
+								"got '%s'.",
+								expected, got);
 			}
 		}
 		emit_word(compiler, OP_RETURN);
@@ -2726,7 +2883,8 @@ static void impl_declaration(Compiler *compiler)
 			type_record_name(struct_type, got, sizeof(got));
 			compiler_panicf(compiler->parser, TYPE, "Cannot implement methods for a non-struct type, got '%s'.", got);
 		} else {
-			compiler_panicf(compiler->parser, TYPE, "Cannot implement methods for a non-struct type '%s'.", struct_name_str->chars);
+			compiler_panicf(compiler->parser, TYPE, "Cannot implement methods for a non-struct type '%s'.",
+							struct_name_str->chars);
 		}
 		return;
 	}
@@ -2965,10 +3123,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 					type_record_name(target_type, expected, sizeof(expected));
 					type_record_name(pattern_type, got, sizeof(got));
 					compiler_panicf(compiler->parser, TYPE,
-							 "Pattern type '%s' is not "
-							 "compatible with match target "
-							 "type '%s'.",
-							 got, expected);
+									"Pattern type '%s' is not "
+									"compatible with match target "
+									"type '%s'.",
+									got, expected);
 				}
 			}
 
@@ -3017,9 +3175,9 @@ static void match_expression(Compiler *compiler, bool can_assign)
 				type_record_name(arm_type, expected, sizeof(expected));
 				type_record_name(this_arm_type, got, sizeof(got));
 				compiler_panicf(compiler->parser, TYPE,
-						 "Match arms produce inconsistent "
-						 "types: expected '%s', got '%s'.",
-						 expected, got);
+								"Match arms produce inconsistent "
+								"types: expected '%s', got '%s'.",
+								expected, got);
 			}
 		}
 
@@ -3110,7 +3268,8 @@ static void panic_statement(Compiler *compiler)
 
 static void type_declaration(Compiler *compiler, bool is_public)
 {
-	consume(compiler, TOKEN_IDENTIFIER, "Expected type name.");
+	const uint16_t global = parse_variable(compiler, "Expected type name.");
+
 	Token type_name_token = compiler->parser->previous;
 	ObjectString *type_name_str = copy_string(compiler->owner, type_name_token.start, type_name_token.length);
 
@@ -3119,12 +3278,14 @@ static void type_declaration(Compiler *compiler, bool is_public)
 	ObjectTypeRecord *aliased_type = parse_type_record(compiler);
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after type declaration.");
 
-	type_table_set(compiler->type_table, type_name_str, aliased_type);
-	
-	// Also register as a value so it can be imported via 'use'
-	uint16_t nameConstant = identifier_constant(compiler, &type_name_token);
+	if (compiler->scope_depth == 0) {
+		type_table_set(compiler->type_table, type_name_str, aliased_type);
+	} else {
+		compiler->locals[compiler->local_count - 1].type = aliased_type;
+	}
+
 	emit_constant(compiler, OBJECT_VAL(aliased_type));
-	define_variable(compiler, nameConstant);
+	define_variable(compiler, global);
 
 	if (is_public) {
 		type_table_set(compiler->owner->current_module_record->types, type_name_str, aliased_type);
@@ -3340,6 +3501,10 @@ static void string(Compiler *compiler, bool can_assign)
 	processed = temp;
 	processed[processedLength] = '\0';
 	ObjectString *string = take_string(compiler->owner, processed, processedLength);
+
+	compiler->current_narrowing.tracked_literal_type = type_from_string(compiler->owner, compiler->type_table,
+																		string->chars);
+
 	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
 	emit_constant(compiler, OBJECT_VAL(string));
 }
@@ -3396,6 +3561,7 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
 	parse_precedence(compiler, PREC_UNARY);
+	compiler->current_narrowing.tracked_is_typeof = true;
 	emit_word(compiler, OP_TYPEOF); // this will emit a string representation of the
 									// type at runtime
 	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
