@@ -436,6 +436,27 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 	if (expected->base_type == FLOAT_TYPE && got->base_type == INT_TYPE)
 		return true;
 
+	// Structural typing for Shapes
+	if (expected->base_type == SHAPE_TYPE && (got->base_type == STRUCT_TYPE || got->base_type == SHAPE_TYPE)) {
+		const ObjectTypeTable *shape_fields = expected->as.shape_type.element_types;
+		const ObjectTypeTable *got_fields = (got->base_type == STRUCT_TYPE) ? got->as.struct_type.field_types : got->as.shape_type.element_types;
+
+		for (int i = 0; i < shape_fields->capacity; i++) {
+			const TypeEntry *shape_entry = &shape_fields->entries[i];
+			if (shape_entry->key == NULL) continue;
+
+			ObjectTypeRecord *got_field_type = NULL;
+			if (!type_table_get(got_fields, shape_entry->key, &got_field_type)) {
+				return false;
+			}
+
+			if (!types_compatible(shape_entry->value, got_field_type)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	// 4. Check if 'got' is a subset of 'expected' (handles NUMERIC_TYPE bitmask aliases)
 	if ((expected->base_type & got->base_type) == got->base_type) {
 		// If it's a complex type, recursively check components

@@ -330,8 +330,19 @@ static CruxTokenType identifier_type(Scanner *scanner)
 			case 'r':
 				return check_keyword(scanner, 2, 2, "ue", TOKEN_TRUE);
 			case 'y':
-				return check_keyword(scanner, 2, 4, "peof", TOKEN_TYPEOF);
-			default:;
+				if (scanner->current - scanner->start > 2) {
+					switch (scanner->start[2]) {
+					case 'p':
+						if (scanner->current - scanner->start > 3) {
+							if (scanner->start[3] == 'e') {
+								if (scanner->current - scanner->start == 4) return TOKEN_TYPE;
+								return check_keyword(scanner, 4, 2, "of", TOKEN_TYPEOF);
+							}
+						}
+						break;
+					}
+				}
+				break;
 			}
 		}
 		break;
