@@ -258,10 +258,11 @@ ObjectTypeRecord *new_vector_type_rec(VM *vm, int dimensions)
 	return rec;
 }
 
-ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord *element_type)
+ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord **element_types, int element_count)
 {
 	ObjectTypeRecord *rec = new_type_rec(vm, TUPLE_TYPE);
-	rec->as.tuple_type.element_type = element_type;
+	rec->as.tuple_type.element_types = element_types;
+	rec->as.tuple_type.element_count = element_count;
 	return rec;
 }
 
@@ -327,8 +328,17 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 			   types_equal(a->as.table_type.value_type, b->as.table_type.value_type);
 	case RESULT_TYPE:
 		return types_equal(a->as.result_type.ok_type, b->as.result_type.ok_type);
-	case TUPLE_TYPE:
-		return types_equal(a->as.tuple_type.element_type, b->as.tuple_type.element_type);
+	case TUPLE_TYPE: {
+		if (a->as.tuple_type.element_count == -1 || b->as.tuple_type.element_count == -1)
+			return true;
+		if (a->as.tuple_type.element_count != b->as.tuple_type.element_count)
+			return false;
+		for (int i = 0; i < a->as.tuple_type.element_count; i++) {
+			if (!types_equal(a->as.tuple_type.element_types[i], b->as.tuple_type.element_types[i]))
+				return false;
+		}
+		return true;
+	}
 	case VECTOR_TYPE:
 		return a->as.vector_type.dimensions == b->as.vector_type.dimensions;
 	case MATRIX_TYPE:
@@ -462,16 +472,25 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		// If it's a complex type, recursively check components
 		switch (got->base_type) {
 		case ARRAY_TYPE:
-			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
+			return types_equal(expected->as.array_type.element_type, got->as.array_type.element_type);
 		case TABLE_TYPE:
-			return types_compatible(expected->as.table_type.key_type, got->as.table_type.key_type) &&
-				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
+			return types_equal(expected->as.table_type.key_type, got->as.table_type.key_type) &&
+				   types_equal(expected->as.table_type.value_type, got->as.table_type.value_type);
 		case RESULT_TYPE:
 			return types_compatible(expected->as.result_type.ok_type, got->as.result_type.ok_type);
-		case TUPLE_TYPE:
-			return types_compatible(expected->as.tuple_type.element_type, got->as.tuple_type.element_type);
+		case TUPLE_TYPE: {
+			if (expected->as.tuple_type.element_count == -1 || got->as.tuple_type.element_count == -1)
+				return true;
+			if (expected->as.tuple_type.element_count != got->as.tuple_type.element_count)
+				return false;
+			for (int i = 0; i < expected->as.tuple_type.element_count; i++) {
+				if (!types_compatible(expected->as.tuple_type.element_types[i], got->as.tuple_type.element_types[i]))
+					return false;
+			}
+			return true;
+		}
 		case SET_TYPE:
-			return types_compatible(expected->as.set_type.element_type, got->as.set_type.element_type);
+			return types_equal(expected->as.set_type.element_type, got->as.set_type.element_type);
 		case VECTOR_TYPE:
 			return expected->as.vector_type.dimensions == -1 || got->as.vector_type.dimensions == -1 ||
 				   expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
@@ -484,7 +503,8 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 			if (expected->as.function_type.arg_count != got->as.function_type.arg_count)
 				return false;
 			for (int i = 0; i < expected->as.function_type.arg_count; i++) {
-				if (!types_compatible(expected->as.function_type.arg_types[i], got->as.function_type.arg_types[i]))
+				// Contravariance for function arguments
+				if (!types_compatible(got->as.function_type.arg_types[i], expected->as.function_type.arg_types[i]))
 					return false;
 			}
 			return types_compatible(expected->as.function_type.return_type, got->as.function_type.return_type);
@@ -539,9 +559,19 @@ void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size
 		break;
 	}
 	case TUPLE_TYPE: {
-		char inner[128];
-		type_record_name(rec->as.tuple_type.element_type, inner, sizeof(inner));
-		snprintf(buf, buf_size, "Tuple[%s]", inner);
+		if (rec->as.tuple_type.element_count == -1) {
+			snprintf(buf, buf_size, "Tuple");
+		} else {
+			int offset = snprintf(buf, buf_size, "Tuple[");
+			for (int i = 0; i < rec->as.tuple_type.element_count; i++) {
+				char inner[128];
+				type_record_name(rec->as.tuple_type.element_types[i], inner, sizeof(inner));
+				if (i > 0)
+					offset += snprintf(buf + offset, buf_size - offset, ", ");
+				offset += snprintf(buf + offset, buf_size - offset, "%s", inner);
+			}
+			snprintf(buf + offset, buf_size - offset, "]");
+		}
 		break;
 	}
 	case SET_TYPE: {

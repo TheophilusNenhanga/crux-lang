@@ -21,7 +21,7 @@ ObjectTypeRecord *new_table_type_rec(VM *vm, ObjectTypeRecord *key_type, ObjectT
 ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type);
 ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types, int field_count);
 ObjectTypeRecord *new_vector_type_rec(VM *vm, int dimensions);
-ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord *element_type);
+ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord **element_types, int element_count);
 ObjectTypeRecord *new_matrix_type_rec(VM *vm, int rows, int cols);
 ObjectTypeRecord *new_function_type_rec(VM *vm, ObjectTypeRecord **arg_types, int arg_count,
 										ObjectTypeRecord *return_type);
