@@ -272,25 +272,27 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			return T_ANY;
 		}
 
-		do {
-			ObjectTypeRecord *inner = parse_type_record(compiler);
-			if (!inner) {
-				compiler_panic(compiler->parser, "Expected type.", TYPE);
-				inner = new_type_rec(compiler->owner, ANY_TYPE);
-			}
-			if (param_count == param_capacity) {
-				param_capacity = GROW_CAPACITY(param_capacity);
-				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count,
-													  param_capacity);
-				if (!grown) {
-					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
-					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
-					return new_type_rec(compiler->owner, ANY_TYPE);
+		if (!check(compiler, TOKEN_RIGHT_PAREN)) {
+			do {
+				ObjectTypeRecord *inner = parse_type_record(compiler);
+				if (!inner) {
+					compiler_panic(compiler->parser, "Expected type.", TYPE);
+					inner = new_type_rec(compiler->owner, ANY_TYPE);
 				}
-				param_types = grown;
-			}
-			param_types[param_count++] = inner;
-		} while (match(compiler, TOKEN_COMMA));
+				if (param_count == param_capacity) {
+					param_capacity = GROW_CAPACITY(param_capacity);
+					ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count,
+														  param_capacity);
+					if (!grown) {
+						FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
+						compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+						return new_type_rec(compiler->owner, ANY_TYPE);
+					}
+					param_types = grown;
+				}
+				param_types[param_count++] = inner;
+			} while (match(compiler, TOKEN_COMMA));
+		}
 		consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' to end function argument types.");
 
 		consume(compiler, TOKEN_ARROW, "Expected '->' to separate function argument types from return type.");
@@ -1386,19 +1388,21 @@ static void dot(Compiler *compiler, const bool can_assign)
 
 	// OP_SET_PROPERTY - this only works for structs
 	if (can_assign) {
-		const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
-
 		const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
 													 method_name_token.length);
 		ObjectTypeRecord *field_type = NULL;
-		type_table_get(field_types, field_name, &field_type);
+
+		if (object_type->base_type == STRUCT_TYPE) {
+			const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
+			type_table_get(field_types, field_name, &field_type);
+		}
 
 		if (match(compiler, TOKEN_EQUAL)) {
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
 			if (object_type->base_type == STRUCT_TYPE && !field_type) {
-				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", method_name_token.length,
+				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)method_name_token.length,
 								method_name_token.start);
 			}
 
@@ -1420,7 +1424,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 		int op = match_compound_op(compiler);
 		if (op != -1) {
 			if (object_type->base_type == STRUCT_TYPE && !field_type) {
-				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", method_name_token.length,
+				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)method_name_token.length,
 								method_name_token.start);
 			}
 
@@ -1801,8 +1805,12 @@ static void function(Compiler *compiler, const FunctionType type)
 			}
 			const uint16_t constant = parse_variable(&function_compiler, "Expected parameter name.");
 
-			consume(&function_compiler, TOKEN_COLON, "Expect ':' after parameter name.");
-			ObjectTypeRecord *param_type = parse_type_record(&function_compiler);
+			ObjectTypeRecord *param_type = NULL;
+			if (match(&function_compiler, TOKEN_COLON)) {
+				param_type = parse_type_record(&function_compiler);
+			} else {
+				param_type = T_ANY;
+			}
 
 			function_compiler.locals[function_compiler.local_count - 1].type = param_type;
 
@@ -1827,8 +1835,12 @@ static void function(Compiler *compiler, const FunctionType type)
 
 	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
-	consume(&function_compiler, TOKEN_ARROW, "Expect '->' after parameter list.");
-	ObjectTypeRecord *annotated_return_type = parse_type_record(&function_compiler);
+	ObjectTypeRecord *annotated_return_type = NULL;
+	if (match(&function_compiler, TOKEN_ARROW)) {
+		annotated_return_type = parse_type_record(&function_compiler);
+	} else {
+		annotated_return_type = T_ANY;
+	}
 	function_compiler.return_type = annotated_return_type;
 
 	consume(&function_compiler, TOKEN_LEFT_BRACE, "Expect '{' before function body.");
@@ -1922,10 +1934,12 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 			}
 			const uint16_t constant = parse_variable(&function_compiler, "Expected parameter name.");
 
-			// Anonymous functions require type annotations on all
-			// parameters — there is no inference fallback.
-			consume(&function_compiler, TOKEN_COLON, "Expected ':' after parameter name.");
-			ObjectTypeRecord *param_type = parse_type_record(&function_compiler);
+			ObjectTypeRecord *param_type = NULL;
+			if (match(&function_compiler, TOKEN_COLON)) {
+				param_type = parse_type_record(&function_compiler);
+			} else {
+				param_type = T_ANY;
+			}
 
 			// Store on the local slot that parse_variable just
 			// created via declare_variable -> add_local.
@@ -1950,8 +1964,13 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 	}
 
 	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
-	consume(&function_compiler, TOKEN_ARROW, "Expected '->' after argument list.");
-	ObjectTypeRecord *annotated_return_type = parse_type_record(&function_compiler);
+	
+	ObjectTypeRecord *annotated_return_type = NULL;
+	if (match(&function_compiler, TOKEN_ARROW)) {
+		annotated_return_type = parse_type_record(&function_compiler);
+	} else {
+		annotated_return_type = T_ANY;
+	}
 
 	// Set on the inner compiler so return_statement validates correctly.
 	function_compiler.return_type = annotated_return_type;
