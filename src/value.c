@@ -40,10 +40,10 @@ bool values_equal(const Value a, const Value b)
 		return AS_FLOAT(a) == AS_FLOAT(b);
 	}
 	if (IS_FLOAT(a) && IS_INT(b)) {
-		return AS_FLOAT(a) == AS_INT(b);
+		return AS_FLOAT(a) == (double)AS_INT(b);
 	}
 	if (IS_INT(a) && IS_FLOAT(b)) {
-		return AS_FLOAT(a) == AS_FLOAT(b);
+		return (double)AS_INT(a) == AS_FLOAT(b);
 	}
 	return a == b;
 }

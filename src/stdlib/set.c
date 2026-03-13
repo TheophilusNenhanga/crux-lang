@@ -40,9 +40,7 @@ Value add_set_method(VM *vm, const Value *args)
 					  "All set elements must be hashable.",
 					  TYPE);
 	}
-	object_table_set(
-		vm, set->entries, value,
-		NIL_VAL); // TODO: ensure that this is a unique addition
+	object_table_set(vm, set->entries, value, NIL_VAL);
 	return value;
 }
 

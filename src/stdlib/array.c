@@ -307,30 +307,22 @@ Value array_map_method(VM *vm, const Value *args)
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
-	// TODO: Ensure that this works for native functions as well
-	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
-
-	if (closure->function->arity != 1) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<func> must take exactly 1 argument.",
-			ARGUMENT_MISMATCH);
-	}
+	const Value callable = args[1];
 
 	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
-		push(currentModuleRecord, OBJECT_VAL(closure));
+		push(currentModuleRecord, callable);
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
-		ObjectResult *result = execute_user_function(vm, closure, 1,
-							     &res);
+		ObjectResult *result = execute_callable(vm, callable, 1, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
-				pop(currentModuleRecord); // resultArray
+				pop(currentModuleRecord); // closure
 				return OBJECT_VAL(result);
 			}
 		}
@@ -360,13 +352,7 @@ Value array_filter_method(VM *vm, const Value *args)
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
-	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
-
-	if (closure->function->arity != 1) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<func> must take exactly 1 argument.",
-			ARGUMENT_MISMATCH);
-	}
+	const Value callable = args[1];
 
 	ObjectArray *resultArray = new_array(vm, array->size);
 	push(currentModuleRecord, OBJECT_VAL(resultArray));
@@ -374,16 +360,15 @@ Value array_filter_method(VM *vm, const Value *args)
 	uint32_t addCount = 0;
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
-		push(currentModuleRecord, OBJECT_VAL(closure));
+		push(currentModuleRecord, callable);
 		push(currentModuleRecord, arrayValue);
 		InterpretResult res;
-		ObjectResult *result = execute_user_function(vm, closure, 1,
-							     &res);
+		ObjectResult *result = execute_callable(vm, callable, 1, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {
 				pop(currentModuleRecord); // arrayValue
-				pop(currentModuleRecord); // resultArray
+				pop(currentModuleRecord); // closure
 				return OBJECT_VAL(result);
 			}
 		}
@@ -415,26 +400,20 @@ Value array_reduce_method(VM *vm, const Value *args)
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
 
-	ObjectClosure *closure = AS_CRUX_CLOSURE(args[1]);
-	if (closure->function->arity != 2) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<func> must take exactly 2 arguments.",
-			ARGUMENT_MISMATCH);
-	}
+	const Value callable = args[1];
 
 	Value accumulator = args[2];
 
 	for (uint32_t i = 0; i < array->size; i++) {
 		const Value arrayValue = array->values[i];
 
-		push(currentModuleRecord, OBJECT_VAL(closure));
+		push(currentModuleRecord, callable);
 		push(currentModuleRecord, arrayValue);
 		push(currentModuleRecord, accumulator);
 
 		InterpretResult res;
 
-		ObjectResult *result = execute_user_function(vm, closure, 2,
-							     &res);
+		ObjectResult *result = execute_callable(vm, callable, 2, &res);
 
 		if (res != INTERPRET_OK) {
 			if (!result->is_ok) {

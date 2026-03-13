@@ -13,7 +13,7 @@ typedef struct {
 /**
  * Displays a runtime error message with formatting and stack trace.
  */
-void runtime_panic(ObjectModuleRecord *module_record, bool should_exit,
+void runtime_panic(ObjectModuleRecord *module_record,
 		   ErrorType type, const char *format, ...);
 
 /**

@@ -92,7 +92,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 	UNI(ARGS(t_nil, t_int, t_flt, t_bool, t_str), NAMES(name_nil, name_int, name_float, name_bool, name_string), 5)
 #define numeric UNI(ARGS(t_int, t_flt), NAMES(name_int, name_float), 2)
 
-// Compound types used across multiple groups.
+// Compound types
 #define res_nil RES(t_nil)
 #define res_any RES(t_any)
 #define res_int RES(t_int)
@@ -186,19 +186,18 @@ bool initialize_std_lib(VM *vm)
 {
 	// core functions
 	{
-		const Callable fns[] = {
-			{"len", length_function, 1, ARGS(t_any), t_int},
-			{"error", error_function, 1, ARGS(t_any), t_err},
-			{"assert", assert_function, 2, ARGS(t_bool, t_str), t_nil},
-			{"err", err_function, 1, ARGS(t_str), RES(t_any)},
-			{"ok", ok_function, 1, ARGS(t_any), RES(t_any)},
-			{"int", int_function, 1, ARGS(t_any), RES(t_int)},
-			{"float", float_function, 1, ARGS(t_any), RES(t_flt)},
-			{"string", string_function, 1, ARGS(t_any), t_str},
-			{"table", table_function, 1, ARGS(t_any), t_tbl},
-			{"array", array_function, 1, ARGS(t_any), arr_any},
-			{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
-		};
+		const Callable fns[] = {{"len", length_function, 1, ARGS(t_any), t_int},
+								{"error", error_function, 1, ARGS(t_any), t_err},
+								{"assert", assert_function, 2, ARGS(t_bool, t_str), t_nil},
+								{"err", err_function, 1, ARGS(t_str), RES(t_any)},
+								{"ok", ok_function, 1, ARGS(t_any), RES(t_any)},
+								{"int", int_function, 1, ARGS(t_any), RES(t_int)},
+								{"float", float_function, 1, ARGS(t_any), RES(t_flt)},
+								{"string", string_function, 1, ARGS(t_any), t_str},
+								{"table", table_function, 1, ARGS(t_any), t_tbl},
+								{"array", array_function, 1, ARGS(t_any), arr_any},
+								{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
+								{"println", io_println_function, 1, ARGS(t_any), t_nil}};
 
 		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns)))
 			return false;
@@ -562,7 +561,6 @@ bool initialize_std_lib(VM *vm)
 	{
 		const Callable fns[] = {
 			{"print", io_print_function, 1, ARGS(t_any), t_nil},
-			{"println", io_println_function, 1, ARGS(t_any), t_nil},
 			{"print_to", io_print_to_function, 2, ARGS(t_str, t_any), t_nil},
 			{"println_to", io_println_to_function, 2, ARGS(t_str, t_any), t_nil},
 			{"scan", io_scan_function, 0, ARGS0, res_str},

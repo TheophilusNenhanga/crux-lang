@@ -1,15 +1,12 @@
+#include "stdlib/fs.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "file_handler.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
-#include "stdlib/fs.h"
-
-#include "garbage_collector.h"
 #include "vm.h"
-
 #ifdef _WIN32
 #include <direct.h> /* _mkdir */
 #include <sys/stat.h>
@@ -44,13 +41,12 @@ typedef off_t fs_off_t;
  * be an ObjectFile, the underlying FILE* must be non-NULL, and is_open
  * must be true.
  */
-#define REQUIRE_OPEN_FILE(args, op)                                            \
-	do {                                                                   \
-		const ObjectFile *_f = AS_CRUX_FILE((args)[0]);                \
-		if (!_f->is_open || _f->file == NULL) {                        \
-			return OBJECT_VAL(MAKE_GC_SAFE_ERROR(                  \
-				vm, "Cannot " op " a closed file.", IO));      \
-		}                                                              \
+#define REQUIRE_OPEN_FILE(args, op)                                                                                    \
+	do {                                                                                                               \
+		const ObjectFile *_f = AS_CRUX_FILE((args)[0]);                                                                \
+		if (!_f->is_open || _f->file == NULL) {                                                                        \
+			return OBJECT_VAL(MAKE_GC_SAFE_ERROR(vm, "Cannot " op " a closed file.", IO));                             \
+		}                                                                                                              \
 	} while (0)
 
 /*
@@ -59,24 +55,18 @@ typedef off_t fs_off_t;
 static bool mode_is_readable(const ObjectString *mode)
 {
 	const char *m = mode->chars;
-	return strcmp(m, "r") == 0 || strcmp(m, "rb") == 0 ||
-	       strcmp(m, "r+") == 0 || strcmp(m, "rb+") == 0 ||
-	       strcmp(m, "r+b") == 0 || strcmp(m, "w+") == 0 ||
-	       strcmp(m, "wb+") == 0 || strcmp(m, "w+b") == 0 ||
-	       strcmp(m, "a+") == 0 || strcmp(m, "ab+") == 0 ||
-	       strcmp(m, "a+b") == 0;
+	return strcmp(m, "r") == 0 || strcmp(m, "rb") == 0 || strcmp(m, "r+") == 0 || strcmp(m, "rb+") == 0 ||
+		   strcmp(m, "r+b") == 0 || strcmp(m, "w+") == 0 || strcmp(m, "wb+") == 0 || strcmp(m, "w+b") == 0 ||
+		   strcmp(m, "a+") == 0 || strcmp(m, "ab+") == 0 || strcmp(m, "a+b") == 0;
 }
 
 static bool mode_is_writable(const ObjectString *mode)
 {
 	const char *m = mode->chars;
-	return strcmp(m, "w") == 0 || strcmp(m, "wb") == 0 ||
-	       strcmp(m, "w+") == 0 || strcmp(m, "wb+") == 0 ||
-	       strcmp(m, "w+b") == 0 || strcmp(m, "a") == 0 ||
-	       strcmp(m, "ab") == 0 || strcmp(m, "a+") == 0 ||
-	       strcmp(m, "ab+") == 0 || strcmp(m, "a+b") == 0 ||
-	       strcmp(m, "r+") == 0 || strcmp(m, "rb+") == 0 ||
-	       strcmp(m, "r+b") == 0;
+	return strcmp(m, "w") == 0 || strcmp(m, "wb") == 0 || strcmp(m, "w+") == 0 || strcmp(m, "wb+") == 0 ||
+		   strcmp(m, "w+b") == 0 || strcmp(m, "a") == 0 || strcmp(m, "ab") == 0 || strcmp(m, "a+") == 0 ||
+		   strcmp(m, "ab+") == 0 || strcmp(m, "a+b") == 0 || strcmp(m, "r+") == 0 || strcmp(m, "rb+") == 0 ||
+		   strcmp(m, "r+b") == 0;
 }
 
 /*
@@ -144,11 +134,9 @@ Value fs_open_function(VM *vm, const Value *args)
 	const ObjectString *path_str = AS_CRUX_STRING(args[0]);
 	ObjectString *mode_str = AS_CRUX_STRING(args[1]);
 
-	char *resolved = resolve_path(vm->current_module_record->path->chars,
-				      path_str->chars);
+	char *resolved = resolve_path(vm->current_module_record->path->chars, path_str->chars);
 	if (resolved == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
 	}
 
 	ObjectString *full_path = take_string(vm, resolved, strlen(resolved));
@@ -218,27 +206,23 @@ Value fs_read_method(VM *vm, const Value *args)
 	REQUIRE_OPEN_FILE(args, "read");
 
 	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be of type 'int'.", TYPE);
 	}
 
 	const int32_t n = AS_INT(args[1]);
 	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.", VALUE);
 	}
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_readable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.", IO);
 	}
 
 	char *buffer = ALLOCATE(vm, char, (size_t)n + 1);
 	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.",
-					  MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.", MEMORY);
 	}
 
 	const size_t actually_read = fread(buffer, 1, (size_t)n, file->file);
@@ -269,14 +253,12 @@ Value fs_readln_method(VM *vm, const Value *args)
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_readable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.", IO);
 	}
 
 	char *buffer = ALLOCATE(vm, char, READLN_BUFFER_SIZE + 1);
 	if (buffer == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.",
-					  MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.", MEMORY);
 	}
 
 	uint32_t count = 0;
@@ -322,14 +304,12 @@ Value fs_read_all_method(VM *vm, const Value *args)
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_readable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.", IO);
 	}
 
 	ObjectString *s = NULL;
 	if (!read_remaining(vm, file->file, &s)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to read file contents.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to read file contents.", IO);
 	}
 
 	file->position += s->length;
@@ -352,8 +332,7 @@ Value fs_read_lines_method(VM *vm, const Value *args)
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_readable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for reading.", IO);
 	}
 
 	ObjectArray *lines = new_array(vm, 2);
@@ -362,8 +341,7 @@ Value fs_read_lines_method(VM *vm, const Value *args)
 	char *buffer = ALLOCATE(vm, char, READLN_BUFFER_SIZE + 1);
 	if (buffer == NULL) {
 		pop(vm->current_module_record); /* lines */
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.",
-					  MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate read buffer.", MEMORY);
 	}
 
 	for (;;) {
@@ -395,9 +373,7 @@ Value fs_read_lines_method(VM *vm, const Value *args)
 		if (ferror(file->file)) {
 			FREE_ARRAY(vm, char, buffer, READLN_BUFFER_SIZE + 1);
 			pop(vm->current_module_record); /* lines */
-			return MAKE_GC_SAFE_ERROR(vm,
-						  "Error reading from file.",
-						  IO);
+			return MAKE_GC_SAFE_ERROR(vm, "Error reading from file.", IO);
 		}
 
 		/* Only skip the very first iteration's empty result if we are
@@ -432,21 +408,17 @@ Value fs_write_method(VM *vm, const Value *args)
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<content> must be of type 'string'.", TYPE);
 	}
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_writable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for writing.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for writing.", IO);
 	}
 
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
-	const size_t written = fwrite(content->chars, 1, content->length,
-				      file->file);
+	const size_t written = fwrite(content->chars, 1, content->length, file->file);
 
 	if (written < content->length || ferror(file->file)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to file.", IO);
@@ -467,21 +439,17 @@ Value fs_writeln_method(VM *vm, const Value *args)
 	REQUIRE_OPEN_FILE(args, "write");
 
 	if (!IS_CRUX_STRING(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<content> must be of type 'string'.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<content> must be of type 'string'.", TYPE);
 	}
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
 
 	if (!mode_is_writable(file->mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "File is not open for writing.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File is not open for writing.", IO);
 	}
 
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
-	const size_t written = fwrite(content->chars, 1, content->length,
-				      file->file);
+	const size_t written = fwrite(content->chars, 1, content->length, file->file);
 
 	if (written < content->length || ferror(file->file)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to file.", IO);
@@ -507,22 +475,18 @@ Value fs_seek_method(VM *vm, const Value *args)
 	REQUIRE_OPEN_FILE(args, "seek");
 
 	if (!IS_INT(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm, "<offset> must be of type 'int'.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<offset> must be of type 'int'.", TYPE);
 	}
 	if (!IS_CRUX_STRING(args[2])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<whence> must be of type 'string'.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "<whence> must be of type 'string'.", TYPE);
 	}
 
 	const int whence = whence_from_string(AS_C_STRING(args[2]));
 	if (whence == -1) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid <whence>. Expected \"start\", "
-			"\"current\", or \"end\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid <whence>. Expected \"start\", "
+								  "\"current\", or \"end\".",
+								  VALUE);
 	}
 
 	ObjectFile *file = AS_CRUX_FILE(args[0]);
@@ -534,8 +498,7 @@ Value fs_seek_method(VM *vm, const Value *args)
 
 	const fs_off_t new_pos = FS_FTELL(file->file);
 	if (new_pos < 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to determine position after seek.", IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to determine position after seek.", IO);
 	}
 
 	file->position = (uint64_t)new_pos;
@@ -555,9 +518,7 @@ Value fs_tell_method(VM *vm, const Value *args)
 
 	const fs_off_t pos = FS_FTELL(file->file);
 	if (pos < 0) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to determine file position.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to determine file position.", IO);
 	}
 
 	file->position = (uint64_t)pos;
@@ -626,13 +587,11 @@ Value fs_file_size_function(VM *vm, const Value *args)
 {
 	FS_STAT_T st;
 	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "File not found or inaccessible.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "File not found or inaccessible.", IO);
 	}
 
 	if (!FS_S_ISREG(st.st_mode)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Path is not a regular file.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Path is not a regular file.", IO);
 	}
 
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL((double)st.st_size)));
@@ -650,11 +609,10 @@ Value fs_remove_function(VM *vm, const Value *args)
 	/* Reject directories explicitly for a clear error message */
 	FS_STAT_T st;
 	if (FS_STAT(path, &st) == 0 && FS_S_ISDIR(st.st_mode)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Path is a directory. Use fs.remove_dir to remove "
-			"directories.",
-			IO);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Path is a directory. Use fs.remove_dir to remove "
+								  "directories.",
+								  IO);
 	}
 
 	if (remove(path) != 0) {
@@ -714,16 +672,13 @@ Value fs_copy_file_function(VM *vm, const Value *args)
 #else
 	FILE *src = fopen(from, "rb");
 	if (src == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to open source file.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to open source file.", IO);
 	}
 
 	FILE *dst = fopen(to, "wb");
 	if (dst == NULL) {
 		fclose(src);
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to open destination file.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to open destination file.", IO);
 	}
 
 	/* Use a stack buffer — no GC allocation needed for the copy loop */
@@ -768,19 +723,15 @@ Value fs_mkdir_function(VM *vm, const Value *args)
 
 	if (FS_MKDIR(path) != 0) {
 		if (errno == EEXIST) {
-			return MAKE_GC_SAFE_ERROR(vm,
-						  "Directory already exists.",
-						  IO);
+			return MAKE_GC_SAFE_ERROR(vm, "Directory already exists.", IO);
 		}
 		if (errno == ENOENT) {
-			return MAKE_GC_SAFE_ERROR(
-				vm,
-				"Parent directory does not exist. "
-				"Create parent directories first.",
-				IO);
+			return MAKE_GC_SAFE_ERROR(vm,
+									  "Parent directory does not exist. "
+									  "Create parent directories first.",
+									  IO);
 		}
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to create directory.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to create directory.", IO);
 	}
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
@@ -803,8 +754,7 @@ Value fs_read_file_function(VM *vm, const Value *args)
 	ObjectString *s = NULL;
 	if (!read_remaining(vm, fp, &s)) {
 		fclose(fp);
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to read file contents.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to read file contents.", IO);
 	}
 
 	fclose(fp);
