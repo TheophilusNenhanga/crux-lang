@@ -166,6 +166,26 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record = new_type_rec(compiler->owner, NIL_TYPE);
 	} else if (match(compiler, TOKEN_ANY_TYPE)) {
 		type_record = T_ANY;
+	} else if (match(compiler, TOKEN_SHAPE)) {
+		if (match(compiler, TOKEN_LEFT_BRACE)) {
+			int field_count = 0;
+			ObjectTypeTable *field_types = new_type_table(compiler->owner, 8);
+			if (!check(compiler, TOKEN_RIGHT_BRACE)) {
+				do {
+					consume(compiler, TOKEN_IDENTIFIER, "Expected field name.");
+					ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start, compiler->parser->previous.length);
+					consume(compiler, TOKEN_COLON, "Expected ':' after field name.");
+					ObjectTypeRecord *field_type = parse_type_record(compiler);
+					type_table_set(field_types, fieldName, field_type);
+					field_count++;
+				} while (match(compiler, TOKEN_COMMA));
+			}
+			consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after shape definition.");
+			type_record = new_shape_type_rec(compiler->owner, field_types, field_count);
+		} else {
+			compiler_panic(compiler->parser, "Expected '{' for shape type definition.", TYPE);
+			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+		}
 	} else if (match(compiler, TOKEN_ARRAY_TYPE)) {
 		if (match(compiler, TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, ARRAY_TYPE);
@@ -869,14 +889,26 @@ static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_t
 
 	if (op == COMPOUND_OP_PLUS && lhs_type->base_type == STRING_TYPE) {
 		if (rhs_type->base_type != STRING_TYPE) {
-			compiler_panic(compiler->parser, "'+=' on a String requires a String right-hand side.", TYPE);
+			char got[128];
+			type_record_name(rhs_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "'+=' on a String requires a String right-hand side, got '%s'.", got);
 		}
 	} else if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
 		if (lhs_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
-			compiler_panic(compiler->parser, "This compound operator requires Int operands.", TYPE);
+			char left_name[128], right_name[128];
+			type_record_name(lhs_type, left_name, sizeof(left_name));
+			type_record_name(rhs_type, right_name, sizeof(right_name));
+			compiler_panicf(compiler->parser, TYPE,
+							"This compound operator requires Int operands, got '%s' and '%s'.",
+							left_name, right_name);
 		}
 	} else if (!lhs_num || !rhs_num) {
-		compiler_panic(compiler->parser, "Compound assignment requires numeric operands.", TYPE);
+		char left_name[128], right_name[128];
+		type_record_name(lhs_type, left_name, sizeof(left_name));
+		type_record_name(rhs_type, right_name, sizeof(right_name));
+		compiler_panicf(compiler->parser, TYPE,
+						"Compound assignment requires numeric operands, got '%s' and '%s'.",
+						left_name, right_name);
 	}
 }
 
@@ -1011,7 +1043,9 @@ static void and_(Compiler *compiler, bool can_assign)
 
 	const ObjectTypeRecord *left_type = pop_type_record(compiler);
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "Left operand of 'and' must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(left_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "Left operand of 'and' must be of type 'Bool', got '%s'.", got);
 	}
 
 	const int endJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
@@ -1020,7 +1054,9 @@ static void and_(Compiler *compiler, bool can_assign)
 
 	const ObjectTypeRecord *right_type = pop_type_record(compiler);
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "Right operand of 'and' must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(right_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "Right operand of 'and' must be of type 'Bool', got '%s'.", got);
 	}
 
 	patch_jump(compiler, endJump);
@@ -1034,7 +1070,9 @@ static void or_(Compiler *compiler, bool can_assign)
 
 	ObjectTypeRecord *left_type = pop_type_record(compiler);
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "Left operand of 'or' must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(left_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "Left operand of 'or' must be of type 'Bool', got '%s'.", got);
 	}
 
 	const int elseJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
@@ -1045,7 +1083,9 @@ static void or_(Compiler *compiler, bool can_assign)
 
 	ObjectTypeRecord *right_type = pop_type_record(compiler);
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "Right operand of 'or' must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(right_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "Right operand of 'or' must be of type 'Bool', got '%s'.", got);
 	}
 
 	patch_jump(compiler, endJump);
@@ -1061,7 +1101,7 @@ static ObjectFunction *end_compiler(Compiler *compiler)
 	ObjectFunction *function = compiler->function;
 #ifdef DEBUG_PRINT_CODE
 	if (!compiler->parser->had_error) {
-		disassemble_chunk(current_chunk(), function->name != NULL ? function->name->chars : "<script>");
+		disassemble_chunk(current_chunk(compiler), function->name != NULL ? function->name->chars : "<script>");
 	}
 #endif
 
@@ -1183,12 +1223,13 @@ static void binary(Compiler *compiler, bool can_assign)
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
 
 			if (!left_num || !right_num) {
-				compiler_panic(compiler->parser,
-							   operatorType == TOKEN_MINUS ? "'-' requires numeric "
-															 "operands."
-														   : "'*' requires numeric "
-															 "operands.",
-							   TYPE);
+				char left_name[128], right_name[128];
+				type_record_name(left_type, left_name, sizeof(left_name));
+				type_record_name(right_type, right_name, sizeof(right_name));
+				compiler_panicf(compiler->parser, TYPE,
+								"%s requires numeric operands, got '%s' and '%s'.",
+								operatorType == TOKEN_MINUS ? "'-'" : "'*'", left_name,
+								right_name);
 			}
 		}
 
@@ -1209,7 +1250,12 @@ static void binary(Compiler *compiler, bool can_assign)
 			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
 			if (!left_num || !right_num) {
-				compiler_panic(compiler->parser, "'/' requires numeric operands.", TYPE);
+				char left_name[128], right_name[128];
+				type_record_name(left_type, left_name, sizeof(left_name));
+				type_record_name(right_type, right_name, sizeof(right_name));
+				compiler_panicf(compiler->parser, TYPE,
+								"'/' requires numeric operands, got '%s' and '%s'.",
+								left_name, right_name);
 			}
 		}
 		emit_word(compiler, OP_DIVIDE);
@@ -1221,10 +1267,13 @@ static void binary(Compiler *compiler, bool can_assign)
 	case TOKEN_BACKSLASH: {
 		if (!either_any) {
 			if (left_type->base_type != INT_TYPE || right_type->base_type != INT_TYPE) {
-				compiler_panic(compiler->parser,
-							   operatorType == TOKEN_PERCENT ? "'%' requires Int operands."
-															 : "'\\' requires Int operands.",
-							   TYPE);
+				char left_name[128], right_name[128];
+				type_record_name(left_type, left_name, sizeof(left_name));
+				type_record_name(right_type, right_name, sizeof(right_name));
+				compiler_panicf(compiler->parser, TYPE,
+								"%s requires Int operands, got '%s' and '%s'.",
+								operatorType == TOKEN_PERCENT ? "'%'" : "'\\'", left_name,
+								right_name);
 			}
 		}
 		emit_word(compiler, operatorType == TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
@@ -1275,7 +1324,12 @@ static void binary(Compiler *compiler, bool can_assign)
 			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
 			if (!left_num || !right_num) {
-				compiler_panic(compiler->parser, "'**' requires numeric operands.", TYPE);
+				char left_name[128], right_name[128];
+				type_record_name(left_type, left_name, sizeof(left_name));
+				type_record_name(right_type, right_name, sizeof(right_name));
+				compiler_panicf(compiler->parser, TYPE,
+								"'**' requires numeric operands, got '%s' and '%s'.",
+								left_name, right_name);
 			}
 		}
 		emit_word(compiler, OP_POWER);
@@ -1470,10 +1524,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 				method_return = fn_type->as.function_type.return_type;
 				method_found = true;
 			} else {
-				char msg[160];
-				snprintf(msg, sizeof(msg), "Struct field '%.*s' is not callable.", (int)method_name_token.length,
+				compiler_panicf(compiler->parser, TYPE, "Struct field '%.*s' is not callable.", (int)method_name_token.length,
 						 method_name_token.start);
-				compiler_panic(compiler->parser, msg, TYPE);
 			}
 
 		} else if (object_type->base_type != ANY_TYPE) {
@@ -1535,11 +1587,10 @@ static void dot(Compiler *compiler, const bool can_assign)
 					method_return = callable->return_type;
 					method_found = true;
 				} else {
-					char type_name[128], msg[300];
+					char type_name[128];
 					type_record_name(object_type, type_name, sizeof(type_name));
-					snprintf(msg, sizeof(msg), "'%s' has no method '%.*s'.", type_name, (int)method_name_token.length,
+					compiler_panicf(compiler->parser, NAME, "'%s' has no method '%.*s'.", type_name, (int)method_name_token.length,
 							 method_name_token.start);
-					compiler_panic(compiler->parser, msg, NAME);
 				}
 			}
 		}
@@ -1559,12 +1610,11 @@ static void dot(Compiler *compiler, const bool can_assign)
 					ObjectTypeRecord *got_type = arg_types[i];
 					if (expected && got_type && expected->base_type != ANY_TYPE && got_type->base_type != ANY_TYPE &&
 						!types_compatible(expected, got_type)) {
-						char exp_name[128], got_name[128], msg[300];
+						char exp_name[128], got_name[128];
 						type_record_name(expected, exp_name, sizeof(exp_name));
 						type_record_name(got_type, got_name, sizeof(got_name));
-						snprintf(msg, sizeof(msg), "Argument %d type mismatch: expected '%s', got '%s'.", i + 1,
+						compiler_panicf(compiler->parser, TYPE, "Argument %d type mismatch: expected '%s', got '%s'.", i + 1,
 								 exp_name, got_name);
-						compiler_panic(compiler->parser, msg, TYPE);
 					}
 				}
 			}
@@ -1587,10 +1637,8 @@ static void dot(Compiler *compiler, const bool can_assign)
 		if (type_table_get(field_types, field_name, &field_type)) {
 			result_type = field_type;
 		} else {
-			char msg[160];
-			snprintf(msg, sizeof(msg), "Struct has no field '%.*s'.", (int)method_name_token.length,
+			compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)method_name_token.length,
 					 method_name_token.start);
-			compiler_panic(compiler->parser, msg, NAME);
 		}
 	}
 	// NOTE: Could add stdlib members here
@@ -1612,7 +1660,9 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	// the pre-scan hasn't run yet or the name came from an import.
 	const bool type_known = struct_type && struct_type->base_type != ANY_TYPE;
 	if (type_known && struct_type->base_type != STRUCT_TYPE) {
-		compiler_panic(compiler->parser, "'new' requires a struct type name.", TYPE);
+		char got[128];
+		type_record_name(struct_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "'new' requires a struct type name, got '%s'.", got);
 		// Push ANY_TYPE so the stack stays balanced.
 		push_type_record(compiler, T_ANY);
 		return;
@@ -1671,18 +1721,14 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				// Check the field exists on the struct.
 				Value field_index_val;
 				if (!table_get(&definition->fields, fieldName, &field_index_val)) {
-					char msg[160];
-					snprintf(msg, sizeof(msg), "Struct has no field '%.*s'.", (int)fieldName->length, fieldName->chars);
-					compiler_panic(compiler->parser, msg, NAME);
+					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length, fieldName->chars);
 				} else {
 					// Mark as seen.
 					const int field_index = (int)AS_INT(field_index_val);
 					if (field_index >= 0 && field_index < declared_field_count) {
 						if (field_seen[field_index]) {
-							char msg[160];
-							snprintf(msg, sizeof(msg), "Field '%.*s' specified more than once.", (int)fieldName->length,
+							compiler_panicf(compiler->parser, NAME, "Field '%.*s' specified more than once.", (int)fieldName->length,
 									 fieldName->chars);
-							compiler_panic(compiler->parser, msg, NAME);
 						}
 						field_seen[field_index] = true;
 					}
@@ -1695,12 +1741,11 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 					if (declared_field_type && value_type && declared_field_type->base_type != ANY_TYPE &&
 						value_type->base_type != ANY_TYPE) {
 						if (!types_compatible(declared_field_type, value_type)) {
-							char expected[128], got[128], msg[400];
+							char expected[128], got[128];
 							type_record_name(declared_field_type, expected, sizeof(expected));
 							type_record_name(value_type, got, sizeof(got));
-							snprintf(msg, sizeof(msg), "Field '%.*s' expects type '%s', got '%s'.",
+							compiler_panicf(compiler->parser, TYPE, "Field '%.*s' expects type '%s', got '%s'.",
 									 (int)fieldName->length, fieldName->chars, expected, got);
-							compiler_panic(compiler->parser, msg, TYPE);
 						}
 					}
 				}
@@ -1732,10 +1777,8 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 						break;
 					}
 				}
-				char msg[160];
-				snprintf(msg, sizeof(msg), "Missing required field '%.*s' in struct initializer.", missing_len,
+				compiler_panicf(compiler->parser, NAME, "Missing required field '%.*s' in struct initializer.", missing_len,
 						 missing);
-				compiler_panic(compiler->parser, msg, NAME);
 				break; // Report one missing field at a time.
 			}
 		}
@@ -1848,10 +1891,9 @@ static void function(Compiler *compiler, const FunctionType type)
 
 	if (!function_compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
 		annotated_return_type->base_type != ANY_TYPE) {
-		char expected[128], msg[256];
+		char expected[128];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
-		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
-		compiler_panic(compiler->parser, msg, TYPE);
+		compiler_panicf(compiler->parser, TYPE, "Function expects to return '%s' but has no return statement.", expected);
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
@@ -1980,10 +2022,9 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 
 	if (!function_compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
 		annotated_return_type->base_type != ANY_TYPE) {
-		char expected[128], msg[256];
+		char expected[128];
 		type_record_name(annotated_return_type, expected, sizeof(expected));
-		snprintf(msg, sizeof(msg), "Function expects to return '%s' but has no return statement.", expected);
-		compiler_panic(function_compiler.parser, msg, TYPE);
+		compiler_panicf(function_compiler.parser, TYPE, "Function expects to return '%s' but has no return statement.", expected);
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
@@ -2072,15 +2113,14 @@ static void table_literal(Compiler *compiler, bool can_assign)
 			} else if (table_key_type->base_type != ANY_TYPE && key_type && key_type->base_type != ANY_TYPE) {
 				// Keys must be exactly equal — a table can't have mixed key types
 				if (!types_equal(table_key_type, key_type)) {
-					char expected[128], got[128], msg[300];
+					char expected[128], got[128];
 					type_record_name(table_key_type, expected, sizeof(expected));
 					type_record_name(key_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg),
+					compiler_panicf(compiler->parser, TYPE,
 							 "Inconsistent key types in "
 							 "table literal: expected "
 							 "'%s', got '%s'.",
 							 expected, got);
-					compiler_panic(compiler->parser, msg, TYPE);
 				}
 			}
 
@@ -2137,19 +2177,20 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 	if (collection_type && index_type && index_type->base_type != ANY_TYPE && collection_type->base_type != ANY_TYPE) {
 		if (collection_type->base_type == ARRAY_TYPE) {
 			if (index_type->base_type != INT_TYPE) {
-				compiler_panic(compiler->parser, "Array index must be of type 'Int'.", TYPE);
+				char got[128];
+				type_record_name(index_type, got, sizeof(got));
+				compiler_panicf(compiler->parser, TYPE, "Array index must be of type 'Int', got '%s'.", got);
 			}
 		} else if (collection_type->base_type == TABLE_TYPE) {
 			ObjectTypeRecord *key_type = collection_type->as.table_type.key_type;
 			if (key_type && key_type->base_type != ANY_TYPE && !types_compatible(key_type, index_type)) {
-				char expected[128], got[128], msg[300];
+				char expected[128], got[128];
 				type_record_name(key_type, expected, sizeof(expected));
 				type_record_name(index_type, got, sizeof(got));
-				snprintf(msg, sizeof(msg),
+				compiler_panicf(compiler->parser, TYPE,
 						 "Table key type mismatch: expected "
 						 "'%s', got '%s'.",
 						 expected, got);
-				compiler_panic(compiler->parser, msg, TYPE);
 			}
 		}
 	}
@@ -2172,14 +2213,13 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 			}
 			if (expected_value && expected_value->base_type != ANY_TYPE &&
 				!types_compatible(expected_value, value_type)) {
-				char expected[128], got[128], msg[300];
+				char expected[128], got[128];
 				type_record_name(expected_value, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
-				snprintf(msg, sizeof(msg),
+				compiler_panicf(compiler->parser, TYPE,
 						 "Cannot assign '%s' to collection "
 						 "of element type '%s'.",
 						 got, expected);
-				compiler_panic(compiler->parser, msg, TYPE);
 			}
 		}
 
@@ -2278,7 +2318,9 @@ static void while_statement(Compiler *compiler)
 
 	ObjectTypeRecord *condition_type = pop_type_record(compiler);
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "'while' condition must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(condition_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "'while' condition must be of type 'Bool', got '%s'.", got);
 	}
 
 	const int exitJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
@@ -2313,7 +2355,9 @@ static void for_statement(Compiler *compiler)
 		// Condition must be Bool
 		ObjectTypeRecord *condition_type = pop_type_record(compiler);
 		if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
-			compiler_panic(compiler->parser, "'for' condition must be of type 'Bool'.", TYPE);
+			char got[128];
+			type_record_name(condition_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "'for' condition must be of type 'Bool', got '%s'.", got);
 		}
 
 		consume(compiler, TOKEN_SEMICOLON, "Expected ';' after loop condition");
@@ -2353,7 +2397,9 @@ static void if_statement(Compiler *compiler)
 	// Condition must be Bool
 	ObjectTypeRecord *condition_type = pop_type_record(compiler);
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
-		compiler_panic(compiler->parser, "'if' condition must be of type 'Bool'.", TYPE);
+		char got[128];
+		type_record_name(condition_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "'if' condition must be of type 'Bool', got '%s'.", got);
 	}
 
 	const int thenJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
@@ -2399,12 +2445,10 @@ static void return_statement(Compiler *compiler)
 				char got[128];
 				type_record_name(compiler->return_type, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
-				char msg[300];
-				snprintf(msg, sizeof(msg),
+				compiler_panicf(compiler->parser, TYPE,
 						 "Return type mismatch: expected '%s', "
 						 "got '%s'.",
 						 expected, got);
-				compiler_panic(compiler->parser, msg, TYPE);
 			}
 		}
 		emit_word(compiler, OP_RETURN);
@@ -2544,9 +2588,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 			} else if (!is_dynamic && statically_imported_mod) {
 				// Static User Module
 				if (!type_table_get(statically_imported_mod->types, name_str, &resolved_type)) {
-					char msg[128];
-					snprintf(msg, sizeof(msg), "Module does not export '%s'", name_str->chars);
-					compiler_panic(compiler->parser, msg, NAME);
+					compiler_panicf(compiler->parser, NAME, "Module does not export '%s'", name_str->chars);
 					resolved_type = T_ANY; // Fallback to prevent crashes during panic
 				}
 			}
@@ -2662,7 +2704,13 @@ static void impl_declaration(Compiler *compiler)
 
 	ObjectTypeRecord *struct_type = NULL;
 	if (!type_table_get(compiler->type_table, struct_name_str, &struct_type) || struct_type->base_type != STRUCT_TYPE) {
-		compiler_panic(compiler->parser, "Cannot implement methods for a non-struct type.", TYPE);
+		if (struct_type) {
+			char got[128];
+			type_record_name(struct_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "Cannot implement methods for a non-struct type, got '%s'.", got);
+		} else {
+			compiler_panicf(compiler->parser, TYPE, "Cannot implement methods for a non-struct type '%s'.", struct_name_str->chars);
+		}
 		return;
 	}
 
@@ -2707,7 +2755,9 @@ static void result_unwrap(Compiler *compiler, bool can_assign)
 	}
 
 	if (type->base_type != RESULT_TYPE) {
-		compiler_panic(compiler->parser, "'?' operator requires a 'Result' type.", TYPE);
+		char got[128];
+		type_record_name(type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE, "'?' operator requires a 'Result' type, got '%s'.", got);
 		push_type_record(compiler, T_ANY);
 		return;
 	}
@@ -2894,15 +2944,14 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			if (pattern_type && target_type && pattern_type->base_type != ANY_TYPE &&
 				target_type->base_type != ANY_TYPE) {
 				if (!types_compatible(target_type, pattern_type)) {
-					char expected[128], got[128], msg[300];
+					char expected[128], got[128];
 					type_record_name(target_type, expected, sizeof(expected));
 					type_record_name(pattern_type, got, sizeof(got));
-					snprintf(msg, sizeof(msg),
+					compiler_panicf(compiler->parser, TYPE,
 							 "Pattern type '%s' is not "
 							 "compatible with match target "
 							 "type '%s'.",
 							 got, expected);
-					compiler_panic(compiler->parser, msg, TYPE);
 				}
 			}
 
@@ -2947,14 +2996,13 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			arm_type = this_arm_type;
 		} else if (arm_type->base_type != ANY_TYPE && this_arm_type->base_type != ANY_TYPE) {
 			if (!types_compatible(arm_type, this_arm_type)) {
-				char expected[128], got[128], msg[300];
+				char expected[128], got[128];
 				type_record_name(arm_type, expected, sizeof(expected));
 				type_record_name(this_arm_type, got, sizeof(got));
-				snprintf(msg, sizeof(msg),
+				compiler_panicf(compiler->parser, TYPE,
 						 "Match arms produce inconsistent "
 						 "types: expected '%s', got '%s'.",
 						 expected, got);
-				compiler_panic(compiler->parser, msg, TYPE);
 			}
 		}
 
@@ -3034,14 +3082,36 @@ static void panic_statement(Compiler *compiler)
 	ObjectTypeRecord *type = pop_type_record(compiler);
 
 	if (type && type->base_type != STRING_TYPE && type->base_type != ANY_TYPE) {
-		char got[128], msg[300];
+		char got[128];
 		type_record_name(type, got, sizeof(got));
-		snprintf(msg, sizeof(msg), "'panic' requires a 'String', got '%s'.", got);
-		compiler_panic(compiler->parser, msg, TYPE);
+		compiler_panicf(compiler->parser, TYPE, "'panic' requires a 'String', got '%s'.", got);
 	}
 
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after 'panic'.");
 	emit_word(compiler, OP_PANIC);
+}
+
+static void type_declaration(Compiler *compiler, bool is_public)
+{
+	consume(compiler, TOKEN_IDENTIFIER, "Expected type name.");
+	Token type_name_token = compiler->parser->previous;
+	ObjectString *type_name_str = copy_string(compiler->owner, type_name_token.start, type_name_token.length);
+
+	consume(compiler, TOKEN_EQUAL, "Expected '=' after type name.");
+
+	ObjectTypeRecord *aliased_type = parse_type_record(compiler);
+	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after type declaration.");
+
+	type_table_set(compiler->type_table, type_name_str, aliased_type);
+	
+	// Also register as a value so it can be imported via 'use'
+	uint16_t nameConstant = identifier_constant(compiler, &type_name_token);
+	emit_constant(compiler, OBJECT_VAL(aliased_type));
+	define_variable(compiler, nameConstant);
+
+	if (is_public) {
+		type_table_set(compiler->owner->current_module_record->types, type_name_str, aliased_type);
+	}
 }
 
 static void public_declaration(Compiler *compiler)
@@ -3055,9 +3125,11 @@ static void public_declaration(Compiler *compiler)
 	} else if (match(compiler, TOKEN_LET)) {
 		var_declaration(compiler, true);
 	} else if (match(compiler, TOKEN_STRUCT)) {
-		struct_declaration(compiler, false);
+		struct_declaration(compiler, true);
+	} else if (match(compiler, TOKEN_TYPE)) {
+		type_declaration(compiler, true);
 	} else {
-		compiler_panic(compiler->parser, "Expected 'fn', 'let', or 'struct' after 'pub'.", SYNTAX);
+		compiler_panic(compiler->parser, "Expected 'fn', 'let', 'struct', or 'type' after 'pub'.", SYNTAX);
 	}
 }
 
@@ -3069,6 +3141,8 @@ static void declaration(Compiler *compiler)
 		fn_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_STRUCT)) {
 		struct_declaration(compiler, false);
+	} else if (match(compiler, TOKEN_TYPE)) {
+		type_declaration(compiler, false);
 	} else if (match(compiler, TOKEN_PUB)) {
 		public_declaration(compiler);
 	} else if (match(compiler, TOKEN_IMPL)) {
@@ -3228,9 +3302,7 @@ static void string(Compiler *compiler, bool can_assign)
 			bool error;
 			const char escaped = process_escape_sequence(src[i + 1], &error);
 			if (error) {
-				char errorMessage[64];
-				snprintf(errorMessage, 64, "Unexpected escape sequence '\\%c'", src[i + 1]);
-				compiler_panic(compiler->parser, errorMessage, SYNTAX);
+				compiler_panicf(compiler->parser, SYNTAX, "Unexpected escape sequence '\\%c'", src[i + 1]);
 				FREE_ARRAY(compiler->owner, char, processed, compiler->parser->previous.length);
 				return;
 			}
@@ -3268,7 +3340,9 @@ static void unary(Compiler *compiler, bool can_assign)
 		// check if this is a boolean type
 		ObjectTypeRecord *bool_expected = pop_type_record(compiler);
 		if (!bool_expected || (bool_expected->base_type != ANY_TYPE && bool_expected->base_type != BOOL_TYPE)) {
-			compiler_panic(compiler->parser, "Expected 'Bool' type for 'not' operator.", TYPE);
+			char got[128];
+			type_record_name(bool_expected, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "Expected 'Bool' type for 'not' operator, got '%s'.", got);
 		}
 		push_type_record(compiler, bool_expected);
 		emit_word(compiler, OP_NOT);
@@ -3279,7 +3353,9 @@ static void unary(Compiler *compiler, bool can_assign)
 		ObjectTypeRecord *num_expected = pop_type_record(compiler);
 		if (!num_expected ||
 			(num_expected->base_type != ANY_TYPE && !(num_expected->base_type & (INT_TYPE | FLOAT_TYPE)))) {
-			compiler_panic(compiler->parser, "Expected 'Int | Float' type for '-' operator.", TYPE);
+			char got[128];
+			type_record_name(num_expected, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "Expected 'Int | Float' type for '-' operator, got '%s'.", got);
 		}
 		push_type_record(compiler, num_expected);
 		emit_word(compiler, OP_NEGATE);
@@ -3570,6 +3646,9 @@ static void pre_skip_type(Compiler *compiler)
 			if (compiler->parser->current.type == TOKEN_ARROW)
 				pre_advance(compiler);
 			pre_skip_type(compiler); // return type
+		} else if (t == TOKEN_SHAPE) {
+			pre_advance(compiler); // consume 'shape'
+			pre_skip_block(compiler); // skip '{ ... }'
 		} else if (t == TOKEN_INT_TYPE || t == TOKEN_FLOAT_TYPE || t == TOKEN_BOOL_TYPE || t == TOKEN_STRING_TYPE ||
 				   t == TOKEN_NIL_TYPE || t == TOKEN_ANY_TYPE || t == TOKEN_ARRAY_TYPE || t == TOKEN_TABLE_TYPE ||
 				   t == TOKEN_VECTOR_TYPE || t == TOKEN_MATRIX_TYPE || t == TOKEN_BUFFER_TYPE ||
@@ -3601,6 +3680,30 @@ static void pre_skip_type(Compiler *compiler)
 		}
 		break;
 	}
+}
+
+// Collect a single top-level type alias declaration.
+// On entry, parser.current is TOKEN_TYPE (already consumed by caller).
+static void pre_collect_type(Compiler *compiler)
+{
+	if (compiler->parser->current.type != TOKEN_IDENTIFIER)
+		return;
+	Token name_token = compiler->parser->current;
+	pre_advance(compiler);
+
+	if (compiler->parser->current.type != TOKEN_EQUAL)
+		return;
+	pre_advance(compiler); // consume '='
+
+	// parse_type_record uses the global current compiler and parser.
+	ObjectTypeRecord *resolved_type = parse_type_record(compiler);
+
+	// consume ';'
+	if (compiler->parser->current.type == TOKEN_SEMICOLON)
+		pre_advance(compiler);
+
+	ObjectString *type_name = copy_string(compiler->owner, name_token.start, name_token.length);
+	type_table_set(compiler->type_table, type_name, resolved_type);
 }
 
 // Collect a single top-level struct declaration into pre_compiler's type_table.
@@ -3765,6 +3868,21 @@ static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 				pre_skip_block(compiler);
 			}
 
+		} else if (t == TOKEN_TYPE) {
+			pre_advance(compiler); // consume 'type'
+			if (collect_structs) {
+				pre_collect_type(compiler);
+			} else {
+				// Skip: name + '=' + type + ';'
+				if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+					pre_advance(compiler);
+				if (compiler->parser->current.type == TOKEN_EQUAL)
+					pre_advance(compiler);
+				pre_skip_type(compiler);
+				if (compiler->parser->current.type == TOKEN_SEMICOLON)
+					pre_advance(compiler);
+			}
+
 		} else if (t == TOKEN_FN) {
 			pre_advance(compiler); // consume 'fn'
 			if (!collect_structs) {
@@ -3806,6 +3924,19 @@ static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 					if (compiler->parser->current.type == TOKEN_IDENTIFIER)
 						pre_advance(compiler);
 					pre_skip_block(compiler);
+				}
+			} else if (compiler->parser->current.type == TOKEN_TYPE) {
+				pre_advance(compiler); // consume 'type'
+				if (collect_structs) {
+					pre_collect_type(compiler);
+				} else {
+					if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+						pre_advance(compiler);
+					if (compiler->parser->current.type == TOKEN_EQUAL)
+						pre_advance(compiler);
+					pre_skip_type(compiler);
+					if (compiler->parser->current.type == TOKEN_SEMICOLON)
+						pre_advance(compiler);
 				}
 			} else {
 				pre_advance(compiler); // skip unknown pub token
