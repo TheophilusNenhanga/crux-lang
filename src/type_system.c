@@ -449,11 +449,13 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 	// Structural typing for Shapes
 	if (expected->base_type == SHAPE_TYPE && (got->base_type == STRUCT_TYPE || got->base_type == SHAPE_TYPE)) {
 		const ObjectTypeTable *shape_fields = expected->as.shape_type.element_types;
-		const ObjectTypeTable *got_fields = (got->base_type == STRUCT_TYPE) ? got->as.struct_type.field_types : got->as.shape_type.element_types;
+		const ObjectTypeTable *got_fields = (got->base_type == STRUCT_TYPE) ? got->as.struct_type.field_types
+																			: got->as.shape_type.element_types;
 
 		for (int i = 0; i < shape_fields->capacity; i++) {
 			const TypeEntry *shape_entry = &shape_fields->entries[i];
-			if (shape_entry->key == NULL) continue;
+			if (shape_entry->key == NULL)
+				continue;
 
 			ObjectTypeRecord *got_field_type = NULL;
 			if (!type_table_get(got_fields, shape_entry->key, &got_field_type)) {
@@ -472,10 +474,10 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		// If it's a complex type, recursively check components
 		switch (got->base_type) {
 		case ARRAY_TYPE:
-			return types_equal(expected->as.array_type.element_type, got->as.array_type.element_type);
+			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
 		case TABLE_TYPE:
-			return types_equal(expected->as.table_type.key_type, got->as.table_type.key_type) &&
-				   types_equal(expected->as.table_type.value_type, got->as.table_type.value_type);
+			return types_compatible(expected->as.table_type.key_type, got->as.table_type.key_type) &&
+				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
 		case RESULT_TYPE:
 			return types_compatible(expected->as.result_type.ok_type, got->as.result_type.ok_type);
 		case TUPLE_TYPE: {
@@ -624,4 +626,89 @@ void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size
 		type_mask_name(rec->base_type, buf, buf_size);
 		break;
 	}
+}
+
+ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const char *str)
+{
+	if (strcmp(str, "Int") == 0)
+		return new_type_rec(vm, INT_TYPE);
+	if (strcmp(str, "Float") == 0)
+		return new_type_rec(vm, FLOAT_TYPE);
+	if (strcmp(str, "Bool") == 0)
+		return new_type_rec(vm, BOOL_TYPE);
+	if (strcmp(str, "Nil") == 0)
+		return new_type_rec(vm, NIL_TYPE);
+	if (strcmp(str, "String") == 0)
+		return new_type_rec(vm, STRING_TYPE);
+	if (strncmp(str, "Array", 5) == 0)
+		return new_array_type_rec(vm, new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Table", 5) == 0)
+		return new_table_type_rec(vm, new_type_rec(vm, ANY_TYPE), new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Result", 6) == 0)
+		return new_result_type_rec(vm, new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Function", 8) == 0)
+		return new_function_type_rec(vm, NULL, 0, new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Tuple", 5) == 0)
+		return new_tuple_type_rec(vm, NULL, -1);
+	if (strncmp(str, "Set", 3) == 0)
+		return new_set_type_rec(vm, new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Vector", 6) == 0)
+		return new_vector_type_rec(vm, -1);
+	if (strncmp(str, "Matrix", 6) == 0)
+		return new_matrix_type_rec(vm, -1, -1);
+
+	if (strncmp(str, "Struct ", 7) == 0) {
+		if (type_table) {
+			ObjectString *name = copy_string(vm, str + 7, strlen(str + 7));
+			ObjectTypeRecord *rec = NULL;
+			if (type_table_get(type_table, name, &rec)) {
+				return rec;
+			}
+		}
+		return new_type_rec(vm, STRUCT_TYPE);
+	}
+
+	return new_type_rec(vm, ANY_TYPE);
+}
+
+ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRecord *to_remove)
+{
+	if (!union_type || !to_remove)
+		return union_type;
+
+	if (union_type->base_type != UNION_TYPE) {
+		if (types_compatible(to_remove, union_type)) {
+			return new_type_rec(vm, ANY_TYPE);
+		}
+		return union_type;
+	}
+
+	int keep_count = 0;
+	ObjectTypeRecord **keep_types = ALLOCATE(vm, ObjectTypeRecord *, union_type->as.union_type.element_count);
+
+	for (int i = 0; i < union_type->as.union_type.element_count; i++) {
+		ObjectTypeRecord *t = union_type->as.union_type.element_types[i];
+		if (!types_compatible(to_remove, t)) {
+			keep_types[keep_count++] = t;
+		}
+	}
+
+	if (keep_count == 0) {
+		FREE_ARRAY(vm, ObjectTypeRecord *, keep_types, union_type->as.union_type.element_count);
+		return new_type_rec(vm, ANY_TYPE);
+	}
+
+	if (keep_count == 1) {
+		ObjectTypeRecord *res = keep_types[0];
+		FREE_ARRAY(vm, ObjectTypeRecord *, keep_types, union_type->as.union_type.element_count);
+		return res;
+	}
+
+	if (keep_count < union_type->as.union_type.element_count) {
+		keep_types = GROW_ARRAY(vm, ObjectTypeRecord *, keep_types, union_type->as.union_type.element_count,
+								keep_count);
+	}
+
+	ObjectTypeRecord *res = new_union_type_rec(vm, keep_types, NULL, keep_count);
+	return res;
 }

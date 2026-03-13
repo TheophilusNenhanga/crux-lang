@@ -80,6 +80,18 @@ typedef struct {
 	int scope_depth;
 } LoopContext;
 
+typedef struct {
+	int tracked_local_index;
+	ObjectString *tracked_global_name;
+	bool tracked_is_typeof;
+	ObjectTypeRecord *tracked_literal_type;
+
+	int local_index;
+	ObjectString *global_name;
+	ObjectTypeRecord *narrowed_to;
+	ObjectTypeRecord *stripped_down;
+} NarrowingInfo;
+
 struct Compiler {
 	VM *owner;
 	Compiler *enclosing;
@@ -100,6 +112,7 @@ struct Compiler {
 	ObjectTypeRecord *last_give_type;
 	Parser* parser;
 	bool has_return;
+	NarrowingInfo current_narrowing;
 };
 typedef void (*ParseFn)(Compiler *compiler, bool can_assign);
 

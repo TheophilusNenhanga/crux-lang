@@ -33,4 +33,7 @@ ObjectTypeRecord *new_union_type_rec(VM *vm, ObjectTypeRecord **element_types, O
 bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b);
 bool types_compatible(ObjectTypeRecord *a, ObjectTypeRecord *b);
 
+ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const char *str);
+ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRecord *to_remove);
+
 #endif // CRUX_LANG_TYPE_SYSTEM_H
