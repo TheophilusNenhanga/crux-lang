@@ -1,9 +1,11 @@
+#include <stdint.h>
 #include <stdio.h>
 
 #include "chunk.h"
 #include "file_handler.h"
 #include "stdlib/stdlib.h"
 #include "type_system.h"
+#include "value.h"
 #include "vm.h"
 
 #include <string.h>
@@ -127,6 +129,8 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_PROPERTY_SLASH,
 									&&OP_SET_PROPERTY_INT_DIVIDE,
 									&&OP_SET_PROPERTY_MODULUS,
+									&&OP_BITWISE_NOT,
+									&&OP_TYPE_COERCE,
 									&&end};
 
 	uint16_t instruction;
@@ -1325,6 +1329,32 @@ OP_SET_PROPERTY_MODULUS: {
 
 	runtime_panic(currentModuleRecord, false, NAME, "Undefined property '%s'.", name->chars);
 	return INTERPRET_RUNTIME_ERROR;
+}
+
+OP_BITWISE_NOT: {
+	Value value = pop(currentModuleRecord);
+	if (!IS_INT(value)) {
+		runtime_panic(currentModuleRecord, false, TYPE, "Bitwise NOT operation requires type 'Int'.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	int32_t int_val = AS_INT(value);
+	push(currentModuleRecord, INT_VAL(~int_val));
+	DISPATCH();
+}
+
+OP_TYPE_COERCE: {
+	Value value = READ_CONSTANT();
+	ObjectTypeRecord *type_record = AS_CRUX_TYPE_RECORD(value);
+	Value query = PEEK(currentModuleRecord, 0);
+	if (!runtime_types_compatible(type_record->base_type, query)) {
+		char type_name[100];
+		type_record_name(type_record, type_name, 100);
+		runtime_panic(currentModuleRecord, false, TYPE, "Failed to perform type coercion. Expected type: '%s'.",
+					  type_name);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	// if the type matched then continue on like nothing happend
+	DISPATCH();
 }
 
 end: {

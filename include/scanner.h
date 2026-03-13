@@ -42,6 +42,7 @@ typedef enum {
 	TOKEN_AMPERSAND, // &
 	TOKEN_CARET, // ^
 	TOKEN_PIPE, // |
+	TOKEN_TILDE, // ~
 	TOKEN_PLUS_EQUAL, // +=
 	TOKEN_MINUS_EQUAL, // -=
 	TOKEN_STAR_EQUAL, // *=
@@ -89,6 +90,7 @@ typedef enum {
 	TOKEN_SHAPE, // shape
 	TOKEN_DYN_USE, // dynuse
 	TOKEN_IMPL, // impl
+	TOKEN_TYPE, // type
 
 	TOKEN_NIL_TYPE, // Nil
 	TOKEN_BOOL_TYPE, // Bool

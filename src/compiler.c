@@ -1964,7 +1964,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 	}
 
 	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
-	
+
 	ObjectTypeRecord *annotated_return_type = NULL;
 	if (match(&function_compiler, TOKEN_ARROW)) {
 		annotated_return_type = parse_type_record(&function_compiler);
@@ -3267,8 +3267,8 @@ static void unary(Compiler *compiler, bool can_assign)
 	case TOKEN_NOT: {
 		// check if this is a boolean type
 		ObjectTypeRecord *bool_expected = pop_type_record(compiler);
-		if (!bool_expected || bool_expected->base_type != BOOL_TYPE) {
-			compiler_panic(compiler->parser, "Expected 'Bool'type for 'not' operator.", TYPE);
+		if (!bool_expected || (bool_expected->base_type != ANY_TYPE && bool_expected->base_type != BOOL_TYPE)) {
+			compiler_panic(compiler->parser, "Expected 'Bool' type for 'not' operator.", TYPE);
 		}
 		push_type_record(compiler, bool_expected);
 		emit_word(compiler, OP_NOT);
@@ -3277,11 +3277,21 @@ static void unary(Compiler *compiler, bool can_assign)
 	case TOKEN_MINUS: {
 		// check if this is a negatable type
 		ObjectTypeRecord *num_expected = pop_type_record(compiler);
-		if (!num_expected || !(num_expected->base_type & (INT_TYPE | FLOAT_TYPE))) {
+		if (!num_expected ||
+			(num_expected->base_type != ANY_TYPE && !(num_expected->base_type & (INT_TYPE | FLOAT_TYPE)))) {
 			compiler_panic(compiler->parser, "Expected 'Int | Float' type for '-' operator.", TYPE);
 		}
 		push_type_record(compiler, num_expected);
 		emit_word(compiler, OP_NEGATE);
+		break;
+	}
+	case TOKEN_TILDE: {
+		ObjectTypeRecord *int_expected = pop_type_record(compiler);
+		if (!int_expected || (int_expected->base_type != ANY_TYPE && !(int_expected->base_type == INT_TYPE))) {
+			compiler_panicf(compiler->parser, TYPE, "Expected 'Int' type for '~' operator.");
+		}
+		push_type_record(compiler, int_expected);
+		emit_word(compiler, OP_BITWISE_NOT);
 		break;
 	}
 	default:
@@ -3296,6 +3306,16 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 	emit_word(compiler, OP_TYPEOF); // this will emit a string representation of the
 									// type at runtime
 	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
+}
+
+static void type_coerce(Compiler *compiler, bool can_assign)
+{
+	(void)can_assign;
+	pop_type_record(compiler);
+	ObjectTypeRecord *type_record = parse_type_record(compiler);
+	push_type_record(compiler, type_record);
+	uint16_t type_const = make_constant(compiler, OBJECT_VAL(type_record));
+	emit_words(compiler, OP_TYPE_COERCE, type_const);
 }
 
 static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectString *path)
@@ -3401,6 +3421,8 @@ ParseRule rules[] = {
 	[TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
 	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
+	[TOKEN_AS] = {NULL, type_coerce, NULL, PREC_COERCE},
+	[TOKEN_TILDE] = {unary, NULL, NULL, PREC_NONE},
 	[TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_NIL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
 	[TOKEN_BOOL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
