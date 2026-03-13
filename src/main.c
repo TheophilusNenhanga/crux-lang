@@ -6,7 +6,7 @@
 #include "linenoise.h"
 #include "vm.h"
 
-static void repl(VM *vm)
+static int repl(VM *vm)
 {
 	char *cruxDir = get_crux_dir();
 	char *historyPath = NULL;
@@ -24,13 +24,19 @@ static void repl(VM *vm)
 		if (line[0] != '\0') {
 			linenoiseHistoryAdd(line);
 			linenoiseHistorySave(finalPath);
-			interpret(vm, line);
+			InterpretResult res = interpret(vm, line);
+			if (res == INTERPRET_EXIT) {
+				linenoiseFree(line);
+				break;
+			}
 		}
 		linenoiseFree(line);
 	}
 
 	if (historyPath)
 		free(historyPath);
+
+	return vm->exit_code;
 }
 
 /**
@@ -40,20 +46,24 @@ static void repl(VM *vm)
  * - Exit code 65: Compilation error
  * - Exit code 70: Runtime error
  */
-static void runFile(VM *vm, const char *path)
+static int runFile(VM *vm, const char *path)
 {
 	const FileResult fileResult = read_file(path);
 	if (fileResult.error) {
 		fprintf(stderr, "Error reading file: %s\n", fileResult.error);
-		exit(2);
+		return 2;
 	}
 	const InterpretResult interpretResult = interpret(vm, fileResult.content);
 	free(fileResult.content);
 
 	if (interpretResult == INTERPRET_COMPILE_ERROR)
-		exit(COMPILER_EXIT_CODE);
+		return COMPILER_EXIT_CODE;
 	if (interpretResult == INTERPRET_RUNTIME_ERROR)
-		exit(RUNTIME_EXIT_CODE);
+		return RUNTIME_EXIT_CODE;
+	if (interpretResult == INTERPRET_EXIT)
+		return vm->exit_code;
+
+	return 0;
 }
 
 /**
@@ -66,20 +76,21 @@ static void runFile(VM *vm, const char *path)
 int main(const int argc, const char *argv[])
 {
 	VM *vm = new_vm(argc, argv);
+	int exit_code = 0;
 
 	if (argc == 1) {
-		repl(vm);
+		exit_code = repl(vm);
 	} else if (argc == 2) {
-		runFile(vm, argv[1]);
+		exit_code = runFile(vm, argv[1]);
 	} else {
 #ifdef _WIN32
 		fprintf(stderr, "Usage: & .\\[crux.exe] [path]\n");
 #else
 		fprintf(stderr, "Usage: ./[crux] [path]\n");
 #endif
-		exit(64);
+		exit_code = 64;
 	}
 
 	free_vm(vm);
-	return 0;
+	return exit_code;
 }

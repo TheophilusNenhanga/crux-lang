@@ -88,9 +88,9 @@ CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType t
 	return object;
 }
 
-CruxObject *allocate_pooled_object_without_gc(const VM *vm, const size_t size, const ObjectType type)
+CruxObject *allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
 {
-	CruxObject *object = allocate_object_without_gc(size);
+	CruxObject *object = allocate_object_without_gc(vm, size);
 
 	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
 
@@ -145,11 +145,10 @@ static uint32_t hashValue(const Value value)
 	if (IS_CRUX_STRING(value)) {
 		return AS_CRUX_STRING(value)->hash;
 	}
-	if (IS_INT(value)) {
-		return (uint32_t)AS_INT(value);
-	}
-	if (IS_FLOAT(value)) {
-		const double num = AS_FLOAT(value);
+	if (IS_NUMERIC(value)) {
+		double num = TO_DOUBLE(value);
+		if (num == 0.0)
+			return 0u;
 		uint64_t bits;
 		memcpy(&bits, &num, sizeof(bits));
 		return (uint32_t)(bits ^ bits >> 32);
@@ -651,6 +650,13 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		fprintf(stream, "<Range>");
 		break;
 	}
+	case OBJECT_TYPE_RECORD: {
+		fprintf(stream, "<TypeRecord>");
+		break;
+	}
+	case OBJECT_TYPE_TABLE: {
+		fprintf(stream, "<TypeTable>");
+	}
 	}
 }
 
@@ -952,6 +958,7 @@ void free_object_table(VM *vm, ObjectTable *table)
 
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
 {
+	// TODO: Make this open files in non existant directories
 	push(vm->current_module_record, OBJECT_VAL(path));
 	push(vm->current_module_record, OBJECT_VAL(mode));
 	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
@@ -1272,6 +1279,8 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 
 	moduleRecord->is_main = is_main;
 	moduleRecord->is_repl = is_repl;
+
+	moduleRecord->owner = vm;
 
 	return moduleRecord;
 }

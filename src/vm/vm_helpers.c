@@ -125,13 +125,13 @@ void reset_stack(ObjectModuleRecord *moduleRecord)
 bool call(ObjectModuleRecord *module_record, ObjectClosure *closure, const int arg_count)
 {
 	if (arg_count != closure->function->arity) {
-		runtime_panic(module_record, false, ARGUMENT_MISMATCH, "Expected %d arguments, got %d",
-					  closure->function->arity, arg_count);
+		runtime_panic(module_record, ARGUMENT_MISMATCH, "Expected %d arguments, got %d", closure->function->arity,
+					  arg_count);
 		return false;
 	}
 
 	if (module_record->frame_count >= FRAMES_MAX) {
-		runtime_panic(module_record, false, STACK_OVERFLOW, "Stack overflow");
+		runtime_panic(module_record, STACK_OVERFLOW, "Stack overflow");
 		return false;
 	}
 
@@ -155,14 +155,14 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 
 #define panic_exit(current_module_record)                                                                              \
 	do {                                                                                                               \
-		runtime_panic((current_module_record), false, TYPE, "Only functions can be called.");                          \
+		runtime_panic((current_module_record), TYPE, "Only functions can be called.");                                 \
 		return false;                                                                                                  \
 	} while (0)
 
 #define check_native_arity(arg_count, native)                                                                          \
 	do {                                                                                                               \
 		if ((arg_count) != (native)->arity) {                                                                          \
-			runtime_panic(current_module_record, false, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",          \
+			runtime_panic(current_module_record, ARGUMENT_MISMATCH, "Expected %d argument(s), got %d",                 \
 						  (native)->arity, (arg_count));                                                               \
 			return false;                                                                                              \
 		}                                                                                                              \
@@ -180,6 +180,20 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 		check_native_arity(arg_count, native);
 
 		const Value *args = current_module_record->stack_top - arg_count;
+		for (int i = 0; i < arg_count; i++) {
+			if (!runtime_types_compatible(native->arg_types[i]->base_type, args[i])) {
+				char expected_name[128];
+				char actual_name[128];
+				type_mask_name(native->arg_types[i]->base_type, expected_name, sizeof(expected_name));
+				TypeMask actual_mask = get_type_mask(args[i]);
+				type_mask_name(actual_mask, actual_name, sizeof(actual_name));
+				runtime_panic(current_module_record, TYPE,
+							  "In %s() --- arg %d: expected "
+							  "%s, got %s",
+							  native->name->chars, i + 1, expected_name, actual_name);
+				return false;
+			}
+		}
 
 		const Value result_value = native->function(vm, args);
 
@@ -219,7 +233,7 @@ bool handle_invoke(VM *vm, const int arg_count, const Value receiver, const Valu
 
 #define undefined_method_return(current_module_record, name)                                                           \
 	do {                                                                                                               \
-		runtime_panic((current_module_record), false, NAME, "Undefined method '%s'.", (name)->chars);                  \
+		runtime_panic((current_module_record), NAME, "Undefined method '%s'.", (name)->chars);                         \
 		return false;                                                                                                  \
 	} while (0)
 
@@ -242,7 +256,7 @@ static bool handle_undefined_invoke(VM *vm, const ObjectString *name, int arg_co
 	(void)original;
 	(void)receiver;
 
-	runtime_panic(vm->current_module_record, false, TYPE, "Only instances have methods");
+	runtime_panic(vm->current_module_record, TYPE, "Only instances have methods");
 	return false;
 }
 
@@ -436,7 +450,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count)
 								arg_count + 1); // Store the original caller
 
 	if (!IS_CRUX_OBJECT(receiver)) {
-		runtime_panic(current_module_record, false, TYPE, "Only instances have methods");
+		runtime_panic(current_module_record, TYPE, "Only instances have methods");
 		return false;
 	}
 
@@ -519,7 +533,7 @@ bool concatenate(VM *vm)
 	char *chars = ALLOCATE(vm, char, length + 1);
 
 	if (chars == NULL) {
-		runtime_panic(current_module_record, false, MEMORY, "Could not allocate memory for concatenation.");
+		runtime_panic(current_module_record, MEMORY, "Could not allocate memory for concatenation.");
 		return false;
 	}
 
@@ -621,8 +635,11 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->slab_24 = init_slab_allocator(24, SLAB_CAPACITY);
 	vm->slab_32 = init_slab_allocator(32, SLAB_CAPACITY);
 	vm->slab_48 = init_slab_allocator(48, SLAB_CAPACITY);
+	vm->slab_64 = init_slab_allocator(64, SLAB_CAPACITY);
 
 	vm->gc_status = PAUSED;
+	vm->is_exiting = false;
+	vm->exit_code = 0;
 	vm->bytes_allocated = 0;
 	vm->next_gc = 1024 * 1024;
 	vm->gray_count = 0;
@@ -667,7 +684,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	initMatchHandler(&vm->match_handler);
 
 	if (!initialize_std_lib(vm)) {
-		runtime_panic(vm->current_module_record, true, RUNTIME, "Failed to initialize standard library.");
+		runtime_panic(vm->current_module_record, RUNTIME, "Failed to initialize standard library.");
 	}
 	vm->import_count = 0;
 
@@ -737,6 +754,7 @@ void free_vm(VM *vm)
 	destroy_slab_allocator(vm->slab_24);
 	destroy_slab_allocator(vm->slab_32);
 	destroy_slab_allocator(vm->slab_48);
+	destroy_slab_allocator(vm->slab_64);
 	free_object_pool(vm->object_pool);
 	free(vm->object_pool);
 
@@ -788,7 +806,7 @@ static bool int_multiply(ObjectModuleRecord *current_module_record, const int32_
 static bool int_divide(ObjectModuleRecord *current_module_record, const int32_t intA, const int32_t intB)
 {
 	if (intB == 0) {
-		runtime_panic(current_module_record, false, MATH, "Division by zero.");
+		runtime_panic(current_module_record, MATH, "Division by zero.");
 		return false;
 	}
 	pop_two(current_module_record);
@@ -799,7 +817,7 @@ static bool int_divide(ObjectModuleRecord *current_module_record, const int32_t 
 static bool int_int_divide(ObjectModuleRecord *current_module_record, const int32_t intA, const int32_t intB)
 {
 	if (intB == 0) {
-		runtime_panic(current_module_record, false, MATH, "Integer division by zero.");
+		runtime_panic(current_module_record, MATH, "Integer division by zero.");
 		return false;
 	}
 	// Edge case: INT32_MIN / -1 overflows int32_t
@@ -817,7 +835,7 @@ static bool int_int_divide(ObjectModuleRecord *current_module_record, const int3
 static bool int_modulus(ObjectModuleRecord *current_module_record, const int32_t intA, const int32_t intB)
 {
 	if (intB == 0) {
-		runtime_panic(current_module_record, false, MATH, "Modulo by zero.");
+		runtime_panic(current_module_record, MATH, "Modulo by zero.");
 		return false;
 	}
 
@@ -834,7 +852,7 @@ static bool int_modulus(ObjectModuleRecord *current_module_record, const int32_t
 static bool int_left_shift(ObjectModuleRecord *current_module_record, const int32_t intA, const int32_t intB)
 {
 	if (intB < 0 || intB >= 32) {
-		runtime_panic(current_module_record, false, RUNTIME, "Invalid shift amount (%d) for <<.", intB);
+		runtime_panic(current_module_record, RUNTIME, "Invalid shift amount (%d) for <<.", intB);
 		return false;
 	}
 	pop_two(current_module_record);
@@ -845,7 +863,7 @@ static bool int_left_shift(ObjectModuleRecord *current_module_record, const int3
 static bool int_right_shift(ObjectModuleRecord *current_module_record, const int32_t intA, const int32_t intB)
 {
 	if (intB < 0 || intB >= 32) {
-		runtime_panic(current_module_record, false, RUNTIME, "Invalid shift amount (%d) for >>.", intB);
+		runtime_panic(current_module_record, RUNTIME, "Invalid shift amount (%d) for >>.", intB);
 		return false;
 	}
 	pop_two(current_module_record);
@@ -913,7 +931,7 @@ static bool float_multiply(ObjectModuleRecord *current_module_record, const doub
 static bool float_divide(ObjectModuleRecord *current_module_record, const double doubleA, const double doubleB)
 {
 	if (doubleB == 0.0) {
-		runtime_panic(current_module_record, false, MATH, "Division by zero.");
+		runtime_panic(current_module_record, MATH, "Division by zero.");
 		return false;
 	}
 	pop_two(current_module_record);
@@ -960,7 +978,7 @@ static bool float_invalid_int_op(ObjectModuleRecord *current_module_record, doub
 {
 	(void)doubleA;
 	(void)doubleB;
-	runtime_panic(current_module_record, false, TYPE, "Operands for integer operation must both be integers.");
+	runtime_panic(current_module_record, TYPE, "Operands for integer operation must both be integers.");
 	return false;
 }
 
@@ -1052,7 +1070,7 @@ static InterpretResult int_compound_slash(ObjectModuleRecord *current_module_rec
 										  char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, false, MATH, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", name->chars, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	*resultValue = FLOAT_VAL((double)icurrent / (double)ioperand);
@@ -1063,7 +1081,7 @@ static InterpretResult int_compound_int_divide(ObjectModuleRecord *current_modul
 											   char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, false, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	if (icurrent == INT32_MIN && ioperand == -1) {
@@ -1078,7 +1096,7 @@ static InterpretResult int_compound_modulus(ObjectModuleRecord *current_module_r
 											char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, false, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	if (icurrent == INT32_MIN && ioperand == -1) {
@@ -1124,7 +1142,7 @@ static InterpretResult float_compound_slash(ObjectModuleRecord *current_module_r
 											char *operation, double dcurrent, double doperand, Value *resultValue)
 {
 	if (doperand == 0.0) {
-		runtime_panic(current_module_record, false, MATH, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", name->chars, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	*resultValue = FLOAT_VAL(dcurrent / doperand);
@@ -1140,7 +1158,7 @@ static InterpretResult float_compound_invalid_int_op(ObjectModuleRecord *current
 	(void)dcurrent;
 	(void)doperand;
 	(void)resultValue;
-	runtime_panic(current_module_record, false, TYPE,
+	runtime_panic(current_module_record, TYPE,
 				  "Operands for integer compound assignment '%s' must both "
 				  "be integers.",
 				  operation);
@@ -1185,9 +1203,9 @@ bool binary_operation(VM *vm, const OpCode operation)
 
 	if (!((aIsInt || aIsFloat) && (bIsInt || bIsFloat))) {
 		if (!(aIsInt || aIsFloat)) {
-			runtime_panic(current_module_record, false, TYPE, type_error_message(vm, a, "'int' or 'float'"));
+			runtime_panic(current_module_record, TYPE, type_error_message(vm, a, "'int' or 'float'"));
 		} else {
-			runtime_panic(current_module_record, false, TYPE, type_error_message(vm, b, "'int' or 'float'"));
+			runtime_panic(current_module_record, TYPE, type_error_message(vm, b, "'int' or 'float'"));
 		}
 		return false;
 	}
@@ -1198,8 +1216,7 @@ bool binary_operation(VM *vm, const OpCode operation)
 
 		if (operation >= (OpCode)(sizeof(int_binary_ops) / sizeof(int_binary_ops[0])) ||
 			int_binary_ops[operation] == NULL) {
-			runtime_panic(current_module_record, false, RUNTIME, "Unknown binary operation %d for int, int.",
-						  operation);
+			runtime_panic(current_module_record, RUNTIME, "Unknown binary operation %d for int, int.", operation);
 			return false;
 		}
 
@@ -1210,7 +1227,7 @@ bool binary_operation(VM *vm, const OpCode operation)
 
 	if (operation >= (OpCode)(sizeof(float_binary_ops) / sizeof(float_binary_ops[0])) ||
 		float_binary_ops[operation] == NULL) {
-		runtime_panic(current_module_record, false, RUNTIME, "Unknown binary operation %d for float/mixed.", operation);
+		runtime_panic(current_module_record, RUNTIME, "Unknown binary operation %d for float/mixed.", operation);
 		return false;
 	}
 
@@ -1223,8 +1240,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	Value currentValue;
 	if (!table_get(&current_module_record->globals, name, &currentValue)) {
-		runtime_panic(current_module_record, false, NAME, "Undefined variable '%s' for compound assignment.",
-					  name->chars);
+		runtime_panic(current_module_record, NAME, "Undefined variable '%s' for compound assignment.", name->chars);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
@@ -1237,12 +1253,12 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 
 	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
 		if (!(currentIsInt || currentIsFloat)) {
-			runtime_panic(current_module_record, false, TYPE,
+			runtime_panic(current_module_record, TYPE,
 						  "Variable '%s' is not a number for '%s' "
 						  "operator.",
 						  name->chars, operation);
 		} else {
-			runtime_panic(current_module_record, false, TYPE,
+			runtime_panic(current_module_record, TYPE,
 						  "Right-hand operand for '%s' must be an "
 						  "'int' or 'float'.",
 						  operation);
@@ -1258,7 +1274,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 
 		if (opcode >= (OpCode)(sizeof(int_compound_ops) / sizeof(int_compound_ops[0])) ||
 			int_compound_ops[opcode] == NULL) {
-			runtime_panic(current_module_record, false, RUNTIME,
+			runtime_panic(current_module_record, RUNTIME,
 						  "Unsupported compound assignment opcode "
 						  "%d for int/int.",
 						  opcode);
@@ -1276,7 +1292,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 
 		if (opcode >= (OpCode)(sizeof(float_compound_ops) / sizeof(float_compound_ops[0])) ||
 			float_compound_ops[opcode] == NULL) {
-			runtime_panic(current_module_record, false, RUNTIME,
+			runtime_panic(current_module_record, RUNTIME,
 						  "Unsupported compound assignment opcode "
 						  "%d for float/mixed.",
 						  opcode);
@@ -1345,23 +1361,29 @@ InterpretResult interpret(VM *vm, char *source)
  * @param result result from executing the function
  * @return
  */
-ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure, const int arg_count, InterpretResult *result)
+ObjectResult *execute_callable(VM *vm, const Value callable, const int arg_count, InterpretResult *result)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	const uint32_t currentFrameCount = current_module_record->frame_count;
 	ObjectResult *errorResult = new_error_result(vm, new_error(vm, copy_string(vm, "", 0), RUNTIME, true));
 
-	if (!call(current_module_record, closure, arg_count)) {
-		runtime_panic(current_module_record, false, RUNTIME, "Failed to execute function");
+	if (!call_value(vm, callable, arg_count)) {
 		*result = INTERPRET_RUNTIME_ERROR;
 		return errorResult;
 	}
 
-	*result = run(vm, true);
+	if (current_module_record->frame_count > currentFrameCount) {
+		*result = run(vm, true);
+		vm->current_module_record->frame_count = currentFrameCount;
+	} else {
+		*result = INTERPRET_OK;
+	}
 
-	vm->current_module_record->frame_count = currentFrameCount;
 	if (*result == INTERPRET_OK) {
 		const Value executionResult = PEEK(current_module_record, 0);
+		if (IS_CRUX_ERROR(executionResult)) {
+			return new_error_result(vm, AS_CRUX_ERROR(executionResult));
+		}
 		return new_ok_result(vm, executionResult);
 	}
 	return errorResult;
@@ -1394,7 +1416,7 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 	}
 
 	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
-		runtime_panic(currentModuleRecord, false, TYPE, "Operands must be numbers.");
+		runtime_panic(currentModuleRecord, TYPE, "Operands must be numbers.");
 		return false;
 	}
 
@@ -1429,7 +1451,7 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 		case OP_SET_UPVALUE_SLASH:
 		case OP_SET_GLOBAL_SLASH:
 			if (b == 0) {
-				runtime_panic(currentModuleRecord, false, MATH, "Division by zero.");
+				runtime_panic(currentModuleRecord, MATH, "Division by zero.");
 				return false;
 			}
 			result = FLOAT_VAL((double)a / (double)b);
@@ -1438,7 +1460,7 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 		case OP_SET_UPVALUE_INT_DIVIDE:
 		case OP_SET_GLOBAL_INT_DIVIDE:
 			if (b == 0) {
-				runtime_panic(currentModuleRecord, false, MATH, "Integer division by zero.");
+				runtime_panic(currentModuleRecord, MATH, "Integer division by zero.");
 				return false;
 			}
 			result = (a == INT32_MIN && b == -1) ? FLOAT_VAL(-(double)INT32_MIN) : INT_VAL(a / b);
@@ -1447,7 +1469,7 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 		case OP_SET_UPVALUE_MODULUS:
 		case OP_SET_GLOBAL_MODULUS:
 			if (b == 0) {
-				runtime_panic(currentModuleRecord, false, MATH, "Modulo by zero.");
+				runtime_panic(currentModuleRecord, MATH, "Modulo by zero.");
 				return false;
 			}
 			result = (a == INT32_MIN && b == -1) ? INT_VAL(0) : INT_VAL(a % b);
@@ -1480,13 +1502,13 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 		case OP_SET_UPVALUE_SLASH:
 		case OP_SET_GLOBAL_SLASH:
 			if (b == 0.0) {
-				runtime_panic(currentModuleRecord, false, MATH, "Division by zero.");
+				runtime_panic(currentModuleRecord, MATH, "Division by zero.");
 				return false;
 			}
 			result = FLOAT_VAL(a / b);
 			break;
 		default:
-			runtime_panic(currentModuleRecord, false, TYPE, "Integer operations require integer operands.");
+			runtime_panic(currentModuleRecord, TYPE, "Integer operations require integer operands.");
 			return false;
 		}
 	}

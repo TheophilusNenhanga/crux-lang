@@ -6,6 +6,7 @@
 #include "object.h"
 #include "panic.h"
 #include "slab_allocator.h"
+#include "vm.h"
 
 void *alloc_memory(VM *vm, const size_t size)
 {
@@ -19,6 +20,8 @@ void *alloc_memory(VM *vm, const size_t size)
 		slab = vm->slab_32;
 	} else if (size <= 48) {
 		slab = vm->slab_48;
+	} else if (size <= 64) {
+		slab = vm->slab_64;
 	}
 
 	if (!slab) {
@@ -34,8 +37,7 @@ void *alloc_memory(VM *vm, const size_t size)
 	// Allocate from slab
 	void *ptr = allocate_from_slab(slab);
 	if (!ptr) {
-		fprintf(stderr,
-			"Error: Failed to allocate memory from slab!\n");
+		fprintf(stderr, "Error: Failed to allocate memory from slab!\n");
 		return NULL;
 	}
 	return ptr;
@@ -44,8 +46,7 @@ void *alloc_memory(VM *vm, const size_t size)
 void free_memory(VM *vm, void *ptr, const size_t size)
 {
 	if (!ptr) {
-		fprintf(stderr,
-			"Error: NULL pointer given for memory to free.\n");
+		fprintf(stderr, "Error: NULL pointer given for memory to free.\n");
 		return;
 	}
 
@@ -72,22 +73,30 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	}
 	void *result = alloc_memory(vm, size);
 	if (result == NULL) {
-		runtime_panic(vm->current_module_record, true, MEMORY,
-			      "Failed to allocate %zu bytes.", size);
+		if (vm->current_module_record) {
+			runtime_panic(vm->current_module_record, MEMORY, "Failed to allocate %zu bytes.", size);
+		} else {
+			fprintf(stderr, "Fatal error - Out of Memory: Failed to allocate %zu bytes.\n", size);
+		}
+		vm->exit_code = 1;
 	}
 	return result;
 }
 
-void *allocate_object_without_gc(const size_t size)
+void *allocate_object_without_gc(VM *vm, const size_t size)
 {
 	void *result = malloc(size);
 	if (result == NULL) {
 		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to allocate %zu "
-			"bytes.\n"
-			"Exiting!",
-			size);
-		exit(1);
+				"Fatal error - Out of Memory: Failed to allocate %zu "
+				"bytes.\n",
+				size);
+		if (vm) {
+			vm->is_exiting = true;
+			vm->exit_code = 1;
+		} else {
+			exit(1);
+		}
 	}
 	return result;
 }
@@ -112,8 +121,7 @@ void free_slab_object(VM *vm, void *ptr, const size_t curr_size)
 	}
 }
 
-void *reallocate(VM *vm, void *pointer, const size_t oldSize,
-		 const size_t newSize)
+void *reallocate(VM *vm, void *pointer, const size_t oldSize, const size_t newSize)
 {
 	vm->bytes_allocated += newSize - oldSize;
 	if (newSize > oldSize) {
@@ -132,12 +140,10 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize,
 
 	void *result = realloc(pointer, newSize);
 	if (result == NULL) {
-		fprintf(stderr,
-			"Fatal error - Out of Memory: Failed to reallocate %zu "
-			"bytes.\n "
-			"Exiting!",
-			newSize);
-		exit(1);
+		fprintf(stderr, "Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n", newSize);
+		vm->is_exiting = true;
+		vm->exit_code = 1;
+		return NULL;
 	}
 
 	return result;

@@ -15,7 +15,7 @@ typedef struct ObjectTypeTable ObjectTypeTable;
 typedef struct SlabAllocator SlabAllocator;
 typedef struct Compiler Compiler;
 
-typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR } InterpretResult;
+typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR, INTERPRET_EXIT } InterpretResult;
 
 /**
  * An ongoing function call
@@ -81,6 +81,7 @@ struct VM {
 	SlabAllocator *slab_24;
 	SlabAllocator *slab_32;
 	SlabAllocator *slab_48;
+	SlabAllocator *slab_64;
 
 	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
@@ -117,6 +118,9 @@ struct VM {
 
 	GC_STATUS gc_status;
 
+	bool is_exiting;
+	int exit_code;
+
 	int import_count;
 	ObjectTypeTable *type_table;
 	Compiler *main_compiler;
@@ -125,7 +129,7 @@ struct VM {
 #define push(module_record, value)                                                                                     \
 	do {                                                                                                               \
 		if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
-			runtime_panic((module_record), true, STACK_OVERFLOW, "Stack overflow error");                              \
+			runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                              \
 		}                                                                                                              \
 		*(module_record)->stack_top++ = (value);                                                                       \
 	} while (0)
@@ -133,7 +137,7 @@ struct VM {
 #define pop(module_record)                                                                                             \
 	({                                                                                                                 \
 		if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
-			runtime_panic((module_record), true, RUNTIME, "Stack underflow error");                                    \
+			runtime_panic((module_record), RUNTIME, "Stack underflow error");                                    \
 		}                                                                                                              \
 		*--(module_record)->stack_top;                                                                                 \
 	})
@@ -165,7 +169,7 @@ void pop_import_stack(VM *vm);
 
 bool is_in_import_stack(const VM *vm, const ObjectString *path);
 
-ObjectResult *execute_user_function(VM *vm, ObjectClosure *closure, int arg_count, InterpretResult *result);
+ObjectResult *execute_callable(VM *vm, Value callable, int arg_count, InterpretResult *result);
 
 bool is_falsy(Value value);
 

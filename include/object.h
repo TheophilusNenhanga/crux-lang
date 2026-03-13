@@ -242,14 +242,14 @@ typedef struct {
 	ObjectTypeRecord *value;
 } TypeEntry;
 
-struct ObjectTypeTable {
+struct ObjectTypeTable { // 24
 	CruxObject object;
 	TypeEntry *entries;
 	int count;
 	int capacity;
 };
 
-struct ObjectTypeRecord {
+struct ObjectTypeRecord { // 40
 	CruxObject object;
 	TypeMask base_type;
 	union {
@@ -301,7 +301,7 @@ struct ObjectTypeRecord {
 
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct { // 64
+typedef struct { // 48
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
@@ -394,6 +394,7 @@ struct ObjectModuleRecord { // 120
 	bool is_repl;
 	bool is_main;
 	ModuleState state;
+	VM* owner;
 };
 
 typedef struct { // 40

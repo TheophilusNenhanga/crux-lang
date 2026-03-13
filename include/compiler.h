@@ -3,7 +3,6 @@
 
 #include "object.h"
 #include "scanner.h"
-#include "type_system.h"
 
 /**
  * @brief Parser state used during compilation.
