@@ -65,7 +65,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 
 #define REC(t) new_type_rec(SA, (t))
 #define ARR(elem) new_array_type_rec(SA, (elem))
-#define TUP(elem) new_tuple_type_rec(SA, (elem))
+#define TUP_ANY new_tuple_type_rec(SA, NULL, -1)
 #define TBL(k, v) new_table_type_rec(SA, (k), (v))
 #define RES(ok) new_result_type_rec(SA, (ok))
 #define SET_OF(elem) new_set_type_rec(SA, (elem))
@@ -106,7 +106,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define arr_flt ARR(t_flt)
 #define arr_num ARR(numeric)
 
-#define tup_any TUP(t_any)
+#define tup_any TUP_ANY
 #define set_any SET_OF(t_any)
 #define vec_any VEC(-1)
 #define mat_any MAT(-1, -1)

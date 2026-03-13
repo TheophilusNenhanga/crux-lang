@@ -272,7 +272,8 @@ struct ObjectTypeRecord {
 			int dimensions;
 		} vector_type;
 		struct {
-			ObjectTypeRecord *element_type;
+			ObjectTypeRecord **element_types;
+			int element_count;
 		} tuple_type;
 		struct {
 			int rows;

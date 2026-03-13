@@ -274,9 +274,26 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record = new_type_rec(compiler->owner, RANGE_TYPE);
 	} else if (match(compiler, TOKEN_TUPLE_TYPE)) {
 		if (match(compiler, TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(compiler->owner, TUPLE_TYPE);
-			type_record->as.tuple_type.element_type = parse_type_record(compiler);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element type.");
+			int param_capacity = 4;
+			int param_count = 0;
+			ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
+			if (!param_types) {
+				compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+				return T_ANY;
+			}
+			if (!check(compiler, TOKEN_RIGHT_SQUARE)) {
+				do {
+					if (param_count == param_capacity) {
+						int old_capacity = param_capacity;
+						param_capacity = GROW_CAPACITY(param_capacity);
+						param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_capacity, param_capacity);
+					}
+					param_types[param_count++] = parse_type_record(compiler);
+				} while (match(compiler, TOKEN_COMMA));
+			}
+			param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
+			type_record = new_tuple_type_rec(compiler->owner, param_types, param_count);
+			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element types.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for tuple type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
@@ -3387,8 +3404,18 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 static void type_coerce(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
-	pop_type_record(compiler);
+	ObjectTypeRecord *got_type = pop_type_record(compiler);
 	ObjectTypeRecord *type_record = parse_type_record(compiler);
+
+	if (got_type && type_record && got_type->base_type != ANY_TYPE && type_record->base_type != ANY_TYPE) {
+		if (!types_compatible(type_record, got_type) && !types_compatible(got_type, type_record)) {
+			char expected[128], got[128];
+			type_record_name(type_record, expected, sizeof(expected));
+			type_record_name(got_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "Invalid cast: cannot cast '%s' to '%s'.", got, expected);
+		}
+	}
+
 	push_type_record(compiler, type_record);
 	uint16_t type_const = make_constant(compiler, OBJECT_VAL(type_record));
 	emit_words(compiler, OP_TYPE_COERCE, type_const);

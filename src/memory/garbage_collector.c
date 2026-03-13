@@ -369,9 +369,12 @@ static void blacken_type_record(VM *vm, CruxObject *object)
 	case SET_TYPE:
 		mark_type_record(vm, rec->as.set_type.element_type);
 		break;
-	case TUPLE_TYPE:
-		mark_type_record(vm, rec->as.tuple_type.element_type);
+	case TUPLE_TYPE: {
+		for (int i = 0; i < rec->as.tuple_type.element_count; i++) {
+			mark_type_record(vm, rec->as.tuple_type.element_types[i]);
+		}
 		break;
+	}
 	case UNION_TYPE:
 		if (rec->as.union_type.element_types) {
 			for (int i = 0; i < rec->as.union_type.element_count; i++) {
