@@ -611,6 +611,8 @@ Token scan_token(Scanner *scanner)
 		return make_token(scanner, TOKEN_PIPE);
 	case '^':
 		return make_token(scanner, TOKEN_CARET);
+	case '~':
+		return make_token(scanner, TOKEN_TILDE);
 	default:;
 	}
 	return error_token(scanner, "Unexpected character.");

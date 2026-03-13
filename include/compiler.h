@@ -36,6 +36,7 @@ typedef enum {
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
 	PREC_CALL, // . () []
+	PREC_COERCE, // as
 	PREC_PRIMARY
 } Precedence;
 
