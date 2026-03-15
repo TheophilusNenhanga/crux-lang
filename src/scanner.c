@@ -114,7 +114,15 @@ static CruxTokenType identifier_type(Scanner *scanner)
 	switch (scanner->start[0]) {
 		// type annotations
 	case 'N': {
-		return check_keyword(scanner, 1, 2, "il", TOKEN_NIL_TYPE);
+		if (scanner->current - scanner->start > 1) {
+			switch (scanner->start[1]) {
+			case 'i':
+				return check_keyword(scanner, 2, 1, "l", TOKEN_NIL_TYPE);
+			case 'e':
+				return check_keyword(scanner, 2, 3, "ver", TOKEN_NEVER_TYPE);
+			}
+		}
+		break;
 	}
 	case 'B': {
 		if (scanner->current - scanner->start > 2) {
@@ -335,7 +343,8 @@ static CruxTokenType identifier_type(Scanner *scanner)
 					case 'p':
 						if (scanner->current - scanner->start > 3) {
 							if (scanner->start[3] == 'e') {
-								if (scanner->current - scanner->start == 4) return TOKEN_TYPE;
+								if (scanner->current - scanner->start == 4)
+									return TOKEN_TYPE;
 								return check_keyword(scanner, 4, 2, "of", TOKEN_TYPEOF);
 							}
 						}

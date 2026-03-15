@@ -1,8 +1,6 @@
 use Random from "crux:random";
 use Vec from "crux:vector";
-use _time_ms from "crux:time";
 use sqrt, min from "crux:math";
-use println from "crux:io";
 use open from "crux:fs";
 
 println("=== START OF RAY TRACER ===");
@@ -27,9 +25,13 @@ let VEC3_BLUE: Vector[3] = Vec(3, [0.5, 0.7, 1.0])?;
 
 struct Ray {
     origin: Vector[3],
-    direction: Vector[3],
-    at: (Float) -> Vector[3]
+    direction: Vector[3]
 }
+
+type Material = shape {
+    albedo: Vector[3],
+    fuzz: Float | Nil
+};
 
 struct HitRecord {
     p:          Vector[3],
@@ -39,16 +41,20 @@ struct HitRecord {
     material:   Material
 }
 
-struct Material {
-    scatter:    (Ray, HitRecord) -> Table[String, Any] | Nil,
+struct Metal {
     albedo:     Vector[3],
     fuzz:       Float | Nil
+}
+
+struct Lambertian {
+    albedo: Vector[3],
+    fuzz: Float | Nil
 }
 
 struct Sphere {
     center:         Vector[3],
     radius:         Float,
-    radius_squared: Float, // pre-calculated to avoid recomputing per ray
+    radius_squared: Float,
     material:       Material
 }
 
@@ -74,51 +80,30 @@ fn random_unit_vector() -> Vector[3] {
     return random_in_unit_sphere().normalize()?;
 }
 
-fn new_ray(origin: Vector[3], direction: Vector[3]) -> Ray {
-    return new Ray {
-        origin:    origin,
-        direction: direction,
-        at:        fn(t: Float) -> Vector[3] { return origin.add(direction.multiply(t)?)?; }
-    };
+impl Ray {
+    fn at(t: Float) -> Vector[3] {
+         return self.origin.add(self.direction.multiply(t)?)?;
+    }
 }
 
-fn new_sphere(center: Vector[3], radius: Float, material: Material) -> Sphere {
-    return new Sphere {
-        center:         center,
-        radius:         radius,
-        radius_squared: radius * radius,
-        material:       material
-    };
-}
-
-// albedo: Vec, fuzz: Float
-fn new_metal(albedo: Vector[3], fuzz: Float) -> Material {
-    let clamped_fuzz = min(fuzz, 1.0);
-
+impl Metal {
     fn scatter(ray_in: Ray, rec: HitRecord) -> Table[String, Any] | Nil {
         let reflected = reflect(ray_in.direction.normalize()?, rec.normal);
-        let scattered_ray = new_ray(
-            rec.p,
-            reflected.add(random_unit_vector().multiply(clamped_fuzz)?)?
-        );
+        let scattered_ray = new Ray{
+            origin: rec.p,
+            direction: reflected.add(random_unit_vector().multiply(self.fuzz)?)?
+        };
         if scattered_ray.direction.dot(rec.normal)? > 0.0 {
             return {
                 "scattered":   scattered_ray,
-                "attenuation": albedo
+                "attenuation": self.albedo
             };
         }
         return nil;
     }
-
-    return new Material {
-        scatter: scatter,
-        albedo:  albedo,
-        fuzz:    clamped_fuzz
-    };
 }
 
-// albedo: Vec
-fn new_lambertian(albedo: Vector[3]) -> Material {
+impl Lambertian {
     fn scatter(ray_in: Ray, rec: HitRecord) -> Table[String, Any] {
         let scatter_direction = rec.normal.add(random_unit_vector())?;
 
@@ -128,21 +113,11 @@ fn new_lambertian(albedo: Vector[3]) -> Material {
         }
 
         return {
-            "scattered":   new_ray(rec.p, scatter_direction),
-            "attenuation": albedo
+            "scattered":   new Ray {origin: rec.p, direction: scatter_direction},
+            "attenuation": self.albedo
         };
     }
-
-    return new Material {
-        scatter: scatter,
-        albedo:  albedo,
-        fuzz:    nil
-    };
 }
-
-// -------------------------------------------------------------------------
-// Intersection
-// -------------------------------------------------------------------------
 
 fn hit_sphere(sphere: Sphere, ray: Ray, t_min: Float, t_max: Float) -> Nil | HitRecord {
     let oc          = ray.origin.subtract(sphere.center)?;
@@ -228,19 +203,45 @@ fn ray_color(ray: Ray, depth: Float, world: Array[Sphere]) -> Vector[3] {
 }
 
 fn main() -> Nil {
-    println("Setting up scene...");
-
     let world: Array[Sphere] = [];
 
-    let ground   = new_lambertian(Vec(3, [0.5, 0.5, 0.5])?);
-    let material1 = new_lambertian(Vec(3, [0.7, 0.3, 0.3])?);
-    let material2 = new_metal(Vec(3, [0.8, 0.6, 0.2])?, 0.2);
-    let material3 = new_metal(Vec(3, [0.8, 0.8, 0.8])?, 0.0);
+    let ground = new Lambertian { albedo:Vec(3, [0.5, 0.5, 0.5])?, fuzz: nil };
+    let material1 = new Lambertian {albedo:Vec(3, [0.7, 0.3, 0.3])?, fuzz: nil };
+    let material2 = new Metal { albedo: Vec(3, [0.8, 0.6, 0.2])?, fuzz: 0.2};
+    let material3 = new Metal { albedo: Vec(3, [0.8, 0.8, 0.8])?, fuzz: 0.0};
 
-    world.push(new_sphere(Vec(3, [0.0,  -1000.0, -1.0])?, 1000.0, ground));
-    world.push(new_sphere(Vec(3, [0.0,     1.0,  0.0])?,    1.0,  material1));
-    world.push(new_sphere(Vec(3, [-4.0,    1.0,  0.0])?,    1.0,  material2));
-    world.push(new_sphere(Vec(3, [4.0,     1.0,  0.0])?,    1.0,  material3));
+    world.push(
+        new Sphere {
+            center:         Vec(3, [0.0,  -1000.0, -1.0])?,
+            radius:         1000.0,
+            radius_squared: 1000.0*1000.0,
+            material:       ground
+        }
+    );
+    world.push(
+        new Sphere {
+            center: Vec(3, [0.0,     1.0,  0.0])?,
+            radius: 1.0,
+            radius_squared:1.0,
+            material: material1
+        }
+    );
+    world.push(
+        new Sphere {
+            center: Vec(3, [-4.0,    1.0,  0.0])?,
+            radius: 1.0,
+            radius_squared:1.0,
+            material: material2
+        }
+    );
+    world.push(
+        new Sphere {
+            center: Vec(3, [4.0,     1.0,  0.0])?,
+            radius: 1.0,
+            radius_squared:1.0,
+            material: material3
+        }
+    );
 
     // Camera — positioned at (13,2,3) looking at the origin
     // with a fixed vertical field of view of ~20 degrees
@@ -268,9 +269,7 @@ fn main() -> Nil {
     println("Samples per pixel : " + string(SAMPLES_PER_PIXEL));
     println("Max ray depth     : " + string(MAX_DEPTH));
 
-    let start_time = _time_ms();
-
-    let file = open("render.ppm", "w")?;
+    let file = open("renders/rays.ppm", "w")?;
     file.write("P3\n");
     file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
     file.write("255\n");
@@ -292,7 +291,7 @@ fn main() -> Nil {
                     .add(vertical.multiply(vv)?)?
                     .subtract(camera_origin)?;
 
-                let r = new_ray(camera_origin, ray_dir);
+                let r = new Ray {origin:camera_origin, direction:ray_dir};
                 pixel_color = pixel_color.add(ray_color(r, MAX_DEPTH, world))?;
             }
 
@@ -304,12 +303,7 @@ fn main() -> Nil {
             file.write(string(ir) + " " + string(ig) + " " + string(ib) + "\n");
         }
     }
-
-    let elapsed = _time_ms() - start_time;
-    println("Done. Rendered in " + string(elapsed) + " ms");
     file.close();
 }
 
 main();
-
-println("=== END OF RAY TRACER ===");

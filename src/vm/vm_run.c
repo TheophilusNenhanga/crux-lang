@@ -1235,7 +1235,7 @@ OP_UNWRAP: {
 OP_PANIC: {
 	Value value = pop(currentModuleRecord);
 	ObjectString *message = to_string(vm, value);
-	runtime_panic(vm->current_module_record, RUNTIME, "Panic: %s", message->chars);
+	runtime_panic(vm->current_module_record, RUNTIME, "Panic --- %s", message->chars);
 	return INTERPRET_RUNTIME_ERROR;
 }
 

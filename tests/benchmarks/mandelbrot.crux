@@ -1,0 +1,108 @@
+use time_ms from "crux:time";
+use open from "crux:fs";
+use abs, sin, cos from "crux:math";
+use Complex from "crux:complex";
+
+let IMAGE_WIDTH = 1024;
+let IMAGE_HEIGHT = 1024;
+let MAX_ITERATIONS = 500; // Increase this to make it slower
+let ESCAPE_RADIUS = 4.0; // Usually 2^2
+
+// Define the view window in the complex plane
+let RE_START = -2.0;
+let RE_END = 1.0;
+let IM_START = -1.5;
+let IM_END = 1.5;
+
+// z = z*z + c
+// (r + yi)(r + yi) = r^2 - y^2 + 2ryi
+fn square_and_add(z: Complex, c: Complex) -> Complex | Nil {
+    let r = z.real();
+    let i = z.imag();
+
+    // Optimized calculation to minimize temporary variables
+    let r2 = r * r;
+    let i2 = i * i;
+
+    // Check if we can return early (optimization test)
+    if r2 + i2 > ESCAPE_RADIUS {
+        return nil; // Escaped
+    }
+
+    return Complex(r2 - i2 + c.real(), 2.0 * r * i + c.imag());
+}
+
+// Procedural palette generator using Sine waves
+// This is computationally expensive, good for benchmarking!
+fn get_color(t) {
+    // t is 0.0 to 1.0
+    // a, b, c, d are vectors for the cosine palette technique
+
+    let r_comp = 0.5 + 0.5 * cos(6.28318 * (1.0 * t + 0.00));
+    let g_comp = 0.5 + 0.5 * cos(6.28318 * (1.0 * t + 0.33));
+    let b_comp = 0.5 + 0.5 * cos(6.28318 * (1.0 * t + 0.67));
+
+    return {
+        "r": int(255.0 * r_comp)?,
+        "g": int(255.0 * g_comp)?,
+        "b": int(255.0 * b_comp)?
+    };
+}
+
+fn calculate_pixel(px, py) {
+    // Map pixel coordinates to Complex Plane
+    let x0 = RE_START + (px / IMAGE_WIDTH) * (RE_END - RE_START);
+    let y0 = IM_START + (py / IMAGE_HEIGHT) * (IM_END - IM_START);
+
+    let c: Complex = Complex(x0, y0);
+    let z: Complex = Complex(0.0, 0.0);
+
+    let iter = 0;
+
+    // The hot loop
+    while iter < MAX_ITERATIONS {
+        let result = square_and_add(z, c);
+
+        if result == nil {
+            break; // Escaped
+        }
+
+        z = result as Complex;
+        iter += 1;
+    }
+
+    if iter == MAX_ITERATIONS {
+        return { "r": 0, "g": 0, "b": 0 }; // Inside the set (Black)
+    }
+
+    // Smooth coloring requires Log, but we will use iteration mapping
+    // for this benchmark to test float division and trig functions.
+    let t = iter / MAX_ITERATIONS; // Normalize to 0.0 - 1.0
+    return get_color(t);
+}
+
+fn main() {
+    println("Generating Mandelbrot Set (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
+
+    let file_open_result = open("renders/mandelbrot.ppm", "w");
+    let file = file_open_result?;
+
+    file.write("P3\n");
+    file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
+    file.write("255\n");
+
+    for let y = 0; y < IMAGE_HEIGHT; y += 1 {
+        if y % 50 == 0 {
+             println("Processing row: " + string(y));
+        }
+
+        for let x = 0; x < IMAGE_WIDTH; x += 1 {
+            let color = calculate_pixel(x, y);
+            file.write(string(color["r"]) + " " + string(color["g"]) + " " + string(color["b"]) + "\n");
+        }
+    }
+
+    file.close();
+}
+
+main();

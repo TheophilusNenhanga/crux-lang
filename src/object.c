@@ -962,7 +962,7 @@ void free_object_table(VM *vm, ObjectTable *table)
 
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
 {
-	// TODO: Make this open files in non existant directories
+	// TODO: Make this open files in non existent directories
 	push(vm->current_module_record, OBJECT_VAL(path));
 	push(vm->current_module_record, OBJECT_VAL(mode));
 	ObjectFile *file = ALLOCATE_OBJECT(vm, ObjectFile, OBJECT_FILE);
