@@ -1,0 +1,460 @@
+use _time_ms from "crux:time";
+use Random from "crux:random";
+use sqrt, abs, floor from "crux:math";
+
+println("=== MATRIX + COMPLEX ARITHMETIC BENCHMARK ===");
+println("");
+
+let g_rng = Random();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 1 + 2 — Real Dense Matrices (row-major flat arrays)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let MAT_N        = 64;
+let MAT_MUL_RUNS = 25;
+let LU_RUNS      = 15;
+
+fn mat_idx(i, j) { return i * MAT_N + j; }
+
+fn mat_zero() {
+    let m = [];
+    for let i = 0; i < MAT_N * MAT_N; i += 1 { m.push(0.0); }
+    return m;
+}
+
+fn mat_rand() {
+    let m = [];
+    for let i = 0; i < MAT_N * MAT_N; i += 1 {
+        m.push(g_rng.float(-1.0, 1.0)?);
+    }
+    return m;
+}
+
+fn mat_copy(src) {
+    let dst = [];
+    for let i = 0; i < MAT_N * MAT_N; i += 1 { dst.push(src[i]); }
+    return dst;
+}
+
+fn mat_identity() {
+    let m = mat_zero();
+    for let i = 0; i < MAT_N; i += 1 { m[mat_idx(i, i)] = 1.0; }
+    return m;
+}
+
+// C = A * B — ikj loop order: A[i,k] is scalar-hoisted, B[k,j] access is sequential
+fn mat_mul(a, b) {
+    let c = mat_zero();
+    for let i = 0; i < MAT_N; i += 1 {
+        for let k = 0; k < MAT_N; k += 1 {
+            let aik = a[mat_idx(i, k)];
+            for let j = 0; j < MAT_N; j += 1 {
+                c[mat_idx(i, j)] = c[mat_idx(i, j)] + aik * b[mat_idx(k, j)];
+            }
+        }
+    }
+    return c;
+}
+
+fn mat_frobenius(m) {
+    let s = 0.0;
+    for let i = 0; i < MAT_N * MAT_N; i += 1 { s += m[i] * m[i]; }
+    return sqrt(s)?;
+}
+
+fn mat_trace(m) {
+    let t = 0.0;
+    for let i = 0; i < MAT_N; i += 1 { t += m[mat_idx(i, i)]; }
+    return t;
+}
+
+// LU decomposition with partial pivoting, in place.
+// L is stored in the lower triangle (unit diagonal implicit).
+// U is stored in the upper triangle.
+// Returns permutation sign for determinant.
+fn mat_lu_inplace(m) {
+    let sign = 1.0;
+    for let k = 0; k < MAT_N; k += 1 {
+        // Find pivot
+        let piv_val = abs(m[mat_idx(k, k)]);
+        let piv_row = k;
+        for let i = k + 1; i < MAT_N; i += 1 {
+            let v = abs(m[mat_idx(i, k)]);
+            if v > piv_val { piv_val = v; piv_row = i; }
+        }
+        // Swap rows k and piv_row
+        if piv_row != k {
+            for let j = 0; j < MAT_N; j += 1 {
+                let tmp               = m[mat_idx(k,       j)];
+                m[mat_idx(k,       j)] = m[mat_idx(piv_row, j)];
+                m[mat_idx(piv_row, j)] = tmp;
+            }
+            sign = -sign;
+        }
+        // Schur complement update
+        let pivot = m[mat_idx(k, k)];
+        if pivot != 0.0 {
+            for let i = k + 1; i < MAT_N; i += 1 {
+                let f = m[mat_idx(i, k)] / pivot;
+                m[mat_idx(i, k)] = f;
+                for let j = k + 1; j < MAT_N; j += 1 {
+                    m[mat_idx(i, j)] = m[mat_idx(i, j)] - f * m[mat_idx(k, j)];
+                }
+            }
+        }
+    }
+    return sign;
+}
+
+fn lu_determinant(lu, sign) {
+    let d = sign;
+    for let i = 0; i < MAT_N; i += 1 { d *= lu[mat_idx(i, i)]; }
+    return d;
+}
+
+// Ly = b  (L lower-triangular, unit diagonal)
+fn forward_sub(lu, b) {
+    let y = [];
+    for let i = 0; i < MAT_N; i += 1 { y.push(b[i]); }
+    for let i = 1; i < MAT_N; i += 1 {
+        let s = y[i];
+        for let j = 0; j < i; j += 1 { s -= lu[mat_idx(i, j)] * y[j]; }
+        y[i] = s;
+    }
+    return y;
+}
+
+// Ux = y  (U upper-triangular)
+fn back_sub(lu, y) {
+    let x = [];
+    for let i = 0; i < MAT_N; i += 1 { x.push(y[i]); }
+    let i = MAT_N - 1;
+    while i >= 0 {
+        let s = x[i];
+        for let j = i + 1; j < MAT_N; j += 1 { s -= lu[mat_idx(i, j)] * x[j]; }
+        let d = lu[mat_idx(i, i)];
+        if d != 0.0 { x[i] = s / d; }
+        i -= 1;
+    }
+    return x;
+}
+
+fn run_matrix_mul_benchmark() {
+    println("── Part 1: Dense Matrix Multiply  (" + string(MAT_N) + "×" + string(MAT_N) + ", " + string(MAT_MUL_RUNS) + " runs) ──");
+    let t0 = _time_ms();
+
+    let a  = mat_rand();
+    let b  = mat_rand();
+    let c  = mat_identity();
+
+    for let run = 0; run < MAT_MUL_RUNS; run += 1 {
+        c = mat_mul(a, b);
+        // Feed one result element back so the loop cannot be optimised away
+        a[0] = c[0] * 0.9999;
+    }
+
+    let elapsed = _time_ms() - t0;
+
+    // 2·N³ flops per multiply (N muls + N-1 adds per dot product, N² dot products)
+    let flops_per  = 2.0 * MAT_N * MAT_N * MAT_N;
+    let total_flops = flops_per * MAT_MUL_RUNS;
+    // elapsed is ms → convert to seconds for MFLOP/s
+    let mflops = total_flops / (elapsed * 1000.0);
+
+    println("  Frobenius norm : " + string(mat_frobenius(c)));
+    println("  Trace          : " + string(mat_trace(c)));
+    println("  Time           : " + string(elapsed) + " ms");
+    println("  Throughput     : " + string(mflops) + " MFLOP/s");
+    println("");
+}
+
+fn run_lu_benchmark() {
+    println("── Part 2: LU Decomposition + Linear Solve  (" + string(MAT_N) + "×" + string(MAT_N) + ", " + string(LU_RUNS) + " runs) ──");
+    let t0 = _time_ms();
+
+    let det_acc  = 0.0;
+    let sol_norm = 0.0;
+
+    for let run = 0; run < LU_RUNS; run += 1 {
+        let a = mat_rand();
+
+        // Random right-hand side
+        let b = [];
+        for let i = 0; i < MAT_N; i += 1 { b.push(g_rng.float(-1.0, 1.0)?); }
+
+        let lu   = mat_copy(a);
+        let sign = mat_lu_inplace(lu);
+        let det  = lu_determinant(lu, sign);
+        det_acc += det;
+
+        // Solve Ax = b
+        let y = forward_sub(lu, b);
+        let x = back_sub(lu, y);
+
+        // Accumulate ||x||² as checksum
+        for let i = 0; i < MAT_N; i += 1 { sol_norm += x[i] * x[i]; }
+    }
+
+    let elapsed = _time_ms() - t0;
+
+    // LU decomposition is ~(2/3)·N³ flops; solve is ~2·N²
+    let flops_lu    = (2.0 / 3.0) * MAT_N * MAT_N * MAT_N;
+    let flops_solve = 2.0 * MAT_N * MAT_N;
+    let total_flops  = (flops_lu + flops_solve) * LU_RUNS;
+    let mflops       = total_flops / (elapsed * 1000.0);
+
+    println("  Mean det (sanity check) : " + string(det_acc / LU_RUNS));
+    println("  Solution ‖x‖            : " + string(sqrt(sol_norm)?));
+    println("  Time                    : " + string(elapsed) + " ms");
+    println("  Throughput              : " + string(mflops) + " MFLOP/s");
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 3 + 4 — Complex Iteration Benchmarks (Mandelbrot & Julia)
+//
+// No allocation inside the inner loop — purely register-level float arithmetic.
+// We accumulate an integer histogram and a float checksum so nothing is DCE'd.
+// ─────────────────────────────────────────────────────────────────────────────
+
+let CX_W     = 800;
+let CX_H     = 600;
+let CX_ITERS = 512;
+
+// Escape-time for c = (cr + ci·i), starting from z = 0
+fn mandelbrot_count(cr, ci) {
+    let zr = 0.0;
+    let zi = 0.0;
+    let n  = 0;
+    while n < CX_ITERS {
+        let zr2 = zr * zr;
+        let zi2 = zi * zi;
+        if zr2 + zi2 > 4.0 { return n; }
+        let tmp = zr2 - zi2 + cr;
+        zi = 2.0 * zr * zi + ci;
+        zr = tmp;
+        n += 1;
+    }
+    return CX_ITERS;
+}
+
+// Escape-time for fixed c, starting from z = (zr + zi·i)
+fn julia_count(zr, zi, cr, ci) {
+    let n = 0;
+    while n < CX_ITERS {
+        let zr2 = zr * zr;
+        let zi2 = zi * zi;
+        if zr2 + zi2 > 4.0 { return n; }
+        let tmp = zr2 - zi2 + cr;
+        zi = 2.0 * zr * zi + ci;
+        zr = tmp;
+        n += 1;
+    }
+    return CX_ITERS;
+}
+
+fn run_mandelbrot_benchmark() {
+    println("── Part 3: Mandelbrot Set  (" + string(CX_W) + "×" + string(CX_H) + ", max " + string(CX_ITERS) + " iters/pixel) ──");
+
+    // Viewport: real ∈ [-2.5, 1.0], imag ∈ [-1.25, 1.25]
+    let re_min  = -2.5;
+    let re_span =  3.5;
+    let im_min  = -1.25;
+    let im_span =  2.5;
+
+    let inv_w = re_span / (CX_W - 1);
+    let inv_h = im_span / (CX_H - 1);
+
+    let t0          = _time_ms();
+    let total_iters = 0;
+    let escaped     = 0;
+    let checksum    = 0.0;
+
+    for let py = 0; py < CX_H; py += 1 {
+        let ci = im_min + py * inv_h;
+        for let px = 0; px < CX_W; px += 1 {
+            let cr = re_min + px * inv_w;
+            let n  = mandelbrot_count(cr, ci);
+            total_iters += n;
+            if n < CX_ITERS { escaped += 1; }
+            // Float checksum to avoid int32 overflow on large grids
+            checksum += n * 1.0;
+        }
+    }
+
+    let elapsed = _time_ms() - t0;
+    let pixels  = CX_W * CX_H;
+
+    println("  Pixels           : " + string(pixels));
+    println("  Escaped          : " + string(escaped));
+    println("  Interior         : " + string(pixels - escaped));
+    println("  Total iterations : " + string(total_iters));
+    println("  Checksum         : " + string(checksum));
+    println("  Time             : " + string(elapsed) + " ms");
+    println("  Mpix/s           : " + string((pixels * 1.0) / (elapsed * 1000.0)));
+    println("");
+}
+
+fn run_julia_benchmark() {
+    // c = -0.7269 + 0.1889i — a parameter that produces a rich, high-iteration set
+    let JCR = -0.7269;
+    let JCI =  0.1889;
+
+    println("── Part 4: Julia Set  (c = " + string(JCR) + " + " + string(JCI) + "i, " + string(CX_W) + "×" + string(CX_H) + ") ──");
+
+    let z_min   = -1.5;
+    let z_span  =  3.0;
+    let inv_w   = z_span / (CX_W - 1);
+    let inv_h   = z_span / (CX_H - 1);
+
+    let t0          = _time_ms();
+    let total_iters = 0;
+    let escaped     = 0;
+    let checksum    = 0.0;
+
+    for let py = 0; py < CX_H; py += 1 {
+        let zi = z_min + py * inv_h;
+        for let px = 0; px < CX_W; px += 1 {
+            let zr = z_min + px * inv_w;
+            let n  = julia_count(zr, zi, JCR, JCI);
+            total_iters += n;
+            if n < CX_ITERS { escaped += 1; }
+            checksum += n * 1.0;
+        }
+    }
+
+    let elapsed = _time_ms() - t0;
+    let pixels  = CX_W * CX_H;
+
+    println("  Escaped          : " + string(escaped));
+    println("  Total iterations : " + string(total_iters));
+    println("  Checksum         : " + string(checksum));
+    println("  Time             : " + string(elapsed) + " ms");
+    println("  Mpix/s           : " + string((pixels * 1.0) / (elapsed * 1000.0)));
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 5 — Complex Matrix Multiply
+//
+// Stored as two parallel float arrays (re[], im[]) inside a struct.
+// Each inner product requires 8 multiplies + 4 adds vs 2+1 for real.
+// On identical N, this is ~4× the flop count of the real matrix benchmark.
+// ─────────────────────────────────────────────────────────────────────────────
+
+let CM_N    = 32;
+let CM_RUNS = 20;
+
+struct CMatrix {
+    re: Array[Float],
+    im: Array[Float]
+}
+
+fn cm_idx(i, j) { return i * CM_N + j; }
+
+fn cm_rand() {
+    let re = []; let im = [];
+    for let i = 0; i < CM_N * CM_N; i += 1 {
+        re.push(g_rng.float(-1.0, 1.0)?);
+        im.push(g_rng.float(-1.0, 1.0)?);
+    }
+    return new CMatrix { re: re, im: im };
+}
+
+fn cm_zero() {
+    let re = []; let im = [];
+    for let i = 0; i < CM_N * CM_N; i += 1 { re.push(0.0); im.push(0.0); }
+    return new CMatrix { re: re, im: im };
+}
+
+// C = A * B  over ℂ
+// (ar + ai·i)(br + bi·i) = (ar·br − ai·bi) + (ar·bi + ai·br)·i
+fn cm_mul(a, b) {
+    let c = cm_zero();
+    for let i = 0; i < CM_N; i += 1 {
+        for let k = 0; k < CM_N; k += 1 {
+            let ar = a.re[cm_idx(i, k)];
+            let ai = a.im[cm_idx(i, k)];
+            for let j = 0; j < CM_N; j += 1 {
+                let br = b.re[cm_idx(k, j)];
+                let bi = b.im[cm_idx(k, j)];
+                c.re[cm_idx(i, j)] = c.re[cm_idx(i, j)] + ar * br - ai * bi;
+                c.im[cm_idx(i, j)] = c.im[cm_idx(i, j)] + ar * bi + ai * br;
+            }
+        }
+    }
+    return c;
+}
+
+// Frobenius norm:  √( Σ |a_ij|² )  where |a_ij|² = re² + im²
+fn cm_frobenius(m) {
+    let s = 0.0;
+    for let i = 0; i < CM_N * CM_N; i += 1 {
+        s += m.re[i] * m.re[i] + m.im[i] * m.im[i];
+    }
+    return sqrt(s)?;
+}
+
+// Trace:  Σ a_ii  (complex sum, report magnitude)
+fn cm_trace_mag(m) {
+    let tr = 0.0; let ti = 0.0;
+    for let i = 0; i < CM_N; i += 1 {
+        tr += m.re[cm_idx(i, i)];
+        ti += m.im[cm_idx(i, i)];
+    }
+    return sqrt(tr * tr + ti * ti)?;
+}
+
+fn run_complex_matrix_benchmark() {
+    println("── Part 5: Complex Matrix Multiply  (" + string(CM_N) + "×" + string(CM_N) + " ℂ, " + string(CM_RUNS) + " runs) ──");
+    let t0 = _time_ms();
+
+    let a = cm_rand();
+    let b = cm_rand();
+    let c = cm_zero();
+
+    for let run = 0; run < CM_RUNS; run += 1 {
+        c = cm_mul(a, b);
+        // Feed back to prevent dead-code elimination
+        a.re[0] = c.re[0] * 0.9999;
+        a.im[0] = c.im[0] * 0.9999;
+    }
+
+    let elapsed = _time_ms() - t0;
+
+    // Complex N×N multiply: N² dot products, each N complex muls (6 real muls, 2 adds)
+    // plus N complex adds (2 adds each).  Standard count: 8·N³ real flops.
+    let flops_per  = 8.0 * CM_N * CM_N * CM_N;
+    let total_flops = flops_per * CM_RUNS;
+    let mflops      = total_flops / (elapsed * 1000.0);
+
+    println("  Frobenius norm   : " + string(cm_frobenius(c)));
+    println("  |Trace|          : " + string(cm_trace_mag(c)));
+    println("  Time             : " + string(elapsed) + " ms");
+    println("  Throughput       : " + string(mflops) + " MFLOP/s");
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Driver
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn main() {
+    let t_start = _time_ms();
+
+    run_matrix_mul_benchmark();
+    run_lu_benchmark();
+    run_mandelbrot_benchmark();
+    run_julia_benchmark();
+    run_complex_matrix_benchmark();
+
+    let t_total = _time_ms() - t_start;
+
+    println("════════════════════════════════════════════════════");
+    println("Total wall time: " + string(t_total) + " ms");
+}
+
+main();
+println("");
+println("=== END OF BENCHMARK ===");

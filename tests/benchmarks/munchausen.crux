@@ -1,5 +1,4 @@
-use println from "crux:io";
-use _time_ms from "crux:time";
+
 
 let max = 440000000;
 
@@ -24,14 +23,11 @@ fn is_munchausen(number: Int) -> Bool {
 }
 
 fn main() -> Nil {
-    let start_time = _time_ms();
     for let i = 0; i < max; i += 1 {
         if is_munchausen(i) {
             println(i);
         }
     }
-    let end_time = _time_ms();
-    println("Time taken:" + string(end_time - start_time) + "ms");
 }
 
 main();

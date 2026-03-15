@@ -69,6 +69,8 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define TBL(k, v) new_table_type_rec(SA, (k), (v))
 #define RES(ok) new_result_type_rec(SA, (ok))
 #define SET_OF(elem) new_set_type_rec(SA, (elem))
+#define TABLE_OF(key, value) new_table_type_rec(SA, (key), (value))
+
 #define VEC(dim) new_vector_type_rec(SA, (dim))
 #define MAT(row, col) new_matrix_type_rec(SA, (row), (col))
 #define UNI(args, names, count) new_union_type_rec(SA, (args), (names), (count))
@@ -80,13 +82,13 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define t_flt REC(FLOAT_TYPE)
 #define t_str REC(STRING_TYPE)
 #define t_any REC(ANY_TYPE)
-#define t_tbl REC(TABLE_TYPE)
 #define t_err REC(ERROR_TYPE)
 #define t_rnd REC(RANDOM_TYPE)
 #define t_file REC(FILE_TYPE)
 #define t_cmpl REC(COMPLEX_TYPE)
 #define t_rang REC(RANGE_TYPE)
 #define t_buf REC(BUFFER_TYPE)
+#define t_never REC(NEVER_TYPE)
 
 #define hashable                                                                                                       \
 	UNI(ARGS(t_nil, t_int, t_flt, t_bool, t_str), NAMES(name_nil, name_int, name_float, name_bool, name_string), 5)
@@ -110,6 +112,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define set_any SET_OF(t_any)
 #define vec_any VEC(-1)
 #define mat_any MAT(-1, -1)
+#define tbl_any TABLE_OF(t_any, t_any)
 
 bool register_native_method(VM *vm, Table *method_table, const char *method_name, const CruxCallable method_function,
 							const int arity, ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
@@ -194,8 +197,8 @@ bool initialize_std_lib(VM *vm)
 								{"int", int_function, 1, ARGS(t_any), RES(t_int)},
 								{"float", float_function, 1, ARGS(t_any), RES(t_flt)},
 								{"string", string_function, 1, ARGS(t_any), t_str},
-								{"table", table_function, 1, ARGS(t_any), t_tbl},
-								{"array", array_function, 1, ARGS(t_any), arr_any},
+								{"table", table_function, 1, ARGS(t_any), tbl_any},
+								{"array", array_function, 1, ARGS(t_any), RES(arr_any)},
 								{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
 								{"println", io_println_function, 1, ARGS(t_any), t_nil}};
 
@@ -263,13 +266,13 @@ bool initialize_std_lib(VM *vm)
 	// Table methods
 	{
 		const Callable methods[] = {
-			{"values", table_values_method, 1, ARGS(t_tbl), arr_any},
-			{"keys", table_keys_method, 1, ARGS(t_tbl), arr_any},
-			{"pairs", table_pairs_method, 1, ARGS(t_tbl), arr_any},
-			{"remove", table_remove_method, 2, ARGS(t_tbl, hashable), res_any},
-			{"get", table_get_method, 2, ARGS(t_tbl, hashable), res_any},
-			{"has_key", table_has_key_method, 2, ARGS(t_tbl, hashable), t_bool},
-			{"get_or_else", table_get_or_else_method, 3, ARGS(t_tbl, hashable, t_any), t_any},
+			{"values", table_values_method, 1, ARGS(tbl_any), arr_any},
+			{"keys", table_keys_method, 1, ARGS(tbl_any), arr_any},
+			{"pairs", table_pairs_method, 1, ARGS(tbl_any), arr_any},
+			{"remove", table_remove_method, 2, ARGS(tbl_any, hashable), res_any},
+			{"get", table_get_method, 2, ARGS(tbl_any, hashable), res_any},
+			{"has_key", table_has_key_method, 2, ARGS(tbl_any, hashable), t_bool},
+			{"get_or_else", table_get_or_else_method, 3, ARGS(tbl_any, hashable, t_any), t_any},
 		};
 		init_type_method_table(vm, &vm->table_type, methods, ARRAY_COUNT(methods));
 	}
@@ -286,7 +289,7 @@ bool initialize_std_lib(VM *vm)
 	// Result methods
 	{
 		const Callable methods[] = {
-			{"_unwrap", unwrap_function, 1, ARGS(res_any), t_any},
+			{"unwrap", unwrap_function, 1, ARGS(res_any), t_any},
 		};
 		init_type_method_table(vm, &vm->result_type, methods, ARRAY_COUNT(methods));
 	}
@@ -579,16 +582,16 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"sleep_s", sleep_seconds_function, 1, ARGS(numeric), t_nil},
 			{"sleep_ms", sleep_milliseconds_function, 1, ARGS(numeric), t_nil},
-			{"_time_s", time_seconds_function_, 0, ARGS0, t_flt},
-			{"_time_ms", time_milliseconds_function_, 0, ARGS0, t_flt},
-			{"_year", year_function_, 0, ARGS0, t_int},
-			{"_month", month_function_, 0, ARGS0, t_int},
-			{"_day", day_function_, 0, ARGS0, t_int},
-			{"_hour", hour_function_, 0, ARGS0, t_int},
-			{"_minute", minute_function_, 0, ARGS0, t_int},
-			{"_second", second_function_, 0, ARGS0, t_int},
-			{"_weekday", weekday_function_, 0, ARGS0, t_int},
-			{"_day_of_year", day_of_year_function_, 0, ARGS0, t_int},
+			{"time_s", time_seconds_function_, 0, ARGS0, t_flt},
+			{"time_ms", time_milliseconds_function_, 0, ARGS0, t_flt},
+			{"year", year_function_, 0, ARGS0, t_int},
+			{"month", month_function_, 0, ARGS0, t_int},
+			{"day", day_function_, 0, ARGS0, t_int},
+			{"hour", hour_function_, 0, ARGS0, t_int},
+			{"minute", minute_function_, 0, ARGS0, t_int},
+			{"second", second_function_, 0, ARGS0, t_int},
+			{"weekday", weekday_function_, 0, ARGS0, t_int},
+			{"day_of_year", day_of_year_function_, 0, ARGS0, t_int},
 		};
 		if (!init_module(vm, "time", fns, ARRAY_COUNT(fns)))
 			return false;
@@ -598,9 +601,9 @@ bool initialize_std_lib(VM *vm)
 	{
 		const Callable fns[] = {
 			{"args", args_function, 0, ARGS0, arr_str},		  {"get_env", get_env_function, 1, ARGS(t_str), res_str},
-			{"sleep", sleep_function, 1, ARGS(t_int), t_nil}, {"_platform", platform_function, 0, ARGS0, t_str},
-			{"_arch", arch_function, 0, ARGS0, t_str},		  {"_pid", pid_function, 0, ARGS0, t_int},
-			{"exit", exit_function, 1, ARGS(t_int), t_nil},
+			{"sleep", sleep_function, 1, ARGS(t_int), t_nil}, {"platform", platform_function, 0, ARGS0, t_str},
+			{"arch", arch_function, 0, ARGS0, t_str},		  {"pid", pid_function, 0, ARGS0, t_int},
+			{"exit", exit_function, 1, ARGS(t_int), t_never},
 		};
 		if (!init_module(vm, "sys", fns, ARRAY_COUNT(fns)))
 			return false;

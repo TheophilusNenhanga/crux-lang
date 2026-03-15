@@ -1,5 +1,4 @@
-use println from "crux:io";
-use _time_ms from "crux:time";
+use time_ms from "crux:time";
 use open from "crux:fs";
 use floor, abs from "crux:math";
 use Random from "crux:random";
@@ -172,9 +171,9 @@ fn main() -> Nil {
     init_permutation();
 
     println("Generating Terrain (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
-    let start_time = _time_ms();
+    let start_time = time_ms();
 
-    let file: File = open("terrain.ppm", "w")?;
+    let file: File = open("renders/terrain.ppm", "w")?;
 
     file.write("P3\n");
     file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
@@ -196,7 +195,7 @@ fn main() -> Nil {
         }
     }
 
-    let end_time = _time_ms();
+    let end_time = time_ms();
     println("Terrain generated in " + string(end_time - start_time) + " ms");
     file.close();
 }

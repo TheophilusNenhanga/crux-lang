@@ -1,0 +1,376 @@
+use _time_ms from "crux:time";
+use Random from "crux:random";
+
+println("=== STRING PROCESSING BENCHMARK ===");
+println("");
+
+let g_rng = Random();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+let ALPHA     = "abcdefghijklmnopqrstuvwxyz";
+let ALPHA_LEN = 26;
+
+fn rand_char() {
+    let i = int(g_rng.float(0.0, ALPHA_LEN)?)?;
+    return ALPHA[i];
+}
+
+// Build a random lowercase string of exactly n chars.
+// Deliberately uses naive concatenation — this IS the thing being measured
+// in Part 1.  Parts 2–5 call this once for setup, outside timed sections.
+fn rand_string(n) {
+    let s = "";
+    for let i = 0; i < n; i += 1 { s = s + rand_char(); }
+    return s;
+}
+
+fn is_digit_char(c) {
+    return c=="0" or c=="1" or c=="2" or c=="3" or c=="4"
+        or c=="5" or c=="6" or c=="7" or c=="8" or c=="9";
+}
+
+fn char_to_digit(c) {
+    if c=="0" { return 0; } if c=="1" { return 1; } if c=="2" { return 2; }
+    if c=="3" { return 3; } if c=="4" { return 4; } if c=="5" { return 5; }
+    if c=="6" { return 6; } if c=="7" { return 7; } if c=="8" { return 8; }
+    return 9;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 1 — Concatenation Growth Curve
+//
+// Appends one character at a time to a growing string, for increasing N.
+// If strings are immutable value types (copy-on-write or naive copy),
+// cost grows as O(n²).  A rope or builder representation would be O(n).
+// Plotting time vs N directly reveals which you have.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn run_concat_benchmark() {
+    println("── Part 1: Concatenation Growth ──────────────────────────────");
+
+    let sizes = [100, 250, 500, 1000, 2000, 4000, 8000];
+
+    for let si = 0; si < len(sizes); si += 1 {
+        let n  = sizes[si];
+        let t0 = _time_ms();
+        let s  = "";
+        for let i = 0; i < n; i += 1 { s = s + rand_char(); }
+        let elapsed = _time_ms() - t0;
+        // Checksum: use final length so the string can't be DCE'd
+        println("  n=" + string(n) + "  len=" + string(len(s)) + "  time=" + string(elapsed) + " ms");
+    }
+
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 2 — Substring Search: Naive vs KMP
+//
+// Finds ALL occurrences of a needle in a haystack.
+// Naive: O(n·m) worst case — many failed comparisons per window.
+// KMP:   O(n+m) — never re-examines a character.
+// Both run on an identical haystack so results are directly comparable.
+// The needle is extracted from the haystack itself, guaranteeing ≥1 match.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn naive_search_all(haystack, needle) {
+    let hn    = len(haystack);
+    let nn    = len(needle);
+    let count = 0;
+    let i     = 0;
+    while i <= hn - nn {
+        let ok = true;
+        let j  = 0;
+        while j < nn and ok {
+            if haystack[i + j] != needle[j] { ok = false; }
+            j += 1;
+        }
+        if ok { count += 1; i += nn; }
+        else  { i += 1; }
+    }
+    return count;
+}
+
+fn kmp_build_table(pattern) {
+    let m    = len(pattern);
+    let fail = [];
+    fail.push(0);
+    let k = 0;
+    for let i = 1; i < m; i += 1 {
+        while k > 0 and pattern[k] != pattern[i] { k = fail[k - 1]; }
+        if pattern[k] == pattern[i] { k += 1; }
+        fail.push(k);
+    }
+    return fail;
+}
+
+fn kmp_search_all(haystack, needle, fail) {
+    let n     = len(haystack);
+    let m     = len(needle);
+    let count = 0;
+    let q     = 0;
+    for let i = 0; i < n; i += 1 {
+        while q > 0 and needle[q] != haystack[i] { q = fail[q - 1]; }
+        if needle[q] == haystack[i] { q += 1; }
+        if q == m {
+            count += 1;
+            q = fail[q - 1];
+        }
+    }
+    return count;
+}
+
+fn run_search_benchmark() {
+    println("── Part 2: Substring Search — Naive vs KMP ───────────────────");
+
+    let HAYSTACK_LEN = 8000;
+    let NEEDLE_LEN   = 5;
+    let RUNS         = 40;
+
+    println("  Building " + string(HAYSTACK_LEN) + "-char haystack...");
+    let haystack = rand_string(HAYSTACK_LEN);
+
+    // Pull a real substring out of the haystack so we know it appears at least once
+    let ns  = int(g_rng.float(0.0, HAYSTACK_LEN - NEEDLE_LEN)?)?;
+    let needle = "";
+    for let i = 0; i < NEEDLE_LEN; i += 1 { needle = needle + haystack[ns + i]; }
+    println("  Needle : \"" + needle + "\"");
+
+    let fail = kmp_build_table(needle);
+
+    // Correctness check
+    let naive_count = naive_search_all(haystack, needle);
+    let kmp_count   = kmp_search_all(haystack, needle, fail);
+    println("  Matches (naive) : " + string(naive_count));
+    println("  Matches (KMP)   : " + string(kmp_count));
+    println("  Agreement       : " + string(naive_count == kmp_count));
+
+    let t0 = _time_ms();
+    for let r = 0; r < RUNS; r += 1 { naive_search_all(haystack, needle); }
+    let naive_ms = _time_ms() - t0;
+
+    let t1 = _time_ms();
+    for let r = 0; r < RUNS; r += 1 { kmp_search_all(haystack, needle, fail); }
+    let kmp_ms = _time_ms() - t1;
+
+    println("  Naive ×" + string(RUNS) + " : " + string(naive_ms) + " ms");
+    println("  KMP   ×" + string(RUNS) + " : " + string(kmp_ms) + " ms");
+    if kmp_ms > 0 {
+        println("  Speedup  : " + string(naive_ms / kmp_ms) + "×");
+    }
+
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 3 — CSV Generation and Parsing
+//
+// Generation: char-by-char string building, many short concatenations.
+//             This is the worst case for naive string storage — timed separately
+//             so you can see generation cost vs. parse cost.
+// Parsing:    Single linear scan, branch-heavy (delimiter detection at every
+//             character), many small field-string allocations.
+//             This is the pattern real text-processing code runs constantly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn generate_csv(rows, cols) {
+    let s = "";
+    for let r = 0; r < rows; r += 1 {
+        for let c = 0; c < cols; c += 1 {
+            let field_len = 3 + int(g_rng.float(0.0, 6.0)?)?;
+            for let k = 0; k < field_len; k += 1 { s = s + rand_char(); }
+            if c < cols - 1 { s = s + ","; }
+        }
+        s = s + "\n";
+    }
+    return s;
+}
+
+fn parse_csv(src) {
+    let field_count = 0;
+    let total_chars = 0;
+    let n           = len(src);
+    let i           = 0;
+
+    while i < n {
+        // Accumulate one field
+        let field = "";
+        while i < n and src[i] != "," and src[i] != "\n" {
+            field = field + src[i];
+            i += 1;
+        }
+        total_chars  += len(field);
+        field_count  += 1;
+        if i < n { i += 1; }   // skip delimiter
+    }
+
+    return { "fields": field_count, "chars": total_chars };
+}
+
+fn run_csv_benchmark() {
+    println("── Part 3: CSV Generation + Parsing ──────────────────────────");
+
+    let ROWS       = 200;
+    let COLS       = 6;
+    let PARSE_RUNS = 10;
+
+    println("  Generating " + string(ROWS) + " rows × " + string(COLS) + " cols...");
+    let tg  = _time_ms();
+    let csv = generate_csv(ROWS, COLS);
+    let gen_ms = _time_ms() - tg;
+    println("  CSV length     : " + string(len(csv)) + " chars  (generated in " + string(gen_ms) + " ms)");
+
+    let tp     = _time_ms();
+    let result = { "fields": 0, "chars": 0 };
+    for let r = 0; r < PARSE_RUNS; r += 1 { result = parse_csv(csv); }
+    let parse_ms = _time_ms() - tp;
+
+    println("  Fields parsed  : " + string(result["fields"]));
+    println("  Content chars  : " + string(result["chars"]));
+    println("  Parse ×" + string(PARSE_RUNS) + "      : " + string(parse_ms) + " ms");
+    println("  Avg per parse  : " + string(parse_ms / PARSE_RUNS) + " ms");
+
+    println("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 4 — Run-Length Encoding / Decoding
+//
+// Encoder: linear read, writes "Nc" pairs — tests short string allocation rate.
+// Decoder: reads digit sequences, reconstructs runs — tests numeric parsing
+//          embedded in a character scan, plus repeated single-char appends.
+//
+// The source string uses a 70/30 run-continuation probability so it compresses
+// well and produces a non-trivial encoded length, stressing both directions.
+//
+// Roundtrip correctness is verified before timing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn rand_run_string(n) {
+    let s   = "";
+    let cur = rand_char();
+    for let i = 0; i < n; i += 1 {
+        if g_rng.float(0.0, 1.0)? < 0.3 { cur = rand_char(); }
+        s = s + cur;
+    }
+    return s;
+}
+
+fn rle_encode(s) {
+    let n = len(s);
+    if n == 0 { return ""; }
+    let out   = "";
+    let cur   = s[0];
+    let count = 1;
+    for let i = 1; i < n; i += 1 {
+        if s[i] == cur {
+            count += 1;
+        } else {
+            out   = out + string(count) + cur;
+            cur   = s[i];
+            count = 1;
+        }
+    }
+    return out + string(count) + cur;
+}
+
+fn rle_decode(s) {
+    let n   = len(s);
+    let out = "";
+    let i   = 0;
+    while i < n {
+        let num       = 0;
+        let has_digit = false;
+        while i < n and is_digit_char(s[i]) {
+            num       = num * 10 + char_to_digit(s[i]);
+            has_digit = true;
+            i += 1;
+        }
+        if has_digit and i < n {
+            let ch = s[i];
+            i += 1;
+            for let j = 0; j < num; j += 1 { out = out + ch; }
+        } else {
+            i += 1;
+        }
+    }
+    return out;
+}
+
+fn run_rle_benchmark() {
+    println("── Part 4: Run-Length Encoding + Decoding ─────────────────────");
+
+    let SRC_LEN = 3000;
+    let RUNS    = 25;
+
+    println("  Generating " + string(SRC_LEN) + "-char run-heavy string...");
+    let src     = rand_run_string(SRC_LEN);
+    let encoded = rle_encode(src);
+    let decoded = rle_decode(encoded);
+
+    println("  Original length  : " + string(len(src)));
+    println("  Encoded length   : " + string(len(encoded)));
+    println("  Compression      : " + string(len(encoded) * 100 / len(src)) + "%");
+    println("  Roundtrip OK     : " + string(len(decoded) == len(src)));
+
+    let te = _time_ms();
+    for let r = 0; r < RUNS; r += 1 { rle_encode(src); }
+    let enc_ms = _time_ms() - te;
+
+    let td = _time_ms();
+    for let r = 0; r < RUNS; r += 1 { rle_decode(encoded); }
+    let dec_ms = _time_ms() - td;
+
+    println("  Encode ×" + string(RUNS) + "      : " + string(enc_ms) + " ms");
+    println("  Decode ×" + string(RUNS) + "      : " + string(dec_ms) + " ms");
+    println("  Encode avg       : " + string(enc_ms / RUNS) + " ms");
+    println("  Decode avg       : " + string(dec_ms / RUNS) + " ms");
+
+    println("");
+}
+
+fn rand_word() {
+    let i = int(g_rng.float(0.0, len(VOCAB))?)?;
+    return VOCAB[i];
+}
+
+fn generate_document(word_count) {
+    let s = "";
+    for let i = 0; i < word_count; i += 1 {
+        if i > 0 { s = s + " "; }
+        s = s + rand_word();
+    }
+    return s;
+}
+
+fn split_words(s) {
+    let words = [];
+    let n     = len(s);
+    let i     = 0;
+    while i < n {
+        while i < n and s[i] == " " { i += 1; }
+        let w = "";
+        while i < n and s[i] != " " { w = w + s[i]; i += 1; }
+        if len(w) > 0 { words.push(w); }
+    }
+    return words;
+}
+
+fn main() {
+    let t_start = _time_ms();
+
+    run_concat_benchmark();
+    run_search_benchmark();
+    run_csv_benchmark();
+    run_rle_benchmark();
+
+    let total = _time_ms() - t_start;
+    println("════════════════════════════════════════════════════");
+    println("Total wall time: " + string(total) + " ms");
+}
+
+main();
+println("=== END OF STRING PROCESSING BENCHMARK ===");

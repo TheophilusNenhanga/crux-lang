@@ -91,9 +91,11 @@ typedef uint32_t TypeMask;
 #define SHAPE_TYPE (1u << 21)
 #define UNION_TYPE (1u << 22)
 
+#define NEVER_TYPE (1u << 30)
+#define ANY_TYPE (1u << 31)
+
 #define NUMERIC_TYPE (INT_TYPE | FLOAT_TYPE)
 #define HASHABLE_TYPE (STRING_TYPE | INT_TYPE | FLOAT_TYPE | NIL_TYPE | BOOL_TYPE)
-#define ANY_TYPE (0xFFFFFFFFu)
 
 /**
  * @brief Compares two values for equality

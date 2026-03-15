@@ -112,6 +112,7 @@ typedef enum {
 	TOKEN_BUFFER_TYPE, // Buffer
 	TOKEN_RANGE_TYPE, // Range
 	TOKEN_ANY_TYPE, // Any
+	TOKEN_NEVER_TYPE, // Never
 } CruxTokenType;
 
 typedef struct {

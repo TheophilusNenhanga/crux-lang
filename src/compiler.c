@@ -690,6 +690,19 @@ static void cleanupLocalsToDepth(Compiler *compiler, const int targetDepth)
 	}
 }
 
+static void emit_cleanup_for_jump(Compiler *compiler, const int targetDepth)
+{
+	int i = compiler->local_count - 1;
+	while (i >= 0 && compiler->locals[i].depth > targetDepth) {
+		if (compiler->locals[i].is_captured) {
+			emit_word(compiler, OP_CLOSE_UPVALUE);
+		} else {
+			emit_word(compiler, OP_POP);
+		}
+		i--;
+	}
+}
+
 /**
  * Ends the current scope.
  * Decreases the scope depth and emits OP_POP instructions to remove local
@@ -1273,15 +1286,11 @@ static void binary(Compiler *compiler, bool can_assign)
 	case TOKEN_LESS:
 	case TOKEN_LESS_EQUAL: {
 		if (!either_any) {
-			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
-			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
-			const bool both_str = left_type->base_type == STRING_TYPE && right_type->base_type == STRING_TYPE;
+			const bool left_num = is_numeric_type(left_type);
+			const bool right_num = is_numeric_type(right_type);
 
-			if (!((left_num && right_num) || both_str)) {
-				compiler_panic(compiler->parser,
-							   "Comparison operator requires numeric "
-							   "or String operands.",
-							   TYPE);
+			if (!(left_num && right_num)) {
+				compiler_panic(compiler->parser, "Comparison operator requires numeric operands.", TYPE);
 			}
 		}
 
@@ -2627,6 +2636,7 @@ static void return_statement(Compiler *compiler)
 		}
 		emit_word(compiler, OP_RETURN);
 	}
+	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
 }
 
 static void import_statement(Compiler *compiler, bool is_dynamic)
@@ -3167,8 +3177,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 		if (!this_arm_type)
 			this_arm_type = new_type_rec(compiler->owner, ANY_TYPE);
 
-		if (arm_type == NULL) {
+		if (arm_type == NULL || arm_type->base_type == NEVER_TYPE) {
 			arm_type = this_arm_type;
+		} else if (this_arm_type->base_type == NEVER_TYPE) {
+			// This arm produces never, so it doesn't affect the overall type.
 		} else if (arm_type->base_type != ANY_TYPE && this_arm_type->base_type != ANY_TYPE) {
 			if (!types_compatible(arm_type, this_arm_type)) {
 				char expected[128], got[128];
@@ -3235,8 +3247,9 @@ static void continue_statement(Compiler *compiler)
 		return;
 	}
 	const LoopContext *loopContext = &compiler->loop_stack[compiler->loop_depth - 1];
-	cleanupLocalsToDepth(compiler, loopContext->scope_depth);
+	emit_cleanup_for_jump(compiler, loopContext->scope_depth);
 	emit_loop(compiler, continueTarget);
+	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
 }
 
 static void break_statement(Compiler *compiler)
@@ -3247,8 +3260,9 @@ static void break_statement(Compiler *compiler)
 		return;
 	}
 	const LoopContext *loopContext = &compiler->loop_stack[compiler->loop_depth - 1];
-	cleanupLocalsToDepth(compiler, loopContext->scope_depth);
+	emit_cleanup_for_jump(compiler, loopContext->scope_depth);
 	add_break_jump(compiler, emit_jump(compiler, OP_JUMP));
+	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
 }
 
 static void panic_statement(Compiler *compiler)
@@ -3261,9 +3275,10 @@ static void panic_statement(Compiler *compiler)
 		type_record_name(type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "'panic' requires a 'String', got '%s'.", got);
 	}
-
 	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after 'panic'.");
 	emit_word(compiler, OP_PANIC);
+
+	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
 }
 
 static void type_declaration(Compiler *compiler, bool is_public)

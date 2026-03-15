@@ -410,6 +410,8 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 
 	if (expected->base_type == ANY_TYPE)
 		return true;
+	if (got->base_type == NEVER_TYPE)
+		return true;
 
 	if (got->base_type == ANY_TYPE)
 		return true;
@@ -711,4 +713,21 @@ ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRec
 
 	ObjectTypeRecord *res = new_union_type_rec(vm, keep_types, NULL, keep_count);
 	return res;
+}
+
+bool is_numeric_type(ObjectTypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (type->base_type == INT_TYPE || type->base_type == FLOAT_TYPE)
+		return true;
+	if (type->base_type == UNION_TYPE) {
+		for (int i = 0; i < type->as.union_type.element_count; i++) {
+			if (!is_numeric_type(type->as.union_type.element_types[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
 }
