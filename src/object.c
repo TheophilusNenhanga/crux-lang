@@ -608,7 +608,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		fprintf(stream, "Vec%d(", vector->dimensions);
+		fprintf(stream, "Vec(%d)[", vector->dimensions);
 		const double *comp = VECTOR_COMPONENTS(vector);
 		for (uint32_t i = 0; i < vector->dimensions; i++) {
 			fprintf(stream, "%.17g", comp[i]);
@@ -616,12 +616,29 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 				fprintf(stream, ", ");
 			}
 		}
-		fprintf(stream, ")");
+		fprintf(stream, "]");
 		break;
 	}
 	case OBJECT_MATRIX: {
 		const ObjectMatrix *mat = AS_CRUX_MATRIX(value);
-		fprintf(stream, "Matrix(%ux%u)", mat->row_dim, mat->col_dim);
+		fprintf(stream, "Matrix(%ux%u)\n", mat->row_dim, mat->col_dim);
+		for (uint16_t i = 0; i < mat->col_dim; i++) {
+			for (uint16_t j = 0; j < mat->row_dim; j++) {
+				if (j == 0) {
+					fprintf(stream, "| ");
+				}
+				fprintf(stream, "%.17g", mat->data[i * mat->row_dim + j]);
+				if (j != mat->row_dim - 1) {
+					fprintf(stream, ", ");
+				}
+				if (j == mat->row_dim - 1) {
+					fprintf(stream, " |");
+				}
+			}
+			if (i != mat->col_dim - 1) {
+				fprintf(stream, "\n");
+			}
+		}
 		break;
 	}
 	case OBJECT_COMPLEX: {
@@ -634,7 +651,8 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		break;
 	}
 	case OBJECT_SET: {
-		fprintf(stream, "<Set>");
+		const ObjectSet *set = AS_CRUX_SET(value);
+		print_table_to(stream, set->entries->entries, set->entries->capacity, set->entries->size);
 		break;
 	}
 
@@ -643,14 +661,24 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		break;
 	}
 	case OBJECT_TUPLE: {
-		fprintf(stream, "<Tuple>");
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
+		fprintf(stream, "Tuple(%u)[", tuple->size);
+		for (uint32_t i = 0; i < tuple->size; i++) {
+			if (i != 0) {
+				fprintf(stream, ", ");
+			}
+			print_value_to(stream, tuple->elements[i], true);
+		}
+		fprintf(stream, "]");
 		break;
 	}
 	case OBJECT_RANGE: {
-		fprintf(stream, "<Range>");
+		const ObjectRange *range = AS_CRUX_RANGE(value);
+		fprintf(stream, "Range(%d..%d..%d)", range->start, range->step, range->end);
 		break;
 	}
 	case OBJECT_TYPE_RECORD: {
+		const ObjectTypeRecord *record = AS_CRUX_TYPE_RECORD(value);
 		fprintf(stream, "<TypeRecord>");
 		break;
 	}

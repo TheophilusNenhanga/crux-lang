@@ -243,7 +243,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 					return type_record;
 				} else {
 					compiler_panic(compiler->parser, "Expected ']' to end definition of generic matrix type", SYNTAX);
-					type_record = new_type_rec(compiler->owner, ANY_TYPE);
+					type_record = T_ANY;
 				}
 			}
 
@@ -256,7 +256,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after matrix element type.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for matrix type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, TOKEN_BUFFER_TYPE)) {
 		type_record = new_type_rec(compiler->owner, BUFFER_TYPE);
@@ -269,7 +269,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			type_record = new_result_type_rec(compiler->owner, value_type);
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for result type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, TOKEN_RANGE_TYPE)) {
 		type_record = new_type_rec(compiler->owner, RANGE_TYPE);
@@ -298,7 +298,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element types.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for tuple type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, TOKEN_COMPLEX_TYPE)) {
 		type_record = new_type_rec(compiler->owner, COMPLEX_TYPE);
@@ -316,7 +316,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				ObjectTypeRecord *inner = parse_type_record(compiler);
 				if (!inner) {
 					compiler_panic(compiler->parser, "Expected type.", TYPE);
-					inner = new_type_rec(compiler->owner, ANY_TYPE);
+					inner = T_ANY;
 				}
 				if (param_count == param_capacity) {
 					param_capacity = GROW_CAPACITY(param_capacity);
@@ -325,7 +325,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 					if (!grown) {
 						FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
 						compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
-						return new_type_rec(compiler->owner, ANY_TYPE);
+						return T_ANY;
 					}
 					param_types = grown;
 				}
@@ -352,12 +352,12 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record->as.function_type.arg_count = param_count;
 		type_record->as.function_type.return_type = return_type;
 	} else if (match(compiler, TOKEN_SET_TYPE)) {
+		type_record = new_type_rec(compiler->owner, SET_TYPE);
 		if (match(compiler, TOKEN_LEFT_SQUARE)) {
-			type_record = new_type_rec(compiler->owner, SET_TYPE);
 			type_record->as.set_type.element_type = parse_type_record(compiler);
 			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after set element type.");
 		} else {
-			type_record = new_type_rec(compiler->owner, SET_TYPE);
+			type_record->as.set_type.element_type = T_ANY;
 		}
 	} else if (match(compiler, TOKEN_RANDOM_TYPE)) {
 		type_record = new_type_rec(compiler->owner, RANDOM_TYPE);
@@ -379,7 +379,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		}
 		if (!found) {
 			// unknown name — degrade to ANY_TYPE.
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		} else {
 			type_record = found;
 		}

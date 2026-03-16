@@ -328,6 +328,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 			   types_equal(a->as.table_type.value_type, b->as.table_type.value_type);
 	case RESULT_TYPE:
 		return types_equal(a->as.result_type.ok_type, b->as.result_type.ok_type);
+	case SET_TYPE:
+		return types_equal(a->as.set_type.element_type, b->as.set_type.element_type);
 	case TUPLE_TYPE: {
 		if (a->as.tuple_type.element_count == -1 || b->as.tuple_type.element_count == -1)
 			return true;
@@ -359,8 +361,6 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 		}
 		return types_equal(a->as.function_type.return_type, b->as.function_type.return_type);
 	}
-	case SET_TYPE:
-		return types_equal(a->as.set_type.element_type, b->as.set_type.element_type);
 	case SHAPE_TYPE: {
 		if (a->as.shape_type.element_count != b->as.shape_type.element_count)
 			return false;
@@ -426,7 +426,6 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 			return true;
 		}
 
-		// 'got' is a single type, it must match at least one option in 'expected'
 		for (int i = 0; i < expected->as.union_type.element_count; i++) {
 			if (types_compatible(expected->as.union_type.element_types[i], got))
 				return true;
@@ -434,9 +433,7 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		return false;
 	}
 
-	// 2. If 'got' is a Union, but 'expected' is not
 	if (got->base_type == UNION_TYPE) {
-		// Every possible type in 'got' must satisfy 'expected'
 		for (int i = 0; i < got->as.union_type.element_count; i++) {
 			if (!types_compatible(expected, got->as.union_type.element_types[i]))
 				return false;
@@ -444,11 +441,9 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		return true;
 	}
 
-	// 3. Special case: Float accepts Int
 	if (expected->base_type == FLOAT_TYPE && got->base_type == INT_TYPE)
 		return true;
 
-	// Structural typing for Shapes
 	if (expected->base_type == SHAPE_TYPE && (got->base_type == STRUCT_TYPE || got->base_type == SHAPE_TYPE)) {
 		const ObjectTypeTable *shape_fields = expected->as.shape_type.element_types;
 		const ObjectTypeTable *got_fields = (got->base_type == STRUCT_TYPE) ? got->as.struct_type.field_types
@@ -471,9 +466,7 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		return true;
 	}
 
-	// 4. Check if 'got' is a subset of 'expected' (handles NUMERIC_TYPE bitmask aliases)
 	if ((expected->base_type & got->base_type) == got->base_type) {
-		// If it's a complex type, recursively check components
 		switch (got->base_type) {
 		case ARRAY_TYPE:
 			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
@@ -494,7 +487,7 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 			return true;
 		}
 		case SET_TYPE:
-			return types_equal(expected->as.set_type.element_type, got->as.set_type.element_type);
+			return types_compatible(expected->as.set_type.element_type, got->as.set_type.element_type);
 		case VECTOR_TYPE:
 			return expected->as.vector_type.dimensions == -1 || got->as.vector_type.dimensions == -1 ||
 				   expected->as.vector_type.dimensions == got->as.vector_type.dimensions;
