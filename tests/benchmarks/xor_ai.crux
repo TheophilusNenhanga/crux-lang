@@ -1,0 +1,228 @@
+use Random from "crux:random";
+use Matrix, AMatrix from "crux:matrix";
+use exp from "crux:math";
+use time_ms from "crux:time";
+use open from "crux:fs";
+
+println("=== START OF NEURAL NETWORK BENCHMARK ===");
+
+let g_random = Random();
+
+// ==========================================
+// 1. Matrix Math & Activation Helpers
+// ==========================================
+
+// Maps a function over every element in a Matrix
+// This stresses nested loops and function pointer overhead.
+fn matrix_map(m: Matrix[,], func: (Float) -> Float) -> Matrix[,] {
+    let rows: Int = m.rows();
+    let cols: Int = m.cols();
+    let result = Matrix(rows, cols)?;
+    for let i = 0; i < rows; i += 1 {
+        for let j = 0; j < cols; j += 1 {
+            result.set(i, j, func(m.get(i, j)?));
+        }
+    }
+    return result;
+}
+
+// Element-wise multiplication (Hadamard product)
+fn matrix_hadamard(a: Matrix[,], b: Matrix[,]) -> Matrix[,] {
+    let rows: Int = a.rows();
+    let cols: Int = a.cols();
+    let result = Matrix(rows, cols)?;
+    for let i = 0; i < rows; i += 1 {
+        for let j = 0; j < cols; j += 1 {
+            result.set(i, j, a.get(i, j)? * b.get(i, j)?);
+        }
+    }
+    return result;
+}
+
+// Sigmoid Activation: 1 / (1 + e^-x)
+fn sigmoid(x: Float) -> Float {
+    return 1.0 / (1.0 + exp(-x));
+}
+
+// Derivative of Sigmoid (requires the output of sigmoid 'a' as input)
+fn sigmoid_deriv(a: Float) -> Float {
+    return a * (1.0 - a);
+}
+
+// Fills a matrix with random weights
+fn randomize_matrix(m: Matrix[,], min_val: Float, max_val: Float) -> Nil {
+    println(m);
+    for let i = 0; i < m.rows(); i += 1 {
+        for let j = 0; j < m.cols(); j += 1 {
+            m.set(i, j, g_random.float(min_val, max_val)?);
+        }
+    }
+}
+
+// ==========================================
+// 2. Neural Network Definition
+// ==========================================
+
+struct MLP {
+    w1: Matrix[,], // Weights: Input -> Hidden
+    b1: Matrix[,], // Biases: Hidden
+    w2: Matrix[,], // Weights: Hidden -> Output
+    b2: Matrix[,]  // Biases: Output
+}
+
+fn newMLP(input_nodes: Int, hidden_nodes: Int, output_nodes: Int) -> MLP {
+    let nn = new MLP {
+        w1: Matrix(input_nodes, hidden_nodes)?,
+        b1: Matrix(1, hidden_nodes)?,
+        w2: Matrix(hidden_nodes, output_nodes)?,
+        b2: Matrix(1, output_nodes)?
+    };
+
+    // Initialize with random weights between -1.0 and 1.0
+    randomize_matrix(nn.w1, -1.0, 1.0);
+    randomize_matrix(nn.b1, -1.0, 1.0);
+    randomize_matrix(nn.w2, -1.0, 1.0);
+    randomize_matrix(nn.b2, -1.0, 1.0);
+
+    return nn;
+}
+
+impl MLP {
+    // Inference: Pass data through the network
+    fn forward(input: Matrix[,]) -> Table[String, Matrix[,]] {
+        // Hidden Layer
+        let z1 = input.mul(self.w1)?.add(self.b1)?;
+        let a1 = matrix_map(z1, sigmoid);
+
+        // Output Layer
+        let z2 = a1.mul(self.w2)?.add(self.b2)?;
+        let a2 = matrix_map(z2, sigmoid);
+
+        return {
+            "a1": a1,
+            "a2": a2  // Final prediction
+        };
+    }
+
+    // Backpropagation: Learn from mistakes
+    fn train(input: Matrix[,], target: Matrix[,], lr: Float) -> Float {
+        let fwd = self.forward(input);
+        let a1 = fwd["a1"];
+        let a2 = fwd["a2"]; // Network's guess
+
+        // 1. Calculate Error (Target - Prediction)
+        let error = target.sub(a2)?;
+
+        // Track Mean Squared Error for logging
+        let loss = 0.0;
+        for let i = 0; i < error.cols(); i += 1 {
+            let e = error.get(0, i)?;
+            loss += e * e;
+        }
+
+        // 2. Output Layer Gradients
+        let gradient2 = matrix_map(a2, sigmoid_deriv);
+        let dZ2 = matrix_hadamard(error, gradient2); // Element-wise
+        let dW2 = a1.transpose().mul(dZ2)?;           // Matrix multiplication
+
+        // 3. Hidden Layer Gradients
+        let error_hidden = dZ2.mul(self.w2.transpose())?;
+        let gradient1 = matrix_map(a1, sigmoid_deriv);
+        let dZ1 = matrix_hadamard(error_hidden, gradient1);
+        let dW1 = input.transpose().mul(dZ1)?;
+
+        // 4. Optimize Weights and Biases
+        self.w2 = self.w2.add(dW2.scale(lr))?;
+        self.b2 = self.b2.add(dZ2.scale(lr))?;
+
+        self.w1 = self.w1.add(dW1.scale(lr))?;
+        self.b1 = self.b1.add(dZ1.scale(lr))?;
+
+        return loss;
+    }
+}
+
+// ==========================================
+// 3. Main Execution & Artifact Rendering
+// ==========================================
+
+fn main() -> Nil {
+    let start_time = time_ms();
+
+    // Create a network: 2 inputs (X, Y), 6 hidden neurons, 1 output (Class)
+    println("Initializing Neural Network...");
+    let nn = newMLP(2, 6, 1);
+
+    // The XOR Dataset (Non-linear, requires hidden layers to solve)
+    let train_inputs = [
+        AMatrix(1, 2, [0.0, 0.0])?,
+        AMatrix(1, 2, [0.0, 1.0])?,
+        AMatrix(1, 2, [1.0, 0.0])?,
+        AMatrix(1, 2, [1.0, 1.0])?
+    ];
+
+    let train_targets = [
+        AMatrix(1, 1, [0.0])?, // 0 XOR 0 = 0
+        AMatrix(1, 1, [1.0])?, // 0 XOR 1 = 1
+        AMatrix(1, 1, [1.0])?, // 1 XOR 0 = 1
+        AMatrix(1, 1, [0.0])?  // 1 XOR 1 = 0
+    ];
+
+    let EPOCHS = 10000;
+    let LEARNING_RATE = 0.5;
+
+    println("Training on XOR dataset for " + string(EPOCHS) + " epochs...");
+
+    // Train the network
+    for let epoch = 0; epoch < EPOCHS; epoch += 1 {
+        let total_loss = 0.0;
+
+        for let i = 0; i < 4; i += 1 {
+            total_loss += nn.train(train_inputs[i], train_targets[i], LEARNING_RATE);
+        }
+
+        if epoch % 2000 == 0 {
+            println("Epoch " + string(epoch) + " | Loss: " + string(total_loss));
+        }
+    }
+
+    println("Training Complete! Rendering Decision Boundary...");
+
+    // Render the AI's "brain" to an image
+    let IMG_SIZE = 256;
+    let file = open("renders/nn_heatmap.ppm", "w")?;
+
+    file.write("P3\n");
+    file.write(string(IMG_SIZE) + " " + string(IMG_SIZE) + "\n");
+    file.write("255\n");
+
+    // Loop through every pixel, ask the AI to predict the color
+    for let y = 0; y < IMG_SIZE; y += 1 {
+        if y % 32 == 0 { println("Rendering scanline: " + string(y)); }
+
+        for let x = 0; x < IMG_SIZE; x += 1 {
+            // Normalize X and Y coordinates to [0.0, 1.0]
+            let nx = x / IMG_SIZE;
+            let ny = y / IMG_SIZE;
+
+            let input_matrix = AMatrix(1, 2, [nx, ny])?;
+            let prediction = nn.forward(input_matrix)["a2"].get(0, 0)?;
+
+            // Create a color gradient based on AI confidence
+            // 0.0 = Blue, 1.0 = Red
+            let r = int(prediction * 255.0)?;
+            let g = 20;
+            let b = int((1.0 - prediction) * 255.0)?;
+
+            file.write(string(r) + " " + string(g) + " " + string(b) + "\n");
+        }
+    }
+
+    file.close();
+
+    let end_time = time_ms();
+    println("Benchmark finished in " + string(end_time - start_time) + " ms.");
+}
+
+main();
+println("=== END OF NEURAL NETWORK BENCHMARK ===");

@@ -65,7 +65,8 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 
 #define REC(t) new_type_rec(SA, (t))
 #define ARR(elem) new_array_type_rec(SA, (elem))
-#define TUP_ANY new_tuple_type_rec(SA, NULL, -1)
+#define TUP_ANY new_tuple_type_rec(SA, ARGS(t_any), -1)
+#define SET_ANY new_set_type_rec(SA, t_any)
 #define TBL(k, v) new_table_type_rec(SA, (k), (v))
 #define RES(ok) new_result_type_rec(SA, (ok))
 #define SET_OF(elem) new_set_type_rec(SA, (elem))
@@ -108,7 +109,6 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define arr_flt ARR(t_flt)
 #define arr_num ARR(numeric)
 
-#define tup_any TUP_ANY
 #define set_any SET_OF(t_any)
 #define vec_any VEC(-1)
 #define mat_any MAT(-1, -1)
@@ -388,32 +388,32 @@ bool initialize_std_lib(VM *vm)
 	// Matrix methods  +  module constructors
 	{
 		const Callable methods[] = {
-			{"get", matrix_get_method, 3, ARGS(mat_any, t_int, t_int), t_flt},
-			{"set", matrix_set_method, 4, ARGS(mat_any, t_int, t_int, numeric), t_nil},
-			{"add", matrix_add_method, 2, ARGS(mat_any, mat_any), mat_any},
-			{"sub", matrix_subtract_method, 2, ARGS(mat_any, mat_any), mat_any},
-			{"mul", matrix_multiply_method, 2, ARGS(mat_any, mat_any), mat_any},
+			{"get", matrix_get_method, 3, ARGS(mat_any, t_int, t_int), RES(t_flt)},
+			{"set", matrix_set_method, 4, ARGS(mat_any, t_int, t_int, numeric), RES(t_nil)},
+			{"add", matrix_add_method, 2, ARGS(mat_any, mat_any), RES(mat_any)},
+			{"sub", matrix_subtract_method, 2, ARGS(mat_any, mat_any), RES(mat_any)},
+			{"mul", matrix_multiply_method, 2, ARGS(mat_any, mat_any), RES(mat_any)},
 			{"scale", matrix_scale_method, 2, ARGS(mat_any, numeric), mat_any},
 			{"transpose", matrix_transpose_method, 1, ARGS(mat_any), mat_any},
-			{"determinant", matrix_determinant_method, 1, ARGS(mat_any), t_flt},
+			{"determinant", matrix_determinant_method, 1, ARGS(mat_any), RES(t_flt)},
 			{"inverse", matrix_inverse_method, 1, ARGS(mat_any), RES(mat_any)},
-			{"trace", matrix_trace_method, 1, ARGS(mat_any), t_flt},
-			{"rank", matrix_rank_method, 1, ARGS(mat_any), t_int},
-			{"row", matrix_row_method, 2, ARGS(mat_any, t_int), vec_any},
-			{"col", matrix_col_method, 2, ARGS(mat_any, t_int), vec_any},
+			{"trace", matrix_trace_method, 1, ARGS(mat_any), RES(t_flt)},
+			{"rank", matrix_rank_method, 1, ARGS(mat_any), RES(t_int)},
+			{"row", matrix_row_method, 2, ARGS(mat_any, t_int), RES(vec_any)},
+			{"col", matrix_col_method, 2, ARGS(mat_any, t_int), RES(vec_any)},
 			{"equals", matrix_equals_method, 2, ARGS(mat_any, mat_any), t_bool},
 			{"copy", matrix_copy_method, 1, ARGS(mat_any), mat_any},
-			{"to_array", matrix_to_array_method, 1, ARGS(mat_any), arr_any},
-			{"mul_vec", matrix_multiply_vector_method, 2, ARGS(mat_any, vec_any), vec_any},
+			{"to_array", matrix_to_array_method, 1, ARGS(mat_any), RES(arr_any)},
+			{"mul_vec", matrix_multiply_vector_method, 2, ARGS(mat_any, vec_any), RES(vec_any)},
 			{"rows", matrix_rows_method, 1, ARGS(mat_any), t_int},
 			{"cols", matrix_cols_method, 1, ARGS(mat_any), t_int},
 		};
 		init_type_method_table(vm, &vm->matrix_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Matrix", new_matrix_function, 2, ARGS(t_int, t_int), mat_any},
-			{"IMatrix", new_matrix_identity_function, 1, ARGS(t_int), mat_any},
-			{"AMatrix", new_matrix_from_array_function, 3, ARGS(t_int, t_int, arr_num), mat_any},
+			{"Matrix", new_matrix_function, 2, ARGS(t_int, t_int), RES(mat_any)},
+			{"IMatrix", new_matrix_identity_function, 1, ARGS(t_int), RES(mat_any)},
+			{"AMatrix", new_matrix_from_array_function, 3, ARGS(t_int, t_int, arr_num), RES(mat_any)},
 		};
 		if (!init_module(vm, "matrix", fns, ARRAY_COUNT(fns)))
 			return false;
@@ -433,7 +433,7 @@ bool initialize_std_lib(VM *vm)
 		init_type_method_table(vm, &vm->range_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Range", new_range_function, 3, ARGS(t_int, t_int, t_int), t_rang},
+			{"Range", new_range_function, 3, ARGS(t_int, t_int, t_int), RES(t_rang)},
 		};
 		if (!init_module(vm, "range", fns, ARRAY_COUNT(fns)))
 			return false;
@@ -442,20 +442,20 @@ bool initialize_std_lib(VM *vm)
 	// Tuple methods  +  module constructor
 	{
 		const Callable methods[] = {
-			{"get", get_tuple_method, 2, ARGS(tup_any, t_int), res_any},
-			{"slice", slice_tuple_method, 3, ARGS(tup_any, t_int, t_int), tup_any},
-			{"index", index_tuple_method, 2, ARGS(tup_any, t_any), res_int},
-			{"is_empty", is_empty_tuple_method, 1, ARGS(tup_any), t_bool},
-			{"to_array", to_array_tuple_method, 1, ARGS(tup_any), arr_any},
-			{"first", first_tuple_method, 1, ARGS(tup_any), res_any},
-			{"last", last_tuple_method, 1, ARGS(tup_any), res_any},
-			{"contains", contains_tuple_method, 2, ARGS(tup_any, t_any), t_bool},
-			{"equals", equals_tuple_method, 2, ARGS(tup_any, tup_any), t_bool},
+			{"get", get_tuple_method, 2, ARGS(TUP_ANY, t_int), res_any},
+			{"slice", slice_tuple_method, 3, ARGS(TUP_ANY, t_int, t_int), TUP_ANY},
+			{"index", index_tuple_method, 2, ARGS(TUP_ANY, t_any), res_int},
+			{"is_empty", is_empty_tuple_method, 1, ARGS(TUP_ANY), t_bool},
+			{"to_array", to_array_tuple_method, 1, ARGS(TUP_ANY), arr_any},
+			{"first", first_tuple_method, 1, ARGS(TUP_ANY), res_any},
+			{"last", last_tuple_method, 1, ARGS(TUP_ANY), res_any},
+			{"contains", contains_tuple_method, 2, ARGS(TUP_ANY, t_any), t_bool},
+			{"equals", equals_tuple_method, 2, ARGS(TUP_ANY, TUP_ANY), t_bool},
 		};
 		init_type_method_table(vm, &vm->tuple_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Tuple", new_tuple_function, 1, ARGS(arr_any), tup_any},
+			{"Tuple", new_tuple_function, 1, ARGS(arr_any), TUP_ANY},
 		};
 		if (!init_module(vm, "tuple", fns, ARRAY_COUNT(fns)))
 			return false;
@@ -482,7 +482,7 @@ bool initialize_std_lib(VM *vm)
 		init_type_method_table(vm, &vm->set_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Set", new_set_function, 1, ARGS(arr_any), set_any},
+			{"Set", new_set_function, 1, ARGS(arr_any), SET_ANY},
 		};
 		if (!init_module(vm, "set", fns, ARRAY_COUNT(fns)))
 			return false;

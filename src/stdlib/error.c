@@ -35,7 +35,6 @@ Value assert_function(VM *vm, const Value *args)
 		runtime_panic(vm->current_module_record, ASSERT, message->chars);
 		return NIL_VAL;
 	}
-	// returning different types because we panicked anyway!
 	return NIL_VAL;
 }
 
