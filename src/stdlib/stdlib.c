@@ -65,7 +65,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 
 #define REC(t) new_type_rec(SA, (t))
 #define ARR(elem) new_array_type_rec(SA, (elem))
-#define TUP_ANY new_tuple_type_rec(SA, ARGS(t_any), -1)
+#define TUP_ANY new_tuple_type_rec(SA, NULL, -1)
 #define SET_ANY new_set_type_rec(SA, t_any)
 #define TBL(k, v) new_table_type_rec(SA, (k), (v))
 #define RES(ok) new_result_type_rec(SA, (ok))
@@ -187,6 +187,9 @@ static bool init_type_method_table(VM *vm, Table *method_table, const Callable *
 
 bool initialize_std_lib(VM *vm)
 {
+	GC_STATUS prev_status = vm->gc_status;
+	vm->gc_status = PAUSED;
+
 	// core functions
 	{
 		const Callable fns[] = {{"len", length_function, 1, ARGS(t_any), t_int},
@@ -197,13 +200,15 @@ bool initialize_std_lib(VM *vm)
 								{"int", int_function, 1, ARGS(t_any), RES(t_int)},
 								{"float", float_function, 1, ARGS(t_any), RES(t_flt)},
 								{"string", string_function, 1, ARGS(t_any), t_str},
-								{"table", table_function, 1, ARGS(t_any), tbl_any},
+								{"table", table_function, 1, ARGS(t_any), RES(tbl_any)},
 								{"array", array_function, 1, ARGS(t_any), RES(arr_any)},
 								{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
 								{"println", io_println_function, 1, ARGS(t_any), t_nil}};
 
-		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns)))
+		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 
 		for (int i = 0; i < vm->core_fns.capacity; i++) {
 			if (vm->core_fns.entries[i].key != NULL) {
@@ -221,10 +226,10 @@ bool initialize_std_lib(VM *vm)
 			{"get", string_get_method, 2, ARGS(t_str, t_int), res_str},
 			{"upper", string_upper_method, 1, ARGS(t_str), res_str},
 			{"lower", string_lower_method, 1, ARGS(t_str), res_str},
-			{"strip", string_strip_method, 1, ARGS(t_str), t_str},
+			{"strip", string_strip_method, 1, ARGS(t_str), res_str},
 			{"starts_with", string_starts_with_method, 2, ARGS(t_str, t_str), res_bool},
-			{"ends_with", string_ends_with_method, 2, ARGS(t_str, t_str), t_bool},
-			{"contains", string_contains_method, 2, ARGS(t_str, t_str), t_bool},
+			{"ends_with", string_ends_with_method, 2, ARGS(t_str, t_str), res_bool},
+			{"contains", string_contains_method, 2, ARGS(t_str, t_str), res_bool},
 			{"replace", string_replace_method, 3, ARGS(t_str, t_str, t_str), res_str},
 			{"split", string_split_method, 2, ARGS(t_str, t_str), RES(ARR(t_str))},
 			{"substring", string_substring_method, 3, ARGS(t_str, t_int, t_int), res_str},
@@ -266,9 +271,9 @@ bool initialize_std_lib(VM *vm)
 	// Table methods
 	{
 		const Callable methods[] = {
-			{"values", table_values_method, 1, ARGS(tbl_any), arr_any},
-			{"keys", table_keys_method, 1, ARGS(tbl_any), arr_any},
-			{"pairs", table_pairs_method, 1, ARGS(tbl_any), arr_any},
+			{"values", table_values_method, 1, ARGS(tbl_any), RES(arr_any)},
+			{"keys", table_keys_method, 1, ARGS(tbl_any), RES(arr_any)},
+			{"pairs", table_pairs_method, 1, ARGS(tbl_any), RES(arr_any)},
 			{"remove", table_remove_method, 2, ARGS(tbl_any, hashable), res_any},
 			{"get", table_get_method, 2, ARGS(tbl_any, hashable), res_any},
 			{"has_key", table_has_key_method, 2, ARGS(tbl_any, hashable), t_bool},
@@ -327,8 +332,10 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"Random", random_init_function, 0, ARGS0, t_rnd},
 		};
-		if (!init_module(vm, "random", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "random", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Vector methods  +  module constructor
@@ -358,8 +365,10 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"Vec", new_vector_function, 2, ARGS(t_int, arr_num), RES(vec_any)},
 		};
-		if (!init_module(vm, "vector", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "vector", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Complex methods  +  module constructor
@@ -381,8 +390,10 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"Complex", new_complex_function, 2, ARGS(numeric, numeric), t_cmpl},
 		};
-		if (!init_module(vm, "complex", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "complex", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Matrix methods  +  module constructors
@@ -401,8 +412,8 @@ bool initialize_std_lib(VM *vm)
 			{"rank", matrix_rank_method, 1, ARGS(mat_any), RES(t_int)},
 			{"row", matrix_row_method, 2, ARGS(mat_any, t_int), RES(vec_any)},
 			{"col", matrix_col_method, 2, ARGS(mat_any, t_int), RES(vec_any)},
-			{"equals", matrix_equals_method, 2, ARGS(mat_any, mat_any), t_bool},
-			{"copy", matrix_copy_method, 1, ARGS(mat_any), mat_any},
+			{"equals", matrix_equals_method, 2, ARGS(mat_any, mat_any), res_bool},
+			{"copy", matrix_copy_method, 1, ARGS(mat_any), RES(mat_any)},
 			{"to_array", matrix_to_array_method, 1, ARGS(mat_any), RES(arr_any)},
 			{"mul_vec", matrix_multiply_vector_method, 2, ARGS(mat_any, vec_any), RES(vec_any)},
 			{"rows", matrix_rows_method, 1, ARGS(mat_any), t_int},
@@ -415,15 +426,17 @@ bool initialize_std_lib(VM *vm)
 			{"IMatrix", new_matrix_identity_function, 1, ARGS(t_int), RES(mat_any)},
 			{"AMatrix", new_matrix_from_array_function, 3, ARGS(t_int, t_int, arr_num), RES(mat_any)},
 		};
-		if (!init_module(vm, "matrix", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "matrix", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Range methods  +  module constructor
 	{
 		const Callable methods[] = {
 			{"contains", contains_range_method, 2, ARGS(t_rang, t_int), t_bool},
-			{"to_array", to_array_range_method, 1, ARGS(t_rang), arr_any},
+			{"to_array", to_array_range_method, 1, ARGS(t_rang), RES(arr_any)},
 			{"start", start_range_method, 1, ARGS(t_rang), t_int},
 			{"end", end_range_method, 1, ARGS(t_rang), t_int},
 			{"step", step_range_method, 1, ARGS(t_rang), t_int},
@@ -435,15 +448,17 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"Range", new_range_function, 3, ARGS(t_int, t_int, t_int), RES(t_rang)},
 		};
-		if (!init_module(vm, "range", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "range", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Tuple methods  +  module constructor
 	{
 		const Callable methods[] = {
 			{"get", get_tuple_method, 2, ARGS(TUP_ANY, t_int), res_any},
-			{"slice", slice_tuple_method, 3, ARGS(TUP_ANY, t_int, t_int), TUP_ANY},
+			{"slice", slice_tuple_method, 3, ARGS(TUP_ANY, t_int, t_int), RES(arr_any)},
 			{"index", index_tuple_method, 2, ARGS(TUP_ANY, t_any), res_int},
 			{"is_empty", is_empty_tuple_method, 1, ARGS(TUP_ANY), t_bool},
 			{"to_array", to_array_tuple_method, 1, ARGS(TUP_ANY), arr_any},
@@ -457,8 +472,10 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"Tuple", new_tuple_function, 1, ARGS(arr_any), TUP_ANY},
 		};
-		if (!init_module(vm, "tuple", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "tuple", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Set methods  +  module constructor
@@ -466,8 +483,8 @@ bool initialize_std_lib(VM *vm)
 		const Callable methods[] = {
 			{"add", add_set_method, 2, ARGS(set_any, hashable), res_nil},
 			{"remove", remove_set_method, 2, ARGS(set_any, hashable), res_nil},
-			{"discard", discard_set_method, 2, ARGS(set_any, hashable), t_nil},
-			{"union", union_set_method, 2, ARGS(set_any, set_any), set_any},
+			{"discard", discard_set_method, 2, ARGS(set_any, hashable), res_nil},
+			{"union", union_set_method, 2, ARGS(set_any, set_any), RES(set_any)},
 			{"intersection", intersection_set_method, 2, ARGS(set_any, set_any), set_any},
 			{"difference", difference_set_method, 2, ARGS(set_any, set_any), set_any},
 			{"sym_difference", sym_difference_set_method, 2, ARGS(set_any, set_any), set_any},
@@ -482,10 +499,12 @@ bool initialize_std_lib(VM *vm)
 		init_type_method_table(vm, &vm->set_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Set", new_set_function, 1, ARGS(arr_any), SET_ANY},
+			{"Set", new_set_function, 1, ARGS(arr_any), RES(SET_ANY)},
 		};
-		if (!init_module(vm, "set", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "set", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Buffer methods  +  module constructor
@@ -514,21 +533,23 @@ bool initialize_std_lib(VM *vm)
 			{"read_int32_be", read_int32_be_buffer_method, 1, ARGS(t_buf), res_int},
 			{"read_float32_be", read_float32_be_buffer_method, 1, ARGS(t_buf), res_flt},
 			{"read_float64_be", read_float64_be_buffer_method, 1, ARGS(t_buf), res_flt},
-			{"capacity", capacity_buffer_method, 1, ARGS(t_buf), t_int},
+			{"capacity", capacity_buffer_method, 1, ARGS(t_buf), t_flt},
 			{"is_empty", is_empty_buffer_method, 1, ARGS(t_buf), t_bool},
 			{"clear", clear_buffer_method, 1, ARGS(t_buf), t_nil},
-			{"peek_byte", peek_byte_buffer_method, 1, ARGS(t_buf), res_int},
+			{"peek_byte", peek_byte_buffer_method, 1, ARGS(t_buf), t_int},
 			{"skip_bytes", skip_bytes_buffer_method, 2, ARGS(t_buf, t_int), res_nil},
 			{"clone", clone_buffer_method, 1, ARGS(t_buf), t_buf},
-			{"compact", compact_buffer_method, 1, ARGS(t_buf), t_buf},
+			{"compact", compact_buffer_method, 1, ARGS(t_buf), t_nil},
 		};
 		init_type_method_table(vm, &vm->buffer_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
 			{"Buffer", new_buffer_function, 0, ARGS0, t_buf},
 		};
-		if (!init_module(vm, "buffer", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "buffer", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Math module
@@ -543,11 +564,11 @@ bool initialize_std_lib(VM *vm)
 			{"cos", cos_function, 1, ARGS(numeric), t_flt},
 			{"tan", tan_function, 1, ARGS(numeric), t_flt},
 			{"atan", atan_function, 1, ARGS(numeric), t_flt},
-			{"acos", acos_function, 1, ARGS(numeric), t_flt},
-			{"asin", asin_function, 1, ARGS(numeric), t_flt},
+			{"acos", acos_function, 1, ARGS(numeric), res_flt},
+			{"asin", asin_function, 1, ARGS(numeric), res_flt},
 			{"exp", exp_function, 1, ARGS(numeric), t_flt},
-			{"ln", ln_function, 1, ARGS(numeric), t_flt},
-			{"log", log10_function, 1, ARGS(numeric), t_flt},
+			{"ln", ln_function, 1, ARGS(numeric), res_flt},
+			{"log", log10_function, 1, ARGS(numeric), res_flt},
 			{"round", round_function, 1, ARGS(numeric), t_int},
 			{"min", min_function, 2, ARGS(numeric, numeric), numeric},
 			{"max", max_function, 2, ARGS(numeric, numeric), numeric},
@@ -556,16 +577,18 @@ bool initialize_std_lib(VM *vm)
 			{"nan", nan_function, 0, ARGS0, t_flt},
 			{"inf", inf_function, 0, ARGS0, t_flt},
 		};
-		if (!init_module(vm, "math", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "math", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// IO module
 	{
 		const Callable fns[] = {
 			{"print", io_print_function, 1, ARGS(t_any), t_nil},
-			{"print_to", io_print_to_function, 2, ARGS(t_str, t_any), t_nil},
-			{"println_to", io_println_to_function, 2, ARGS(t_str, t_any), t_nil},
+			{"print_to", io_print_to_function, 2, ARGS(t_str, t_any), res_nil},
+			{"println_to", io_println_to_function, 2, ARGS(t_str, t_any), res_nil},
 			{"scan", io_scan_function, 0, ARGS0, res_str},
 			{"scanln", io_scanln_function, 0, ARGS0, res_str},
 			{"nscan", io_nscan_function, 1, ARGS(t_int), res_str},
@@ -573,15 +596,17 @@ bool initialize_std_lib(VM *vm)
 			{"scanln_from", io_scanln_from_function, 1, ARGS(t_str), res_str},
 			{"nscan_from", io_nscan_from_function, 2, ARGS(t_str, t_int), res_str},
 		};
-		if (!init_module(vm, "io", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "io", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Time module
 	{
 		const Callable fns[] = {
-			{"sleep_s", sleep_seconds_function, 1, ARGS(numeric), t_nil},
-			{"sleep_ms", sleep_milliseconds_function, 1, ARGS(numeric), t_nil},
+			{"sleep_s", sleep_seconds_function, 1, ARGS(numeric), res_nil},
+			{"sleep_ms", sleep_milliseconds_function, 1, ARGS(numeric), res_nil},
 			{"time_s", time_seconds_function_, 0, ARGS0, t_flt},
 			{"time_ms", time_milliseconds_function_, 0, ARGS0, t_flt},
 			{"year", year_function_, 0, ARGS0, t_int},
@@ -593,20 +618,24 @@ bool initialize_std_lib(VM *vm)
 			{"weekday", weekday_function_, 0, ARGS0, t_int},
 			{"day_of_year", day_of_year_function_, 0, ARGS0, t_int},
 		};
-		if (!init_module(vm, "time", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "time", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// System module
 	{
 		const Callable fns[] = {
-			{"args", args_function, 0, ARGS0, arr_str},		  {"get_env", get_env_function, 1, ARGS(t_str), res_str},
+			{"args", args_function, 0, ARGS0, RES(arr_str)},  {"get_env", get_env_function, 1, ARGS(t_str), res_str},
 			{"sleep", sleep_function, 1, ARGS(t_int), t_nil}, {"platform", platform_function, 0, ARGS0, t_str},
 			{"arch", arch_function, 0, ARGS0, t_str},		  {"pid", pid_function, 0, ARGS0, t_int},
 			{"exit", exit_function, 1, ARGS(t_int), t_never},
 		};
-		if (!init_module(vm, "sys", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "sys", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
 	// Filesystem module
@@ -626,9 +655,14 @@ bool initialize_std_lib(VM *vm)
 			{"is_file", fs_is_file_function, 1, ARGS(t_str), t_bool},
 			{"is_dir", fs_is_dir_function, 1, ARGS(t_str), t_bool},
 		};
-		if (!init_module(vm, "fs", fns, ARRAY_COUNT(fns)))
+		if (!init_module(vm, "fs", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
 			return false;
+		}
 	}
 
-	return true;
+	{
+		vm->gc_status = prev_status;
+		return true;
+	}
 }

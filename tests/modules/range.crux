@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use Range from "crux:range";
 
 println("=== Testing basic range creation ===");
@@ -64,7 +64,7 @@ assert(r_neg.contains(11) == false, "Range(10, 0, -1) should not contain 11");
 
 println("=== Testing to_array() method ===");
 let arr = r.to_array()?;
-assert(typeof arr == "Array", "to_array() should return an Array");
+assert(typeof arr == "Array[Int]", "to_array() should return an Array");
 assert(len(arr) == 10, "to_array() array should have 10 elements");
 
 println("=== Testing to_array() values for Range(0, 5, 1) ===");
@@ -109,14 +109,14 @@ println("=== Testing reversed() length matches original ===");
 assert(len(original) == len(reversed), "reversed range should have same length as original");
 
 println("=== Testing error cases ===");
-let zero_step = Range(0, 10, 0)?;
-assert(typeof zero_step == "Error", "range with step 0 should return an error");
+let zero_step = Range(0, 10, 0);
+assert(typeof zero_step == "Result[Error]", "range with step 0 should return an error");
 
-let bad_pos = Range(10, 0, 1)?;
-assert(typeof bad_pos == "Error", "Range(10, 0, 1) should return an error (start > end with positive step)");
+let bad_pos = Range(10, 0, 1);
+assert(typeof bad_pos == "Result[Error]", "Range(10, 0, 1) should return an error (start > end with positive step)");
 
-let bad_neg = Range(0, 10, -1)?;
-assert(typeof bad_neg == "Error", "Range(0, 10, -1) should return an error (start < end with negative step)");
+let bad_neg = Range(0, 10, -1);
+assert(typeof bad_neg == "Result[Error]", "Range(0, 10, -1) should return an error (start < end with negative step)");
 
 println("=== Testing single element range ===");
 let single = Range(5, 6, 1)?;

@@ -1,4 +1,4 @@
-use println from "crux:io";
+// TODO: ensure that imported files have a working stdlib
 
 pub fn say_divide(a: Int, b: Int) -> Bool {
     if b == 0 {

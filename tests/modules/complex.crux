@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use Complex from "crux:complex";
 
 println("=== Testing Complex Number Module ===");

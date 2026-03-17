@@ -239,7 +239,7 @@ void print_type_to(FILE *stream, const Value value)
 	}
 	case OBJECT_STRUCT_INSTANCE: {
 		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
-		fprintf(stream, "Struct %s", instance->struct_type->name->chars);
+		fprintf(stream, "%s instance", instance->struct_type->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT: {
@@ -953,7 +953,11 @@ ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function, c
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
-	native->arg_types = arg_types;
+	if (arg_types != NULL && arity > 0) {
+		native->arg_types = arg_types;
+	} else {
+		native->arg_types = NULL;
+	}
 	native->return_type = return_type;
 	return native;
 }

@@ -7,10 +7,8 @@
 #include "panic.h"
 #include "value.h"
 
-#define BUFFER_GROWTH_ERROR                                                    \
-	return MAKE_GC_SAFE_ERROR(                                             \
-		vm, "Failed to grow buffer - buffer is at maximum capacity.",  \
-		BOUNDS);
+#define BUFFER_GROWTH_ERROR                                                                                            \
+	return MAKE_GC_SAFE_ERROR(vm, "Failed to grow buffer - buffer is at maximum capacity.", BOUNDS);
 
 #define BUFFER_READABLE(buf) ((buf)->write_pos - (buf)->read_pos)
 
@@ -26,8 +24,7 @@ static bool grow_buffer(VM *vm, ObjectBuffer *buffer, uint32_t required)
 		if (new_capacity > UINT32_MAX)
 			return false;
 	}
-	buffer->data = GROW_ARRAY(vm, uint8_t, buffer->data, buffer->capacity,
-				  (uint32_t)new_capacity);
+	buffer->data = GROW_ARRAY(vm, uint8_t, buffer->data, buffer->capacity, (uint32_t)new_capacity);
 	buffer->capacity = (uint32_t)new_capacity;
 	return true;
 }
@@ -320,8 +317,7 @@ Value write_buffer_buffer_method(VM *vm, const Value *args)
 	if (!ensure_write_capacity(vm, self, readable))
 		BUFFER_GROWTH_ERROR
 
-	memcpy(self->data + self->write_pos, other->data + other->read_pos,
-	       readable);
+	memcpy(self->data + self->write_pos, other->data + other->read_pos, readable);
 	self->write_pos += readable;
 
 	push(vm->current_module_record, OBJECT_VAL(self));
@@ -344,8 +340,7 @@ Value read_byte_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 1)
-		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read byte.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read byte.", BOUNDS);
 
 	int32_t byte = (int32_t)buffer->data[buffer->read_pos++];
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL(byte)));
@@ -363,16 +358,12 @@ Value read_string_buffer_method(VM *vm, const Value *args)
 	int32_t n = AS_INT(args[1]);
 
 	if (n < 0)
-		return MAKE_GC_SAFE_ERROR(vm, "Read length cannot be negative.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "Read length cannot be negative.", VALUE);
 
 	if (BUFFER_READABLE(buffer) < (uint32_t)n)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Not enough bytes to read string.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read string.", BOUNDS);
 
-	ObjectString *string = copy_string(
-		vm, (const char *)(buffer->data + buffer->read_pos), n);
+	ObjectString *string = copy_string(vm, (const char *)(buffer->data + buffer->read_pos), n);
 	buffer->read_pos += (uint32_t)n;
 
 	push(vm->current_module_record, OBJECT_VAL(string));
@@ -402,9 +393,7 @@ Value read_line_buffer_method(VM *vm, const Value *args)
 		end++;
 
 	uint32_t length = end - start;
-	ObjectString *string = copy_string(vm,
-					   (const char *)(buffer->data + start),
-					   (int)length);
+	ObjectString *string = copy_string(vm, (const char *)(buffer->data + start), (int)length);
 
 	// advance past the newline if we found one
 	buffer->read_pos = (end < buffer->write_pos) ? end + 1 : end;
@@ -428,10 +417,7 @@ Value read_all_buffer_method(VM *vm, const Value *args)
 	if (readable == 0)
 		return MAKE_GC_SAFE_ERROR(vm, "Buffer is empty.", BOUNDS);
 
-	ObjectString *string = copy_string(vm,
-					   (const char *)(buffer->data +
-							  buffer->read_pos),
-					   (int)readable);
+	ObjectString *string = copy_string(vm, (const char *)(buffer->data + buffer->read_pos), (int)readable);
 	buffer->read_pos = buffer->write_pos;
 
 	push(vm->current_module_record, OBJECT_VAL(string));
@@ -450,12 +436,10 @@ Value read_int16_le_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 2)
-		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int16.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int16.", BOUNDS);
 
-	int16_t value = (int16_t)((uint16_t)buffer->data[buffer->read_pos] |
-				  (uint16_t)buffer->data[buffer->read_pos + 1]
-					  << 8);
+	int16_t value = (int16_t)((uint16_t)buffer->data[buffer->read_pos] | (uint16_t)buffer->data[buffer->read_pos + 1]
+																			 << 8);
 	buffer->read_pos += 2;
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL((int32_t)value)));
 }
@@ -470,12 +454,10 @@ Value read_int16_be_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 2)
-		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int16.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int16.", BOUNDS);
 
-	int16_t value = (int16_t)((uint16_t)buffer->data[buffer->read_pos]
-					  << 8 |
-				  (uint16_t)buffer->data[buffer->read_pos + 1]);
+	int16_t value = (int16_t)((uint16_t)buffer->data[buffer->read_pos] << 8 |
+							  (uint16_t)buffer->data[buffer->read_pos + 1]);
 	buffer->read_pos += 2;
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL((int32_t)value)));
 }
@@ -490,14 +472,12 @@ Value read_int32_le_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 4)
-		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int32.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int32.", BOUNDS);
 
-	int32_t value =
-		(int32_t)((uint32_t)buffer->data[buffer->read_pos] |
-			  (uint32_t)buffer->data[buffer->read_pos + 1] << 8 |
-			  (uint32_t)buffer->data[buffer->read_pos + 2] << 16 |
-			  (uint32_t)buffer->data[buffer->read_pos + 3] << 24);
+	int32_t value = (int32_t)((uint32_t)buffer->data[buffer->read_pos] |
+							  (uint32_t)buffer->data[buffer->read_pos + 1] << 8 |
+							  (uint32_t)buffer->data[buffer->read_pos + 2] << 16 |
+							  (uint32_t)buffer->data[buffer->read_pos + 3] << 24);
 	buffer->read_pos += 4;
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL(value)));
 }
@@ -512,14 +492,12 @@ Value read_int32_be_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 4)
-		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int32.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Int32.", BOUNDS);
 
-	int32_t value =
-		(int32_t)((uint32_t)buffer->data[buffer->read_pos] << 24 |
-			  (uint32_t)buffer->data[buffer->read_pos + 1] << 16 |
-			  (uint32_t)buffer->data[buffer->read_pos + 2] << 8 |
-			  (uint32_t)buffer->data[buffer->read_pos + 3]);
+	int32_t value = (int32_t)((uint32_t)buffer->data[buffer->read_pos] << 24 |
+							  (uint32_t)buffer->data[buffer->read_pos + 1] << 16 |
+							  (uint32_t)buffer->data[buffer->read_pos + 2] << 8 |
+							  (uint32_t)buffer->data[buffer->read_pos + 3]);
 	buffer->read_pos += 4;
 	return OBJECT_VAL(new_ok_result(vm, INT_VAL(value)));
 }
@@ -534,9 +512,7 @@ Value read_float32_le_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 4)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Not enough bytes to read Float32.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Float32.", BOUNDS);
 
 	float value = bytes_to_float32(buffer->data + buffer->read_pos);
 	buffer->read_pos += 4;
@@ -553,9 +529,7 @@ Value read_float32_be_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 4)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Not enough bytes to read Float32.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Float32.", BOUNDS);
 
 	// reverse bytes into a temp array then pun
 	uint8_t tmp[4] = {
@@ -579,9 +553,7 @@ Value read_float64_le_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 8)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Not enough bytes to read Float64.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Float64.", BOUNDS);
 
 	double value = bytes_to_float64(buffer->data + buffer->read_pos);
 	buffer->read_pos += 8;
@@ -598,19 +570,12 @@ Value read_float64_be_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 
 	if (BUFFER_READABLE(buffer) < 8)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Not enough bytes to read Float64.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Not enough bytes to read Float64.", BOUNDS);
 
 	uint8_t tmp[8] = {
-		buffer->data[buffer->read_pos + 7],
-		buffer->data[buffer->read_pos + 6],
-		buffer->data[buffer->read_pos + 5],
-		buffer->data[buffer->read_pos + 4],
-		buffer->data[buffer->read_pos + 3],
-		buffer->data[buffer->read_pos + 2],
-		buffer->data[buffer->read_pos + 1],
-		buffer->data[buffer->read_pos + 0],
+		buffer->data[buffer->read_pos + 7], buffer->data[buffer->read_pos + 6], buffer->data[buffer->read_pos + 5],
+		buffer->data[buffer->read_pos + 4], buffer->data[buffer->read_pos + 3], buffer->data[buffer->read_pos + 2],
+		buffer->data[buffer->read_pos + 1], buffer->data[buffer->read_pos + 0],
 	};
 	double value = bytes_to_float64(tmp);
 	buffer->read_pos += 8;
@@ -684,16 +649,13 @@ Value skip_bytes_buffer_method(VM *vm, const Value *args)
 	int32_t n = AS_INT(args[1]);
 
 	if (n < 0)
-		return MAKE_GC_SAFE_ERROR(vm, "Skip amount cannot be negative.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "Skip amount cannot be negative.", VALUE);
 
 	if (BUFFER_READABLE(buffer) < (uint32_t)n)
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Cannot skip past write position.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot skip past write position.", BOUNDS);
 
 	buffer->read_pos += (uint32_t)n;
-	return NIL_VAL;
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
 /**
@@ -706,10 +668,7 @@ Value to_string_buffer_method(VM *vm, const Value *args)
 	const ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 	uint32_t readable = BUFFER_READABLE(buffer);
 
-	ObjectString *string = copy_string(vm,
-					   (const char *)(buffer->data +
-							  buffer->read_pos),
-					   (int)readable);
+	ObjectString *string = copy_string(vm, (const char *)(buffer->data + buffer->read_pos), (int)readable);
 	return OBJECT_VAL(string);
 }
 
@@ -724,13 +683,10 @@ Value clone_buffer_method(VM *vm, const Value *args)
 	const ObjectBuffer *src = AS_CRUX_BUFFER(args[0]);
 	ObjectBuffer *dst = new_buffer(vm, src->capacity);
 
-	push(vm->current_module_record, OBJECT_VAL(dst));
-
 	memcpy(dst->data, src->data, src->write_pos);
 	dst->read_pos = src->read_pos;
 	dst->write_pos = src->write_pos;
 
-	pop(vm->current_module_record);
 	return OBJECT_VAL(dst);
 }
 

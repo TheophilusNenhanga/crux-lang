@@ -303,11 +303,7 @@ OP_DEFINE_GLOBAL: {
 		pop(currentModuleRecord);
 		DISPATCH();
 	}
-	runtime_panic(currentModuleRecord, NAME,
-				  currentModuleRecord->is_repl ? "Defined a name that already had a "
-												 "definition"
-											   : "Cannot define '%s' because it is already defined.",
-				  name->chars);
+	runtime_panic(currentModuleRecord, NAME, "Cannot define '%s' because it is already defined.", name->chars);
 	return INTERPRET_RUNTIME_ERROR;
 }
 
@@ -1015,6 +1011,12 @@ OP_USE_MODULE: {
 			// Initialize runtime globals
 			init_table(&module->globals);
 			init_table(&module->publics);
+
+			for (int i = 0; i < vm->core_fns.capacity; i++) {
+				if (vm->core_fns.entries[i].key != NULL) {
+					table_set(vm, &module->globals, vm->core_fns.entries[i].key, vm->core_fns.entries[i].value);
+				}
+			}
 
 			// Execute the module code
 			push(module, OBJECT_VAL(module->module_closure));

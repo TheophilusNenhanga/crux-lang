@@ -197,6 +197,10 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 
 		const Value result_value = native->function(vm, args);
 
+		if (vm->is_exiting) {
+			return false;
+		}
+
 		current_module_record->stack_top -= arg_count + 1;
 
 		push(current_module_record, result_value);

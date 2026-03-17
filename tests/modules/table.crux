@@ -1,5 +1,3 @@
-use println from "crux:io";
-
 println("=== Testing Table Methods ===");
 
 // Helper to unwrap result
@@ -45,7 +43,7 @@ println("--- Testing get ---");
 let t5 = {"a": 1, "b": 2};
 assert(unwrap(t5.get("a")) == 1, "get should return value for existing key");
 let not_found = t5.get("c");
-assert(typeof not_found == "Result", "get should return Result for missing key");
+assert(typeof not_found == "Result[Error]", "get should return Result for missing key");
 println("get() test passed");
 
 // Test get_or_else

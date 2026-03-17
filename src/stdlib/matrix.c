@@ -367,7 +367,7 @@ Value matrix_scale_method(VM *vm, const Value *args)
 /**
  * Returns the transpose of the matrix (rows become columns)
  * arg0 -> matrix: Matrix
- * Returns Result<Matrix>
+ * Returns Matrix
  */
 Value matrix_transpose_method(VM *vm, const Value *args)
 {
