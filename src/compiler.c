@@ -364,9 +364,6 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, TOKEN_FILE_TYPE)) {
 		type_record = new_type_rec(compiler->owner, FILE_TYPE);
 	} else if (check(compiler, TOKEN_IDENTIFIER)) {
-		// Task 3: look up a user-defined struct (or other named) type.
-		// Walk the compiler chain so inner functions see enclosing
-		// struct declarations.
 		advance(compiler);
 		ObjectString *name_str = copy_string(compiler->owner, compiler->parser->previous.start,
 											 compiler->parser->previous.length);
@@ -650,6 +647,7 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	local->name.start = "";
 	local->name.length = 0;
 	local->is_captured = false;
+	local->type = new_type_rec(vm, ANY_TYPE);
 
 	if (type == TYPE_METHOD) {
 		local->name.start = "self";
@@ -1484,7 +1482,7 @@ static void infix_call(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
 
-	const ObjectTypeRecord *func_type = pop_type_record(compiler);
+	const ObjectTypeRecord *func_type = peek_type_record(compiler);
 	uint16_t arg_count = 0;
 	ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
@@ -1532,9 +1530,11 @@ static void infix_call(Compiler *compiler, bool can_assign)
 		}
 
 		ObjectTypeRecord *ret = func_type->as.function_type.return_type;
+		pop_type_record(compiler);
 		push_type_record(compiler, ret ? ret : T_ANY);
 	} else {
 		// unknown callee type
+		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
 	}
 }
@@ -1571,7 +1571,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 		compiler_panic(compiler->parser, "Too many constants.", SYNTAX);
 	}
 
-	ObjectTypeRecord *object_type = pop_type_record(compiler);
+	ObjectTypeRecord *object_type = peek_type_record(compiler);
 	if (!object_type)
 		object_type = T_ANY;
 
@@ -1605,6 +1605,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			}
 
 			emit_words(compiler, OP_SET_PROPERTY, name_constant);
+			pop_type_record(compiler);
 			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
 			return;
 		}
@@ -1622,6 +1623,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			check_compound_type_math(compiler, field_type ? field_type : T_ANY, rhs_type, op);
 
 			emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY, op), name_constant);
+			pop_type_record(compiler);
 			push_type_record(compiler, rhs_type); // assignment leaves the value on the stack
 			return;
 		}
@@ -1755,6 +1757,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			}
 		}
 
+		pop_type_record(compiler);
 		push_type_record(compiler, method_return ? method_return : T_ANY);
 		return;
 	}
@@ -1778,6 +1781,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 	}
 	// NOTE: Could add stdlib members here
 
+	pop_type_record(compiler);
 	push_type_record(compiler, result_type ? result_type : T_ANY);
 }
 
@@ -1789,7 +1793,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 	named_variable(compiler, compiler->parser->previous, can_assign);
 
-	ObjectTypeRecord *struct_type = pop_type_record(compiler);
+	ObjectTypeRecord *struct_type = peek_type_record(compiler);
 
 	// Validate that the name actually refers to a struct. ANY_TYPE means
 	// the pre-scan hasn't run yet or the name came from an import.
@@ -1799,12 +1803,14 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 		type_record_name(struct_type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "'new' requires a struct type name, got '%s'.", got);
 		// Push ANY_TYPE so the stack stays balanced.
+		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
 		return;
 	}
 
 	if (!match(compiler, TOKEN_LEFT_BRACE)) {
 		compiler_panic(compiler->parser, "Expected '{' to start struct instance.", SYNTAX);
+		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
 		return;
 	}
@@ -1835,6 +1841,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 							   SYNTAX);
 				if (field_seen)
 					FREE_ARRAY(compiler->owner, bool, field_seen, declared_field_count);
+				pop_type_record(compiler);
 				push_type_record(compiler, new_type_rec(compiler->owner, ANY_TYPE));
 				return;
 			}
@@ -1928,6 +1935,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	emit_word(compiler, OP_STRUCT_INSTANCE_END);
 
 	// Push the struct's type so callers know what new Foo{} produced.
+	pop_type_record(compiler);
 	push_type_record(compiler, struct_type ? struct_type : T_ANY);
 }
 
@@ -1953,17 +1961,18 @@ static void block(Compiler *compiler)
 	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
-static void function(Compiler *compiler, const FunctionType type)
+static void function(Compiler *compiler, const FunctionType type, ObjectTypeRecord *self_type)
 {
 	Compiler function_compiler;
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, type)) {
 		fprintf(stderr, "Fatal error: Memory allocation failed. Shutting down!\n");
 		exit(EXIT_FAILURE);
 	}
+	if (type == TYPE_METHOD && self_type) {
+		function_compiler.locals[0].type = self_type;
+	}
 	begin_scope(&function_compiler);
 
-	// Collect param types in a heap array so we can copy them to the
-	// enclosing arena after end_compiler() restores current.
 	int param_capacity = 4;
 	int param_count = 0;
 	ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
@@ -2050,31 +2059,24 @@ static void fn_declaration(Compiler *compiler, bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected function name.");
 
-	// compiler->parser->previous is the function name identifier right now.
-	// Capture it before function() calls consume() and advances the token.
 	const Token fn_name_token = compiler->parser->previous;
 	ObjectString *name_str = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
 
-	// Save local index in case this is a local-scope function.
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
 
 	mark_initialized(compiler);
-	function(compiler, TYPE_FUNCTION);
+	function(compiler, TYPE_FUNCTION, NULL);
 
 	ObjectTypeRecord *fn_type = pop_type_record(compiler);
-	if (is_public) {
+	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, name_str, fn_type);
 	}
 
 	if (fn_type) {
 		if (compiler->scope_depth == 0) {
-			// Global function: enter into the type table so
-			// named_variable can look it up from any scope.
 			ObjectString *name_str = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
 			type_table_set(compiler->type_table, name_str, fn_type);
 		} else {
-			// Local function: stamp the type directly onto the
-			// local slot that declare_variable already reserved.
 			compiler->locals[local_index].type = fn_type;
 		}
 	}
@@ -2220,7 +2222,7 @@ static void array_literal(Compiler *compiler, bool can_assign)
 	}
 
 	if (!element_type) {
-		// Empty array literal — element type is unknown.
+		// Empty array literal
 		element_type = T_ANY;
 	}
 
@@ -2249,16 +2251,13 @@ static void table_literal(Compiler *compiler, bool can_assign)
 			if (!table_key_type) {
 				table_key_type = key_type;
 			} else if (table_key_type->base_type != ANY_TYPE && key_type && key_type->base_type != ANY_TYPE) {
-				// Keys must be exactly equal — a table can't have mixed key types
+				// table cannot have mixed key types
 				if (!types_equal(table_key_type, key_type)) {
 					char expected[128], got[128];
 					type_record_name(table_key_type, expected, sizeof(expected));
 					type_record_name(key_type, got, sizeof(got));
 					compiler_panicf(compiler->parser, TYPE,
-									"Inconsistent key types in "
-									"table literal: expected "
-									"'%s', got '%s'.",
-									expected, got);
+									"Inconsistent key types in table literal: expected '%s', got '%s'.", expected, got);
 				}
 			}
 
@@ -2292,8 +2291,6 @@ static void table_literal(Compiler *compiler, bool can_assign)
 		table_value_type = T_ANY;
 	}
 
-	// Emit bytecode first, then push the type — the type record is
-	// compiler metadata, not part of the instruction stream.
 	emit_word(compiler, OP_TABLE);
 	emit_word(compiler, elementCount);
 
@@ -2303,9 +2300,6 @@ static void table_literal(Compiler *compiler, bool can_assign)
 
 static void collection_index(Compiler *compiler, const bool can_assign)
 {
-	// The collection's type is on the top of the type stack — pop it
-	// now so we know what element type to push after the index op, and
-	// so it doesn't leak.
 	ObjectTypeRecord *collection_type = pop_type_record(compiler);
 
 	expression(compiler);
@@ -2339,8 +2333,6 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 		expression(compiler);
 		ObjectTypeRecord *value_type = pop_type_record(compiler);
 
-		// On a set, validate the value type against the collection's
-		// element/value type if known.
 		if (collection_type && value_type && value_type->base_type != ANY_TYPE &&
 			collection_type->base_type != ANY_TYPE) {
 			ObjectTypeRecord *expected_value = NULL;
@@ -2362,13 +2354,9 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 		}
 
 		emit_word(compiler, OP_SET_COLLECTION);
-		// A set expression leaves no useful value — push Nil.
 		push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
 	} else {
 		emit_word(compiler, OP_GET_COLLECTION);
-
-		// Push the element type so downstream expressions know what
-		// they received.
 		ObjectTypeRecord *result_type = NULL;
 		if (collection_type) {
 			if (collection_type->base_type == ARRAY_TYPE) {
@@ -2421,7 +2409,7 @@ static void var_declaration(Compiler *compiler, bool is_public)
 	if (!resolved_type) {
 		resolved_type = T_ANY;
 	}
-	if (is_public) {
+	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
 	}
 
@@ -2432,7 +2420,7 @@ static void var_declaration(Compiler *compiler, bool is_public)
 		compiler->locals[compiler->local_count - 1].type = resolved_type;
 	} else {
 		if (!type_table_set(compiler->type_table, name_str, resolved_type)) {
-			compiler_panic(compiler->parser, "Failed to add type to type table.", TYPE);
+			compiler_panicf(compiler->parser, TYPE, "Attempting to redefine variable '%s'.", name_str->chars);
 		}
 	}
 	define_variable(compiler, global);
@@ -2875,8 +2863,8 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	} else {
 		compiler->locals[local_index].type = struct_type;
 	}
-	if (is_public) {
-		type_table_set(compiler->type_table, struct_name_str, struct_type);
+	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
+		type_table_set(compiler->owner->current_module_record->types, struct_name_str, struct_type);
 	}
 }
 
@@ -2913,7 +2901,7 @@ static void impl_declaration(Compiler *compiler)
 		uint16_t method_name_const = make_constant(compiler, OBJECT_VAL(method_name_str));
 
 		// slot 0 is preserved for self
-		function(compiler, TYPE_METHOD);
+		function(compiler, TYPE_METHOD, struct_type);
 
 		ObjectTypeRecord *method_type = pop_type_record(compiler);
 		type_table_set(struct_type->as.struct_type.field_types, method_name_str, method_type);
@@ -3302,7 +3290,7 @@ static void type_declaration(Compiler *compiler, bool is_public)
 	emit_constant(compiler, OBJECT_VAL(aliased_type));
 	define_variable(compiler, global);
 
-	if (is_public) {
+	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, type_name_str, aliased_type);
 	}
 }
@@ -4258,7 +4246,7 @@ void mark_compiler_roots(VM *vm, Compiler *compiler)
 		mark_object(vm, (CruxObject *)current->function);
 		mark_object(vm, (CruxObject *)current->return_type);
 		mark_object(vm, (CruxObject *)current->last_give_type);
-		mark_object_type_table(vm, current->type_table);
+		mark_object(vm, (CruxObject *)current->type_table);
 		for (int i = 0; i < current->type_stack_count; i++) {
 			mark_object(vm, (CruxObject *)current->type_stack[i]);
 		}

@@ -634,6 +634,10 @@ static void free_object_type_record(VM *vm, CruxObject *object)
 		if (rec->as.union_type.element_names) {
 			FREE_ARRAY(vm, ObjectString *, rec->as.union_type.element_names, rec->as.union_type.element_count);
 		}
+	} else if (rec->base_type == TUPLE_TYPE) {
+		if (rec->as.tuple_type.element_types && rec->as.tuple_type.element_count >= 0) {
+			FREE_ARRAY(vm, ObjectTypeRecord *, rec->as.tuple_type.element_types, rec->as.tuple_type.element_count);
+		}
 	}
 	FREE_OBJECT(vm, ObjectTypeRecord, object);
 }

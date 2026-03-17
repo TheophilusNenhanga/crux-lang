@@ -1,0 +1,78 @@
+println("--- 1. TYPEOF NARROWING ---");
+let val: Int | String = 42;
+
+if typeof(val) == "Int" {
+    let math: Int = val + 10;
+    assert(math == 52, "Int narrowing failed");
+    println("Narrowed to Int successfully.");
+} else {
+    let concat: String = val + " is a string";
+    println(concat);
+}
+
+
+println("--- 2. NIL CHECK NARROWING (STRIPPING) ---");
+let maybe_num: Float | Nil = nil;
+
+if maybe_num != nil {
+    let safe_num: Float = maybe_num + 3.14;
+    println("Got a float!");
+} else {
+    let definitely_nil: Nil = maybe_num;
+    println("It was safely nil!");
+}
+
+
+println("--- 3. COMPLEX BOOLEAN NARROWING ---");
+let data: String | Bool = "Hello Flow Typing";
+let flag: Bool = true;
+
+if flag and typeof(data) == "String" {
+    let result: String = data + "!";
+    println(result);
+}
+
+
+println("--- 4. STRUCTURAL SHAPES ---");
+struct Player {
+    x: Int,
+    y: Int,
+    health: Float
+}
+
+type Positionable = shape {
+    x: Int,
+    y: Int
+};
+
+fn move_right(obj: Positionable) -> Int {
+    return obj.x + 1;
+}
+
+let p1 = new Player { x: 10, y: 20, health: 100.0 };
+let new_x = move_right(p1);
+assert(new_x == 11, "Shape matching failed");
+println("Structural typing (Shapes) passed!");
+
+fn test_flow() {
+    let a: Int | Nil = 23;
+
+    if typeof a == "Int" {
+        println(a + 34);
+    }
+
+    if a != nil {
+        println(a + 10);
+    }
+
+    let b: Int | String = 10;
+    if typeof b == "Int" {
+        println(b + 5);
+    } else {
+        println(b.concat("!"));
+    }
+}
+
+test_flow();
+
+println("ALL FLOW TYPING TESTS PASSED!");

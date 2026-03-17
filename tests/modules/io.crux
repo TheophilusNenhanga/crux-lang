@@ -1,6 +1,5 @@
 use (
     print,
-    println,
     print_to,
     println_to,
     scan,

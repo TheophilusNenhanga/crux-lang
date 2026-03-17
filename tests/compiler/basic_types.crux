@@ -1,4 +1,3 @@
-use print, println from "crux:io";
 use Random from "crux:random";
 use Buffer from "crux:buffer";
 use open from "crux:fs";
@@ -26,9 +25,10 @@ let empty_arr: Array[Any] = []; // Empty array inference fallback to Any
 let tbl: Table[String, Int] = {"one": 1, "two": 2};
 let empty_tbl: Table[Any, Any] = {};
 
-let set_val: Set[Int] = Set([1, 2, 3]);
+let set_val: Set[Int] = Set([1, 2, 3])?;
 let tup_val: Tuple[Int] = Tuple([10, 20, 30]);
-let rng_val: Range = Range(0, 10, 1);
+let another_tuple: Tuple[String, Float, Int] = Tuple(["one", 2.21, 4]);
+let rng_val: Range = Range(0, 10, 1)?;
 
 println("--- 3. MATH & BINARY OPERATOR PROMOTION ---");
 let math_int: Int = 10 + 5 * 2;
@@ -100,7 +100,7 @@ let comp: Complex = Complex(1.0, 2.0);
 println("--- 9. WILDCARD MATRICES & VECTORS ---");
 let v_exact: Vector[3] = Vec(3, [1.0, 2.0, 3.0])?;
 let v_wild: Vector[] = Vec(5, [1.0, 2.0, 3.0, 4.0, 5.0])?; // Vector[] accepts any dimension
-let m_wild: Matrix[,] = Matrix(4, 4);
+let m_wild: Matrix[,] = Matrix(4, 4)?;
 
 // v_exact = Vec(4, [1.0, 2.0, 3.0, 4.0])?; // Compile Error: Vector[4] != Vector[3]
 v_wild = v_exact; // Vector[3] is compatible with Vector[]!
@@ -127,5 +127,55 @@ let match_val: String = match might_fail(true) {
         give "Error: " + e.message();
     }
 };
+
+fn add_with_types(a: Int, b: Int) -> Int {
+    return a + b;
+}
+
+fn add_no_types(a, b) {
+    return a + b;
+}
+
+let anon_with_types = fn(a: Int, b: Int) -> Int {
+    return a + b;
+};
+
+let anon_no_types = fn(a, b) {
+    return a + b;
+};
+
+assert(add_with_types(1, 2) == 3, "add_with_types failed");
+assert(add_no_types(1, 2) == 3, "add_no_types failed");
+assert(anon_with_types(1, 2) == 3, "anon_with_types failed");
+assert(anon_no_types(1, 2) == 3, "anon_no_types failed");
+
+struct Node {
+    next: Node | Nil,
+    value: Int
+}
+
+fn get_next(n: Node) -> Node | Nil {
+    return n.next;
+}
+
+let n2 = new Node {
+    next: nil,
+    value: 2
+};
+
+let n1 = new Node {
+    next: n2,
+    value: 1
+};
+
+let next = get_next(n1);
+
+let result = match next {
+    nil => give "nil";
+    default => give "not nil";
+};
+
+assert(result == "not nil", "get_next failed");
+println("All tests passed!");
 
 println("All type checks passed successfully!");

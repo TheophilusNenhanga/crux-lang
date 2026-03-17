@@ -74,8 +74,7 @@ Value first_tuple_method(VM *vm, const Value *args)
 {
 	ObjectTuple *tuple = AS_CRUX_TUPLE(args[0]);
 	if (tuple->size == 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Cannot get first element of empty tuple", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot get first element of empty tuple", BOUNDS);
 	}
 	ObjectResult *result = new_ok_result(vm, tuple->elements[0]);
 	return OBJECT_VAL(result);
@@ -90,11 +89,9 @@ Value last_tuple_method(VM *vm, const Value *args)
 {
 	ObjectTuple *tuple = AS_CRUX_TUPLE(args[0]);
 	if (tuple->size == 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Cannot get last element of empty tuple", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot get last element of empty tuple", BOUNDS);
 	}
-	ObjectResult *result = new_ok_result(vm,
-					     tuple->elements[tuple->size - 1]);
+	ObjectResult *result = new_ok_result(vm, tuple->elements[tuple->size - 1]);
 	return OBJECT_VAL(result);
 }
 
@@ -142,7 +139,7 @@ Value get_tuple_method(VM *vm, const Value *args)
  * arg0 -> tuple
  * arg1 -> start
  * arg2 -> end
- * returns -> Array<Value>
+ * returns -> Result<Array<Value>>
  */
 Value slice_tuple_method(VM *vm, const Value *args)
 {
@@ -157,7 +154,10 @@ Value slice_tuple_method(VM *vm, const Value *args)
 		array->values[i - start] = tuple->elements[i];
 	}
 	array->size = end - start;
-	return OBJECT_VAL(array);
+	push(vm->current_module_record, OBJECT_VAL(array));
+	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(array));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(result);
 }
 
 /**

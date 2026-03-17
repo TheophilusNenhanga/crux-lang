@@ -1,0 +1,158 @@
+use Random from "crux:random";
+use Matrix from "crux:matrix";
+use sqrt from "crux:math";
+use time_ms from "crux:time";
+use open from "crux:fs";
+
+println("=== START OF VORONOI & COMPUTER VISION BENCHMARK ===");
+
+let g_random = Random();
+let WIDTH: Int = 800;
+let HEIGHT: Int = 800;
+let NUM_SEEDS: Int = 200;
+
+struct Seed {
+    x: Float,
+    y: Float,
+    r: Float,
+    g: Float,
+    b: Float
+}
+
+fn main() -> Nil {
+    let start_time = time_ms();
+
+    // 1. Generate Seeds
+    println("Generating " + string(NUM_SEEDS) + " Voronoi seeds...");
+    let seeds: Array[Seed] = [];
+
+    for let i = 0; i < NUM_SEEDS; i += 1 {
+        seeds.push(new Seed {
+            x: g_random.float(0.0, float(WIDTH)?)?,
+            y: g_random.float(0.0, float(HEIGHT)?)?,
+            r: g_random.float(20.0, 240.0)?,
+            g: g_random.float(20.0, 240.0)?,
+            b: g_random.float(20.0, 240.0)?
+        });
+    }
+
+    // We use Matrices to hold our isolated image channels
+    // This heavily tests your Matrix struct allocation and memory.
+    let r_channel = Matrix(HEIGHT, WIDTH)?;
+    let g_channel = Matrix(HEIGHT, WIDTH)?;
+    let b_channel = Matrix(HEIGHT, WIDTH)?;
+
+    // 2. Compute Voronoi (128 Million inner loop iterations)
+    println("Calculating Voronoi distances (128 Million iterations)...");
+    for let y = 0; y < HEIGHT; y += 1 {
+        if y % 100 == 0 { println("  Row: " + string(y)); }
+
+        let fy = float(y)?;
+
+        for let x = 0; x < WIDTH; x += 1 {
+            let fx = float(x)?;
+            let min_dist1 = 999999.0;
+            let min_dist2 = 999999.0;
+            let closest_index = 0;
+
+            // The Extreme Hot Loop
+            for let s = 0; s < NUM_SEEDS; s += 1 {
+                let seed = seeds[s];
+                let dx = seed.x - fx;
+                let dy = seed.y - fy;
+                let dist = sqrt(dx * dx + dy * dy)?;
+
+                if dist < min_dist1 {
+                    min_dist2 = min_dist1;
+                    min_dist1 = dist;
+                    closest_index = s;
+                } else {
+                    if dist < min_dist2 {
+                        min_dist2 = dist;
+                    }
+                }
+            }
+
+            let closest = seeds[closest_index];
+
+            // Darken edges where the two closest points are roughly equidistant
+            let edge_factor = min_dist2 - min_dist1;
+            let multiplier = 0.1 + (edge_factor / 2.0);
+            if multiplier > 1.0 {
+                multiplier = 1.0;
+            }
+
+            r_channel.set(y, x, closest.r * multiplier);
+            g_channel.set(y, x, closest.g * multiplier);
+            b_channel.set(y, x, closest.b * multiplier);
+        }
+    }
+
+    // 3. Computer Vision: Sobel Edge Detection
+    println("Applying Sobel Edge Detection Filter (Matrix Convolution)...");
+    let sobel_output = Matrix(HEIGHT, WIDTH)?;
+
+    // We run the Sobel operator on the Green channel as a proxy for luminance.
+    // This creates a sliding 3x3 window over the entire matrix.
+    for let y = 1; y < HEIGHT - 1; y += 1 {
+        if y % 100 == 0 { println("  Convolution Row: " + string(y)); }
+        for let x = 1; x < WIDTH - 1; x += 1 {
+
+            // 9 Lookups per pixel!
+            let p00 = g_channel.get(y-1, x-1)?;
+            let p01 = g_channel.get(y-1, x)?;
+            let p02 = g_channel.get(y-1, x+1)?;
+
+            let p10 = g_channel.get(y,   x-1)?;
+            let p12 = g_channel.get(y,   x+1)?;
+
+            let p20 = g_channel.get(y+1, x-1)?;
+            let p21 = g_channel.get(y+1, x)?;
+            let p22 = g_channel.get(y+1, x+1)?;
+
+            // Convolution Math
+            let gx = (p02 + 2.0 * p12 + p22) - (p00 + 2.0 * p10 + p20);
+            let gy = (p20 + 2.0 * p21 + p22) - (p00 + 2.0 * p01 + p02);
+
+            let magnitude = sqrt(gx * gx + gy * gy)?;
+            sobel_output.set(y, x, magnitude);
+        }
+    }
+
+    // 4. Render to File
+    println("Compositing and saving to file...");
+    let file = open("renders/stained_glass.ppm", "w")?;
+    file.write("P3\n");
+    file.write(string(WIDTH) + " " + string(HEIGHT) + "\n");
+    file.write("255\n");
+
+    for let y = 0; y < HEIGHT; y += 1 {
+        for let x = 0; x < WIDTH; x += 1 {
+            let r = r_channel.get(y, x)?;
+            let g = g_channel.get(y, x)?;
+            let b = b_channel.get(y, x)?;
+
+            // Overlay the Sobel Edge Detection (creates glowing white highlights on borders)
+            let edge = sobel_output.get(y, x)?;
+            if edge > 40.0 {
+                r += edge;
+                g += edge;
+                b += edge;
+            }
+
+            // Clamp colors to 8-bit RGB range
+            if r > 255.0 { r = 255.0; } if r < 0.0 { r = 0.0; }
+            if g > 255.0 { g = 255.0; } if g < 0.0 { g = 0.0; }
+            if b > 255.0 { b = 255.0; } if b < 0.0 { b = 0.0; }
+
+            file.write(string(int(r)?) + " " + string(int(g)?) + " " + string(int(b)?) + "\n");
+        }
+    }
+    file.close();
+
+    let end_time = time_ms();
+    println("Benchmark finished in " + string(end_time - start_time) + " ms.");
+}
+
+main();
+println("=== END OF VORONOI & COMPUTER VISION BENCHMARK ===");

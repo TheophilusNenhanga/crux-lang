@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use Matrix, IMatrix, AMatrix from "crux:matrix";
 
 println("=== Testing Matrix Module ===");
@@ -13,10 +13,10 @@ fn unwrap(r) {
 // Test Matrix constructor
 println("--- Testing Matrix constructor ---");
 let m1 = Matrix(3, 3)?;
-assert(typeof m1 == "Matrix", "Matrix() should return Matrix object");
+assert(typeof m1 == "Matrix[3, 3]", "Matrix() should return Matrix object");
 
 let m2 = Matrix(2, 4)?;
-assert(typeof m2 == "Matrix", "Matrix() should work for non-square matrices");
+assert(typeof m2 == "Matrix[2, 4]", "Matrix() should work for non-square matrices");
 println("Matrix constructor test passed");
 
 // Test rows and cols

@@ -1,0 +1,35 @@
+struct Point {
+    x: Int,
+    y: Int
+}
+
+struct Point3D {
+    x: Int,
+    y: Int,
+    z: Int
+}
+
+struct PointLike {
+    x: Int,
+    y: Int
+}
+
+type PointShape = shape {
+    x: Int,
+    y: Int
+};
+
+fn distance(p: PointShape) -> Int {
+    return p.x * p.x + p.y * p.y;
+}
+
+let p1 = new Point { x: 3, y: 4 };
+assert(distance(p1) == 25, "Point structural typing");
+
+let p2 = new Point3D { x: 5, y: 12, z: 0 };
+assert(distance(p2) == 169, "Point3D structural typing");
+
+let p3 = new PointLike { x: 8, y: 6 };
+assert(distance(p3) == 100, "PointLike structural typing");
+
+println("Shape tests passed");

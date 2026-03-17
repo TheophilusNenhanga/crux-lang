@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "garbage_collector.h"
+#include "object.h"
 #include "panic.h"
 #include "stdlib/array.h"
 
@@ -18,8 +19,7 @@ Value array_push_method(VM *vm, const Value *args)
 	const Value to_add = args[1];
 
 	if (!array_add(vm, array, to_add, array->size)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to add element to array.",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to add element to array.", RUNTIME);
 	}
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
@@ -35,9 +35,7 @@ Value array_pop_method(VM *vm, const Value *args)
 	ObjectArray *array = AS_CRUX_ARRAY(args[0]);
 
 	if (array->size == 0) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Cannot remove a value from an empty array.",
-			BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot remove a value from an empty array.", BOUNDS);
 	}
 
 	const Value popped = array->values[array->size - 1];
@@ -62,21 +60,11 @@ Value array_insert_method(VM *vm, const Value *args)
 	const uint32_t insert_at = AS_INT(args[1]);
 
 	if (insert_at > array->size) {
-		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
-	if (ensure_capacity(vm, array, array->size + 1)) {
-		for (uint32_t i = array->size; i > insert_at; i--) {
-			array->values[i] = array->values[i - 1];
-		}
-
-		array->values[insert_at] = toInsert;
-		array->size++;
-	} else {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate enough memory for new array.",
-			MEMORY);
+	if (!array_add(vm, array, toInsert, insert_at)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate enough memory for new array.", MEMORY);
 	}
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
@@ -94,8 +82,7 @@ Value array_remove_at_method(VM *vm, const Value *args)
 	const uint32_t removeAt = AS_INT(args[1]);
 
 	if (removeAt >= array->size) {
-		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "<index> is out of bounds.", BOUNDS);
 	}
 
 	const Value removed_element = array->values[removeAt];
@@ -121,17 +108,14 @@ Value array_concat_method(VM *vm, const Value *args)
 
 	const uint32_t combined_size = targetArray->size + array->size;
 	if (combined_size > MAX_ARRAY_SIZE) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Size of resultant array out of bounds.", BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "Size of resultant array out of bounds.", BOUNDS);
 	}
 
 	ObjectArray *resultArray = new_array(vm, combined_size);
 	push(vm->current_module_record, OBJECT_VAL(resultArray));
 
 	for (uint32_t i = 0; i < combined_size; i++) {
-		resultArray->values[i] =
-			i < array->size ? array->values[i]
-					: targetArray->values[i - array->size];
+		resultArray->values[i] = i < array->size ? array->values[i] : targetArray->values[i - array->size];
 	}
 
 	resultArray->size = combined_size;
@@ -155,13 +139,11 @@ Value array_slice_method(VM *vm, const Value *args)
 	const int32_t end_index = AS_INT(args[2]);
 
 	if (start_index > array->size) {
-		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.", BOUNDS);
 	}
 
 	if (end_index > array->size) {
-		return MAKE_GC_SAFE_ERROR(vm, "<end_index> out of bounds.",
-					  BOUNDS);
+		return MAKE_GC_SAFE_ERROR(vm, "<end_index> out of bounds.", BOUNDS);
 	}
 
 	if (end_index < start_index) {
@@ -194,9 +176,7 @@ Value array_reverse_method(VM *vm, const Value *args)
 	Value *values = ALLOCATE(vm, Value, array->size);
 
 	if (values == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate memory when reversing array.",
-			MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory when reversing array.", MEMORY);
 	}
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -228,8 +208,7 @@ Value array_index_of_method(VM *vm, const Value *args)
 			return OBJECT_VAL(new_ok_result(vm, INT_VAL(i)));
 		}
 	}
-	return MAKE_GC_SAFE_ERROR(vm, "Value could not be found in the array.",
-				  VALUE);
+	return MAKE_GC_SAFE_ERROR(vm, "Value could not be found in the array.", VALUE);
 }
 
 /**
@@ -330,8 +309,7 @@ Value array_map_method(VM *vm, const Value *args)
 		if (result->is_ok) {
 			array_add_back(vm, resultArray, result->as.value);
 		} else {
-			array_add_back(vm, resultArray,
-				       OBJECT_VAL(result->as.error));
+			array_add_back(vm, resultArray, OBJECT_VAL(result->as.error));
 		}
 		pop(currentModuleRecord); // arrayValue
 	}
@@ -548,10 +526,7 @@ Value array_sort_method(VM *vm, const Value *args)
 	}
 
 	if (!all_elements_sortable(array)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Array contains unsortable or mixed incompatible types",
-			TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "Array contains unsortable or mixed incompatible types", TYPE);
 	}
 
 	ObjectArray *sortedArray = new_array(vm, array->size);
@@ -590,14 +565,10 @@ Value array_join_method(VM *vm, const Value *args)
 	}
 
 	// estimate: 3 chars per element + separators
-	size_t bufferSize = array->size * 3 +
-			    (array->size > 1
-				     ? (array->size - 1) * separator->length
-				     : 0);
+	size_t bufferSize = array->size * 3 + (array->size > 1 ? (array->size - 1) * separator->length : 0);
 	char *buffer = malloc(bufferSize);
 	if (!buffer) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", RUNTIME);
 	}
 
 	size_t actual_length = 0;
@@ -613,24 +584,19 @@ Value array_join_method(VM *vm, const Value *args)
 
 		if (actual_length + neededSpace > bufferSize) {
 			// Grow the buffer by 50%
-			const size_t newSize = (size_t)(((double)bufferSize *
-							 1.5) +
-							(double)neededSpace);
+			const size_t newSize = (size_t)(((double)bufferSize * 1.5) + (double)neededSpace);
 			char *newBuffer = realloc(buffer, newSize);
 			if (!newBuffer) {
 				free(buffer);
 				pop(vm->current_module_record); // element
-				return MAKE_GC_SAFE_ERROR(
-					vm, "Memory reallocation failed",
-					MEMORY);
+				return MAKE_GC_SAFE_ERROR(vm, "Memory reallocation failed", MEMORY);
 			}
 			buffer = newBuffer;
 			bufferSize = newSize;
 		}
 
 		if (i > 0) {
-			memcpy(buffer + actual_length, separator->chars,
-			       separator->length);
+			memcpy(buffer + actual_length, separator->chars, separator->length);
 			actual_length += separator->length;
 		}
 
@@ -644,9 +610,7 @@ Value array_join_method(VM *vm, const Value *args)
 		char *newBuffer = realloc(buffer, actual_length + 1);
 		if (!newBuffer) {
 			free(buffer);
-			return MAKE_GC_SAFE_ERROR(vm,
-						  "Memory reallocation failed",
-						  MEMORY);
+			return MAKE_GC_SAFE_ERROR(vm, "Memory reallocation failed", MEMORY);
 		}
 		buffer = newBuffer;
 	}

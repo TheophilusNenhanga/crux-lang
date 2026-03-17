@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 
 println("--- 1. MUTATION & METHOD CHAINING ---");
 struct Counter {
