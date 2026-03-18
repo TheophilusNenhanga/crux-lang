@@ -668,7 +668,7 @@ Value fs_copy_file_function(VM *vm, const Value *args)
 	if (!CopyFileA(from, to, FALSE)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to copy file.", IO);
 	}
-	return OBJECT_VAL(new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 #else
 	FILE *src = fopen(from, "rb");
 	if (src == NULL) {
