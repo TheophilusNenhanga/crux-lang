@@ -40,16 +40,26 @@ file(GLOB SOURCES
 				"src/stdlib/*.c"
 				"src/vm/*.c"
 				"src/memory/*.c"
-				"deps/linenoise/linenoise.c"
 )
+
+if (NOT WIN32)
+	list(APPEND SOURCES "deps/linenoise/linenoise.c")
+endif()
 
 file(GLOB HEADERS
 			"include/*.h"
 			"include/stdlib/*.h"
-			"deps/linenoise/linenoise.h"
 )
 
-include_directories(include deps/linenoise)
+if (NOT WIN32)
+	list(APPEND HEADERS "deps/linenoise/linenoise.h")
+endif()
+
+include_directories(include)
+
+if (NOT WIN32)
+	include_directories(deps/linenoise)
+endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(crux ${SOURCES} ${HEADERS})

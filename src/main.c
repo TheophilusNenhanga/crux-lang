@@ -3,7 +3,9 @@
 
 #include "common.h"
 #include "file_handler.h"
+#ifndef _WIN32
 #include "linenoise.h"
+#endif
 #include "vm.h"
 
 static int repl(VM *vm)
@@ -17,6 +19,7 @@ static int repl(VM *vm)
 
 	const char *finalPath = historyPath ? historyPath : ".crux_history";
 
+#ifndef _WIN32
 	linenoiseHistoryLoad(finalPath);
 	char *line;
 
@@ -32,6 +35,20 @@ static int repl(VM *vm)
 		}
 		linenoiseFree(line);
 	}
+#else
+	while (true) {
+		char line[1024];
+		printf(CYAN "> " RESET);
+		printf(GREEN);
+		fflush(stdout);
+		if (!fgets(line, sizeof(line), stdin)) {
+			printf(RESET "\n");
+			break;
+		}
+		printf(RESET);
+		interpret(vm, line);
+	}
+#endif
 
 	if (historyPath)
 		free(historyPath);
