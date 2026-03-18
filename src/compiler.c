@@ -149,21 +149,26 @@ static bool is_valid_table_key_type(ObjectTypeRecord *type)
 }
 
 #define T_ANY new_type_rec(compiler->owner, ANY_TYPE)
+#define T_BOOL new_type_rec(compiler->owner, BOOL_TYPE)
+#define T_INT new_type_rec(compiler->owner, INT_TYPE)
+#define T_FLOAT new_type_rec(compiler->owner, FLOAT_TYPE)
+#define T_STRING new_type_rec(compiler->owner, STRING_TYPE)
+#define T_NIL new_type_rec(compiler->owner, NIL_TYPE)
 
 ObjectTypeRecord *parse_type_record(Compiler *compiler)
 {
 	ObjectTypeRecord *type_record = NULL;
 
 	if (match(compiler, TOKEN_INT_TYPE)) {
-		type_record = new_type_rec(compiler->owner, INT_TYPE);
+		type_record = T_INT;
 	} else if (match(compiler, TOKEN_FLOAT_TYPE)) {
-		type_record = new_type_rec(compiler->owner, FLOAT_TYPE);
+		type_record = T_FLOAT;
 	} else if (match(compiler, TOKEN_BOOL_TYPE)) {
-		type_record = new_type_rec(compiler->owner, BOOL_TYPE);
+		type_record = T_BOOL;
 	} else if (match(compiler, TOKEN_STRING_TYPE)) {
-		type_record = new_type_rec(compiler->owner, STRING_TYPE);
+		type_record = T_STRING;
 	} else if (match(compiler, TOKEN_NIL_TYPE)) {
-		type_record = new_type_rec(compiler->owner, NIL_TYPE);
+		type_record = T_NIL;
 	} else if (match(compiler, TOKEN_ANY_TYPE)) {
 		type_record = T_ANY;
 	} else if (match(compiler, TOKEN_SHAPE)) {
@@ -219,7 +224,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		if (match(compiler, TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, VECTOR_TYPE);
 
-			// consuming a generic vector type
+			// generic vector type
 			if (match(compiler, TOKEN_RIGHT_SQUARE)) {
 				type_record->as.vector_type.dimensions = -1;
 				return type_record;
@@ -237,6 +242,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		if (match(compiler, TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, MATRIX_TYPE);
 			if (match(compiler, TOKEN_COMMA)) {
+				// generic matrix type
 				if (match(compiler, TOKEN_RIGHT_SQUARE)) {
 					type_record->as.matrix_type.cols = -1;
 					type_record->as.matrix_type.rows = -1;
@@ -412,7 +418,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		if (count < cap) {
 			variants = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, cap, count);
 		}
-		// element_names can be NULL for anonymous unions.
+		// element_names can be NULL for anonymous unions
 		type_record = new_union_type_rec(compiler->owner, variants, NULL, count);
 	}
 
@@ -553,7 +559,6 @@ ObjectTypeRecord *peek_type_record(Compiler *compiler)
 	return compiler->type_stack[compiler->type_stack_count - 1];
 }
 
-// Used to set current to the new compiler
 bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const FunctionType type)
 {
 	if (vm == NULL)
@@ -603,9 +608,8 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	compiler->return_type = NULL;
 	compiler->type_table = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 
-	// only add core fn types for top-level scripts
+	// add core fn types for top-level scripts
 	if (enclosing == NULL) {
-		// add core fn types
 		for (int i = 0; i < vm->core_fns.capacity; i++) {
 			if (vm->core_fns.entries[i].key != NULL) {
 				const Value val = vm->core_fns.entries[i].value;
@@ -647,7 +651,7 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	local->name.start = "";
 	local->name.length = 0;
 	local->is_captured = false;
-	local->type = new_type_rec(vm, ANY_TYPE);
+	local->type = T_ANY;
 
 	if (type == TYPE_METHOD) {
 		local->name.start = "self";
@@ -899,7 +903,6 @@ static uint16_t parse_variable(Compiler *compiler, const char *errorMessage)
 	return identifier_constant(compiler, &compiler->parser->previous);
 }
 
-// Helper to detect compound operators
 static int match_compound_op(Compiler *compiler)
 {
 	if (match(compiler, TOKEN_PLUS_EQUAL))
@@ -917,7 +920,7 @@ static int match_compound_op(Compiler *compiler)
 	return -1;
 }
 
-// Helper to check math types for all compound assignments
+// check math types for all compound assignments
 static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_type, ObjectTypeRecord *rhs_type, int op)
 {
 	if (!lhs_type || !rhs_type || lhs_type->base_type == ANY_TYPE || rhs_type->base_type == ANY_TYPE)
@@ -926,14 +929,7 @@ static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_t
 	const bool lhs_num = lhs_type->base_type == INT_TYPE || lhs_type->base_type == FLOAT_TYPE;
 	const bool rhs_num = rhs_type->base_type == INT_TYPE || rhs_type->base_type == FLOAT_TYPE;
 
-	if (op == COMPOUND_OP_PLUS && lhs_type->base_type == STRING_TYPE) {
-		if (rhs_type->base_type != STRING_TYPE) {
-			char got[128];
-			type_record_name(rhs_type, got, sizeof(got));
-			compiler_panicf(compiler->parser, TYPE, "'+=' on a String requires a String right-hand side, got '%s'.",
-							got);
-		}
-	} else if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
+	if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
 		if (lhs_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
 			char left_name[128], right_name[128];
 			type_record_name(lhs_type, left_name, sizeof(left_name));
@@ -974,16 +970,14 @@ static void define_variable(Compiler *compiler, const uint16_t global)
 
 static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const int op)
 {
-	static const OpCode local_ops[] = {OP_SET_LOCAL_PLUS,  OP_SET_LOCAL_MINUS,		OP_SET_LOCAL_STAR,
-									   OP_SET_LOCAL_SLASH, OP_SET_LOCAL_INT_DIVIDE, OP_SET_LOCAL_MODULUS};
-	static const OpCode upvalue_ops[] = {OP_SET_UPVALUE_PLUS,  OP_SET_UPVALUE_MINUS,	  OP_SET_UPVALUE_STAR,
-										 OP_SET_UPVALUE_SLASH, OP_SET_UPVALUE_INT_DIVIDE, OP_SET_UPVALUE_MODULUS};
-	static const OpCode global_ops[] = {OP_SET_GLOBAL_PLUS,	 OP_SET_GLOBAL_MINUS,	   OP_SET_GLOBAL_STAR,
-										OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
-
-	// NEW! We are adding property support so `self.count += 1` works!
-	static const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,	 OP_SET_PROPERTY_MINUS,		 OP_SET_PROPERTY_STAR,
-										  OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
+	const OpCode local_ops[] = {OP_SET_LOCAL_PLUS,	OP_SET_LOCAL_MINUS,		 OP_SET_LOCAL_STAR,
+								OP_SET_LOCAL_SLASH, OP_SET_LOCAL_INT_DIVIDE, OP_SET_LOCAL_MODULUS};
+	const OpCode upvalue_ops[] = {OP_SET_UPVALUE_PLUS,	OP_SET_UPVALUE_MINUS,	   OP_SET_UPVALUE_STAR,
+								  OP_SET_UPVALUE_SLASH, OP_SET_UPVALUE_INT_DIVIDE, OP_SET_UPVALUE_MODULUS};
+	const OpCode global_ops[] = {OP_SET_GLOBAL_PLUS,  OP_SET_GLOBAL_MINUS,		OP_SET_GLOBAL_STAR,
+								 OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
+	const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,  OP_SET_PROPERTY_MINUS,	  OP_SET_PROPERTY_STAR,
+								   OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
 
 	if (setOp == OP_SET_LOCAL)
 		return local_ops[op];
@@ -1056,7 +1050,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 				}
 			}
 			emit_words(compiler, setOp, arg);
-			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE)); // Keep type stack balanced!
+			push_type_record(compiler, T_NIL);
 			return;
 		}
 
@@ -1067,7 +1061,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 			check_compound_type_math(compiler, var_type, rhs_type, op);
 
 			emit_words(compiler, get_compound_opcode(compiler, setOp, op), arg);
-			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE)); // Keep type stack balanced!
+			push_type_record(compiler, T_NIL);
 			return;
 		}
 	}
@@ -1113,7 +1107,7 @@ static void and_(Compiler *compiler, bool can_assign)
 	const int endJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 	emit_word(compiler, OP_POP);
 
-	// If the left side narrowed a variable, we want to apply it temporarily while compiling the right side!
+	// If the left side narrowed a variable, apply it temporarily while compiling the right side
 	ObjectTypeRecord *original_type = NULL;
 	if (left_narrowing.narrowed_to) {
 		if (left_narrowing.local_index != -1) {
@@ -1127,7 +1121,7 @@ static void and_(Compiler *compiler, bool can_assign)
 
 	parse_precedence(compiler, PREC_AND);
 
-	// Restore original type if we temporarily narrowed it
+	// Restore original type if temporarily narrowed it
 	if (left_narrowing.narrowed_to) {
 		if (left_narrowing.local_index != -1) {
 			compiler->locals[left_narrowing.local_index].type = original_type;
@@ -1145,9 +1139,9 @@ static void and_(Compiler *compiler, bool can_assign)
 
 	patch_jump(compiler, endJump);
 
-	push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
+	push_type_record(compiler, T_BOOL);
 
-	// For 'and', if the right side didn't narrow anything (local OR global), preserve the left side's narrowing
+	// for 'and' if the right side didn't narrow anything preserve the left side's narrowing
 	if (compiler->current_narrowing.local_index == -1 && compiler->current_narrowing.global_name == NULL) {
 		compiler->current_narrowing = left_narrowing;
 	}
@@ -1164,7 +1158,7 @@ static void or_(Compiler *compiler, bool can_assign)
 		compiler_panicf(compiler->parser, TYPE, "Left operand of 'or' must be of type 'Bool', got '%s'.", got);
 	}
 
-	// For 'or', we can't guarantee either side is true in the 'then' block, so we MUST discard narrowing.
+	// For 'or' we can't guarantee either side is true in the 'then' block, so discard narrowing.
 	compiler->current_narrowing.tracked_local_index = -1;
 	compiler->current_narrowing.tracked_is_typeof = false;
 	compiler->current_narrowing.tracked_literal_type = NULL;
@@ -1189,7 +1183,7 @@ static void or_(Compiler *compiler, bool can_assign)
 
 	patch_jump(compiler, endJump);
 
-	// Discard right side narrowing as well for 'or'
+	// Discard right side narrowing for 'or'
 	compiler->current_narrowing.tracked_local_index = -1;
 	compiler->current_narrowing.tracked_is_typeof = false;
 	compiler->current_narrowing.tracked_literal_type = NULL;
@@ -1199,10 +1193,9 @@ static void or_(Compiler *compiler, bool can_assign)
 	compiler->current_narrowing.tracked_global_name = NULL;
 	compiler->current_narrowing.global_name = NULL;
 
-	push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
+	push_type_record(compiler, T_BOOL);
 }
 
-// TODO: When called must change the compiler to its enclosing
 static ObjectFunction *end_compiler(Compiler *compiler)
 {
 	emit_return(compiler);
@@ -1243,7 +1236,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		} else {
 			emit_word(compiler, OP_NOT_EQUAL);
 		}
-		result_type = new_type_rec(compiler->owner, BOOL_TYPE);
+		result_type = T_BOOL;
 
 		if ((compiler->current_narrowing.tracked_local_index != -1 ||
 			 compiler->current_narrowing.tracked_global_name != NULL) &&
@@ -1309,7 +1302,7 @@ static void binary(Compiler *compiler, bool can_assign)
 			break;
 		}
 
-		result_type = new_type_rec(compiler->owner, BOOL_TYPE);
+		result_type = T_BOOL;
 		break;
 	}
 
@@ -1326,12 +1319,9 @@ static void binary(Compiler *compiler, bool can_assign)
 
 		if (left_str || right_str) {
 			if (!left_str || !right_str) {
-				compiler_panic(compiler->parser,
-							   "Cannot use '+' between String and "
-							   "non-String.",
-							   TYPE);
+				compiler_panic(compiler->parser, "Cannot use '+' between String and non-String.", TYPE);
 			}
-			result_type = new_type_rec(compiler->owner, STRING_TYPE);
+			result_type = T_STRING;
 			break;
 		}
 
@@ -1347,9 +1337,9 @@ static void binary(Compiler *compiler, bool can_assign)
 
 		// Int + Float => Float
 		if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+			result_type = T_FLOAT;
 		} else {
-			result_type = new_type_rec(compiler->owner, INT_TYPE);
+			result_type = T_INT;
 		}
 		break;
 	}
@@ -1374,9 +1364,9 @@ static void binary(Compiler *compiler, bool can_assign)
 		if (either_any) {
 			result_type = new_type_rec(compiler->owner, ANY_TYPE);
 		} else if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+			result_type = T_FLOAT;
 		} else {
-			result_type = new_type_rec(compiler->owner, INT_TYPE);
+			result_type = T_INT;
 		}
 		break;
 	}
@@ -1394,7 +1384,7 @@ static void binary(Compiler *compiler, bool can_assign)
 			}
 		}
 		emit_word(compiler, OP_DIVIDE);
-		result_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+		result_type = T_FLOAT;
 		break;
 	}
 
@@ -1410,7 +1400,7 @@ static void binary(Compiler *compiler, bool can_assign)
 			}
 		}
 		emit_word(compiler, operatorType == TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
-		result_type = new_type_rec(compiler->owner, INT_TYPE);
+		result_type = T_INT;
 		break;
 	}
 
@@ -1448,7 +1438,7 @@ static void binary(Compiler *compiler, bool can_assign)
 			break;
 		}
 
-		result_type = new_type_rec(compiler->owner, INT_TYPE);
+		result_type = T_INT;
 		break;
 	}
 
@@ -1465,7 +1455,7 @@ static void binary(Compiler *compiler, bool can_assign)
 			}
 		}
 		emit_word(compiler, OP_POWER);
-		result_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+		result_type = T_FLOAT;
 		break;
 	}
 
@@ -1503,7 +1493,7 @@ static void infix_call(Compiler *compiler, bool can_assign)
 
 	emit_words(compiler, OP_CALL, arg_count);
 
-	// Type-check only when the callee type is statically known.
+	// Type-check when the callee is statically known.
 	if (func_type && func_type->base_type == FUNCTION_TYPE) {
 		const int expected_count = func_type->as.function_type.arg_count;
 
@@ -1519,10 +1509,7 @@ static void infix_call(Compiler *compiler, bool can_assign)
 						char exp_name[128], got_name[128];
 						type_record_name(expected, exp_name, sizeof(exp_name));
 						type_record_name(got, got_name, sizeof(got_name));
-						compiler_panicf(compiler->parser, TYPE,
-										"Argument %d type "
-										"mismatch: expected "
-										"'%s', got '%s'.",
+						compiler_panicf(compiler->parser, TYPE, "Argument %d type mismatch: expected '%s', got '%s'.",
 										i + 1, exp_name, got_name);
 					}
 				}
@@ -1545,16 +1532,16 @@ static void literal(Compiler *compiler, bool can_assign)
 	switch (compiler->parser->previous.type) {
 	case TOKEN_FALSE:
 		emit_word(compiler, OP_FALSE);
-		push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
+		push_type_record(compiler, T_BOOL);
 		break;
 	case TOKEN_NIL:
-		compiler->current_narrowing.tracked_literal_type = new_type_rec(compiler->owner, NIL_TYPE);
+		compiler->current_narrowing.tracked_literal_type = T_NIL;
 		emit_word(compiler, OP_NIL);
-		push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
+		push_type_record(compiler, T_NIL);
 		break;
 	case TOKEN_TRUE:
 		emit_word(compiler, OP_TRUE);
-		push_type_record(compiler, new_type_rec(compiler->owner, BOOL_TYPE));
+		push_type_record(compiler, T_BOOL);
 		break;
 	default:
 		return; // unreachable
@@ -1606,7 +1593,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 
 			emit_words(compiler, OP_SET_PROPERTY, name_constant);
 			pop_type_record(compiler);
-			push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
+			push_type_record(compiler, T_NIL);
 			return;
 		}
 
@@ -1779,7 +1766,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 							method_name_token.start);
 		}
 	}
-	// NOTE: Could add stdlib members here
+	// NOTE: Could add stdlib members here, or enums
 
 	pop_type_record(compiler);
 	push_type_record(compiler, result_type ? result_type : T_ANY);
@@ -1795,14 +1782,11 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 	ObjectTypeRecord *struct_type = peek_type_record(compiler);
 
-	// Validate that the name actually refers to a struct. ANY_TYPE means
-	// the pre-scan hasn't run yet or the name came from an import.
 	const bool type_known = struct_type && struct_type->base_type != ANY_TYPE;
 	if (type_known && struct_type->base_type != STRUCT_TYPE) {
 		char got[128];
 		type_record_name(struct_type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "'new' requires a struct type name, got '%s'.", got);
-		// Push ANY_TYPE so the stack stays balanced.
 		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
 		return;
@@ -1815,11 +1799,6 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 		return;
 	}
 
-	// Track which field names the programmer supplied so we can report
-	// missing required fields after the loop. We use a small fixed
-	// bitfield keyed by field index (structs are limited to UINT16_MAX
-	// fields, but in practice they're small — use a heap array of bools
-	// for safety).
 	int declared_field_count = type_known ? struct_type->as.struct_type.field_count : 0;
 	bool *field_seen = NULL;
 	if (declared_field_count > 0) {
@@ -1835,10 +1814,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	if (!match(compiler, TOKEN_RIGHT_BRACE)) {
 		do {
 			if (fieldCount == UINT16_MAX) {
-				compiler_panic(compiler->parser,
-							   "Too many fields in struct "
-							   "initializer.",
-							   SYNTAX);
+				compiler_panic(compiler->parser, "Too many fields in struct initializer.", SYNTAX);
 				if (field_seen)
 					FREE_ARRAY(compiler->owner, bool, field_seen, declared_field_count);
 				pop_type_record(compiler);
@@ -1851,7 +1827,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
 
-			consume(compiler, TOKEN_COLON, "Expected ':' after struct field name.");
+			consume(compiler, TOKEN_EQUAL, "Expected '=' after struct field name.");
 
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
@@ -1860,13 +1836,13 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				ObjectTypeTable *field_types = struct_type->as.struct_type.field_types;
 				ObjectStruct *definition = struct_type->as.struct_type.definition;
 
-				// Check the field exists on the struct.
+				// ensure field exists on the struct
 				Value field_index_val;
 				if (!table_get(&definition->fields, fieldName, &field_index_val)) {
 					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length,
 									fieldName->chars);
 				} else {
-					// Mark as seen.
+					// mark field as seen
 					const int field_index = (int)AS_INT(field_index_val);
 					if (field_index >= 0 && field_index < declared_field_count) {
 						if (field_seen[field_index]) {
@@ -1876,8 +1852,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 						field_seen[field_index] = true;
 					}
 
-					// Validate the value type against the
-					// declared field type.
+					// Validate the value type against the declared field type.
 					ObjectTypeRecord *declared_field_type = NULL;
 					type_table_get(field_types, fieldName, &declared_field_type);
 
@@ -1906,10 +1881,6 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 		for (int i = 0; i < declared_field_count; i++) {
 			if (!field_seen[i]) {
-				// Find the field name for the error message by
-				// scanning the struct's fields table.
-				// Fields table maps name -> INT index, so walk
-				// it to find index i.
 				const char *missing = "<unknown>";
 				int missing_len = 0;
 				for (int e = 0; e < definition->fields.capacity; e++) {
@@ -1922,7 +1893,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				}
 				compiler_panicf(compiler->parser, NAME, "Missing required field '%.*s' in struct initializer.",
 								missing_len, missing);
-				break; // Report one missing field at a time.
+				break; // Don't report all missing fields at once
 			}
 		}
 		FREE_ARRAY(compiler->owner, bool, field_seen, declared_field_count);
@@ -1934,7 +1905,6 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 	emit_word(compiler, OP_STRUCT_INSTANCE_END);
 
-	// Push the struct's type so callers know what new Foo{} produced.
 	pop_type_record(compiler);
 	push_type_record(compiler, struct_type ? struct_type : T_ANY);
 }
@@ -2122,8 +2092,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 				param_type = T_ANY;
 			}
 
-			// Store on the local slot that parse_variable just
-			// created via declare_variable -> add_local.
+			// Store on the local slot that parse_variable created
 			function_compiler.locals[function_compiler.local_count - 1].type = param_type;
 
 			if (param_count == param_capacity) {
@@ -2153,7 +2122,6 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 		annotated_return_type = T_ANY;
 	}
 
-	// Set on the inner compiler so return_statement validates correctly.
 	function_compiler.return_type = annotated_return_type;
 
 	consume(&function_compiler, TOKEN_LEFT_BRACE, "Expected '{' before function body.");
@@ -2202,7 +2170,7 @@ static void array_literal(Compiler *compiler, bool can_assign)
 					// Widen to Float if mix of Int/Float
 					if ((element_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
 						(element_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
-						element_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+						element_type = T_FLOAT;
 					} else {
 						// widening for mixed tables
 						element_type = T_ANY;
@@ -2268,7 +2236,7 @@ static void table_literal(Compiler *compiler, bool can_assign)
 					// Widen to Float if mix of Int/Float
 					if ((table_value_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
 						(table_value_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
-						table_value_type = new_type_rec(compiler->owner, FLOAT_TYPE);
+						table_value_type = T_FLOAT;
 					} else {
 						// widening for mixed tables
 						table_value_type = T_ANY;
@@ -2319,10 +2287,8 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 				char expected[128], got[128];
 				type_record_name(key_type, expected, sizeof(expected));
 				type_record_name(index_type, got, sizeof(got));
-				compiler_panicf(compiler->parser, TYPE,
-								"Table key type mismatch: expected "
-								"'%s', got '%s'.",
-								expected, got);
+				compiler_panicf(compiler->parser, TYPE, "Table key type mismatch: expected '%s', got '%s'.", expected,
+								got);
 			}
 		}
 	}
@@ -2346,15 +2312,13 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 				char expected[128], got[128];
 				type_record_name(expected_value, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
-				compiler_panicf(compiler->parser, TYPE,
-								"Cannot assign '%s' to collection "
-								"of element type '%s'.",
-								got, expected);
+				compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to collection of element type '%s'.", got,
+								expected);
 			}
 		}
 
 		emit_word(compiler, OP_SET_COLLECTION);
-		push_type_record(compiler, new_type_rec(compiler->owner, NIL_TYPE));
+		push_type_record(compiler, T_NIL);
 	} else {
 		emit_word(compiler, OP_GET_COLLECTION);
 		ObjectTypeRecord *result_type = NULL;
@@ -2402,7 +2366,7 @@ static void var_declaration(Compiler *compiler, bool is_public)
 			compiler_panic(compiler->parser, "Variable with non-Nil type must be initialized.", TYPE);
 		}
 		emit_word(compiler, OP_NIL);
-		value_type = new_type_rec(compiler->owner, NIL_TYPE);
+		value_type = T_NIL;
 	}
 
 	ObjectTypeRecord *resolved_type = annotated_type ? annotated_type : value_type;
@@ -2541,7 +2505,7 @@ static void if_statement(Compiler *compiler)
 	const int thenJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 	emit_word(compiler, OP_POP);
 
-	// APPLY NARROWING FOR THEN BLOCK
+	// then block narrowing
 	if (narrow_state.narrowed_to) {
 		if (narrow_state.local_index != -1) {
 			original_type = compiler->locals[narrow_state.local_index].type;
@@ -2616,10 +2580,8 @@ static void return_statement(Compiler *compiler)
 				char got[128];
 				type_record_name(compiler->return_type, expected, sizeof(expected));
 				type_record_name(value_type, got, sizeof(got));
-				compiler_panicf(compiler->parser, TYPE,
-								"Return type mismatch: expected '%s', "
-								"got '%s'.",
-								expected, got);
+				compiler_panicf(compiler->parser, TYPE, "Return type mismatch: expected '%s', got '%s'.", expected,
+								got);
 			}
 		}
 		emit_word(compiler, OP_RETURN);
@@ -2798,7 +2760,6 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	ObjectStruct *structObject = new_struct_type(compiler->owner, struct_name_str);
 	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(structObject));
 
-	// Reserve name before parsing the body so the struct can refer to itself recursively.
 	declare_variable(compiler);
 
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
@@ -2991,7 +2952,7 @@ static void give_statement(Compiler *compiler)
 
 	if (match(compiler, TOKEN_SEMICOLON)) {
 		emit_word(compiler, OP_NIL);
-		compiler->last_give_type = new_type_rec(compiler->owner, NIL_TYPE);
+		compiler->last_give_type = T_NIL;
 	} else {
 		expression(compiler);
 		// Record for match_expression to check arm consistency.
@@ -3026,8 +2987,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	bool hasOkPattern = false;
 	bool hasErrPattern = false;
 
-	// Track the type produced by each arm for consistency checking.
-	// NULL means we haven't seen an arm yet.
+	// type that the arm produces
 	ObjectTypeRecord *arm_type = NULL;
 
 	while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
@@ -3068,8 +3028,6 @@ static void match_expression(Compiler *compiler, bool can_assign)
 				declare_variable(compiler);
 				bindingSlot = compiler->local_count - 1;
 
-				// Stamp the binding's type from the Result's
-				// ok_type, falling back to ANY_TYPE.
 				ObjectTypeRecord *ok_type = (target_type->base_type == RESULT_TYPE)
 												? target_type->as.result_type.ok_type
 												: NULL;
@@ -3101,7 +3059,6 @@ static void match_expression(Compiler *compiler, bool can_assign)
 				declare_variable(compiler);
 				bindingSlot = compiler->local_count - 1;
 
-				// Err bindings always hold an ObjectError.
 				compiler->locals[bindingSlot].type = new_type_rec(compiler->owner, ERROR_TYPE);
 
 				mark_initialized(compiler);
@@ -3109,8 +3066,6 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			}
 
 		} else {
-			// Value pattern: the expression must be compatible
-			// with the target type.
 			expression(compiler);
 			ObjectTypeRecord *pattern_type = pop_type_record(compiler);
 
@@ -3121,10 +3076,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 					type_record_name(target_type, expected, sizeof(expected));
 					type_record_name(pattern_type, got, sizeof(got));
 					compiler_panicf(compiler->parser, TYPE,
-									"Pattern type '%s' is not "
-									"compatible with match target "
-									"type '%s'.",
-									got, expected);
+									"Pattern type '%s' is not compatible with match target type '%s'.", got, expected);
 				}
 			}
 
@@ -3137,18 +3089,16 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			emit_words(compiler, OP_RESULT_BIND, bindingSlot);
 		}
 
-		// Compile arm body and track the type it produces.
 		ObjectTypeRecord *this_arm_type = NULL;
 
 		if (match(compiler, TOKEN_LEFT_BRACE)) {
 			block(compiler);
-			// Blocks produce values only via give — read it back.
-			this_arm_type = compiler->last_give_type ? compiler->last_give_type
-													 : new_type_rec(compiler->owner, NIL_TYPE);
+			// Blocks produce values with give and statements
+			this_arm_type = compiler->last_give_type ? compiler->last_give_type : T_NIL;
 		} else if (match(compiler, TOKEN_GIVE)) {
 			if (match(compiler, TOKEN_SEMICOLON)) {
 				emit_word(compiler, OP_NIL);
-				this_arm_type = new_type_rec(compiler->owner, NIL_TYPE);
+				this_arm_type = T_NIL;
 			} else {
 				expression(compiler);
 				this_arm_type = pop_type_record(compiler);
@@ -3205,9 +3155,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	if (hasOkPattern || hasErrPattern) {
 		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
 			compiler_panic(compiler->parser,
-						   "Result 'match' must have both 'Ok' and "
-						   "'Err' patterns, or a default case.",
-						   SYNTAX);
+						   "Result 'match' must have both 'Ok' and 'Err' patterns, or a default case.", SYNTAX);
 		}
 	} else if (!hasDefault) {
 		compiler_panic(compiler->parser, "'match' expression must have a 'default' case.", SYNTAX);
@@ -3223,7 +3171,6 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
 	end_match_scope(compiler);
 
-	// Push the unified arm type so callers know what the match produces.
 	push_type_record(compiler, arm_type ? arm_type : T_ANY);
 }
 
@@ -3389,7 +3336,7 @@ static void number(Compiler *compiler, bool can_assign)
 	}
 	if (errno == ERANGE) {
 		emit_constant(compiler, FLOAT_VAL(number));
-		push_type_record(compiler, new_type_rec(compiler->owner, FLOAT_TYPE));
+		push_type_record(compiler, T_FLOAT);
 		return;
 	}
 	bool hasDecimalNotation = false;
@@ -3401,15 +3348,15 @@ static void number(Compiler *compiler, bool can_assign)
 	}
 	if (hasDecimalNotation) {
 		emit_constant(compiler, FLOAT_VAL(number));
-		push_type_record(compiler, new_type_rec(compiler->owner, FLOAT_TYPE));
+		push_type_record(compiler, T_FLOAT);
 	} else {
 		const int32_t integer = (int32_t)number;
 		if ((double)integer == number) {
 			emit_constant(compiler, INT_VAL(integer));
-			push_type_record(compiler, new_type_rec(compiler->owner, INT_TYPE));
+			push_type_record(compiler, T_INT);
 		} else {
 			emit_constant(compiler, FLOAT_VAL(number));
-			push_type_record(compiler, new_type_rec(compiler->owner, FLOAT_TYPE));
+			push_type_record(compiler, T_FLOAT);
 		}
 	}
 }
@@ -3463,7 +3410,7 @@ static void string(Compiler *compiler, bool can_assign)
 
 	if (srcLength == 0) {
 		ObjectString *string = copy_string(compiler->owner, "", 0);
-		push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
+		push_type_record(compiler, T_STRING);
 		emit_constant(compiler, OBJECT_VAL(string));
 		FREE_ARRAY(compiler->owner, char, processed, compiler->parser->previous.length);
 		return;
@@ -3472,10 +3419,7 @@ static void string(Compiler *compiler, bool can_assign)
 	for (int i = 0; i < srcLength; i++) {
 		if (src[i] == '\\') {
 			if (i + 1 >= srcLength) {
-				compiler_panic(compiler->parser,
-							   "Unterminated escape sequence at "
-							   "end of string",
-							   SYNTAX);
+				compiler_panic(compiler->parser, "Unterminated escape sequence at end of string", SYNTAX);
 				FREE_ARRAY(compiler->owner, char, processed, compiler->parser->previous.length);
 				return;
 			}
@@ -3508,7 +3452,7 @@ static void string(Compiler *compiler, bool can_assign)
 	compiler->current_narrowing.tracked_literal_type = type_from_string(compiler->owner, compiler->type_table,
 																		string->chars);
 
-	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
+	push_type_record(compiler, T_STRING);
 	emit_constant(compiler, OBJECT_VAL(string));
 }
 
@@ -3565,9 +3509,8 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 	(void)can_assign;
 	parse_precedence(compiler, PREC_UNARY);
 	compiler->current_narrowing.tracked_is_typeof = true;
-	emit_word(compiler, OP_TYPEOF); // this will emit a string representation of the
-									// type at runtime
-	push_type_record(compiler, new_type_rec(compiler->owner, STRING_TYPE));
+	emit_word(compiler, OP_TYPEOF); // emits string representation of the type at runtime
+	push_type_record(compiler, T_STRING);
 }
 
 static void type_coerce(Compiler *compiler, bool can_assign)
@@ -3759,26 +3702,13 @@ static ParseRule *get_rule(const CruxTokenType type)
 	return &rules[type]; // Returns the rule at the given index
 }
 
-// ── Pre-scanner
-// ───────────
+// Pre-scanner
+// A two-sub-pass scanner that collects top-level struct and
+// function signatures before the main compilation pass begins.
+// This gives the compiler knowledge of forward-referenced names
 //
-// A lightweight two-sub-pass scanner that collects top-level struct and
-// function signatures before the main compilation pass begins. This gives the
-// single-pass compiler knowledge of forward-referenced names (e.g. a function
-// declared after its call site, or mutual recursion).
-//
-// Sub-pass 1 collects struct declarations (so struct-typed parameters in
-// function signatures resolve correctly in sub-pass 2).
-// Sub-pass 2 collects function signatures.
-//
-// Implementation notes:
-// - Uses the shared global `parser` and `current` compiler pointer, exactly
-//   as the main compiler does, so parse_type_record() works normally.
-// - A temporary Compiler is initialised with init_compiler() for each sub-pass.
-// - After both sub-passes are complete, the collected types are merged into the
-//   main compiler's type_table via type_table_add_all.
-// - The scanner is rewound with init_scanner(source) after pre-scanning so the
-//   main pass starts from the beginning.
+// First pass collects struct declarations
+// Second pass collects function signatures
 
 // Advance the pre-scanner, skipping error tokens silently.
 static void pre_advance(Compiler *compiler)
@@ -3850,9 +3780,9 @@ static void pre_skip_type(Compiler *compiler)
 				   t == TOKEN_VECTOR_TYPE || t == TOKEN_MATRIX_TYPE || t == TOKEN_BUFFER_TYPE ||
 				   t == TOKEN_ERROR_TYPE || t == TOKEN_RESULT_TYPE || t == TOKEN_RANGE_TYPE || t == TOKEN_TUPLE_TYPE ||
 				   t == TOKEN_COMPLEX_TYPE || t == TOKEN_SET_TYPE || t == TOKEN_RANDOM_TYPE || t == TOKEN_FILE_TYPE ||
-				   t == TOKEN_IDENTIFIER) {
+				   t == TOKEN_IDENTIFIER || t == TOKEN_NEVER_TYPE) {
 			pre_advance(compiler); // consume the base type token
-			// Optional subscript: Array[Int], Table[K:V], etc.
+			// Optional subscript: Array[Int], Table[K,V], etc.
 			if (compiler->parser->current.type == TOKEN_LEFT_SQUARE) {
 				pre_advance(compiler); // consume '['
 				int depth = 1;
@@ -3917,11 +3847,9 @@ static void pre_collect_struct(Compiler *compiler)
 		return;
 	pre_advance(compiler); // consume '{'
 
-	// Build a field_types ObjectTypeTable.
 	ObjectTypeTable *field_types = new_type_table(compiler->owner, INITIAL_TYPE_TABLE_SIZE);
 	int field_count = 0;
 
-	// Create a lightweight ObjectStruct so new_struct_type_rec works.
 	ObjectString *struct_name = copy_string(compiler->owner, name_token.start, name_token.length);
 	ObjectStruct *struct_obj = new_struct_type(compiler->owner, struct_name);
 
@@ -3936,9 +3864,6 @@ static void pre_collect_struct(Compiler *compiler)
 		ObjectTypeRecord *field_type = NULL;
 		if (compiler->parser->current.type == TOKEN_COLON) {
 			pre_advance(compiler); // consume ':'
-			// parse_type_record uses the global current compiler
-			// and parser — this works because we're in a properly
-			// initialised pre_compiler context.
 			field_type = parse_type_record(compiler);
 		} else {
 			field_type = new_type_rec(compiler->owner, ANY_TYPE);
@@ -3957,7 +3882,6 @@ static void pre_collect_struct(Compiler *compiler)
 	if (compiler->parser->current.type == TOKEN_RIGHT_BRACE)
 		pre_advance(compiler);
 
-	// Build and register the struct ObjectTypeRecord.
 	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, struct_obj, field_types, field_count);
 
 	type_table_set(compiler->type_table, struct_name, struct_type);
@@ -4032,22 +3956,19 @@ static void pre_collect_function(Compiler *compiler)
 	ObjectString *fn_name = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
 	type_table_set(compiler->type_table, fn_name, fn_type);
 
-	// Skip the function body so we don't accidentally parse its tokens
-	// as top-level declarations.
+	// Skip the function body
 	pre_skip_block(compiler);
 }
 
-// Run a single forward-scan sub-pass over the token stream.
-// `collect_structs`: when true, collect struct declarations; when false,
+// Run a forward-scan sub-pass.
+// when collect_structs is true, collect struct declarations; when false,
 // collect function declarations (fn / pub fn).
 static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 {
-	// Reset parser to a clean state (advance(compiler) will prime the first token
-	// after this is called from compile() with a fresh init_scanner).
+	// Reset parser to a clean state
 	compiler->parser->had_error = false;
 	compiler->parser->panic_mode = false;
 
-	// Prime the first token.
 	pre_advance(compiler);
 
 	while (compiler->parser->current.type != TOKEN_EOF) {
@@ -4160,7 +4081,6 @@ static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 
 	pre_scan_pass(&pre_compiler_structs, true);
 
-	// CRITICAL: Unlink before the local struct goes out of scope!
 	compiler->enclosed = NULL;
 	free(pre_compiler_structs.parser->scanner);
 	free(pre_compiler_structs.parser);
