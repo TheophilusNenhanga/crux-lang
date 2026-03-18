@@ -47,7 +47,7 @@ static void advance(const Compiler *compiler)
 	compiler->parser->previous = compiler->parser->current;
 	for (;;) {
 		compiler->parser->current = scan_token(compiler->parser->scanner);
-		if (compiler->parser->current.type != TOKEN_ERROR)
+		if (compiler->parser->current.type != CRUX_TOKEN_ERROR)
 			break;
 		compiler_panic(compiler->parser, compiler->parser->current.start, SYNTAX);
 	}
@@ -78,17 +78,17 @@ static bool match(const Compiler *compiler, const CruxTokenType type)
 static bool is_identifier_like(const CruxTokenType type)
 {
 	switch (type) {
-	case TOKEN_IDENTIFIER:
+	case CRUX_TOKEN_IDENTIFIER:
 	// Type names that are also valid constructor/import names:
-	case TOKEN_RANDOM_TYPE:
-	case TOKEN_BUFFER_TYPE:
-	case TOKEN_RANGE_TYPE:
-	case TOKEN_VECTOR_TYPE:
-	case TOKEN_MATRIX_TYPE:
-	case TOKEN_COMPLEX_TYPE:
-	case TOKEN_SET_TYPE:
-	case TOKEN_TUPLE_TYPE:
-	case TOKEN_FILE_TYPE:
+	case CRUX_TOKEN_RANDOM_TYPE:
+	case CRUX_TOKEN_BUFFER_TYPE:
+	case CRUX_TOKEN_RANGE_TYPE:
+	case CRUX_TOKEN_VECTOR_TYPE:
+	case CRUX_TOKEN_MATRIX_TYPE:
+	case CRUX_TOKEN_COMPLEX_TYPE:
+	case CRUX_TOKEN_SET_TYPE:
+	case CRUX_TOKEN_TUPLE_TYPE:
+	case CRUX_TOKEN_FILE_TYPE:
 		return true;
 	default:
 		return false;
@@ -159,50 +159,50 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 {
 	ObjectTypeRecord *type_record = NULL;
 
-	if (match(compiler, TOKEN_INT_TYPE)) {
+	if (match(compiler, CRUX_TOKEN_INT_TYPE)) {
 		type_record = T_INT;
-	} else if (match(compiler, TOKEN_FLOAT_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_FLOAT_TYPE)) {
 		type_record = T_FLOAT;
-	} else if (match(compiler, TOKEN_BOOL_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_BOOL_TYPE)) {
 		type_record = T_BOOL;
-	} else if (match(compiler, TOKEN_STRING_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_STRING_TYPE)) {
 		type_record = T_STRING;
-	} else if (match(compiler, TOKEN_NIL_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_NIL_TYPE)) {
 		type_record = T_NIL;
-	} else if (match(compiler, TOKEN_ANY_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_ANY_TYPE)) {
 		type_record = T_ANY;
-	} else if (match(compiler, TOKEN_SHAPE)) {
-		if (match(compiler, TOKEN_LEFT_BRACE)) {
+	} else if (match(compiler, CRUX_TOKEN_SHAPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 			int field_count = 0;
 			ObjectTypeTable *field_types = new_type_table(compiler->owner, 8);
-			if (!check(compiler, TOKEN_RIGHT_BRACE)) {
+			if (!check(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 				do {
-					consume(compiler, TOKEN_IDENTIFIER, "Expected field name.");
+					consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected field name.");
 					ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 														  compiler->parser->previous.length);
-					consume(compiler, TOKEN_COLON, "Expected ':' after field name.");
+					consume(compiler, CRUX_TOKEN_COLON, "Expected ':' after field name.");
 					ObjectTypeRecord *field_type = parse_type_record(compiler);
 					type_table_set(field_types, fieldName, field_type);
 					field_count++;
-				} while (match(compiler, TOKEN_COMMA));
+				} while (match(compiler, CRUX_TOKEN_COMMA));
 			}
-			consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after shape definition.");
+			consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after shape definition.");
 			type_record = new_shape_type_rec(compiler->owner, field_types, field_count);
 		} else {
 			compiler_panic(compiler->parser, "Expected '{' for shape type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
 		}
-	} else if (match(compiler, TOKEN_ARRAY_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_ARRAY_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, ARRAY_TYPE);
 			type_record->as.array_type.element_type = parse_type_record(compiler);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after array element type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after array element type.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for array type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
 		}
-	} else if (match(compiler, TOKEN_TABLE_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_TABLE_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, TABLE_TYPE);
 			ObjectTypeRecord *key_type = parse_type_record(compiler);
 			if (!is_valid_table_key_type(key_type)) {
@@ -213,37 +213,37 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 								got);
 			}
 			type_record->as.table_type.key_type = key_type;
-			consume(compiler, TOKEN_COMMA, "Expected ',' after key type.");
+			consume(compiler, CRUX_TOKEN_COMMA, "Expected ',' after key type.");
 			type_record->as.table_type.value_type = parse_type_record(compiler);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after table element type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after table element type.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for table type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
 		}
-	} else if (match(compiler, TOKEN_VECTOR_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_VECTOR_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, VECTOR_TYPE);
 
 			// generic vector type
-			if (match(compiler, TOKEN_RIGHT_SQUARE)) {
+			if (match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 				type_record->as.vector_type.dimensions = -1;
 				return type_record;
 			}
 
-			consume(compiler, TOKEN_INT, "Expected 'int' for vector dimensions.");
+			consume(compiler, CRUX_TOKEN_INT, "Expected 'int' for vector dimensions.");
 			const int dimensions = (int)strtol(compiler->parser->previous.start, NULL, 10);
 			type_record->as.vector_type.dimensions = dimensions;
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after vector element type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after vector element type.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for vector type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
 		}
-	} else if (match(compiler, TOKEN_MATRIX_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_MATRIX_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, MATRIX_TYPE);
-			if (match(compiler, TOKEN_COMMA)) {
+			if (match(compiler, CRUX_TOKEN_COMMA)) {
 				// generic matrix type
-				if (match(compiler, TOKEN_RIGHT_SQUARE)) {
+				if (match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 					type_record->as.matrix_type.cols = -1;
 					type_record->as.matrix_type.rows = -1;
 					return type_record;
@@ -253,34 +253,34 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				}
 			}
 
-			consume(compiler, TOKEN_INT, "Expected 'int' for matrix dimensions.");
+			consume(compiler, CRUX_TOKEN_INT, "Expected 'int' for matrix dimensions.");
 			const int row_dim = (int)strtol(compiler->parser->previous.start, NULL, 10);
-			consume(compiler, TOKEN_COMMA, "Expected ',' after row dimension.");
+			consume(compiler, CRUX_TOKEN_COMMA, "Expected ',' after row dimension.");
 			const int col_dim = (int)strtol(compiler->parser->previous.start, NULL, 10);
 			type_record->as.matrix_type.rows = row_dim;
 			type_record->as.matrix_type.cols = col_dim;
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after matrix element type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after matrix element type.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for matrix type definition.", TYPE);
 			type_record = T_ANY;
 		}
-	} else if (match(compiler, TOKEN_BUFFER_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_BUFFER_TYPE)) {
 		type_record = new_type_rec(compiler->owner, BUFFER_TYPE);
-	} else if (match(compiler, TOKEN_ERROR_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_ERROR_TYPE)) {
 		type_record = new_type_rec(compiler->owner, ERROR_TYPE);
-	} else if (match(compiler, TOKEN_RESULT_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_RESULT_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			ObjectTypeRecord *value_type = parse_type_record(compiler);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after result value type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after result value type.");
 			type_record = new_result_type_rec(compiler->owner, value_type);
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for result type definition.", TYPE);
 			type_record = T_ANY;
 		}
-	} else if (match(compiler, TOKEN_RANGE_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_RANGE_TYPE)) {
 		type_record = new_type_rec(compiler->owner, RANGE_TYPE);
-	} else if (match(compiler, TOKEN_TUPLE_TYPE)) {
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+	} else if (match(compiler, CRUX_TOKEN_TUPLE_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			int param_capacity = 4;
 			int param_count = 0;
 			ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
@@ -288,7 +288,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 				return T_ANY;
 			}
-			if (!check(compiler, TOKEN_RIGHT_SQUARE)) {
+			if (!check(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 				do {
 					if (param_count == param_capacity) {
 						int old_capacity = param_capacity;
@@ -297,18 +297,18 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 												 param_capacity);
 					}
 					param_types[param_count++] = parse_type_record(compiler);
-				} while (match(compiler, TOKEN_COMMA));
+				} while (match(compiler, CRUX_TOKEN_COMMA));
 			}
 			param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 			type_record = new_tuple_type_rec(compiler->owner, param_types, param_count);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element types.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element types.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for tuple type definition.", TYPE);
 			type_record = T_ANY;
 		}
-	} else if (match(compiler, TOKEN_COMPLEX_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_COMPLEX_TYPE)) {
 		type_record = new_type_rec(compiler->owner, COMPLEX_TYPE);
-	} else if (match(compiler, TOKEN_LEFT_PAREN)) {
+	} else if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
 		int param_capacity = 4;
 		int param_count = 0;
 		ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_capacity);
@@ -317,7 +317,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			return T_ANY;
 		}
 
-		if (!check(compiler, TOKEN_RIGHT_PAREN)) {
+		if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 			do {
 				ObjectTypeRecord *inner = parse_type_record(compiler);
 				if (!inner) {
@@ -336,11 +336,11 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 					param_types = grown;
 				}
 				param_types[param_count++] = inner;
-			} while (match(compiler, TOKEN_COMMA));
+			} while (match(compiler, CRUX_TOKEN_COMMA));
 		}
-		consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' to end function argument types.");
+		consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' to end function argument types.");
 
-		consume(compiler, TOKEN_ARROW, "Expected '->' to separate function argument types from return type.");
+		consume(compiler, CRUX_TOKEN_ARROW, "Expected '->' to separate function argument types from return type.");
 		ObjectTypeRecord *return_type = parse_type_record(compiler);
 		if (!return_type) {
 			compiler_panic(compiler->parser, "Expected type.", TYPE);
@@ -357,19 +357,19 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record->as.function_type.arg_types = param_types;
 		type_record->as.function_type.arg_count = param_count;
 		type_record->as.function_type.return_type = return_type;
-	} else if (match(compiler, TOKEN_SET_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_SET_TYPE)) {
 		type_record = new_type_rec(compiler->owner, SET_TYPE);
-		if (match(compiler, TOKEN_LEFT_SQUARE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record->as.set_type.element_type = parse_type_record(compiler);
-			consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after set element type.");
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after set element type.");
 		} else {
 			type_record->as.set_type.element_type = T_ANY;
 		}
-	} else if (match(compiler, TOKEN_RANDOM_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_RANDOM_TYPE)) {
 		type_record = new_type_rec(compiler->owner, RANDOM_TYPE);
-	} else if (match(compiler, TOKEN_FILE_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_FILE_TYPE)) {
 		type_record = new_type_rec(compiler->owner, FILE_TYPE);
-	} else if (check(compiler, TOKEN_IDENTIFIER)) {
+	} else if (check(compiler, CRUX_TOKEN_IDENTIFIER)) {
 		advance(compiler);
 		ObjectString *name_str = copy_string(compiler->owner, compiler->parser->previous.start,
 											 compiler->parser->previous.length);
@@ -391,7 +391,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record = T_ANY;
 	}
 
-	if (type_record && match(compiler, TOKEN_PIPE)) {
+	if (type_record && match(compiler, CRUX_TOKEN_PIPE)) {
 		int cap = 4;
 		int count = 1;
 		ObjectTypeRecord **variants = ALLOCATE(compiler->owner, ObjectTypeRecord *, cap);
@@ -413,7 +413,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				variants = grown;
 			}
 			variants[count++] = parse_type_record(compiler);
-		} while (match(compiler, TOKEN_PIPE));
+		} while (match(compiler, CRUX_TOKEN_PIPE));
 
 		if (count < cap) {
 			variants = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, cap, count);
@@ -896,7 +896,7 @@ static void mark_initialized(Compiler *compiler)
  */
 static uint16_t parse_variable(Compiler *compiler, const char *errorMessage)
 {
-	consume(compiler, TOKEN_IDENTIFIER, errorMessage);
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, errorMessage);
 	declare_variable(compiler);
 	if (compiler->scope_depth > 0)
 		return 0;
@@ -905,17 +905,17 @@ static uint16_t parse_variable(Compiler *compiler, const char *errorMessage)
 
 static int match_compound_op(Compiler *compiler)
 {
-	if (match(compiler, TOKEN_PLUS_EQUAL))
+	if (match(compiler, CRUX_TOKEN_PLUS_EQUAL))
 		return COMPOUND_OP_PLUS;
-	if (match(compiler, TOKEN_MINUS_EQUAL))
+	if (match(compiler, CRUX_TOKEN_MINUS_EQUAL))
 		return COMPOUND_OP_MINUS;
-	if (match(compiler, TOKEN_STAR_EQUAL))
+	if (match(compiler, CRUX_TOKEN_STAR_EQUAL))
 		return COMPOUND_OP_STAR;
-	if (match(compiler, TOKEN_SLASH_EQUAL))
+	if (match(compiler, CRUX_TOKEN_SLASH_EQUAL))
 		return COMPOUND_OP_SLASH;
-	if (match(compiler, TOKEN_BACK_SLASH_EQUAL))
+	if (match(compiler, CRUX_TOKEN_BACK_SLASH_EQUAL))
 		return COMPOUND_OP_BACK_SLASH;
-	if (match(compiler, TOKEN_PERCENT_EQUAL))
+	if (match(compiler, CRUX_TOKEN_PERCENT_EQUAL))
 		return COMPOUND_OP_PERCENT;
 	return -1;
 }
@@ -1037,7 +1037,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 	}
 
 	if (can_assign) {
-		if (match(compiler, TOKEN_EQUAL)) {
+		if (match(compiler, CRUX_TOKEN_EQUAL)) {
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -1229,9 +1229,9 @@ static void binary(Compiler *compiler, bool can_assign)
 							(right_type && right_type->base_type == ANY_TYPE) || !left_type || !right_type;
 
 	switch (operatorType) {
-	case TOKEN_EQUAL_EQUAL:
-	case TOKEN_BANG_EQUAL:
-		if (operatorType == TOKEN_EQUAL_EQUAL) {
+	case CRUX_TOKEN_EQUAL_EQUAL:
+	case CRUX_TOKEN_BANG_EQUAL:
+		if (operatorType == CRUX_TOKEN_EQUAL_EQUAL) {
 			emit_word(compiler, OP_EQUAL);
 		} else {
 			emit_word(compiler, OP_NOT_EQUAL);
@@ -1262,7 +1262,7 @@ static void binary(Compiler *compiler, bool can_assign)
 				stripped = strip_type(compiler->owner, var_type, narrow);
 			}
 
-			if (operatorType == TOKEN_EQUAL_EQUAL) {
+			if (operatorType == CRUX_TOKEN_EQUAL_EQUAL) {
 				compiler->current_narrowing.narrowed_to = narrow;
 				compiler->current_narrowing.stripped_down = stripped;
 			} else {
@@ -1272,10 +1272,10 @@ static void binary(Compiler *compiler, bool can_assign)
 		}
 		break;
 
-	case TOKEN_GREATER:
-	case TOKEN_GREATER_EQUAL:
-	case TOKEN_LESS:
-	case TOKEN_LESS_EQUAL: {
+	case CRUX_TOKEN_GREATER:
+	case CRUX_TOKEN_GREATER_EQUAL:
+	case CRUX_TOKEN_LESS:
+	case CRUX_TOKEN_LESS_EQUAL: {
 		if (!either_any) {
 			const bool left_num = is_numeric_type(left_type);
 			const bool right_num = is_numeric_type(right_type);
@@ -1286,16 +1286,16 @@ static void binary(Compiler *compiler, bool can_assign)
 		}
 
 		switch (operatorType) {
-		case TOKEN_GREATER:
+		case CRUX_TOKEN_GREATER:
 			emit_word(compiler, OP_GREATER);
 			break;
-		case TOKEN_GREATER_EQUAL:
+		case CRUX_TOKEN_GREATER_EQUAL:
 			emit_word(compiler, OP_GREATER_EQUAL);
 			break;
-		case TOKEN_LESS:
+		case CRUX_TOKEN_LESS:
 			emit_word(compiler, OP_LESS);
 			break;
-		case TOKEN_LESS_EQUAL:
+		case CRUX_TOKEN_LESS_EQUAL:
 			emit_word(compiler, OP_LESS_EQUAL);
 			break;
 		default:
@@ -1306,7 +1306,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		break;
 	}
 
-	case TOKEN_PLUS: {
+	case CRUX_TOKEN_PLUS: {
 		emit_word(compiler, OP_ADD);
 
 		if (either_any) {
@@ -1344,8 +1344,8 @@ static void binary(Compiler *compiler, bool can_assign)
 		break;
 	}
 
-	case TOKEN_MINUS:
-	case TOKEN_STAR: {
+	case CRUX_TOKEN_MINUS:
+	case CRUX_TOKEN_STAR: {
 		if (!either_any) {
 			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
@@ -1355,11 +1355,11 @@ static void binary(Compiler *compiler, bool can_assign)
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
 				compiler_panicf(compiler->parser, TYPE, "%s requires numeric operands, got '%s' and '%s'.",
-								operatorType == TOKEN_MINUS ? "'-'" : "'*'", left_name, right_name);
+								operatorType == CRUX_TOKEN_MINUS ? "'-'" : "'*'", left_name, right_name);
 			}
 		}
 
-		emit_word(compiler, operatorType == TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
+		emit_word(compiler, operatorType == CRUX_TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
 
 		if (either_any) {
 			result_type = new_type_rec(compiler->owner, ANY_TYPE);
@@ -1371,7 +1371,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		break;
 	}
 
-	case TOKEN_SLASH: {
+	case CRUX_TOKEN_SLASH: {
 		if (!either_any) {
 			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
@@ -1388,27 +1388,27 @@ static void binary(Compiler *compiler, bool can_assign)
 		break;
 	}
 
-	case TOKEN_PERCENT:
-	case TOKEN_BACKSLASH: {
+	case CRUX_TOKEN_PERCENT:
+	case CRUX_TOKEN_BACKSLASH: {
 		if (!either_any) {
 			if (left_type->base_type != INT_TYPE || right_type->base_type != INT_TYPE) {
 				char left_name[128], right_name[128];
 				type_record_name(left_type, left_name, sizeof(left_name));
 				type_record_name(right_type, right_name, sizeof(right_name));
 				compiler_panicf(compiler->parser, TYPE, "%s requires Int operands, got '%s' and '%s'.",
-								operatorType == TOKEN_PERCENT ? "'%'" : "'\\'", left_name, right_name);
+								operatorType == CRUX_TOKEN_PERCENT ? "'%'" : "'\\'", left_name, right_name);
 			}
 		}
-		emit_word(compiler, operatorType == TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
+		emit_word(compiler, operatorType == CRUX_TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
 		result_type = T_INT;
 		break;
 	}
 
-	case TOKEN_RIGHT_SHIFT:
-	case TOKEN_LEFT_SHIFT:
-	case TOKEN_AMPERSAND:
-	case TOKEN_CARET:
-	case TOKEN_PIPE: {
+	case CRUX_TOKEN_RIGHT_SHIFT:
+	case CRUX_TOKEN_LEFT_SHIFT:
+	case CRUX_TOKEN_AMPERSAND:
+	case CRUX_TOKEN_CARET:
+	case CRUX_TOKEN_PIPE: {
 		if (!either_any) {
 			if (left_type->base_type != INT_TYPE || right_type->base_type != INT_TYPE) {
 				compiler_panic(compiler->parser,
@@ -1419,19 +1419,19 @@ static void binary(Compiler *compiler, bool can_assign)
 		}
 
 		switch (operatorType) {
-		case TOKEN_RIGHT_SHIFT:
+		case CRUX_TOKEN_RIGHT_SHIFT:
 			emit_word(compiler, OP_RIGHT_SHIFT);
 			break;
-		case TOKEN_LEFT_SHIFT:
+		case CRUX_TOKEN_LEFT_SHIFT:
 			emit_word(compiler, OP_LEFT_SHIFT);
 			break;
-		case TOKEN_AMPERSAND:
+		case CRUX_TOKEN_AMPERSAND:
 			emit_word(compiler, OP_BITWISE_AND);
 			break;
-		case TOKEN_CARET:
+		case CRUX_TOKEN_CARET:
 			emit_word(compiler, OP_BITWISE_XOR);
 			break;
-		case TOKEN_PIPE:
+		case CRUX_TOKEN_PIPE:
 			emit_word(compiler, OP_BITWISE_OR);
 			break;
 		default:
@@ -1442,7 +1442,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		break;
 	}
 
-	case TOKEN_STAR_STAR: {
+	case CRUX_TOKEN_STAR_STAR: {
 		if (!either_any) {
 			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
 			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
@@ -1476,7 +1476,7 @@ static void infix_call(Compiler *compiler, bool can_assign)
 	uint16_t arg_count = 0;
 	ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
-	if (!check(compiler, TOKEN_RIGHT_PAREN)) {
+	if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 		do {
 			if (arg_count == UINT16_MAX) {
 				compiler_panic(compiler->parser,
@@ -1487,9 +1487,9 @@ static void infix_call(Compiler *compiler, bool can_assign)
 			expression(compiler);
 			arg_types[arg_count] = pop_type_record(compiler);
 			arg_count++;
-		} while (match(compiler, TOKEN_COMMA));
+		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
-	consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
+	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
 
 	emit_words(compiler, OP_CALL, arg_count);
 
@@ -1530,16 +1530,16 @@ static void literal(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
 	switch (compiler->parser->previous.type) {
-	case TOKEN_FALSE:
+	case CRUX_TOKEN_FALSE:
 		emit_word(compiler, OP_FALSE);
 		push_type_record(compiler, T_BOOL);
 		break;
-	case TOKEN_NIL:
+	case CRUX_TOKEN_NIL:
 		compiler->current_narrowing.tracked_literal_type = T_NIL;
 		emit_word(compiler, OP_NIL);
 		push_type_record(compiler, T_NIL);
 		break;
-	case TOKEN_TRUE:
+	case CRUX_TOKEN_TRUE:
 		emit_word(compiler, OP_TRUE);
 		push_type_record(compiler, T_BOOL);
 		break;
@@ -1550,7 +1550,7 @@ static void literal(Compiler *compiler, bool can_assign)
 
 static void dot(Compiler *compiler, const bool can_assign)
 {
-	consume(compiler, TOKEN_IDENTIFIER, "Expected property name after '.'.");
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected property name after '.'.");
 	const uint16_t name_constant = identifier_constant(compiler, &compiler->parser->previous);
 	const Token method_name_token = compiler->parser->previous;
 
@@ -1573,7 +1573,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			type_table_get(field_types, field_name, &field_type);
 		}
 
-		if (match(compiler, TOKEN_EQUAL)) {
+		if (match(compiler, CRUX_TOKEN_EQUAL)) {
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -1617,17 +1617,17 @@ static void dot(Compiler *compiler, const bool can_assign)
 	}
 
 	// OP_INVOKE
-	if (match(compiler, TOKEN_LEFT_PAREN)) {
+	if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
 		uint16_t arg_count = 0;
 		ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
-		if (!check(compiler, TOKEN_RIGHT_PAREN)) {
+		if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 			do {
 				expression(compiler);
 				arg_types[arg_count++] = pop_type_record(compiler);
-			} while (match(compiler, TOKEN_COMMA));
+			} while (match(compiler, CRUX_TOKEN_COMMA));
 		}
-		consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
+		consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
 
 		emit_words(compiler, OP_INVOKE, name_constant);
 		emit_word(compiler, arg_count);
@@ -1774,7 +1774,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 
 void struct_instance(Compiler *compiler, const bool can_assign)
 {
-	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
 
 	const Token struct_name_token = compiler->parser->previous;
 
@@ -1792,7 +1792,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 		return;
 	}
 
-	if (!match(compiler, TOKEN_LEFT_BRACE)) {
+	if (!match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 		compiler_panic(compiler->parser, "Expected '{' to start struct instance.", SYNTAX);
 		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
@@ -1811,7 +1811,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	uint16_t fieldCount = 0;
 	emit_word(compiler, OP_STRUCT_INSTANCE_START);
 
-	if (!match(compiler, TOKEN_RIGHT_BRACE)) {
+	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 		do {
 			if (fieldCount == UINT16_MAX) {
 				compiler_panic(compiler->parser, "Too many fields in struct initializer.", SYNTAX);
@@ -1822,12 +1822,12 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				return;
 			}
 
-			consume(compiler, TOKEN_IDENTIFIER,
+			consume(compiler, CRUX_TOKEN_IDENTIFIER,
 					"Expected field name. Trailing commas after final field are not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
 
-			consume(compiler, TOKEN_EQUAL, "Expected '=' after struct field name.");
+			consume(compiler, CRUX_TOKEN_EQUAL, "Expected '=' after struct field name.");
 
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
@@ -1872,7 +1872,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 			const uint16_t fieldNameConstant = make_constant(compiler, OBJECT_VAL(fieldName));
 			emit_words(compiler, OP_STRUCT_NAMED_FIELD, fieldNameConstant);
 			fieldCount++;
-		} while (match(compiler, TOKEN_COMMA));
+		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
 	// Check for missing fields — every declared field must be provided.
@@ -1900,7 +1900,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 	}
 
 	if (fieldCount != 0) {
-		consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after struct field list.");
+		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after struct field list.");
 	}
 
 	emit_word(compiler, OP_STRUCT_INSTANCE_END);
@@ -1924,11 +1924,11 @@ static void variable(Compiler *compiler, const bool can_assign)
 
 static void block(Compiler *compiler)
 {
-	while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+	while (!check(compiler, CRUX_TOKEN_RIGHT_BRACE) && !check(compiler, CRUX_TOKEN_EOF)) {
 		declaration(compiler);
 	}
 
-	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after block");
+	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
 static void function(Compiler *compiler, const FunctionType type, ObjectTypeRecord *self_type)
@@ -1951,8 +1951,8 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 		return;
 	}
 
-	consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after function name.");
-	if (!check(&function_compiler, TOKEN_RIGHT_PAREN)) {
+	consume(compiler, CRUX_TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+	if (!check(&function_compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 		do {
 			function_compiler.function->arity++;
 			if (function_compiler.function->arity > UINT8_MAX) {
@@ -1964,7 +1964,7 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 			const uint16_t constant = parse_variable(&function_compiler, "Expected parameter name.");
 
 			ObjectTypeRecord *param_type = NULL;
-			if (match(&function_compiler, TOKEN_COLON)) {
+			if (match(&function_compiler, CRUX_TOKEN_COLON)) {
 				param_type = parse_type_record(&function_compiler);
 			} else {
 				param_type = T_ANY;
@@ -1986,22 +1986,22 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 			param_types[param_count++] = param_type;
 
 			define_variable(&function_compiler, constant);
-		} while (match(compiler, TOKEN_COMMA));
+		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
 	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 
-	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+	consume(&function_compiler, CRUX_TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
 
 	ObjectTypeRecord *annotated_return_type = NULL;
-	if (match(&function_compiler, TOKEN_ARROW)) {
+	if (match(&function_compiler, CRUX_TOKEN_ARROW)) {
 		annotated_return_type = parse_type_record(&function_compiler);
 	} else {
 		annotated_return_type = T_ANY;
 	}
 	function_compiler.return_type = annotated_return_type;
 
-	consume(&function_compiler, TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+	consume(&function_compiler, CRUX_TOKEN_LEFT_BRACE, "Expect '{' before function body.");
 	block(&function_compiler);
 
 	if (!function_compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
@@ -2072,9 +2072,9 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 	}
 
 	begin_scope(&function_compiler);
-	consume(&function_compiler, TOKEN_LEFT_PAREN, "Expected '(' to start argument list.");
+	consume(&function_compiler, CRUX_TOKEN_LEFT_PAREN, "Expected '(' to start argument list.");
 
-	if (!check(&function_compiler, TOKEN_RIGHT_PAREN)) {
+	if (!check(&function_compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 		do {
 			function_compiler.function->arity++;
 			if (function_compiler.function->arity > UINT8_MAX) {
@@ -2086,7 +2086,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 			const uint16_t constant = parse_variable(&function_compiler, "Expected parameter name.");
 
 			ObjectTypeRecord *param_type = NULL;
-			if (match(&function_compiler, TOKEN_COLON)) {
+			if (match(&function_compiler, CRUX_TOKEN_COLON)) {
 				param_type = parse_type_record(&function_compiler);
 			} else {
 				param_type = T_ANY;
@@ -2110,13 +2110,13 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 			param_types[param_count++] = param_type;
 
 			define_variable(&function_compiler, constant);
-		} while (match(compiler, TOKEN_COMMA));
+		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
-	consume(&function_compiler, TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
+	consume(&function_compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after argument list.");
 
 	ObjectTypeRecord *annotated_return_type = NULL;
-	if (match(&function_compiler, TOKEN_ARROW)) {
+	if (match(&function_compiler, CRUX_TOKEN_ARROW)) {
 		annotated_return_type = parse_type_record(&function_compiler);
 	} else {
 		annotated_return_type = T_ANY;
@@ -2124,7 +2124,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 
 	function_compiler.return_type = annotated_return_type;
 
-	consume(&function_compiler, TOKEN_LEFT_BRACE, "Expected '{' before function body.");
+	consume(&function_compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' before function body.");
 	block(&function_compiler);
 
 	if (!function_compiler.has_return && annotated_return_type && annotated_return_type->base_type != NIL_TYPE &&
@@ -2157,7 +2157,7 @@ static void array_literal(Compiler *compiler, bool can_assign)
 	uint16_t elementCount = 0;
 	ObjectTypeRecord *element_type = NULL;
 
-	if (!match(compiler, TOKEN_RIGHT_SQUARE)) {
+	if (!match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 		do {
 			expression(compiler);
 
@@ -2185,8 +2185,8 @@ static void array_literal(Compiler *compiler, bool can_assign)
 							   COLLECTION_EXTENT);
 			}
 			elementCount++;
-		} while (match(compiler, TOKEN_COMMA));
-		consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after array elements.");
+		} while (match(compiler, CRUX_TOKEN_COMMA));
+		consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after array elements.");
 	}
 
 	if (!element_type) {
@@ -2208,11 +2208,11 @@ static void table_literal(Compiler *compiler, bool can_assign)
 	ObjectTypeRecord *table_key_type = NULL;
 	ObjectTypeRecord *table_value_type = NULL;
 
-	if (!match(compiler, TOKEN_RIGHT_BRACE)) {
+	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 		do {
 			expression(compiler);
 			ObjectTypeRecord *key_type = pop_type_record(compiler);
-			consume(compiler, TOKEN_COLON, "Expected ':' after table key.");
+			consume(compiler, CRUX_TOKEN_COLON, "Expected ':' after table key.");
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -2248,8 +2248,8 @@ static void table_literal(Compiler *compiler, bool can_assign)
 				compiler_panic(compiler->parser, "Too many elements in table literal.", COLLECTION_EXTENT);
 			}
 			elementCount++;
-		} while (match(compiler, TOKEN_COMMA));
-		consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after table elements.");
+		} while (match(compiler, CRUX_TOKEN_COMMA));
+		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after table elements.");
 	}
 
 	if (!table_key_type) {
@@ -2293,9 +2293,9 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 		}
 	}
 
-	consume(compiler, TOKEN_RIGHT_SQUARE, "Expected ']' after index.");
+	consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after index.");
 
-	if (can_assign && match(compiler, TOKEN_EQUAL)) {
+	if (can_assign && match(compiler, CRUX_TOKEN_EQUAL)) {
 		expression(compiler);
 		ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -2344,12 +2344,12 @@ static void var_declaration(Compiler *compiler, bool is_public)
 	ObjectString *name_str = copy_string(compiler->owner, var_name.start, var_name.length);
 
 	ObjectTypeRecord *annotated_type = NULL;
-	if (match(compiler, TOKEN_COLON)) {
+	if (match(compiler, CRUX_TOKEN_COLON)) {
 		annotated_type = parse_type_record(compiler);
 	}
 
 	ObjectTypeRecord *value_type = NULL;
-	if (match(compiler, TOKEN_EQUAL)) {
+	if (match(compiler, CRUX_TOKEN_EQUAL)) {
 		expression(compiler);
 		value_type = pop_type_record(compiler);
 
@@ -2377,7 +2377,7 @@ static void var_declaration(Compiler *compiler, bool is_public)
 		type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
 	}
 
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 
 	// register types
 	if (compiler->scope_depth > 0) {
@@ -2395,7 +2395,7 @@ static void expression_statement(Compiler *compiler)
 {
 	expression(compiler);
 	pop_type_record(compiler); // discard — value is unused
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after expression.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after expression.");
 	emit_word(compiler, OP_POP);
 }
 
@@ -2429,9 +2429,9 @@ static void for_statement(Compiler *compiler)
 {
 	begin_scope(compiler);
 
-	if (match(compiler, TOKEN_SEMICOLON)) {
+	if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
 		// no initializer
-	} else if (match(compiler, TOKEN_LET)) {
+	} else if (match(compiler, CRUX_TOKEN_LET)) {
 		var_declaration(compiler, false);
 	} else {
 		expression_statement(compiler);
@@ -2440,7 +2440,7 @@ static void for_statement(Compiler *compiler)
 	int loopStart = current_chunk(compiler)->count;
 	int exitJump = -1;
 
-	if (!match(compiler, TOKEN_SEMICOLON)) {
+	if (!match(compiler, CRUX_TOKEN_SEMICOLON)) {
 		expression(compiler);
 
 		// Condition must be Bool
@@ -2451,7 +2451,7 @@ static void for_statement(Compiler *compiler)
 			compiler_panicf(compiler->parser, TYPE, "'for' condition must be of type 'Bool', got '%s'.", got);
 		}
 
-		consume(compiler, TOKEN_SEMICOLON, "Expected ';' after loop condition");
+		consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after loop condition");
 		exitJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
 		emit_word(compiler, OP_POP);
 	}
@@ -2538,7 +2538,7 @@ static void if_statement(Compiler *compiler)
 		}
 	}
 
-	if (match(compiler, TOKEN_ELSE)) {
+	if (match(compiler, CRUX_TOKEN_ELSE)) {
 		statement(compiler);
 	}
 
@@ -2560,7 +2560,7 @@ static void return_statement(Compiler *compiler)
 
 	compiler->has_return = true;
 
-	if (match(compiler, TOKEN_SEMICOLON)) {
+	if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
 		// check that the function expects Nil
 		if (compiler->return_type && compiler->return_type->base_type != NIL_TYPE &&
 			compiler->return_type->base_type != ANY_TYPE) {
@@ -2569,7 +2569,7 @@ static void return_statement(Compiler *compiler)
 		emit_return(compiler);
 	} else {
 		expression(compiler);
-		consume(compiler, TOKEN_SEMICOLON, "Expected ';' after return value.");
+		consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after return value.");
 
 		ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -2593,8 +2593,8 @@ static void return_statement(Compiler *compiler)
 static void import_statement(Compiler *compiler, bool is_dynamic)
 {
 	bool hasParen = false;
-	if (compiler->parser->current.type == TOKEN_LEFT_PAREN) {
-		consume(compiler, TOKEN_LEFT_PAREN, "Expected '(' after use statement.");
+	if (compiler->parser->current.type == CRUX_TOKEN_LEFT_PAREN) {
+		consume(compiler, CRUX_TOKEN_LEFT_PAREN, "Expected '(' after use statement.");
 		hasParen = true;
 	}
 
@@ -2615,23 +2615,23 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 		nameTokens[nameCount] = compiler->parser->previous;
 		names[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
 
-		if (compiler->parser->current.type == TOKEN_AS) {
-			consume(compiler, TOKEN_AS, "Expected 'as' keyword.");
-			consume(compiler, TOKEN_IDENTIFIER, "Expected alias name after 'as'.");
+		if (compiler->parser->current.type == CRUX_TOKEN_AS) {
+			consume(compiler, CRUX_TOKEN_AS, "Expected 'as' keyword.");
+			consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected alias name after 'as'.");
 			aliasTokens[nameCount] = compiler->parser->previous;
 			aliases[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
 			aliasPresence[nameCount] = true;
 		}
 
 		nameCount++;
-	} while (match(compiler, TOKEN_COMMA));
+	} while (match(compiler, CRUX_TOKEN_COMMA));
 
 	if (hasParen) {
-		consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
+		consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after last imported name.");
 	}
 
-	consume(compiler, TOKEN_FROM, "Expected 'from' after import statement.");
-	consume(compiler, TOKEN_STRING, "Expected string literal for module name.");
+	consume(compiler, CRUX_TOKEN_FROM, "Expected 'from' after import statement.");
+	consume(compiler, CRUX_TOKEN_STRING, "Expected string literal for module name.");
 
 	bool isNative = (memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0);
 
@@ -2692,7 +2692,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 		emit_word(compiler, module_const);
 	}
 
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after import statement.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after import statement.");
 
 	// type resolution
 	for (uint16_t i = 0; i < nameCount; i++) {
@@ -2749,7 +2749,7 @@ static void dynuse_statement(Compiler *compiler)
 
 static void struct_declaration(Compiler *compiler, bool is_public)
 {
-	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name.");
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name.");
 	const Token structName = compiler->parser->previous;
 
 	GC_PROTECT_START(compiler->owner->current_module_record);
@@ -2769,19 +2769,20 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	emit_words(compiler, OP_STRUCT, structConstant);
 	define_variable(compiler, nameConstant);
 
-	consume(compiler, TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
+	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
 
 	ObjectTypeTable *field_types = new_type_table(compiler->owner, INITIAL_TYPE_TABLE_SIZE);
 	int fieldCount = 0;
 
-	if (!match(compiler, TOKEN_RIGHT_BRACE)) {
+	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 		do {
 			if (fieldCount >= UINT16_MAX) {
 				compiler_panic(compiler->parser, "Too many fields in struct.", SYNTAX);
 				break;
 			}
 
-			consume(compiler, TOKEN_IDENTIFIER, "Expected field name. Trailing comma after last field is not allowed.");
+			consume(compiler, CRUX_TOKEN_IDENTIFIER,
+					"Expected field name. Trailing comma after last field is not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
 
@@ -2798,7 +2799,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 
 			// Optional field type annotation: fieldName: Type
 			ObjectTypeRecord *field_type = NULL;
-			if (match(compiler, TOKEN_COLON)) {
+			if (match(compiler, CRUX_TOKEN_COLON)) {
 				field_type = parse_type_record(compiler);
 			} else {
 				field_type = T_ANY;
@@ -2808,11 +2809,11 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 
 			table_set(compiler->owner, &structObject->fields, fieldName, INT_VAL(fieldCount));
 			fieldCount++;
-		} while (match(compiler, TOKEN_COMMA));
+		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
 	if (fieldCount != 0) {
-		consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after struct body.");
+		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after struct body.");
 	}
 
 	GC_PROTECT_END(compiler->owner->current_module_record);
@@ -2832,7 +2833,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 
 static void impl_declaration(Compiler *compiler)
 {
-	consume(compiler, TOKEN_IDENTIFIER, "Expected struct name after 'impl'.");
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name after 'impl'.");
 	Token struct_name_token = compiler->parser->previous;
 	ObjectString *struct_name_str = copy_string(compiler->owner, struct_name_token.start, struct_name_token.length);
 
@@ -2852,11 +2853,11 @@ static void impl_declaration(Compiler *compiler)
 	named_variable(compiler, struct_name_token, false);
 	pop_type_record(compiler);
 
-	consume(compiler, TOKEN_LEFT_BRACE, "Expected '{' before impl body.");
+	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' before impl body.");
 
-	while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
-		consume(compiler, TOKEN_FN, "Expected 'fn' inside impl block.");
-		consume(compiler, TOKEN_IDENTIFIER, "Expected method name.");
+	while (!check(compiler, CRUX_TOKEN_RIGHT_BRACE) && !check(compiler, CRUX_TOKEN_EOF)) {
+		consume(compiler, CRUX_TOKEN_FN, "Expected 'fn' inside impl block.");
+		consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected method name.");
 
 		Token method_name_tok = compiler->parser->previous;
 		ObjectString *method_name_str = copy_string(compiler->owner, method_name_tok.start, method_name_tok.length);
@@ -2871,7 +2872,7 @@ static void impl_declaration(Compiler *compiler)
 		emit_words(compiler, OP_METHOD, method_name_const);
 	}
 
-	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after impl body.");
+	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after impl body.");
 
 	emit_word(compiler, OP_POP);
 }
@@ -2912,19 +2913,19 @@ static void synchronize(Compiler *compiler)
 {
 	compiler->parser->panic_mode = false;
 
-	while (compiler->parser->current.type != TOKEN_EOF) {
-		if (compiler->parser->previous.type == TOKEN_SEMICOLON)
+	while (compiler->parser->current.type != CRUX_TOKEN_EOF) {
+		if (compiler->parser->previous.type == CRUX_TOKEN_SEMICOLON)
 			return;
 		switch (compiler->parser->current.type) {
-		case TOKEN_STRUCT:
-		case TOKEN_PUB:
-		case TOKEN_FN:
-		case TOKEN_LET:
-		case TOKEN_FOR:
-		case TOKEN_IF:
-		case TOKEN_WHILE:
-		case TOKEN_RETURN:
-		case TOKEN_PANIC:
+		case CRUX_TOKEN_STRUCT:
+		case CRUX_TOKEN_PUB:
+		case CRUX_TOKEN_FN:
+		case CRUX_TOKEN_LET:
+		case CRUX_TOKEN_FOR:
+		case CRUX_TOKEN_IF:
+		case CRUX_TOKEN_WHILE:
+		case CRUX_TOKEN_RETURN:
+		case CRUX_TOKEN_PANIC:
 			return;
 		default:;
 		}
@@ -2951,14 +2952,14 @@ static void give_statement(Compiler *compiler)
 		compiler_panic(compiler->parser, "'give' can only be used inside a match expression.", SYNTAX);
 	}
 
-	if (match(compiler, TOKEN_SEMICOLON)) {
+	if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
 		emit_word(compiler, OP_NIL);
 		compiler->last_give_type = T_NIL;
 	} else {
 		expression(compiler);
 		// Record for match_expression to check arm consistency.
 		compiler->last_give_type = pop_type_record(compiler);
-		consume(compiler, TOKEN_SEMICOLON, "Expected ';' after give statement.");
+		consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after give statement.");
 	}
 
 	emit_word(compiler, OP_GIVE);
@@ -2976,7 +2977,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	if (!target_type)
 		target_type = T_ANY;
 
-	consume(compiler, TOKEN_LEFT_BRACE, "Expected '{' after match target.");
+	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' after match target.");
 
 	int *endJumps = ALLOCATE(compiler->owner, int, 8);
 	int jumpCount = 0;
@@ -2991,13 +2992,13 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	// type that the arm produces
 	ObjectTypeRecord *arm_type = NULL;
 
-	while (!check(compiler, TOKEN_RIGHT_BRACE) && !check(compiler, TOKEN_EOF)) {
+	while (!check(compiler, CRUX_TOKEN_RIGHT_BRACE) && !check(compiler, CRUX_TOKEN_EOF)) {
 		int jumpIfNotMatch = -1;
 		uint16_t bindingSlot = UINT16_MAX;
 		bool hasBinding = false;
 		compiler->last_give_type = NULL;
 
-		if (match(compiler, TOKEN_DEFAULT)) {
+		if (match(compiler, CRUX_TOKEN_DEFAULT)) {
 			if (hasDefault) {
 				compiler_panic(compiler->parser,
 							   "Cannot have multiple default "
@@ -3006,7 +3007,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			}
 			hasDefault = true;
 
-		} else if (match(compiler, TOKEN_OK)) {
+		} else if (match(compiler, CRUX_TOKEN_OK)) {
 			// Ok/Err patterns require a Result target.
 			if (target_type->base_type != RESULT_TYPE && target_type->base_type != ANY_TYPE) {
 				compiler_panic(compiler->parser,
@@ -3020,10 +3021,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			hasOkPattern = true;
 			jumpIfNotMatch = emit_jump(compiler, OP_RESULT_MATCH_OK);
 
-			if (match(compiler, TOKEN_LEFT_PAREN)) {
+			if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
 				begin_scope(compiler);
 				hasBinding = true;
-				consume(compiler, TOKEN_IDENTIFIER,
+				consume(compiler, CRUX_TOKEN_IDENTIFIER,
 						"Expected identifier after 'Ok' "
 						"pattern.");
 				declare_variable(compiler);
@@ -3035,10 +3036,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 				compiler->locals[bindingSlot].type = ok_type ? ok_type : new_type_rec(compiler->owner, ANY_TYPE);
 
 				mark_initialized(compiler);
-				consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
 			}
 
-		} else if (match(compiler, TOKEN_ERR)) {
+		} else if (match(compiler, CRUX_TOKEN_ERR)) {
 			if (target_type->base_type != RESULT_TYPE && target_type->base_type != ANY_TYPE) {
 				compiler_panic(compiler->parser,
 							   "'Err' pattern requires a 'Result' "
@@ -3051,10 +3052,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			hasErrPattern = true;
 			jumpIfNotMatch = emit_jump(compiler, OP_RESULT_MATCH_ERR);
 
-			if (match(compiler, TOKEN_LEFT_PAREN)) {
+			if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
 				begin_scope(compiler);
 				hasBinding = true;
-				consume(compiler, TOKEN_IDENTIFIER,
+				consume(compiler, CRUX_TOKEN_IDENTIFIER,
 						"Expected identifier after 'Err' "
 						"pattern.");
 				declare_variable(compiler);
@@ -3063,7 +3064,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 				compiler->locals[bindingSlot].type = new_type_rec(compiler->owner, ERROR_TYPE);
 
 				mark_initialized(compiler);
-				consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
 			}
 
 		} else {
@@ -3084,7 +3085,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 			jumpIfNotMatch = emit_jump(compiler, OP_MATCH_JUMP);
 		}
 
-		consume(compiler, TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
+		consume(compiler, CRUX_TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
 
 		if (bindingSlot != UINT16_MAX) {
 			emit_words(compiler, OP_RESULT_BIND, bindingSlot);
@@ -3092,24 +3093,24 @@ static void match_expression(Compiler *compiler, bool can_assign)
 
 		ObjectTypeRecord *this_arm_type = NULL;
 
-		if (match(compiler, TOKEN_LEFT_BRACE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 			block(compiler);
 			// Blocks produce values with give and statements
 			this_arm_type = compiler->last_give_type ? compiler->last_give_type : T_NIL;
-		} else if (match(compiler, TOKEN_GIVE)) {
-			if (match(compiler, TOKEN_SEMICOLON)) {
+		} else if (match(compiler, CRUX_TOKEN_GIVE)) {
+			if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
 				emit_word(compiler, OP_NIL);
 				this_arm_type = T_NIL;
 			} else {
 				expression(compiler);
 				this_arm_type = pop_type_record(compiler);
-				consume(compiler, TOKEN_SEMICOLON, "Expected ';' after give expression.");
+				consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after give expression.");
 			}
 			emit_word(compiler, OP_GIVE);
 		} else {
 			expression(compiler);
 			this_arm_type = pop_type_record(compiler);
-			consume(compiler, TOKEN_SEMICOLON, "Expected ';' after expression.");
+			consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after expression.");
 		}
 
 		// Check arm type consistency.
@@ -3169,7 +3170,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	emit_word(compiler, OP_MATCH_END);
 
 	FREE_ARRAY(compiler->owner, int, endJumps, jumpCapacity);
-	consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
+	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
 	end_match_scope(compiler);
 
 	push_type_record(compiler, arm_type ? arm_type : T_ANY);
@@ -3177,7 +3178,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 
 static void continue_statement(Compiler *compiler)
 {
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after 'continue',");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after 'continue',");
 	const int continueTarget = get_current_continue_target(compiler);
 	if (continueTarget == -1) {
 		return;
@@ -3190,7 +3191,7 @@ static void continue_statement(Compiler *compiler)
 
 static void break_statement(Compiler *compiler)
 {
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after 'break'.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after 'break'.");
 	if (compiler->loop_depth <= 0) {
 		compiler_panic(compiler->parser, "Cannot use 'break' outside of a loop.", SYNTAX);
 		return;
@@ -3211,7 +3212,7 @@ static void panic_statement(Compiler *compiler)
 		type_record_name(type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "'panic' requires a 'String', got '%s'.", got);
 	}
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after 'panic'.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after 'panic'.");
 	emit_word(compiler, OP_PANIC);
 
 	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
@@ -3224,10 +3225,10 @@ static void type_declaration(Compiler *compiler, bool is_public)
 	Token type_name_token = compiler->parser->previous;
 	ObjectString *type_name_str = copy_string(compiler->owner, type_name_token.start, type_name_token.length);
 
-	consume(compiler, TOKEN_EQUAL, "Expected '=' after type name.");
+	consume(compiler, CRUX_TOKEN_EQUAL, "Expected '=' after type name.");
 
 	ObjectTypeRecord *aliased_type = parse_type_record(compiler);
-	consume(compiler, TOKEN_SEMICOLON, "Expected ';' after type declaration.");
+	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after type declaration.");
 
 	if (compiler->scope_depth == 0) {
 		type_table_set(compiler->type_table, type_name_str, aliased_type);
@@ -3249,13 +3250,13 @@ static void public_declaration(Compiler *compiler)
 		compiler_panic(compiler->parser, "Cannot declare public members in a local scope.", SYNTAX);
 	}
 	emit_word(compiler, OP_PUB);
-	if (match(compiler, TOKEN_FN)) {
+	if (match(compiler, CRUX_TOKEN_FN)) {
 		fn_declaration(compiler, true);
-	} else if (match(compiler, TOKEN_LET)) {
+	} else if (match(compiler, CRUX_TOKEN_LET)) {
 		var_declaration(compiler, true);
-	} else if (match(compiler, TOKEN_STRUCT)) {
+	} else if (match(compiler, CRUX_TOKEN_STRUCT)) {
 		struct_declaration(compiler, true);
-	} else if (match(compiler, TOKEN_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_TYPE)) {
 		type_declaration(compiler, true);
 	} else {
 		compiler_panic(compiler->parser, "Expected 'fn', 'let', 'struct', or 'type' after 'pub'.", SYNTAX);
@@ -3264,17 +3265,17 @@ static void public_declaration(Compiler *compiler)
 
 static void declaration(Compiler *compiler)
 {
-	if (match(compiler, TOKEN_LET)) {
+	if (match(compiler, CRUX_TOKEN_LET)) {
 		var_declaration(compiler, false);
-	} else if (match(compiler, TOKEN_FN)) {
+	} else if (match(compiler, CRUX_TOKEN_FN)) {
 		fn_declaration(compiler, false);
-	} else if (match(compiler, TOKEN_STRUCT)) {
+	} else if (match(compiler, CRUX_TOKEN_STRUCT)) {
 		struct_declaration(compiler, false);
-	} else if (match(compiler, TOKEN_TYPE)) {
+	} else if (match(compiler, CRUX_TOKEN_TYPE)) {
 		type_declaration(compiler, false);
-	} else if (match(compiler, TOKEN_PUB)) {
+	} else if (match(compiler, CRUX_TOKEN_PUB)) {
 		public_declaration(compiler);
-	} else if (match(compiler, TOKEN_IMPL)) {
+	} else if (match(compiler, CRUX_TOKEN_IMPL)) {
 		impl_declaration(compiler);
 	} else {
 		statement(compiler);
@@ -3286,29 +3287,29 @@ static void declaration(Compiler *compiler)
 
 static void statement(Compiler *compiler)
 {
-	if (match(compiler, TOKEN_IF)) {
+	if (match(compiler, CRUX_TOKEN_IF)) {
 		if_statement(compiler);
-	} else if (match(compiler, TOKEN_LEFT_BRACE)) {
+	} else if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 		begin_scope(compiler);
 		block(compiler);
 		end_scope(compiler);
-	} else if (match(compiler, TOKEN_WHILE)) {
+	} else if (match(compiler, CRUX_TOKEN_WHILE)) {
 		while_statement(compiler);
-	} else if (match(compiler, TOKEN_FOR)) {
+	} else if (match(compiler, CRUX_TOKEN_FOR)) {
 		for_statement(compiler);
-	} else if (match(compiler, TOKEN_RETURN)) {
+	} else if (match(compiler, CRUX_TOKEN_RETURN)) {
 		return_statement(compiler);
-	} else if (match(compiler, TOKEN_DYN_USE)) {
+	} else if (match(compiler, CRUX_TOKEN_DYN_USE)) {
 		dynuse_statement(compiler);
-	} else if (match(compiler, TOKEN_USE)) {
+	} else if (match(compiler, CRUX_TOKEN_USE)) {
 		use_statement(compiler);
-	} else if (match(compiler, TOKEN_GIVE)) {
+	} else if (match(compiler, CRUX_TOKEN_GIVE)) {
 		give_statement(compiler);
-	} else if (match(compiler, TOKEN_BREAK)) {
+	} else if (match(compiler, CRUX_TOKEN_BREAK)) {
 		break_statement(compiler);
-	} else if (match(compiler, TOKEN_CONTINUE)) {
+	} else if (match(compiler, CRUX_TOKEN_CONTINUE)) {
 		continue_statement(compiler);
-	} else if (match(compiler, TOKEN_PANIC)) {
+	} else if (match(compiler, CRUX_TOKEN_PANIC)) {
 		panic_statement(compiler);
 	} else {
 		expression_statement(compiler);
@@ -3319,7 +3320,7 @@ static void grouping(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
 	expression(compiler);
-	consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
+	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
 static void number(Compiler *compiler, bool can_assign)
@@ -3466,7 +3467,7 @@ static void unary(Compiler *compiler, bool can_assign)
 	parse_precedence(compiler, PREC_UNARY);
 
 	switch (operatorType) {
-	case TOKEN_NOT: {
+	case CRUX_TOKEN_NOT: {
 		// check if this is a boolean type
 		ObjectTypeRecord *bool_expected = pop_type_record(compiler);
 		if (!bool_expected || (bool_expected->base_type != ANY_TYPE && bool_expected->base_type != BOOL_TYPE)) {
@@ -3478,7 +3479,7 @@ static void unary(Compiler *compiler, bool can_assign)
 		emit_word(compiler, OP_NOT);
 		break;
 	}
-	case TOKEN_MINUS: {
+	case CRUX_TOKEN_MINUS: {
 		// check if this is a negatable type
 		ObjectTypeRecord *num_expected = pop_type_record(compiler);
 		if (!num_expected ||
@@ -3491,7 +3492,7 @@ static void unary(Compiler *compiler, bool can_assign)
 		emit_word(compiler, OP_NEGATE);
 		break;
 	}
-	case TOKEN_TILDE: {
+	case CRUX_TOKEN_TILDE: {
 		ObjectTypeRecord *int_expected = pop_type_record(compiler);
 		if (!int_expected || (int_expected->base_type != ANY_TYPE && !(int_expected->base_type == INT_TYPE))) {
 			compiler_panicf(compiler->parser, TYPE, "Expected 'Int' type for '~' operator.");
@@ -3578,88 +3579,88 @@ static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectS
 }
 
 ParseRule rules[] = {
-	[TOKEN_LEFT_PAREN] = {grouping, infix_call, NULL, PREC_CALL},
-	[TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_LEFT_BRACE] = {table_literal, NULL, NULL, PREC_NONE},
-	[TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_LEFT_SQUARE] = {array_literal, collection_index, NULL, PREC_CALL},
-	[TOKEN_RIGHT_SQUARE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_COMMA] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_DOT] = {NULL, dot, NULL, PREC_CALL},
-	[TOKEN_MINUS] = {unary, binary, NULL, PREC_TERM},
-	[TOKEN_PLUS] = {NULL, binary, NULL, PREC_TERM},
-	[TOKEN_SEMICOLON] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_SLASH] = {NULL, binary, NULL, PREC_FACTOR},
-	[TOKEN_BACKSLASH] = {NULL, binary, NULL, PREC_FACTOR},
-	[TOKEN_STAR] = {NULL, binary, NULL, PREC_FACTOR},
-	[TOKEN_STAR_STAR] = {NULL, binary, NULL, PREC_FACTOR},
-	[TOKEN_PERCENT] = {NULL, binary, NULL, PREC_FACTOR},
-	[TOKEN_LEFT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
-	[TOKEN_RIGHT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
-	[TOKEN_AMPERSAND] = {NULL, binary, NULL, PREC_BITWISE_AND},
-	[TOKEN_CARET] = {NULL, binary, NULL, PREC_BITWISE_XOR},
-	[TOKEN_PIPE] = {NULL, binary, NULL, PREC_BITWISE_OR},
-	[TOKEN_NOT] = {unary, NULL, NULL, PREC_NONE},
-	[TOKEN_BANG_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
-	[TOKEN_EQUAL] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_EQUAL_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
-	[TOKEN_GREATER] = {NULL, binary, NULL, PREC_COMPARISON},
-	[TOKEN_GREATER_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
-	[TOKEN_LESS] = {NULL, binary, NULL, PREC_COMPARISON},
-	[TOKEN_LESS_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
-	[TOKEN_IDENTIFIER] = {variable, NULL, NULL, PREC_NONE},
-	[TOKEN_STRING] = {string, NULL, NULL, PREC_NONE},
-	[TOKEN_INT] = {number, NULL, NULL, PREC_NONE},
-	[TOKEN_FLOAT] = {number, NULL, NULL, PREC_NONE},
-	[TOKEN_CONTINUE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_BREAK] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_AND] = {NULL, and_, NULL, PREC_AND},
-	[TOKEN_ELSE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_FALSE] = {literal, NULL, NULL, PREC_NONE},
-	[TOKEN_FOR] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_FN] = {anonymous_function, NULL, NULL, PREC_NONE},
-	[TOKEN_IF] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_NIL] = {literal, NULL, NULL, PREC_NONE},
-	[TOKEN_OR] = {NULL, or_, NULL, PREC_OR},
-	[TOKEN_RETURN] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_TRUE] = {literal, NULL, NULL, PREC_NONE},
-	[TOKEN_LET] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_USE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_FROM] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_PUB] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_WHILE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_ERROR] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_DEFAULT] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
-	[TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
-	[TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
-	[TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
-	[TOKEN_AS] = {NULL, type_coerce, NULL, PREC_COERCE},
-	[TOKEN_TILDE] = {unary, NULL, NULL, PREC_NONE},
-	[TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_NIL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_BOOL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_INT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_FLOAT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_STRING_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_ARRAY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_TABLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_ERROR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_RESULT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_RANDOM_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_FILE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_STRUCT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_VECTOR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_COMPLEX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_MATRIX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_SET_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_TUPLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_BUFFER_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_RANGE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
-	[TOKEN_ANY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_LEFT_PAREN] = {grouping, infix_call, NULL, PREC_CALL},
+	[CRUX_TOKEN_RIGHT_PAREN] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_LEFT_BRACE] = {table_literal, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_LEFT_SQUARE] = {array_literal, collection_index, NULL, PREC_CALL},
+	[CRUX_TOKEN_RIGHT_SQUARE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_COMMA] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_DOT] = {NULL, dot, NULL, PREC_CALL},
+	[CRUX_TOKEN_MINUS] = {unary, binary, NULL, PREC_TERM},
+	[CRUX_TOKEN_PLUS] = {NULL, binary, NULL, PREC_TERM},
+	[CRUX_TOKEN_SEMICOLON] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_SLASH] = {NULL, binary, NULL, PREC_FACTOR},
+	[CRUX_TOKEN_BACKSLASH] = {NULL, binary, NULL, PREC_FACTOR},
+	[CRUX_TOKEN_STAR] = {NULL, binary, NULL, PREC_FACTOR},
+	[CRUX_TOKEN_STAR_STAR] = {NULL, binary, NULL, PREC_FACTOR},
+	[CRUX_TOKEN_PERCENT] = {NULL, binary, NULL, PREC_FACTOR},
+	[CRUX_TOKEN_LEFT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
+	[CRUX_TOKEN_RIGHT_SHIFT] = {NULL, binary, NULL, PREC_SHIFT},
+	[CRUX_TOKEN_AMPERSAND] = {NULL, binary, NULL, PREC_BITWISE_AND},
+	[CRUX_TOKEN_CARET] = {NULL, binary, NULL, PREC_BITWISE_XOR},
+	[CRUX_TOKEN_PIPE] = {NULL, binary, NULL, PREC_BITWISE_OR},
+	[CRUX_TOKEN_NOT] = {unary, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_BANG_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
+	[CRUX_TOKEN_EQUAL] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_EQUAL_EQUAL] = {NULL, binary, NULL, PREC_EQUALITY},
+	[CRUX_TOKEN_GREATER] = {NULL, binary, NULL, PREC_COMPARISON},
+	[CRUX_TOKEN_GREATER_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
+	[CRUX_TOKEN_LESS] = {NULL, binary, NULL, PREC_COMPARISON},
+	[CRUX_TOKEN_LESS_EQUAL] = {NULL, binary, NULL, PREC_COMPARISON},
+	[CRUX_TOKEN_IDENTIFIER] = {variable, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_STRING] = {string, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_INT] = {number, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FLOAT] = {number, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_CONTINUE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_BREAK] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_AND] = {NULL, and_, NULL, PREC_AND},
+	[CRUX_TOKEN_ELSE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FALSE] = {literal, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FOR] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FN] = {anonymous_function, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_IF] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_NIL] = {literal, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_OR] = {NULL, or_, NULL, PREC_OR},
+	[CRUX_TOKEN_RETURN] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_TRUE] = {literal, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_LET] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_USE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FROM] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_PUB] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_WHILE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_ERROR] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_DEFAULT] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
+	[CRUX_TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
+	[CRUX_TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_NEW] = {struct_instance, NULL, NULL, PREC_UNARY},
+	[CRUX_TOKEN_EOF] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
+	[CRUX_TOKEN_AS] = {NULL, type_coerce, NULL, PREC_COERCE},
+	[CRUX_TOKEN_TILDE] = {unary, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_NIL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_BOOL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_INT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FLOAT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_STRING_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_ARRAY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_TABLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_ERROR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_RESULT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_RANDOM_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_FILE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_STRUCT_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_VECTOR_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_COMPLEX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_MATRIX_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_SET_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_TUPLE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_BUFFER_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_RANGE_TYPE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_ANY_TYPE] = {NULL, NULL, NULL, PREC_NONE},
 };
 
 /**
@@ -3671,7 +3672,7 @@ static void parse_precedence(Compiler *compiler, const Precedence precedence)
 	advance(compiler);
 	ParseFn prefixRule;
 	if (is_identifier_like(compiler->parser->previous.type)) {
-		prefixRule = get_rule(TOKEN_IDENTIFIER)->prefix;
+		prefixRule = get_rule(CRUX_TOKEN_IDENTIFIER)->prefix;
 	} else {
 		prefixRule = get_rule(compiler->parser->previous.type)->prefix;
 	}
@@ -3693,7 +3694,7 @@ static void parse_precedence(Compiler *compiler, const Precedence precedence)
 		}
 	}
 
-	if (can_assign && match(compiler, TOKEN_EQUAL)) {
+	if (can_assign && match(compiler, CRUX_TOKEN_EQUAL)) {
 		compiler_panic(compiler->parser, "Invalid Assignment Target", SYNTAX);
 	}
 }
@@ -3717,23 +3718,23 @@ static void pre_advance(Compiler *compiler)
 	compiler->parser->previous = compiler->parser->current;
 	for (;;) {
 		compiler->parser->current = scan_token(compiler->parser->scanner);
-		if (compiler->parser->current.type != TOKEN_ERROR)
+		if (compiler->parser->current.type != CRUX_TOKEN_ERROR)
 			break;
 	}
 }
 
 // Skip a balanced brace block { ... } starting at the current token (which
-// must be TOKEN_LEFT_BRACE). Handles nesting.
+// must be CRUX_TOKEN_LEFT_BRACE). Handles nesting.
 static void pre_skip_block(Compiler *compiler)
 {
-	if (compiler->parser->current.type != TOKEN_LEFT_BRACE)
+	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_BRACE)
 		return;
 	pre_advance(compiler); // consume '{'
 	int depth = 1;
-	while (depth > 0 && compiler->parser->current.type != TOKEN_EOF) {
-		if (compiler->parser->current.type == TOKEN_LEFT_BRACE)
+	while (depth > 0 && compiler->parser->current.type != CRUX_TOKEN_EOF) {
+		if (compiler->parser->current.type == CRUX_TOKEN_LEFT_BRACE)
 			depth++;
-		if (compiler->parser->current.type == TOKEN_RIGHT_BRACE)
+		if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_BRACE)
 			depth--;
 		pre_advance(compiler);
 	}
@@ -3742,14 +3743,14 @@ static void pre_skip_block(Compiler *compiler)
 // Skip a balanced parenthesis group ( ... ) starting at current token.
 static void pre_skip_parens(Compiler *compiler)
 {
-	if (compiler->parser->current.type != TOKEN_LEFT_PAREN)
+	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_PAREN)
 		return;
 	pre_advance(compiler); // consume '('
 	int depth = 1;
-	while (depth > 0 && compiler->parser->current.type != TOKEN_EOF) {
-		if (compiler->parser->current.type == TOKEN_LEFT_PAREN)
+	while (depth > 0 && compiler->parser->current.type != CRUX_TOKEN_EOF) {
+		if (compiler->parser->current.type == CRUX_TOKEN_LEFT_PAREN)
 			depth++;
-		if (compiler->parser->current.type == TOKEN_RIGHT_PAREN)
+		if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_PAREN)
 			depth--;
 		pre_advance(compiler);
 	}
@@ -3766,31 +3767,32 @@ static void pre_skip_type(Compiler *compiler)
 	for (;;) {
 		const CruxTokenType t = compiler->parser->current.type;
 
-		if (t == TOKEN_LEFT_PAREN) {
+		if (t == CRUX_TOKEN_LEFT_PAREN) {
 			// Function type: (T, T) -> T
 			pre_skip_parens(compiler);
 			// consume '->'
-			if (compiler->parser->current.type == TOKEN_ARROW)
+			if (compiler->parser->current.type == CRUX_TOKEN_ARROW)
 				pre_advance(compiler);
 			pre_skip_type(compiler); // return type
-		} else if (t == TOKEN_SHAPE) {
+		} else if (t == CRUX_TOKEN_SHAPE) {
 			pre_advance(compiler); // consume 'shape'
 			pre_skip_block(compiler); // skip '{ ... }'
-		} else if (t == TOKEN_INT_TYPE || t == TOKEN_FLOAT_TYPE || t == TOKEN_BOOL_TYPE || t == TOKEN_STRING_TYPE ||
-				   t == TOKEN_NIL_TYPE || t == TOKEN_ANY_TYPE || t == TOKEN_ARRAY_TYPE || t == TOKEN_TABLE_TYPE ||
-				   t == TOKEN_VECTOR_TYPE || t == TOKEN_MATRIX_TYPE || t == TOKEN_BUFFER_TYPE ||
-				   t == TOKEN_ERROR_TYPE || t == TOKEN_RESULT_TYPE || t == TOKEN_RANGE_TYPE || t == TOKEN_TUPLE_TYPE ||
-				   t == TOKEN_COMPLEX_TYPE || t == TOKEN_SET_TYPE || t == TOKEN_RANDOM_TYPE || t == TOKEN_FILE_TYPE ||
-				   t == TOKEN_IDENTIFIER || t == TOKEN_NEVER_TYPE) {
+		} else if (t == CRUX_TOKEN_INT_TYPE || t == CRUX_TOKEN_FLOAT_TYPE || t == CRUX_TOKEN_BOOL_TYPE ||
+				   t == CRUX_TOKEN_STRING_TYPE || t == CRUX_TOKEN_NIL_TYPE || t == CRUX_TOKEN_ANY_TYPE ||
+				   t == CRUX_TOKEN_ARRAY_TYPE || t == CRUX_TOKEN_TABLE_TYPE || t == CRUX_TOKEN_VECTOR_TYPE ||
+				   t == CRUX_TOKEN_MATRIX_TYPE || t == CRUX_TOKEN_BUFFER_TYPE || t == CRUX_TOKEN_ERROR_TYPE ||
+				   t == CRUX_TOKEN_RESULT_TYPE || t == CRUX_TOKEN_RANGE_TYPE || t == CRUX_TOKEN_TUPLE_TYPE ||
+				   t == CRUX_TOKEN_COMPLEX_TYPE || t == CRUX_TOKEN_SET_TYPE || t == CRUX_TOKEN_RANDOM_TYPE ||
+				   t == CRUX_TOKEN_FILE_TYPE || t == CRUX_TOKEN_IDENTIFIER || t == CRUX_TOKEN_NEVER_TYPE) {
 			pre_advance(compiler); // consume the base type token
 			// Optional subscript: Array[Int], Table[K,V], etc.
-			if (compiler->parser->current.type == TOKEN_LEFT_SQUARE) {
+			if (compiler->parser->current.type == CRUX_TOKEN_LEFT_SQUARE) {
 				pre_advance(compiler); // consume '['
 				int depth = 1;
-				while (depth > 0 && compiler->parser->current.type != TOKEN_EOF) {
-					if (compiler->parser->current.type == TOKEN_LEFT_SQUARE)
+				while (depth > 0 && compiler->parser->current.type != CRUX_TOKEN_EOF) {
+					if (compiler->parser->current.type == CRUX_TOKEN_LEFT_SQUARE)
 						depth++;
-					if (compiler->parser->current.type == TOKEN_RIGHT_SQUARE)
+					if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_SQUARE)
 						depth--;
 					pre_advance(compiler);
 				}
@@ -3801,7 +3803,7 @@ static void pre_skip_type(Compiler *compiler)
 		}
 
 		// Union continuation: T | T | ...
-		if (compiler->parser->current.type == TOKEN_PIPE) {
+		if (compiler->parser->current.type == CRUX_TOKEN_PIPE) {
 			pre_advance(compiler); // consume '|'
 			continue; // parse next variant
 		}
@@ -3810,15 +3812,15 @@ static void pre_skip_type(Compiler *compiler)
 }
 
 // Collect a single top-level type alias declaration.
-// On entry, parser.current is TOKEN_TYPE (already consumed by caller).
+// On entry, parser.current is CRUX_TOKEN_TYPE (already consumed by caller).
 static void pre_collect_type(Compiler *compiler)
 {
-	if (compiler->parser->current.type != TOKEN_IDENTIFIER)
+	if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 		return;
 	Token name_token = compiler->parser->current;
 	pre_advance(compiler);
 
-	if (compiler->parser->current.type != TOKEN_EQUAL)
+	if (compiler->parser->current.type != CRUX_TOKEN_EQUAL)
 		return;
 	pre_advance(compiler); // consume '='
 
@@ -3826,7 +3828,7 @@ static void pre_collect_type(Compiler *compiler)
 	ObjectTypeRecord *resolved_type = parse_type_record(compiler);
 
 	// consume ';'
-	if (compiler->parser->current.type == TOKEN_SEMICOLON)
+	if (compiler->parser->current.type == CRUX_TOKEN_SEMICOLON)
 		pre_advance(compiler);
 
 	ObjectString *type_name = copy_string(compiler->owner, name_token.start, name_token.length);
@@ -3834,17 +3836,17 @@ static void pre_collect_type(Compiler *compiler)
 }
 
 // Collect a single top-level struct declaration into pre_compiler's type_table.
-// On entry parser.current is TOKEN_STRUCT (already consumed by caller).
+// On entry parser.current is CRUX_TOKEN_STRUCT (already consumed by caller).
 static void pre_collect_struct(Compiler *compiler)
 {
 	// Consume struct name.
-	if (compiler->parser->current.type != TOKEN_IDENTIFIER)
+	if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 		return;
 	const Token name_token = compiler->parser->current;
 	pre_advance(compiler);
 
 	// Expect '{' to start the struct body.
-	if (compiler->parser->current.type != TOKEN_LEFT_BRACE)
+	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_BRACE)
 		return;
 	pre_advance(compiler); // consume '{'
 
@@ -3854,16 +3856,17 @@ static void pre_collect_struct(Compiler *compiler)
 	ObjectString *struct_name = copy_string(compiler->owner, name_token.start, name_token.length);
 	ObjectStruct *struct_obj = new_struct_type(compiler->owner, struct_name);
 
-	while (compiler->parser->current.type != TOKEN_RIGHT_BRACE && compiler->parser->current.type != TOKEN_EOF) {
+	while (compiler->parser->current.type != CRUX_TOKEN_RIGHT_BRACE &&
+		   compiler->parser->current.type != CRUX_TOKEN_EOF) {
 		// Field name
-		if (compiler->parser->current.type != TOKEN_IDENTIFIER)
+		if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 			break;
 		Token field_tok = compiler->parser->current;
 		ObjectString *field_name = copy_string(compiler->owner, field_tok.start, field_tok.length);
 		pre_advance(compiler);
 
 		ObjectTypeRecord *field_type = NULL;
-		if (compiler->parser->current.type == TOKEN_COLON) {
+		if (compiler->parser->current.type == CRUX_TOKEN_COLON) {
 			pre_advance(compiler); // consume ':'
 			field_type = parse_type_record(compiler);
 		} else {
@@ -3875,12 +3878,12 @@ static void pre_collect_struct(Compiler *compiler)
 		field_count++;
 
 		// Allow trailing comma between fields.
-		if (compiler->parser->current.type == TOKEN_COMMA)
+		if (compiler->parser->current.type == CRUX_TOKEN_COMMA)
 			pre_advance(compiler);
 	}
 
 	// Consume '}'.
-	if (compiler->parser->current.type == TOKEN_RIGHT_BRACE)
+	if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_BRACE)
 		pre_advance(compiler);
 
 	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, struct_obj, field_types, field_count);
@@ -3891,12 +3894,12 @@ static void pre_collect_struct(Compiler *compiler)
 // Collect a single top-level function signature into pre_compiler's type_table.
 static void pre_collect_function(Compiler *compiler)
 {
-	if (compiler->parser->current.type != TOKEN_IDENTIFIER)
+	if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 		return;
 	Token fn_name_token = compiler->parser->current;
 	pre_advance(compiler);
 
-	if (compiler->parser->current.type != TOKEN_LEFT_PAREN)
+	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_PAREN)
 		return;
 	pre_advance(compiler); // consume '('
 
@@ -3906,16 +3909,17 @@ static void pre_collect_function(Compiler *compiler)
 	if (!param_types)
 		return;
 
-	while (compiler->parser->current.type != TOKEN_RIGHT_PAREN && compiler->parser->current.type != TOKEN_EOF) {
+	while (compiler->parser->current.type != CRUX_TOKEN_RIGHT_PAREN &&
+		   compiler->parser->current.type != CRUX_TOKEN_EOF) {
 		// Parameter name (identifier).
-		if (compiler->parser->current.type != TOKEN_IDENTIFIER) {
+		if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER) {
 			FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
 			return;
 		}
 		pre_advance(compiler); // consume param name
 
 		ObjectTypeRecord *param_type = NULL;
-		if (compiler->parser->current.type == TOKEN_COLON) {
+		if (compiler->parser->current.type == CRUX_TOKEN_COLON) {
 			pre_advance(compiler); // consume ':'
 			param_type = parse_type_record(compiler);
 		} else {
@@ -3934,17 +3938,17 @@ static void pre_collect_function(Compiler *compiler)
 		}
 		param_types[param_count++] = param_type;
 
-		if (compiler->parser->current.type == TOKEN_COMMA)
+		if (compiler->parser->current.type == CRUX_TOKEN_COMMA)
 			pre_advance(compiler);
 	}
 
 	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_cap, param_count);
 
-	if (compiler->parser->current.type == TOKEN_RIGHT_PAREN)
+	if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_PAREN)
 		pre_advance(compiler);
 
 	ObjectTypeRecord *return_type = NULL;
-	if (compiler->parser->current.type == TOKEN_ARROW) {
+	if (compiler->parser->current.type == CRUX_TOKEN_ARROW) {
 		pre_advance(compiler); // consume '->'
 		return_type = parse_type_record(compiler);
 	} else {
@@ -3972,88 +3976,88 @@ static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 
 	pre_advance(compiler);
 
-	while (compiler->parser->current.type != TOKEN_EOF) {
+	while (compiler->parser->current.type != CRUX_TOKEN_EOF) {
 		CruxTokenType t = compiler->parser->current.type;
 
-		if (t == TOKEN_STRUCT) {
+		if (t == CRUX_TOKEN_STRUCT) {
 			pre_advance(compiler); // consume 'struct'
 			if (collect_structs) {
 				pre_collect_struct(compiler);
 			} else {
 				// Skip: name + block
-				if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+				if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 					pre_advance(compiler);
 				pre_skip_block(compiler);
 			}
 
-		} else if (t == TOKEN_TYPE) {
+		} else if (t == CRUX_TOKEN_TYPE) {
 			pre_advance(compiler); // consume 'type'
 			if (collect_structs) {
 				pre_collect_type(compiler);
 			} else {
 				// Skip: name + '=' + type + ';'
-				if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+				if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 					pre_advance(compiler);
-				if (compiler->parser->current.type == TOKEN_EQUAL)
+				if (compiler->parser->current.type == CRUX_TOKEN_EQUAL)
 					pre_advance(compiler);
 				pre_skip_type(compiler);
-				if (compiler->parser->current.type == TOKEN_SEMICOLON)
+				if (compiler->parser->current.type == CRUX_TOKEN_SEMICOLON)
 					pre_advance(compiler);
 			}
 
-		} else if (t == TOKEN_FN) {
+		} else if (t == CRUX_TOKEN_FN) {
 			pre_advance(compiler); // consume 'fn'
 			if (!collect_structs) {
 				pre_collect_function(compiler);
 			} else {
 				// Skip: name + parens + optional ->T + block
-				if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+				if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 					pre_advance(compiler);
 				pre_skip_parens(compiler);
-				if (compiler->parser->current.type == TOKEN_ARROW) {
+				if (compiler->parser->current.type == CRUX_TOKEN_ARROW) {
 					pre_advance(compiler);
 					pre_skip_type(compiler);
 				}
 				pre_skip_block(compiler);
 			}
 
-		} else if (t == TOKEN_PUB) {
+		} else if (t == CRUX_TOKEN_PUB) {
 			pre_advance(compiler); // consume 'pub'
 			// pub fn ... or pub struct ...
-			if (compiler->parser->current.type == TOKEN_FN) {
+			if (compiler->parser->current.type == CRUX_TOKEN_FN) {
 				pre_advance(compiler); // consume 'fn'
 				if (!collect_structs) {
 					pre_collect_function(compiler);
 				} else {
-					if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+					if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 						pre_advance(compiler);
 					pre_skip_parens(compiler);
-					if (compiler->parser->current.type == TOKEN_ARROW) {
+					if (compiler->parser->current.type == CRUX_TOKEN_ARROW) {
 						pre_advance(compiler);
 						pre_skip_type(compiler);
 					}
 					pre_skip_block(compiler);
 				}
-			} else if (compiler->parser->current.type == TOKEN_STRUCT) {
+			} else if (compiler->parser->current.type == CRUX_TOKEN_STRUCT) {
 				pre_advance(compiler); // consume 'struct'
 				if (collect_structs) {
 					pre_collect_struct(compiler);
 				} else {
-					if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+					if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 						pre_advance(compiler);
 					pre_skip_block(compiler);
 				}
-			} else if (compiler->parser->current.type == TOKEN_TYPE) {
+			} else if (compiler->parser->current.type == CRUX_TOKEN_TYPE) {
 				pre_advance(compiler); // consume 'type'
 				if (collect_structs) {
 					pre_collect_type(compiler);
 				} else {
-					if (compiler->parser->current.type == TOKEN_IDENTIFIER)
+					if (compiler->parser->current.type == CRUX_TOKEN_IDENTIFIER)
 						pre_advance(compiler);
-					if (compiler->parser->current.type == TOKEN_EQUAL)
+					if (compiler->parser->current.type == CRUX_TOKEN_EQUAL)
 						pre_advance(compiler);
 					pre_skip_type(compiler);
-					if (compiler->parser->current.type == TOKEN_SEMICOLON)
+					if (compiler->parser->current.type == CRUX_TOKEN_SEMICOLON)
 						pre_advance(compiler);
 				}
 			} else {
@@ -4140,7 +4144,7 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 
 	advance(compiler);
 
-	while (!match(compiler, TOKEN_EOF)) {
+	while (!match(compiler, CRUX_TOKEN_EOF)) {
 		declaration(compiler);
 	}
 

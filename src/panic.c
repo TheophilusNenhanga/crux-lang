@@ -160,7 +160,7 @@ static void error_at_vfmt(Parser *parser, const Token *token, ErrorType error_ty
 	vfprintf(stderr, format, args);
 	fprintf(stderr, " at line %d%s\n", token->line, RESET);
 
-	if (token->type != TOKEN_EOF && parser->source != NULL) {
+	if (token->type != CRUX_TOKEN_EOF && parser->source != NULL) {
 		fprintf(stderr, "\n");
 
 		// Compute the token's column by walking from the start of its
@@ -199,7 +199,7 @@ void error_at(Parser *parser, const Token *token, const char *message, const Err
 	fprintf(stderr, "%s%s%s\n", RED, repeat('=', 60), RESET);
 	fprintf(stderr, "%s%s: %s%s at line %d%s\n", RED, details.name, MAGENTA, message, token->line, RESET);
 
-	if (token->type != TOKEN_EOF && parser->source != NULL) {
+	if (token->type != CRUX_TOKEN_EOF && parser->source != NULL) {
 		fprintf(stderr, "\n");
 
 		int startCol = 0;
