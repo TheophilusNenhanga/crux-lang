@@ -72,10 +72,10 @@ struct MLP {
 
 fn newMLP(input_nodes: Int, hidden_nodes: Int, output_nodes: Int) -> MLP {
     let nn = new MLP {
-        w1: Matrix(input_nodes, hidden_nodes)?,
-        b1: Matrix(1, hidden_nodes)?,
-        w2: Matrix(hidden_nodes, output_nodes)?,
-        b2: Matrix(1, output_nodes)?
+        w1 = Matrix(input_nodes, hidden_nodes)?,
+        b1 = Matrix(1, hidden_nodes)?,
+        w2 = Matrix(hidden_nodes, output_nodes)?,
+        b2 = Matrix(1, output_nodes)?
     };
 
     // Initialize with random weights between -1.0 and 1.0

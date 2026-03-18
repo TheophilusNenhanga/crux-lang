@@ -28,11 +28,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	add_compile_options(-O3)
+	add_compile_options(-O3 -fno-delete-null-pointer-checks -flto -flto=auto)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Perf")
-	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed)
+	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed -fno-delete-null-pointer-checks -flto)
 endif()
 
 file(GLOB SOURCES

@@ -28,11 +28,11 @@ fn main() -> Nil {
 
     for let i = 0; i < NUM_SEEDS; i += 1 {
         seeds.push(new Seed {
-            x: g_random.float(0.0, float(WIDTH)?)?,
-            y: g_random.float(0.0, float(HEIGHT)?)?,
-            r: g_random.float(20.0, 240.0)?,
-            g: g_random.float(20.0, 240.0)?,
-            b: g_random.float(20.0, 240.0)?
+            x = g_random.float(0.0, float(WIDTH)?)?,
+            y = g_random.float(0.0, float(HEIGHT)?)?,
+            r = g_random.float(20.0, 240.0)?,
+            g = g_random.float(20.0, 240.0)?,
+            b = g_random.float(20.0, 240.0)?
         });
     }
 
