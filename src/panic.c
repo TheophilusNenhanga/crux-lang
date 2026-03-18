@@ -340,7 +340,7 @@ void runtime_panic(ObjectModuleRecord *module_record, const ErrorType type, cons
 		}
 		traceModule = traceModule->enclosing_module;
 	}
-	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
+	fprintf(stderr, "\n%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
 	module_record->owner->is_exiting = true;
 	reset_stack(module_record);

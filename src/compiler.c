@@ -2383,7 +2383,8 @@ static void var_declaration(Compiler *compiler, bool is_public)
 	if (compiler->scope_depth > 0) {
 		compiler->locals[compiler->local_count - 1].type = resolved_type;
 	} else {
-		if (!type_table_set(compiler->type_table, name_str, resolved_type)) {
+		if (!type_table_set(compiler->type_table, name_str, resolved_type) && compiler->owner->current_module_record &&
+			!compiler->owner->current_module_record->is_repl) {
 			compiler_panicf(compiler->parser, TYPE, "Attempting to redefine variable '%s'.", name_str->chars);
 		}
 	}
