@@ -174,10 +174,11 @@ Value exit_function(VM *vm, const Value *args)
 {
 	(void)vm;
 
-	/* TODO: exit the vm gracefully */
 	if (!IS_INT(args[0])) {
-		exit(1);
+		vm->exit_code = 1;
+	} else {
+		vm->exit_code = AS_INT(args[0]);
 	}
-	exit(AS_INT(args[0]));
-	return BOOL_VAL(true);
+	vm->is_exiting = true;
+	return NIL_VAL;
 }

@@ -4,10 +4,6 @@
 #include "object.h"
 #include "scanner.h"
 
-ObjectFunction *compile(VM *vm, char *source);
-
-void mark_compiler_roots(VM *vm);
-
 /**
  * @brief Parser state used during compilation.
  *
@@ -18,9 +14,9 @@ typedef struct {
 	char *source;
 	Token current;
 	Token previous;
-	Token prev_previous;
 	bool had_error;
 	bool panic_mode;
+	Scanner *scanner;
 } Parser;
 
 // Precedence in order from lowest to highest
@@ -39,6 +35,7 @@ typedef enum {
 	PREC_FACTOR, // * /
 	PREC_UNARY, // ! -
 	PREC_CALL, // . () []
+	PREC_COERCE, // as
 	PREC_PRIMARY
 } Precedence;
 
@@ -51,27 +48,20 @@ typedef enum {
 	COMPOUND_OP_PERCENT
 } CompoundOp;
 
-typedef void (*ParseFn)(bool can_assign);
-
-typedef struct {
-	ParseFn prefix;
-	ParseFn infix;
-	ParseFn postfix;
-	Precedence precedence;
-} ParseRule;
-
 typedef struct {
 	Token name;
 	int depth;
 	bool is_captured;
+	ObjectTypeRecord *type;
 } Local;
 
 typedef struct {
 	uint8_t index;
 	bool is_local;
+	ObjectTypeRecord *type;
 } Upvalue;
 
-typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_ANONYMOUS } FunctionType;
+typedef enum { TYPE_FUNCTION, TYPE_SCRIPT, TYPE_METHOD, TYPE_ANONYMOUS } FunctionType;
 
 typedef enum { LOOP_FOR, LOOP_WHILE } LoopType;
 
@@ -79,7 +69,7 @@ typedef struct BreakJump BreakJump;
 
 struct BreakJump {
 	int jumpOffset;
-	struct BreakJump *next;
+	BreakJump *next;
 };
 
 typedef struct {
@@ -89,13 +79,25 @@ typedef struct {
 	int scope_depth;
 } LoopContext;
 
-typedef struct Compiler Compiler;
+typedef struct {
+	int tracked_local_index;
+	ObjectString *tracked_global_name;
+	bool tracked_is_typeof;
+	ObjectTypeRecord *tracked_literal_type;
+
+	int local_index;
+	ObjectString *global_name;
+	ObjectTypeRecord *narrowed_to;
+	ObjectTypeRecord *stripped_down;
+} NarrowingInfo;
 
 struct Compiler {
 	VM *owner;
 	Compiler *enclosing;
+	Compiler* enclosed;
 	ObjectFunction *function;
 	FunctionType type;
+	ObjectTypeRecord *return_type;
 	int local_count;
 	int scope_depth; // 0 is global scope
 	int match_depth;
@@ -103,6 +105,30 @@ struct Compiler {
 	LoopContext loop_stack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
 	Upvalue upvalues[UINT8_COUNT];
+	ObjectTypeRecord *type_stack[UINT8_COUNT];
+	int type_stack_count;
+	ObjectTypeTable *type_table;
+	ObjectTypeRecord *last_give_type;
+	Parser* parser;
+	bool has_return;
+	NarrowingInfo current_narrowing;
 };
+typedef void (*ParseFn)(Compiler *compiler, bool can_assign);
+
+typedef struct {
+	ParseFn prefix;
+	ParseFn infix;
+	ParseFn postfix;
+	Precedence precedence;
+} ParseRule;
+
+
+void mark_compiler_roots(VM *vm, Compiler *compiler);
+ObjectFunction *compile(VM *vm, Compiler* compiler, Compiler* enclosing, char *source);
+
+ObjectTypeRecord *parse_type_record(Compiler* compiler);
+void push_type_record(Compiler* compiler, ObjectTypeRecord *type_record);
+ObjectTypeRecord *pop_type_record(Compiler* compiler);
+ObjectTypeRecord *peek_type_record(Compiler* compiler);
 
 #endif // COMPILER_H

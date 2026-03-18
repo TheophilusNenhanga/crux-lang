@@ -1,17 +1,11 @@
+#include "stdlib/io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
-#include "stdlib/io.h"
-
-#include "garbage_collector.h"
 #include "vm.h"
-
-/* ── Platform ────────────────────────────────────────────────────────────────
- */
-
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -20,9 +14,6 @@
 #include <unistd.h>
 #define ISATTY(fd) isatty(fd)
 #endif
-
-/* ── Internal helpers ────────────────────────────────────────────────────────
- */
 
 #define SCANLN_BUFFER_SIZE 1024
 
@@ -75,8 +66,7 @@ static void flush_line(FILE *stream)
  * On success writes the ObjectString* into *out and returns true.
  * On allocation failure or read error returns false.
  */
-static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len,
-			      ObjectString **out)
+static bool read_bounded_line(VM *vm, FILE *stream, const size_t max_len, ObjectString **out)
 {
 	char *buffer = ALLOCATE(vm, char, max_len + 1);
 	if (buffer == NULL)
@@ -157,11 +147,10 @@ Value io_print_to_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid channel. Expected \"stdout\", "
-			"\"stderr\", or \"stdin\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid channel. Expected \"stdout\", "
+								  "\"stderr\", or \"stdin\".",
+								  VALUE);
 	}
 
 	if (!write_value_to_stream(stream, args[1])) {
@@ -184,11 +173,10 @@ Value io_println_to_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid channel. Expected \"stdout\", "
-			"\"stderr\", or \"stdin\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid channel. Expected \"stdout\", "
+								  "\"stderr\", or \"stdin\".",
+								  VALUE);
 	}
 
 	if (!write_value_to_stream(stream, args[1])) {
@@ -211,9 +199,7 @@ Value io_scan_function(VM *vm, const Value *args)
 	(void)args;
 	const int ch = fgetc(stdin);
 	if (ch == EOF) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Unexpected end of input on stdin.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Unexpected end of input on stdin.", IO);
 	}
 
 	/* Discard rest of line (including the Enter key) */
@@ -239,8 +225,7 @@ Value io_scanln_function(VM *vm, const Value *args)
 
 	ObjectString *s = NULL;
 	if (!read_bounded_line(vm, stdin, SCANLN_BUFFER_SIZE, &s)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate buffer for input.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
 	/* read_bounded_line returns empty string on immediate EOF; treat as
@@ -265,14 +250,12 @@ Value io_nscan_function(VM *vm, const Value *args)
 {
 	const int32_t n = AS_INT(args[0]);
 	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.", VALUE);
 	}
 
 	ObjectString *s = NULL;
 	if (!read_bounded_line(vm, stdin, (size_t)n, &s)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate buffer for input.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
 	if (ferror(stdin)) {
@@ -295,18 +278,15 @@ Value io_scan_from_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid channel. Expected \"stdout\", "
-			"\"stderr\", or \"stdin\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid channel. Expected \"stdout\", "
+								  "\"stderr\", or \"stdin\".",
+								  VALUE);
 	}
 
 	const int ch = fgetc(stream);
 	if (ch == EOF) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Unexpected end of input on channel.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Unexpected end of input on channel.", IO);
 	}
 
 	if (ch != '\n') {
@@ -333,22 +313,19 @@ Value io_scanln_from_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid channel. Expected \"stdout\", "
-			"\"stderr\", or \"stdin\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid channel. Expected \"stdout\", "
+								  "\"stderr\", or \"stdin\".",
+								  VALUE);
 	}
 
 	ObjectString *s = NULL;
 	if (!read_bounded_line(vm, stream, SCANLN_BUFFER_SIZE, &s)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate buffer for input.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
 	if (ferror(stream)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.", IO);
 	}
 
 	push(vm->current_module_record, OBJECT_VAL(s));
@@ -371,28 +348,24 @@ Value io_nscan_from_function(VM *vm, const Value *args)
 {
 	FILE *stream = get_channel(AS_C_STRING(args[0]));
 	if (stream == NULL) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Invalid channel. Expected \"stdout\", "
-			"\"stderr\", or \"stdin\".",
-			VALUE);
+		return MAKE_GC_SAFE_ERROR(vm,
+								  "Invalid channel. Expected \"stdout\", "
+								  "\"stderr\", or \"stdin\".",
+								  VALUE);
 	}
 
 	const int32_t n = AS_INT(args[1]);
 	if (n <= 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "<n> must be a positive integer.", VALUE);
 	}
 
 	ObjectString *s = NULL;
 	if (!read_bounded_line(vm, stream, (size_t)n, &s)) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Failed to allocate buffer for input.", MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate buffer for input.", MEMORY);
 	}
 
 	if (ferror(stream)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.",
-					  IO);
+		return MAKE_GC_SAFE_ERROR(vm, "Error reading from channel.", IO);
 	}
 
 	push(vm->current_module_record, OBJECT_VAL(s));

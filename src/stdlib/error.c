@@ -32,11 +32,9 @@ Value assert_function(VM *vm, const Value *args)
 	ObjectString *message = AS_CRUX_STRING(args[1]);
 
 	if (result == false) {
-		runtime_panic(vm->current_module_record, true, ASSERT,
-			      message->chars);
+		runtime_panic(vm->current_module_record, ASSERT, message->chars);
 		return NIL_VAL;
 	}
-	// returning different types because we panicked anyway!
 	return NIL_VAL;
 }
 
@@ -97,24 +95,20 @@ Value error_type_method(VM *vm, const Value *args)
 	}
 
 	case BRANCH_EXTENT: {
-		ObjectString *type = copy_string(vm, "<branch extent error>",
-						 21);
+		ObjectString *type = copy_string(vm, "<branch extent error>", 21);
 		return OBJECT_VAL(type);
 	}
 	case CLOSURE_EXTENT: {
-		ObjectString *type = copy_string(vm, "<closure extent error>",
-						 22);
+		ObjectString *type = copy_string(vm, "<closure extent error>", 22);
 		return OBJECT_VAL(type);
 	}
 
 	case LOCAL_EXTENT: {
-		ObjectString *type = copy_string(vm, "<local extent error>",
-						 20);
+		ObjectString *type = copy_string(vm, "<local extent error>", 20);
 		return OBJECT_VAL(type);
 	}
 	case ARGUMENT_EXTENT: {
-		ObjectString *type = copy_string(vm, "<argument extent error>",
-						 23);
+		ObjectString *type = copy_string(vm, "<argument extent error>", 23);
 		return OBJECT_VAL(type);
 	}
 
@@ -124,44 +118,35 @@ Value error_type_method(VM *vm, const Value *args)
 	}
 
 	case COLLECTION_EXTENT: {
-		ObjectString *type = copy_string(vm,
-						 "<collection extent error>",
-						 25);
+		ObjectString *type = copy_string(vm, "<collection extent error>", 25);
 		return OBJECT_VAL(type);
 	}
 	case VARIABLE_EXTENT: {
-		ObjectString *type = copy_string(vm, "<variable extent error>",
-						 23);
+		ObjectString *type = copy_string(vm, "<variable extent error>", 23);
 		return OBJECT_VAL(type);
 	}
 
 	case RETURN_EXTENT: {
-		ObjectString *type = copy_string(vm, "<return extent error>",
-						 21);
+		ObjectString *type = copy_string(vm, "<return extent error>", 21);
 		return OBJECT_VAL(type);
 	}
 
 	case ARGUMENT_MISMATCH: {
-		ObjectString *type = copy_string(vm,
-						 "<argument mismatch error>",
-						 22);
+		ObjectString *type = copy_string(vm, "<argument mismatch error>", 22);
 		return OBJECT_VAL(type);
 	}
 
 	case STACK_OVERFLOW: {
-		ObjectString *type = copy_string(vm, "<stack overflow error>",
-						 22);
+		ObjectString *type = copy_string(vm, "<stack overflow error>", 22);
 		return OBJECT_VAL(type);
 	}
 	case COLLECTION_GET: {
-		ObjectString *type = copy_string(vm, "<collection get error>",
-						 22);
+		ObjectString *type = copy_string(vm, "<collection get error>", 22);
 		return OBJECT_VAL(type);
 	}
 
 	case COLLECTION_SET: {
-		ObjectString *type = copy_string(vm, "<collection set error>",
-						 22);
+		ObjectString *type = copy_string(vm, "<collection set error>", 22);
 		return OBJECT_VAL(type);
 	}
 
@@ -181,8 +166,7 @@ Value error_type_method(VM *vm, const Value *args)
 	}
 
 	case IMPORT_EXTENT: {
-		ObjectString *type = copy_string(vm, "<import extent error>",
-						 21);
+		ObjectString *type = copy_string(vm, "<import extent error>", 21);
 		return OBJECT_VAL(type);
 	}
 	case IMPORT: {
@@ -209,11 +193,9 @@ Value error_type_method(VM *vm, const Value *args)
 Value err_function(VM *vm, const Value *args)
 {
 	ObjectString *message = to_string(vm, args[0]);
-	push(vm->current_module_record, OBJECT_VAL(message));
 	ObjectError *error = new_error(vm, message, RUNTIME, false);
 	push(vm->current_module_record, OBJECT_VAL(error));
 	ObjectResult *res = new_error_result(vm, error);
-	pop(vm->current_module_record);
 	pop(vm->current_module_record);
 	return OBJECT_VAL(res);
 }

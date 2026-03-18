@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use Random from "crux:random";
 
 println("=== Testing Random Module ===");

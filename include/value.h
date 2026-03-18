@@ -2,12 +2,13 @@
 #define VALUE_H
 
 #include <stdint.h>
-#include "common.h"
+#include <stdbool.h>
 
 typedef struct VM VM;
 typedef struct ObjectString ObjectString;
 typedef struct CruxObject CruxObject;
 typedef struct PoolObject PoolObject;
+typedef struct ObjectTypeRecord ObjectTypeRecord;
 
 #define QNAN ((uint64_t)0x7ffc000000000000)
 #define SIGN_BIT ((uint64_t)0x8000000000000000)
@@ -37,22 +38,18 @@ static Value num_to_value(const double num)
 	return u.v;
 }
 
-#define IS_INT(value)                                                          \
-	(((value) & (QNAN | SIGN_BIT | TAG_INT32_BIT)) ==                      \
-	 (QNAN | TAG_INT32_BIT))
+#define IS_INT(value) (((value) & (QNAN | SIGN_BIT | TAG_INT32_BIT)) == (QNAN | TAG_INT32_BIT))
 #define IS_FLOAT(value) (((value) & QNAN) != QNAN)
 #define IS_NIL(value) ((value) == NIL_VAL)
 #define IS_BOOL(value) (((value) | 1) == TRUE_VAL)
-#define IS_CRUX_OBJECT(value)                                                  \
-	(((value) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
+#define IS_CRUX_OBJECT(value) (((value) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
 
 #define IS_NUMERIC(value) (IS_INT(value) || IS_FLOAT(value))
 
 #define AS_INT(value) ((int32_t)((value) & 0xFFFFFFFF))
 #define AS_FLOAT(value) value_to_num(value)
 #define AS_BOOL(value) ((value) == TRUE_VAL)
-#define AS_CRUX_OBJECT(value)                                                  \
-	((CruxObject *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
+#define AS_CRUX_OBJECT(value) ((CruxObject *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
 
 #define OBJECT_VAL(obj) (Value)(SIGN_BIT | QNAN | (uint64_t)(uintptr_t)(obj))
 #define BOOL_VAL(b) ((b) ? TRUE_VAL : FALSE_VAL)
@@ -60,8 +57,7 @@ static Value num_to_value(const double num)
 #define TRUE_VAL ((Value)(uint64_t)(QNAN | TAG_TRUE))
 #define NIL_VAL ((Value)(uint64_t)(QNAN | TAG_NIL))
 #define FLOAT_VAL(num) num_to_value(num)
-#define INT_VAL(integer)                                                       \
-	((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
+#define INT_VAL(integer) ((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
 
 typedef struct {
 	Value *values;
@@ -92,11 +88,14 @@ typedef uint32_t TypeMask;
 #define TUPLE_TYPE (1u << 18)
 #define BUFFER_TYPE (1u << 19)
 #define RANGE_TYPE (1u << 20)
+#define SHAPE_TYPE (1u << 21)
+#define UNION_TYPE (1u << 22)
+
+#define NEVER_TYPE (1u << 30)
+#define ANY_TYPE (1u << 31)
 
 #define NUMERIC_TYPE (INT_TYPE | FLOAT_TYPE)
-#define HASHABLE_TYPE                                                          \
-	(STRING_TYPE | INT_TYPE | FLOAT_TYPE | NIL_TYPE | BOOL_TYPE)
-#define ANY_TYPE (0xFFFFFFFFu)
+#define HASHABLE_TYPE (STRING_TYPE | INT_TYPE | FLOAT_TYPE | NIL_TYPE | BOOL_TYPE)
 
 /**
  * @brief Compares two values for equality

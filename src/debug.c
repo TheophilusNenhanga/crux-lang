@@ -43,8 +43,7 @@ static int simple_instruction(const char *name, const int offset)
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 2)
  */
-static int byte_instruction(const char *name, const Chunk *chunk,
-			    const int offset)
+static int byte_instruction(const char *name, const Chunk *chunk, const int offset)
 {
 	const uint16_t slot = chunk->code[offset + 1];
 	printf("%-16s %6d\n", name, slot);
@@ -63,8 +62,7 @@ static int byte_instruction(const char *name, const Chunk *chunk,
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 3)
  */
-static int jump_instruction(const char *name, const int sign,
-			    const Chunk *chunk, const int offset)
+static int jump_instruction(const char *name, const int sign, const Chunk *chunk, const int offset)
 {
 	uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
 	jump |= chunk->code[offset + 2];
@@ -83,14 +81,12 @@ static int jump_instruction(const char *name, const int sign,
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 2)
  */
-static int constant_instruction(const char *name, const Chunk *chunk,
-				const int offset)
+static int constant_instruction(const char *name, const Chunk *chunk, const int offset)
 {
-	const uint16_t constant =
-		chunk->code[offset + 1]; // Get the constant index
+	const uint16_t constant = chunk->code[offset + 1]; // Get the constant index
 	printf("%-16s %4d '", name, constant); // Print the name of the opcode
 	print_value(chunk->constants.values[constant],
-		    false); // print the constant's value
+				false); // print the constant's value
 	printf("'\n");
 	return offset + 2; // +2 because OP_CONSTANT is two bytes
 }
@@ -106,8 +102,7 @@ static int constant_instruction(const char *name, const Chunk *chunk,
  * @param offset The current byte offset in the chunk
  * @return The offset of the next instruction (current offset + 3)
  */
-static int invoke_instruction(const char *name, const Chunk *chunk,
-			      const int offset)
+static int invoke_instruction(const char *name, const Chunk *chunk, const int offset)
 {
 	const uint16_t constant = chunk->code[offset + 1];
 	const uint16_t arg_count = chunk->code[offset + 2];
@@ -120,7 +115,7 @@ static int invoke_instruction(const char *name, const Chunk *chunk,
 int disassemble_instruction(const Chunk *chunk, int offset)
 {
 	printf("%04d",
-	       offset); // Prints the byte offset of the given instruction
+		   offset); // Prints the byte offset of the given instruction
 
 	if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
 		printf("   | ");
@@ -128,8 +123,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		printf("%4d ", chunk->lines[offset]);
 	}
 
-	const OpCode instruction =
-		chunk->code[offset]; // read a single byte, that is the opcode
+	const OpCode instruction = chunk->code[offset]; // read a single byte, that is the opcode
 
 	switch (instruction) {
 	case OP_RETURN:
@@ -293,10 +287,7 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_USE_MODULE: {
 		const uint16_t nameCount = chunk->code[offset + 1];
 		printf("%-16s %4d name(s) from ", "OP_USE_MODULE", nameCount);
-		print_value(
-			chunk->constants
-				.values[chunk->code[offset + nameCount + 2]],
-			false);
+		print_value(chunk->constants.values[chunk->code[offset + nameCount + 2]], false);
 		printf("\n");
 		return offset + nameCount + 3;
 	}
@@ -360,6 +351,15 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_PANIC: {
 		return simple_instruction("OP_PANIC", offset);
+	}
+	case OP_BITWISE_AND: {
+		return simple_instruction("OP_BITWISE_AND", offset);
+	}
+	case OP_BITWISE_OR: {
+		return simple_instruction("OP_BITWISE_OR", offset);
+	}
+	case OP_BITWISE_XOR: {
+		return simple_instruction("OP_BITWISE_XOR", offset);
 	}
 	default:
 		printf("Unknown opcode %d\n", instruction);

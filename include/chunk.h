@@ -1,7 +1,6 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
-#include "common.h"
 #include "value.h"
 
 typedef enum {
@@ -89,6 +88,15 @@ typedef enum {
 	OP_BITWISE_AND,
 	OP_BITWISE_XOR,
 	OP_BITWISE_OR,
+	OP_METHOD,
+	OP_SET_PROPERTY_PLUS,
+	OP_SET_PROPERTY_MINUS,
+	OP_SET_PROPERTY_STAR,
+	OP_SET_PROPERTY_SLASH,
+	OP_SET_PROPERTY_INT_DIVIDE,
+	OP_SET_PROPERTY_MODULUS,
+	OP_BITWISE_NOT,
+	OP_TYPE_COERCE,
 } OpCode;
 
 typedef struct {

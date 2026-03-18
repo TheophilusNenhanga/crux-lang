@@ -1,0 +1,95 @@
+
+
+println("--- 1. MUTATION & METHOD CHAINING ---");
+struct Counter {
+    count: Int
+}
+
+impl Counter {
+    fn inc() -> Counter {
+        self.count += 1;
+        return self;
+    }
+    fn add(amount: Int) -> Counter {
+        self.count += amount;
+        return self;
+    }
+}
+
+let c = new Counter { count = 0 };
+c.inc().add(5).inc();
+assert(c.count == 7, "Mutation and chaining failed");
+println("Chaining passed!");
+
+
+println("--- 2. COMPOSITION & FORWARDING ---");
+// Tests structs inside structs, and methods calling other methods.
+struct Engine {
+    hp: Int
+}
+
+impl Engine {
+    fn rev() -> String {
+        return "Vroom! " + string(self.hp) + " HP";
+    }
+}
+
+struct Car {
+    make: String,
+    engine: Engine
+}
+
+impl Car {
+    fn start() -> String {
+        return self.make + " says: " + self.engine.rev();
+    }
+}
+
+let v8 = new Engine { hp = 500 };
+let mustang = new Car { make = "Ford", engine = v8 };
+assert(mustang.start() == "Ford says: Vroom! 500 HP", "Composition failed");
+println("Composition passed!");
+
+
+println("--- 3. CLOSURES CAPTURING SELF ---");
+struct Multiplier {
+    factor: Int
+}
+
+impl Multiplier {
+    fn get_closure() -> (Int) -> Int {
+        return fn(val: Int) -> Int {
+            return val * self.factor;
+        };
+    }
+}
+
+let m = new Multiplier { factor = 10 };
+let my_closure = m.get_closure();
+assert(my_closure(5) == 50, "Closure capturing self failed");
+println("Self-capturing closures passed!");
+
+
+println("--- 4. NAME COLLISION (SHADOWING) ---");
+struct Data {
+    val: Int,
+    action: (Int) -> Int
+}
+
+impl Data {
+    // This method has the same name as the field `action`
+    fn action(x: Int) -> Int {
+        return x * 10;
+    }
+}
+
+let d = new Data {
+    val = 5,
+    action = fn(x: Int) -> Int { return x + 1; } // Field closure
+};
+
+assert(d.action(5) == 50, "Method shadowing field failed");
+println("Name collision routing passed!");
+
+
+println("All method edge cases passed successfully!");

@@ -1,0 +1,12 @@
+use say_divide from "ext_mod.crux";
+
+fn main() -> Nil {
+    let result: Bool = say_divide(10, 2);
+    if result {
+        println("Divide successful");
+    } else {
+        println("Divide failed");
+    }
+}
+
+main();

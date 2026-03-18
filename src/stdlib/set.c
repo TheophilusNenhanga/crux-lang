@@ -8,7 +8,7 @@
 /**
  * Creates a new set.
  * arg0 -> array: Array[Hashable]
- * returns -> Set
+ * returns -> Result<Set>
  */
 Value new_set_function(VM *vm, const Value *args)
 {
@@ -17,12 +17,14 @@ Value new_set_function(VM *vm, const Value *args)
 	for (uint32_t i = 0; i < array->size; i++) {
 		Value value = array->values[i];
 		if (!IS_CRUX_HASHABLE(value)) {
-			return MAKE_GC_SAFE_ERROR(
-				vm, "All set elements must be hashable.", TYPE);
+			return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 		}
 		object_table_set(vm, set->entries, value, NIL_VAL);
 	}
-	return OBJECT_VAL(set);
+	push(vm->current_module_record, OBJECT_VAL(set));
+	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(set));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(result);
 }
 
 /**
@@ -36,13 +38,9 @@ Value add_set_method(VM *vm, const Value *args)
 	ObjectSet *set = AS_CRUX_SET(args[0]);
 	Value value = args[1];
 	if (!IS_CRUX_HASHABLE(value)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "All set elements must be hashable.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 	}
-	object_table_set(
-		vm, set->entries, value,
-		NIL_VAL); // TODO: ensure that this is a unique addition
+	object_table_set(vm, set->entries, value, NIL_VAL);
 	return value;
 }
 
@@ -57,9 +55,7 @@ Value remove_set_method(VM *vm, const Value *args)
 	ObjectSet *set = AS_CRUX_SET(args[0]);
 	Value value = args[1];
 	if (!IS_CRUX_HASHABLE(value)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "All set elements must be hashable.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 	}
 	object_table_remove(set->entries, value);
 	return value;
@@ -77,9 +73,7 @@ Value discard_set_method(VM *vm, const Value *args)
 	ObjectSet *set = AS_CRUX_SET(args[0]);
 	Value value = args[1];
 	if (!IS_CRUX_HASHABLE(value)) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "All set elements must be hashable.",
-					  TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 	}
 	object_table_remove(set->entries, value);
 	return NIL_VAL;
@@ -98,23 +92,18 @@ Value union_set_method(VM *vm, const Value *args)
 
 	uint32_t new_size = set1->entries->size + set2->entries->size;
 	if (new_size < set1->entries->size || new_size < set2->entries->size) {
-		return MAKE_GC_SAFE_ERROR(vm, "Resultant set size is too large",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "Resultant set size is too large", VALUE);
 	}
 
 	ObjectSet *result_set = new_set(vm, new_size);
 	for (size_t i = 0; i < set1->entries->capacity; i++) {
 		if (set1->entries->entries[i].is_occupied) {
-			object_table_set(vm, result_set->entries,
-					 set1->entries->entries[i].key,
-					 NIL_VAL);
+			object_table_set(vm, result_set->entries, set1->entries->entries[i].key, NIL_VAL);
 		}
 	}
 	for (size_t i = 0; i < set2->entries->capacity; i++) {
 		if (set2->entries->entries[i].is_occupied) {
-			object_table_set(vm, result_set->entries,
-					 set2->entries->entries[i].key,
-					 NIL_VAL);
+			object_table_set(vm, result_set->entries, set2->entries->entries[i].key, NIL_VAL);
 		}
 	}
 	push(vm->current_module_record, OBJECT_VAL(result_set));
@@ -138,12 +127,8 @@ Value intersection_set_method(VM *vm, const Value *args)
 		if (set1->entries->entries[i].is_occupied) {
 			Value key = set1->entries->entries[i].key;
 			Value v;
-			if (object_table_get(set2->entries->entries,
-					     set2->entries->size,
-					     set2->entries->capacity, key,
-					     &v)) {
-				object_table_set(vm, result->entries, key,
-						 NIL_VAL);
+			if (object_table_get(set2->entries->entries, set2->entries->size, set2->entries->capacity, key, &v)) {
+				object_table_set(vm, result->entries, key, NIL_VAL);
 			}
 		}
 	}
@@ -166,12 +151,8 @@ Value difference_set_method(VM *vm, const Value *args)
 		if (set1->entries->entries[i].is_occupied) {
 			Value key = set1->entries->entries[i].key;
 			Value v;
-			if (!object_table_get(set2->entries->entries,
-					      set2->entries->size,
-					      set2->entries->capacity, key,
-					      &v)) {
-				object_table_set(vm, result->entries, key,
-						 NIL_VAL);
+			if (!object_table_get(set2->entries->entries, set2->entries->size, set2->entries->capacity, key, &v)) {
+				object_table_set(vm, result->entries, key, NIL_VAL);
 			}
 		}
 	}
@@ -194,12 +175,8 @@ Value sym_difference_set_method(VM *vm, const Value *args)
 		if (set1->entries->entries[i].is_occupied) {
 			Value key = set1->entries->entries[i].key;
 			Value v;
-			if (!object_table_get(set2->entries->entries,
-					      set2->entries->size,
-					      set2->entries->capacity, key,
-					      &v)) {
-				object_table_set(vm, result->entries, key,
-						 NIL_VAL);
+			if (!object_table_get(set2->entries->entries, set2->entries->size, set2->entries->capacity, key, &v)) {
+				object_table_set(vm, result->entries, key, NIL_VAL);
 			}
 		}
 	}
@@ -207,12 +184,8 @@ Value sym_difference_set_method(VM *vm, const Value *args)
 		if (set2->entries->entries[i].is_occupied) {
 			Value key = set2->entries->entries[i].key;
 			Value v;
-			if (!object_table_get(set1->entries->entries,
-					      set1->entries->size,
-					      set1->entries->capacity, key,
-					      &v)) {
-				object_table_set(vm, result->entries, key,
-						 NIL_VAL);
+			if (!object_table_get(set1->entries->entries, set1->entries->size, set1->entries->capacity, key, &v)) {
+				object_table_set(vm, result->entries, key, NIL_VAL);
 			}
 		}
 	}
@@ -234,10 +207,7 @@ Value is_subset_set_method(VM *vm, const Value *args)
 		if (set1->entries->entries[i].is_occupied) {
 			Value key = set1->entries->entries[i].key;
 			Value v;
-			if (!object_table_get(set2->entries->entries,
-					      set2->entries->size,
-					      set2->entries->capacity, key,
-					      &v)) {
+			if (!object_table_get(set2->entries->entries, set2->entries->size, set2->entries->capacity, key, &v)) {
 				return BOOL_VAL(false);
 			}
 		}
@@ -260,10 +230,7 @@ Value is_superset_set_method(VM *vm, const Value *args)
 		if (set2->entries->entries[i].is_occupied) {
 			Value key = set2->entries->entries[i].key;
 			Value v;
-			if (!object_table_get(set1->entries->entries,
-					      set1->entries->size,
-					      set1->entries->capacity, key,
-					      &v)) {
+			if (!object_table_get(set1->entries->entries, set1->entries->size, set1->entries->capacity, key, &v)) {
 				return BOOL_VAL(false);
 			}
 		}
@@ -286,10 +253,7 @@ Value is_disjoint_set_method(VM *vm, const Value *args)
 		if (set1->entries->entries[i].is_occupied) {
 			Value key = set1->entries->entries[i].key;
 			Value v;
-			if (object_table_get(set2->entries->entries,
-					     set2->entries->size,
-					     set2->entries->capacity, key,
-					     &v)) {
+			if (object_table_get(set2->entries->entries, set2->entries->size, set2->entries->capacity, key, &v)) {
 				return BOOL_VAL(false);
 			}
 		}
@@ -309,9 +273,7 @@ Value contains_set_method(VM *vm, const Value *args)
 	ObjectSet *set = AS_CRUX_SET(args[0]);
 	Value value = args[1];
 	Value v;
-	return BOOL_VAL(object_table_get(set->entries->entries,
-					 set->entries->size,
-					 set->entries->capacity, value, &v));
+	return BOOL_VAL(object_table_get(set->entries->entries, set->entries->size, set->entries->capacity, value, &v));
 }
 
 /**
@@ -338,8 +300,7 @@ Value to_array_set_method(VM *vm, const Value *args)
 	size_t index = 0;
 	for (size_t i = 0; i < self->entries->capacity; i++) {
 		if (self->entries->entries[i].is_occupied) {
-			array_add_back(vm, array,
-				       self->entries->entries[i].key);
+			array_add_back(vm, array, self->entries->entries[i].key);
 		}
 	}
 	return OBJECT_VAL(array);
@@ -356,9 +317,7 @@ Value clone_set_method(VM *vm, const Value *args)
 	ObjectSet *other = new_set(vm, self->entries->size);
 	for (size_t i = 0; i < self->entries->capacity; i++) {
 		if (self->entries->entries[i].is_occupied) {
-			object_table_set(vm, other->entries,
-					 self->entries->entries[i].key,
-					 NIL_VAL);
+			object_table_set(vm, other->entries, self->entries->entries[i].key, NIL_VAL);
 		}
 	}
 	return OBJECT_VAL(other);

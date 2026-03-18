@@ -5,47 +5,38 @@
 #include <stdio.h>
 
 #include "chunk.h"
-#include "common.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
 
 #define NATIVE_FUNCTION_MAX_ARGS 8
 
-#define GC_PROTECT_START(current_module_record)                                \
-	Value *gc_stack_start = (current_module_record)->stack_top
-#define GC_PROTECT(current_module_record, value)                               \
-	push((current_module_record), (value))
-#define GC_PROTECT_END(current_module_record)                                  \
-	(current_module_record)->stack_top = gc_stack_start
+#define GC_PROTECT_START(current_module_record) Value *gc_stack_start = (current_module_record)->stack_top
+#define GC_PROTECT(current_module_record, value) push((current_module_record), (value))
+#define GC_PROTECT_END(current_module_record) (current_module_record)->stack_top = gc_stack_start
 
 #define STATIC_STRING_LEN(static_string) sizeof((static_string)) - 1
 
 // Only works with string literals -- gc_safe_static_message
-#define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gc_safe_error_type)     \
-	({                                                                     \
-		ObjectString *message = copy_string(                           \
-			(vm), (gc_safe_static_message),                        \
-			STATIC_STRING_LEN((gc_safe_static_message)));          \
-		push((vm)->current_module_record, OBJECT_VAL(message));        \
-		ObjectError *gc_safe_error = new_error((vm), message,          \
-						       (gc_safe_error_type),   \
-						       false);                 \
-		push((vm)->current_module_record, OBJECT_VAL(gc_safe_error));  \
-		ObjectResult *gcSafeErrorResult =                              \
-			new_error_result((vm), gc_safe_error);                 \
-		pop((vm)->current_module_record);                              \
-		pop((vm)->current_module_record);                              \
-		OBJECT_VAL(gcSafeErrorResult);                                 \
+#define MAKE_GC_SAFE_ERROR(vm, gc_safe_static_message, gc_safe_error_type)                                             \
+	({                                                                                                                 \
+		ObjectString *message = copy_string((vm), (gc_safe_static_message),                                            \
+											STATIC_STRING_LEN((gc_safe_static_message)));                              \
+		push((vm)->current_module_record, OBJECT_VAL(message));                                                        \
+		ObjectError *gc_safe_error = new_error((vm), message, (gc_safe_error_type), false);                            \
+		push((vm)->current_module_record, OBJECT_VAL(gc_safe_error));                                                  \
+		ObjectResult *gcSafeErrorResult = new_error_result((vm), gc_safe_error);                                       \
+		pop((vm)->current_module_record);                                                                              \
+		pop((vm)->current_module_record);                                                                              \
+		OBJECT_VAL(gcSafeErrorResult);                                                                                 \
 	})
 
-#define MAKE_GC_SAFE_RESULT(vm, object)                                        \
-	({                                                                     \
-		push((vm)->current_module_record, OBJECT_VAL(object));         \
-		ObjectResult *gcSafeResult =                                   \
-			new_ok_result((vm), OBJECT_VAL(object));               \
-		pop((vm)->current_module_record);                              \
-		OBJECT_VAL(gcSafeResult);                                      \
+#define MAKE_GC_SAFE_RESULT(vm, object)                                                                                \
+	({                                                                                                                 \
+		push((vm)->current_module_record, OBJECT_VAL(object));                                                         \
+		ObjectResult *gcSafeResult = new_ok_result((vm), OBJECT_VAL(object));                                          \
+		pop((vm)->current_module_record);                                                                              \
+		OBJECT_VAL(gcSafeResult);                                                                                      \
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
@@ -53,8 +44,7 @@
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
-#define IS_CRUX_NATIVE_CALLABLE(value)                                         \
-	is_object_type(value, OBJECT_NATIVE_CALLABLE)
+#define IS_CRUX_NATIVE_CALLABLE(value) is_object_type(value, OBJECT_NATIVE_CALLABLE)
 #define IS_CRUX_CLOSURE(value) is_object_type(value, OBJECT_CLOSURE)
 #define IS_CRUX_BOUND_METHOD(value) is_object_type(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) is_object_type(value, OBJECT_ARRAY)
@@ -65,8 +55,7 @@
 #define IS_CRUX_FILE(value) is_object_type(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) is_object_type(value, OBJECT_MODULE_RECORD)
 #define IS_CRUX_STRUCT(value) is_object_type(value, OBJECT_STRUCT)
-#define IS_CRUX_STRUCT_INSTANCE(value)                                         \
-	is_object_type(value, OBJECT_STRUCT_INSTANCE)
+#define IS_CRUX_STRUCT_INSTANCE(value) is_object_type(value, OBJECT_STRUCT_INSTANCE)
 #define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
 #define IS_CRUX_COMPLEX(value) is_object_type(value, OBJECT_COMPLEX)
 #define IS_CRUX_MATRIX(value) is_object_type(value, OBJECT_MATRIX)
@@ -74,12 +63,13 @@
 #define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
 #define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
 #define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
+#define IS_CRUX_TYPE_RECORD(value) is_object_type(value, OBJECT_TYPE_RECORD)
+#define IS_CRUX_TYPE_TABLE(value) is_object_type(value, OBJECT_TYPE_TABLE)
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_CALLABLE(value)                                         \
-	((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_CALLABLE(value) ((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
@@ -88,12 +78,10 @@
 #define AS_CRUX_RESULT(value) ((ObjectResult *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANDOM(value) ((ObjectRandom *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_FILE(value) ((ObjectFile *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_MODULE_RECORD(value)                                           \
-	((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_MODULE_RECORD(value) ((ObjectModuleRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_UPVALUE(value) ((ObjectUpvalue *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_STRUCT(value) ((ObjectStruct *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_STRUCT_INSTANCE(value)                                         \
-	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_STRUCT_INSTANCE(value) ((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_COMPLEX(value) ((ObjectComplex *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MATRIX(value) ((ObjectMatrix *)AS_CRUX_OBJECT(value))
@@ -101,10 +89,11 @@
 #define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_TYPE_RECORD(value) ((ObjectTypeRecord *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_TYPE_TABLE(value) ((ObjectTypeTable *)AS_CRUX_OBJECT(value))
 
-#define IS_CRUX_HASHABLE(value)                                                \
-	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
-	 IS_NIL(value) || IS_BOOL(value))
+#define IS_CRUX_HASHABLE(value)                                                                                        \
+	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
 
 typedef enum {
 	OBJECT_STRING,
@@ -128,6 +117,8 @@ typedef enum {
 	OBJECT_SET,
 	OBJECT_TUPLE,
 	OBJECT_RANGE,
+	OBJECT_TYPE_RECORD,
+	OBJECT_TYPE_TABLE,
 } ObjectType;
 
 struct CruxObject { // 8
@@ -143,15 +134,11 @@ struct PoolObject { // 8
 #define PTR_MASK (~MARK_BIT)
 #define IS_MARKED(obj) ((uintptr_t)(obj)->data & MARK_BIT)
 #define GET_DATA(obj) ((void *)((uintptr_t)(obj)->data & PTR_MASK))
-#define SET_DATA(obj, ptr)                                                     \
-	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
-				((uintptr_t)(obj)->data & MARK_BIT)))
-#define SET_MARKED(obj, marked)                                                \
-	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |          \
-				((marked) ? MARK_BIT : 0)))
+#define SET_DATA(obj, ptr) ((obj)->data = (void *)((uintptr_t)(ptr) | ((uintptr_t)(obj)->data & MARK_BIT)))
+#define SET_MARKED(obj, marked)                                                                                        \
+	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) | ((marked) ? MARK_BIT : 0)))
 
-#define TO_DOUBLE(value)                                                       \
-	(IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
+#define TO_DOUBLE(value) (IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
 struct ObjectString { // 24
 	CruxObject object;
@@ -159,6 +146,8 @@ struct ObjectString { // 24
 	uint32_t length; // this is the length without the null terminator
 	uint32_t hash;
 };
+
+typedef struct ObjectModuleRecord ObjectModuleRecord;
 
 typedef struct { // 72
 	CruxObject object;
@@ -239,14 +228,86 @@ struct ObjectResult { // 24
 	} as;
 };
 
+typedef struct { // 32
+	CruxObject object;
+	ObjectString *name;
+	Table fields;
+	Table methods;
+} ObjectStruct;
+
+typedef struct ObjectTypeTable ObjectTypeTable;
+
+typedef struct {
+	ObjectString *key;
+	ObjectTypeRecord *value;
+} TypeEntry;
+
+struct ObjectTypeTable { // 24
+	CruxObject object;
+	TypeEntry *entries;
+	int count;
+	int capacity;
+};
+
+struct ObjectTypeRecord { // 40
+	CruxObject object;
+	TypeMask base_type;
+	union {
+		struct {
+			ObjectTypeRecord *element_type;
+		} array_type;
+		struct {
+			ObjectTypeRecord *key_type; // must be Hashable
+			ObjectTypeRecord *value_type;
+		} table_type;
+		struct {
+			ObjectTypeRecord *ok_type;
+		} result_type;
+		struct {
+			ObjectTypeTable *field_types;
+			int field_count;
+			ObjectStruct *definition; // has the field names
+		} struct_type;
+		struct {
+			int dimensions;
+		} vector_type;
+		struct {
+			ObjectTypeRecord **element_types;
+			int element_count;
+		} tuple_type;
+		struct {
+			int rows;
+			int cols;
+		} matrix_type;
+		struct {
+			ObjectTypeRecord **arg_types;
+			int arg_count;
+			ObjectTypeRecord *return_type;
+		} function_type;
+		struct {
+			ObjectTypeRecord *element_type;
+		} set_type;
+		struct {
+			ObjectTypeRecord **element_types;
+			ObjectString **element_names;
+			int element_count;
+		} union_type;
+		struct {
+			ObjectTypeTable *element_types;
+			int element_count;
+		} shape_type;
+	} as;
+};
+
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct { // 64
+typedef struct { // 48
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
-	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
+	ObjectTypeRecord **arg_types;
+	ObjectTypeRecord *return_type;
 } ObjectNativeCallable;
 
 typedef struct { // 24
@@ -271,12 +332,6 @@ typedef struct { // 48
 	bool is_open;
 } ObjectFile;
 
-typedef struct { // 32
-	CruxObject object;
-	ObjectString *name;
-	Table fields; // <field_name: index>
-} ObjectStruct;
-
 struct ObjectStructInstance { // 32
 	CruxObject object;
 	ObjectStruct *struct_type;
@@ -285,9 +340,8 @@ struct ObjectStructInstance { // 32
 };
 
 #define STATIC_VECTOR_SIZE 4
-#define VECTOR_COMPONENTS(vec)                                                 \
-	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components      \
-						 : (vec)->as.h_components)
+#define VECTOR_COMPONENTS(vec)                                                                                         \
+	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
 
 typedef struct { // 48
 	CruxObject object;
@@ -313,17 +367,21 @@ typedef struct {
 	double *data;
 } ObjectMatrix;
 
+typedef struct TypeArena TypeArena;
+
 typedef enum {
 	STATE_LOADING,
 	STATE_LOADED,
 	STATE_ERROR,
+	STATE_EXECUTED,
 } ModuleState;
 
-struct ObjectModuleRecord { // 112
+struct ObjectModuleRecord { // 120
 	CruxObject object;
 	ObjectString *path;
 	Table globals;
 	Table publics;
+	ObjectTypeTable *types;
 	ObjectClosure *module_closure;
 	ObjectModuleRecord *enclosing_module;
 	ObjectUpvalue *open_upvalues;
@@ -336,6 +394,7 @@ struct ObjectModuleRecord { // 112
 	bool is_repl;
 	bool is_main;
 	ModuleState state;
+	VM* owner;
 };
 
 typedef struct { // 40
@@ -369,372 +428,49 @@ static bool is_object_type(const Value value, const ObjectType type)
 	return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
 }
 
-/**
- * @brief Creates a new error object.
- *
- * This function allocates and initializes a new ObjectError, representing
- * an error in the crux language.
- *
- * @param vm The virtual machine.
- * @param message The error message as an ObjectString.
- * @param type The ErrorType enum value representing the type of error.
- * @param is_panic A boolean indicating whether this error represents a panic
- * (fatal error).
- *
- * @return A pointer to the newly created ObjectError.
- */
-ObjectError *new_error(VM *vm, ObjectString *message, ErrorType type,
-		       bool is_panic);
-
-/**
- * @brief Creates a new upvalue object.
- *
- * Upvalues are used to implement closures, capturing variables from enclosing
- * scopes. This function allocates and initializes a new ObjectUpvalue.
- *
- * @param vm The virtual machine.
- * @param slot A pointer to the stack slot where the upvalue captures a
- * variable.
- *
- * @return A pointer to the newly created ObjectUpvalue.
- */
+ObjectError *new_error(VM *vm, ObjectString *message, ErrorType type, bool is_panic);
 ObjectUpvalue *new_upvalue(VM *vm, Value *slot);
-
-/**
- * @brief Creates a new closure object.
- *
- * Closures are function objects that capture their surrounding environment.
- * This function allocates and initializes a new ObjectClosure, linking it
- * to its underlying ObjectFunction and allocating space for upvalues.
- *
- * @param vm The virtual machine.
- * @param function The ObjectFunction to be wrapped in the closure.
- *
- * @return A pointer to the newly created ObjectClosure.
- */
 ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
-
-/**
- * @brief Creates a new native function object.
- *
- * Native functions are implemented in C and callable from crux code.
- * This function allocates and initializes a new ObjectNativeFunction.
- *
- * @param vm The virtual machine.
- * @param function The C function pointer representing the native function's
- * implementation.
- * @param arity The expected number of arguments for the native function.
- * @param name The name of the native function as an ObjectString (for
- * debugging).
- * @param arg_types The types of the arguments. This array must be owned
- *
- * @return A pointer to the newly created ObjectNativeFunction.
- */
-ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function,
-					  int arity, ObjectString *name,
-					  const TypeMask *arg_types);
-
-/**
- * @brief Creates a new function object.
- *
- * This function allocates and initializes a new ObjectFunction, representing
- * a function in the crux language. It sets default values for arity, name,
- * and upvalue count, and initializes the function's chunk.
- *
- * @param vm The virtual machine.
- *
- * @return A pointer to the newly created ObjectFunction.
- */
+ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function, int arity, ObjectString *name,
+										  ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type);
 ObjectFunction *new_function(VM *vm);
-
-/**
- * @brief Creates a new object table.
- *
- * Object tables are hash tables used to store key-value pairs. This function
- * allocates and initializes a new ObjectTable with a given initial capacity.
- *
- * @param vm The virtual machine.
- * @param element_count Hint for initial table size. The capacity will be the
- * next power of 2 greater than or equal to `elementCount` (or 16 if
- * `elementCount` is less than 16).
- *
- * @return A pointer to the newly created ObjectTable.
- */
 ObjectTable *new_object_table(VM *vm, int element_count);
-
-/**
- * @brief Creates a new ok result with a boxed value.
- *
- * This function creates a new ObjectResult representing a successful operation,
- * boxing a given Value within it.
- *
- * @param vm the virtual machine (for garbage collection purposes)
- * @param value The Value to box in the result.
- *
- * @return A pointer to the result with the value.
- */
 ObjectResult *new_ok_result(VM *vm, Value value);
-
-/**
- * @brief Creates a new error result with a boxed error.
- *
- * This function creates a new ObjectResult representing a failed operation,
- * boxing a given ObjectError within it.
- *
- * @param vm the virtual machine (for garbage collection purposes)
- * @param error The error to box in the result.
- *
- * @return A pointer to the result with the error.
- */
 ObjectResult *new_error_result(VM *vm, ObjectError *error);
-
-/**
- * @brief Creates a new array object.
- *
- * This function allocates and initializes a new ObjectArray, representing
- * a dynamic array in the crux language. It allocates memory for the array
- * elements and sets initial capacity and size.
- *
- * @param vm The virtual machine.
- * @param element_count Hint for initial array size. The capacity will be the
- * next power of 2 greater than or equal to `elementCount`.
- *
- * @return A pointer to the newly created ObjectArray.
- */
 ObjectArray *new_array(VM *vm, uint32_t element_count);
-
-/**
- * @brief Creates a new string object and takes ownership of the given character
- * buffer.
- *
- * This function creates a new ObjectString, taking ownership of the provided
- * character buffer. This means the function is responsible for freeing the
- * memory pointed to by `chars` when the string object is no longer needed.
- * It also interns the string. If an identical string already exists in the
- * string table, the provided `chars` buffer is freed, and the existing interned
- * string is returned.
- *
- * @param vm The crux Virtual Machine.
- * @param chars The character buffer to be owned by the ObjectString. This
- * buffer will be freed if the string is interned or when the ObjectString is
- * garbage collected.
- * @param length The length of the string.
- *
- * @return A pointer to the interned ObjectString.
- */
 ObjectString *take_string(VM *vm, char *chars, uint32_t length);
-
-/**
- * @brief Creates a new string object by copying a C-style string.
- *
- * This function creates a copy of a given C-style string on the heap and
- * wraps it in an ObjectString. It also interns the string to ensure that
- * identical strings share the same object in memory.
- *
- * @param vm The virtual machine.
- * @param chars The null-terminated C-style string to copy.
- * @param length The length of the string (excluding null terminator).
- *
- * @return A pointer to the interned ObjectString.
- */
 ObjectString *copy_string(VM *vm, const char *chars, uint32_t length);
-
-/**
- * @brief Converts a Value to its string representation.
- *
- * This function converts a Value to its string representation, returning an
- * ObjectString. It handles different value types, including numbers, booleans,
- * nil, and various object types, creating a string representation suitable
- * for display or string operations. For composite objects like arrays and
- * tables, it recursively converts their elements/entries to strings.
- *
- * @param vm The virtual machine.
- * @param value The Value to convert to a string.
- *
- * @return An ObjectString representing the Value.
- */
 ObjectString *to_string(VM *vm, Value value);
-
-/**
- * @brief Prints a Value to the console for debugging purposes.
- *
- * This function provides a human-readable representation of a Value.
- * @param value The Value to print.
- * @param in_collection is this object in a collection?
- */
 void print_object(Value value, bool in_collection);
-
 void print_type_to(FILE *stream, Value value);
-
 void print_value_to(FILE *stream, Value value, bool inCollection);
-
 void print_error_type_to(FILE *stream, ErrorType type);
-
-/**
- * @brief Frees the memory associated with an object table.
- *
- * This function frees the memory allocated for the entries array of an
- * ObjectTable. It is called during garbage collection when the table is no
- * longer reachable.
- *
- * @param vm The virtual machine.
- * @param table The ObjectTable to free.
- */
 void free_object_table(VM *vm, ObjectTable *table);
-
 void free_object_module_record(VM *vm, ObjectModuleRecord *record);
-
-/**
- * @brief Sets a key-value pair in an object table.
- *
- * This function inserts or updates a key-value pair in an ObjectTable. It
- * resizes the table if necessary.
- *
- * @return true if the set operation was successful, false otherwise.
- */
 bool object_table_set(VM *vm, ObjectTable *table, Value key, Value value);
-
-/**
- * @brief Retrieves a value from an object table by key.
- *
- * This function looks up a value in an ObjectTable based on a given key.
- *
- * @param entries The table's entries
- * @param size The number of actual entries
- * @param capacity The maximum capacity of entries
- * @param key The key Value to look up.
- * @param value A pointer to a Value where the retrieved value will be stored if
- * the key is found.
- *
- * @return true if the key was found and the value was retrieved, false
- * otherwise.
- */
-bool object_table_get(ObjectTableEntry *entries, uint32_t size,
-		      uint32_t capacity, Value key, Value *value);
-
-void mark_object_table(VM *vm, const ObjectTableEntry *entries,
-		       uint32_t capacity);
-
-/**
- * @brief Ensures that an array has enough capacity.
- *
- * This function checks if an ObjectArray has enough capacity to hold a
- * required number of elements. If not, it resizes the array, doubling its
- * capacity until it meets the requirement.
- *
- * @param vm The virtual machine.
- * @param array The ObjectArray to check and resize.
- * @param capacity_needed The minimum capacity required.
- *
- * @return true if capacity is ensured (either already sufficient or resizing
- * successful), false if resizing failed (e.g., memory allocation failure).
- */
+bool object_table_get(ObjectTableEntry *entries, uint32_t size, uint32_t capacity, Value key, Value *value);
+void mark_object_table(VM *vm, const ObjectTableEntry *entries, uint32_t capacity);
 bool ensure_capacity(VM *vm, ObjectArray *array, uint32_t capacity_needed);
-
-/**
- * @brief Sets a value at a specific index in an array.
- *
- * This function sets a Value at a given index in an ObjectArray. It performs
- * bound checking to ensure the index is within the array's current size.
- *
- * @param vm The virtual machine.
- * @param array The ObjectArray to modify.
- * @param index The index at which to set the value.
- * @param value The Value to set.
- *
- * @return true if the value was set successfully (index within bounds), false
- * otherwise (index out of bounds).
- */
 bool array_set(VM *vm, const ObjectArray *array, uint32_t index, Value value);
-
-/**
- * @brief Adds a value to the end of an array.
- *
- * This function appends a Value to the end of an ObjectArray, increasing its
- * size. It ensures sufficient capacity before adding the element.
- *
- * @param vm The virtual machine.
- * @param array The ObjectArray to modify.
- * @param value The Value to add.
- * @param index The index at which to add the value, this should be
- * `array->size`.
- *
- * @return true if the value was added successfully, false otherwise (e.g.,
- * memory allocation failure during resizing).
- */
 bool array_add(VM *vm, ObjectArray *array, Value value, uint32_t index);
-
-/**
- * @brief Adds a value to the end of an array.
- *
- * This function appends a Value to the end of an ObjectArray, increasing its
- * size. It ensures sufficient capacity before adding the element.
- */
 bool array_add_back(VM *vm, ObjectArray *array, Value value);
-
-/**
- * @brief Creates a new random object.
- *
- * This function allocates and initializes a new ObjectRandom, representing
- * a random number generator in the crux language.
- *
- * @param vm The virtual machine.
- *
- * @return A pointer to the newly created ObjectRandom.
- */
 ObjectRandom *new_random(VM *vm);
-
 ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode);
-
-ObjectModuleRecord *new_object_module_record(const VM *vm, ObjectString *path,
-					     bool is_repl, bool is_main);
-
-/**
- * @brief Removes a value from an object table.
- *
- * This function removes a value associated with a given key from an
- * ObjectTable. It marks the entry as empty and decrements the table's size.
- * verify that key is hashable before calling
- * @param table The ObjectTable to modify.
- * @param key The key associated with the value to remove.
- *
- * @return true if the value was removed successfully, false otherwise (e.g.,
- * table is NULL or key is not found).
- */
+ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, bool is_repl, bool is_main);
 bool object_table_remove(ObjectTable *table, Value key);
-
-/**
- * @brief Checks if a key exists in an object table.
- *
- * This function checks whether a given key exists in an ObjectTable.
- * verify that key is hashable before calling
- * @param table The ObjectTable to search.
- * @param key The key to look for.
- *
- * @return true if the key exists, false otherwise (e.g., table is NULL or key
- * is not found).
- */
 bool object_table_contains_key(ObjectTable *table, Value key);
-
 ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
-
-ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
-					  uint16_t field_count);
-
+ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type, uint16_t field_count);
 ObjectVector *new_vector(VM *vm, uint32_t dimensions);
-
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
-
 ObjectComplex *new_complex_number(VM *vm, double real, double imaginary);
-
 ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
-
 ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
-
 ObjectSet *new_set(VM *vm, uint32_t element_count);
-
 ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
-
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
+void free_type_table(VM* vm, ObjectTypeTable *table);
+void mark_object_type_table(VM *vm, ObjectTypeTable *table);
+ObjectTypeTable *new_type_table(VM *vm, int capacity);
 
 #endif

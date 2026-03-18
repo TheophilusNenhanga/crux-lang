@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use pow, sqrt, ceil, floor, abs from "crux:math";
 use sin, cos, tan, atan, acos, asin from "crux:math";
 use exp, ln, log, round, min, max from "crux:math";

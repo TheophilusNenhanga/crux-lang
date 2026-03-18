@@ -1,17 +1,17 @@
-use println from "crux:io";
+
 use Vec from "crux:vector";
 
 println("=== Testing creating a Vector with 4 dimensions ===");
 let v4 = Vec(4, [1, 2, 3, 4])?;
 let v4_2 = Vec(4, [4, 3, 2, 1])?;
-assert(typeof v4 == "Vec", "Failed to create Vector with dimension 4");
-assert(typeof v4_2 == "Vec", "Failed to create Vector with dimension 4");
+assert(typeof v4 == "Vector[4]", "Failed to create Vector with dimension 4");
+assert(typeof v4_2 == "Vector[4]", "Failed to create Vector with dimension 4");
 
 println("=== Testing creating a Vector with 8 dimensions ===");
 let v8 = Vec(8, [1, 2, 3, 4, 5, 6, 7, 8])?;
 let v8_2 = Vec(8, [8, 7, 6, 5, 4, 3, 2, 1])?;
-assert(typeof v8 == "Vec", "Failed to create Vector with dimension 8");
-assert(typeof v8_2 == "Vec", "Failed to create Vector with dimension 8");
+assert(typeof v8 == "Vector[8]", "Failed to create Vector with dimension 8");
+assert(typeof v8_2 == "Vector[8]", "Failed to create Vector with dimension 8");
 
 println("=== Testing the equals method with dimension 4 ===");
 assert(v4.equals(Vec(4, [1, 2, 3, 4])?) == true, "Failed to compare Vectors");

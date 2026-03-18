@@ -1,23 +1,22 @@
-use println from "crux:io";
-use _time_ms from "crux:time";
+use time_ms from "crux:time";
 use open from "crux:fs";
 use floor, abs from "crux:math";
 use Random from "crux:random";
 
 println("=== START OF TERRAIN GENERATOR ===");
-let IMAGE_WIDTH = 1024;
-let IMAGE_HEIGHT = 1024;
-let OCTAVES = 32;      // Detail level. Higher = more taxing.
-let PERSISTENCE = 0.5;
-let SCALE = 0.005;    // Zoom level
+let IMAGE_WIDTH: Int = 1024;
+let IMAGE_HEIGHT: Int = 1024;
+let OCTAVES: Int = 8;      // Detail level. Higher = more taxing.
+let PERSISTENCE: Float = 0.5;
+let SCALE: Float = 0.005;    // Zoom level
 
 // The Permutation Table (0-255 randomized)
 // We double it to 512 to avoid buffer overflow checks during lookup
-let PERM = [];
+let PERM: Array[Int] = [];
 
-fn init_permutation() {
+fn init_permutation() -> Nil {
     let rand = Random();
-    let p = [];
+    let p: Array[Int] = [];
 
     // Fill 0-255
     for let i = 0; i < 256; i += 1 {
@@ -26,7 +25,7 @@ fn init_permutation() {
 
     // Shuffle (Fisher-Yates)
     for let i = 255; i > 0; i -= 1 {
-        let j = int(rand.float(0, i + 1)?)?;
+        let j: Int = int(rand.float(0, i + 1)?)?;
         let swap = p[i];
         p[i] = p[j];
         p[j] = swap;
@@ -44,22 +43,22 @@ fn init_permutation() {
 
 // Fade function: 6t^5 - 15t^4 + 10t^3
 // Smoothes the transition between grid points
-fn fade(t) {
+fn fade(t: Float) -> Float {
     return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
 // Linear Interpolation
-fn lerp(t, a, b) {
+fn lerp(t: Float, a: Float, b: Float) -> Float {
     return a + t * (b - a);
 }
 
 // Gradient function
 // Calculates dot product between distance vector and gradient vector
 // heavily reliant on Bitwise ops
-fn grad(hash, x, y, z) {
+fn grad(hash: Int, x: Float, y: Float, z: Float) -> Float {
     let h = hash & 15; // Take first 4 bits
-    let u;
-    let v;
+    let u: Float = 0;
+    let v: Float = 0;
 
     if h < 8 { u = x; } else { u = y; }
 
@@ -73,8 +72,8 @@ fn grad(hash, x, y, z) {
         }
     }
 
-    let res_u;
-    let res_v;
+    let res_u: Float = 0;
+    let res_v: Float = 0;
 
     // Simulate bitwise check for sign
     if (h & 1) == 0 { res_u = u; } else { res_u = -u; }
@@ -83,7 +82,7 @@ fn grad(hash, x, y, z) {
     return res_u + res_v;
 }
 
-fn noise(x, y, z) {
+fn noise(x: Float, y: Float, z: Float) -> Float {
     // Find unit cube that contains point
     let X = int(floor(x))? & 255;
     let Y = int(floor(y))? & 255;
@@ -123,7 +122,7 @@ fn noise(x, y, z) {
 
 // Fractal Brownian Motion
 // Superimposes multiple layers of noise
-fn fbm(x, y) {
+fn fbm(x: Float, y: Float) -> Float {
     let total = 0.0;
     let amplitude = 1.0;
     let frequency = 1.0;
@@ -141,7 +140,7 @@ fn fbm(x, y) {
     return total / maxValue;
 }
 
-fn get_terrain_color(height) {
+fn get_terrain_color(height: Float) -> Table[String, Int] {
     // Map -1.0 -> 1.0 range to colors
     if height < -0.05 {
         // Deep Water (Blue)
@@ -167,17 +166,14 @@ fn get_terrain_color(height) {
     return { "r": 255, "g": 255, "b": 255 };
 }
 
-fn main() {
+fn main() -> Nil {
     println("Initializing Permutation Table...");
     init_permutation();
 
     println("Generating Terrain (" + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + ")...");
-    let start_time = _time_ms();
+    let start_time = time_ms();
 
-    let file = match open("terrain.ppm", "w") {
-        Ok(f) => give f;
-        Err => {panic "Error opening file"; }
-    };
+    let file: File = open("renders/terrain.ppm", "w")?;
 
     file.write("P3\n");
     file.write(string(IMAGE_WIDTH) + " " + string(IMAGE_HEIGHT) + "\n");
@@ -199,7 +195,7 @@ fn main() {
         }
     }
 
-    let end_time = _time_ms();
+    let end_time = time_ms();
     println("Terrain generated in " + string(end_time - start_time) + " ms");
     file.close();
 }

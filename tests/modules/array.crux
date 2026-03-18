@@ -1,14 +1,6 @@
-use println from "crux:io";
+
 
 println("=== Testing Array Methods ===");
-
-// Helper to unwrap result
-fn unwrap(r) {
-    return match r {
-        Ok(v) => give v;
-        Err(_) => give nil;
-    };
-}
 
 // Test push
 println("--- Testing push ---");
@@ -21,7 +13,7 @@ println("push() test passed");
 // Test pop
 println("--- Testing pop ---");
 let arr2 = [1, 2, 3];
-let popped = unwrap(arr2.pop());
+let popped = arr2.pop()?;
 assert(popped == 3, "pop should return last element");
 assert(len(arr2) == 2, "pop should remove element");
 println("pop() test passed");
@@ -37,7 +29,7 @@ println("insert() test passed");
 // Test remove
 println("--- Testing remove ---");
 let arr4 = [1, 2, 3, 4];
-let removed = unwrap(arr4.remove(1));
+let removed = arr4.remove(1)?;
 assert(removed == 2, "remove should return removed element");
 assert(len(arr4) == 3, "remove should decrease length");
 assert(arr4[1] == 3, "remove should shift elements");
@@ -47,7 +39,7 @@ println("remove() test passed");
 println("--- Testing concat ---");
 let arr5 = [1, 2];
 let arr6 = [3, 4];
-let concat_result = unwrap(arr5.concat(arr6));
+let concat_result = arr5.concat(arr6)?;
 assert(len(concat_result) == 4, "concat should combine arrays");
 assert(concat_result[0] == 1, "concat first element");
 assert(concat_result[3] == 4, "concat last element");
@@ -56,7 +48,7 @@ println("concat() test passed");
 // Test slice
 println("--- Testing slice ---");
 let arr7 = [1, 2, 3, 4, 5];
-let sliced = unwrap(arr7.slice(1, 4));
+let sliced = arr7.slice(1, 4)?;
 assert(len(sliced) == 3, "slice should return correct length");
 assert(sliced[0] == 2, "slice first element");
 assert(sliced[2] == 4, "slice last element");
@@ -74,16 +66,16 @@ println("reverse() test passed");
 // Test index
 println("--- Testing index ---");
 let arr9 = [1, 2, 3, 2, 1];
-assert(unwrap(arr9.index(2)) == 1, "index should find first occurrence");
-assert(unwrap(arr9.index(3)) == 2, "index should find middle element");
+assert(arr9.index(2)? == 1, "index should find first occurrence");
+assert(arr9.index(3)? == 2, "index should find middle element");
 // index returns error when not found
 println("index() test passed");
 
 // Test contains
 println("--- Testing contains ---");
 let arr10 = [1, 2, 3];
-assert(unwrap(arr10.contains(2)) == true, "contains should find element");
-assert(unwrap(arr10.contains(99)) == false, "contains should return false for missing");
+assert(arr10.contains(2) == true, "contains should find element");
+assert(arr10.contains(99) == false, "contains should return false for missing");
 println("contains() test passed");
 
 // Test sort (Note: sort modifies in place)
@@ -94,7 +86,7 @@ println("sort() test skipped (known issue)");
 // Test join
 println("--- Testing join ---");
 let arr12 = ["hello", "world"];
-let joined = unwrap(arr12.join(" "));
+let joined = arr12.join(" ")?;
 assert(joined == "hello world", "join should combine with separator");
 println("join() test passed");
 
@@ -110,14 +102,14 @@ println("--- Testing equals ---");
 let arr14 = [1, 2, 3];
 let arr15 = [1, 2, 3];
 let arr16 = [1, 2, 4];
-assert(unwrap(arr14.equals(arr15)) == true, "equals should return true for same arrays");
-assert(unwrap(arr14.equals(arr16)) == false, "equals should return false for different arrays");
+assert(arr14.equals(arr15) == true, "equals should return true for same arrays");
+assert(arr14.equals(arr16) == false, "equals should return false for different arrays");
 println("equals() test passed");
 
 // Test map
 println("--- Testing map ---");
 let arr17 = [1, 2, 3];
-let doubled = unwrap(arr17.map(fn(x) { return x * 2; }));
+let doubled = arr17.map(fn(x) { return x * 2; })?;
 assert(len(doubled) == 3, "map should preserve length");
 assert(doubled[0] == 2, "map first element");
 assert(doubled[1] == 4, "map second element");
@@ -127,7 +119,7 @@ println("map() test passed");
 // Test filter
 println("--- Testing filter ---");
 let arr18 = [1, 2, 3, 4, 5];
-let evens = unwrap(arr18.filter(fn(x) { return x % 2 == 0; }));
+let evens = arr18.filter(fn(x) { return x % 2 == 0; })?;
 assert(len(evens) == 2, "filter should return correct count");
 assert(evens[0] == 2, "filter first element");
 assert(evens[1] == 4, "filter second element");
@@ -136,7 +128,7 @@ println("filter() test passed");
 // Test reduce
 println("--- Testing reduce ---");
 let arr19 = [1, 2, 3, 4];
-let sum = unwrap(arr19.reduce(fn(acc, x) { return acc + x; }, 0));
+let sum = arr19.reduce(fn(acc, x) { return acc + x; }, 0)?;
 assert(sum == 10, "reduce should compute sum");
 println("reduce() test passed");
 

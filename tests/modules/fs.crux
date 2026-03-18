@@ -1,4 +1,4 @@
-use println from "crux:io";
+
 use open, remove, size, copy_file, mkdir from "crux:fs";
 use read_file, write_file, append_file, exists, is_file, is_dir from "crux:fs";
 

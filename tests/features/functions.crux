@@ -1,5 +1,3 @@
-use println from "crux:io";
-
 println("=== Start of testing functions ===");
 
 // Do simple functions work
@@ -57,15 +55,23 @@ let t7 = string_length("testing");
 assert(t7 == 7, "Function string_length failed. Expected 7, got: ".concat(string(t7))?);
 
 // Can we return from a match statement
-fn length(str) {
-	return match len(str) {
-		Ok(v) => { give v; }
-		Err => { give -1; }
-	};
+fn test_match_return(number: Int){
+    return match number {
+        0 => give 0;
+        1 => give 1;
+        default => give -1;
+    };
 }
 
-let t7_5 = length("test");
-assert(t7_5 == 4, "Failed to return with match statement. Expected 4, Got: ".concat(string(t7_5))?);
+let t7_5 = test_match_return(0);
+assert(t7_5 == 0, "Failed to return with match statement. Expected 0, Got: ".concat(string(t7_5))?);
+
+let t7_6 = test_match_return(1);
+assert(t7_6 == 1, "Failed to return with match statement. Expected 1, Got: ".concat(string(t7_6))?);
+
+let t7_7 = test_match_return(2);
+assert(t7_7 == -1, "Failed to return with match statement. Expected -1, Got: ".concat(string(t7_7))?);
+
 
 // Functions with conditional logic
 fn max_value(a, b) {

@@ -28,11 +28,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	add_compile_options(-O3)
+	add_compile_options(-O3 -fno-delete-null-pointer-checks -flto -flto=auto)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Perf")
-	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed)
+	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed -fno-delete-null-pointer-checks -flto)
 endif()
 
 file(GLOB SOURCES
@@ -40,14 +40,16 @@ file(GLOB SOURCES
 				"src/stdlib/*.c"
 				"src/vm/*.c"
 				"src/memory/*.c"
+				"deps/linenoise/linenoise.c"
 )
 
 file(GLOB HEADERS
 			"include/*.h"
 			"include/stdlib/*.h"
+			"deps/linenoise/linenoise.h"
 )
 
-include_directories(include)
+include_directories(include deps/linenoise)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(crux ${SOURCES} ${HEADERS})

@@ -1,5 +1,3 @@
-use println from "crux:io";
-
 println("===  Start of testing break statement  ===");
 
 println("--- Testing basic break in while loop ---");
@@ -96,7 +94,7 @@ while f_outer < 5 {
 }
 assert(f_outer == 2, "Nested break (outer): Expected f_outer to be 2 but got ".concat(string(f_outer))?);
 assert(f_outer_iterations == 2, "Nested break (outer): Expected 2 outer iterations but got ".concat(string(f_outer_iterations))?);
-assert(f_inner_total == 3, "Nested break (outer): Expected 6 inner iterations (2*3) but got ".concat(string(f_inner_total))?);
+assert(f_inner_total == 6, "Nested break (outer): Expected 6 inner iterations (2*3) but got ".concat(string(f_inner_total))?);
 // 6
 
 println("--- Testing break with complex condition ---");
@@ -124,8 +122,8 @@ while h > 0 {
     }
     h -= 1;
 }
-assert(h == 0, "Break scope test: Expected h to be 7 but got ".concat(string(h))?);
-assert(h_inner_modified == false, "Break scope test: Expected h_inner_modified to be true");
+assert(h == 7, "Break scope test: Expected h to be 7 but got ".concat(string(h))?);
+assert(h_inner_modified == true, "Break scope test: Expected h_inner_modified to be true");
 // 7
 
 println("--- Testing break in while true loop ---");
