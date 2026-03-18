@@ -162,119 +162,140 @@ static uint32_t hashValue(const Value value)
 	return 0u;
 }
 
-void print_type_to(FILE *stream, const Value value)
+int sprint_type_to(char *buffer, size_t size, const Value value)
 {
+	if (size == 0)
+		return 0;
+	int written = 0;
+#define APPEND(...)                                                                                                    \
+	do {                                                                                                               \
+		if (size > (size_t)written) {                                                                                  \
+			int _w = snprintf(buffer + written, size - written, __VA_ARGS__);                                          \
+			if (_w > 0)                                                                                                \
+				written += _w;                                                                                         \
+		}                                                                                                              \
+	} while (0)
+
 	if (IS_INT(value)) {
-		fprintf(stream, "Int");
-		return;
+		APPEND("Int");
+		return written;
 	}
 	if (IS_FLOAT(value)) {
-		fprintf(stream, "Float");
-		return;
+		APPEND("Float");
+		return written;
 	}
 	if (IS_BOOL(value)) {
-		fprintf(stream, "Bool");
-		return;
+		APPEND("Bool");
+		return written;
 	}
 	if (IS_NIL(value)) {
-		fprintf(stream, "Nil");
-		return;
+		APPEND("Nil");
+		return written;
 	}
 	switch (OBJECT_TYPE(value)) {
 	case OBJECT_STRING:
-		fprintf(stream, "String");
+		APPEND("String");
 		break;
 	case OBJECT_FUNCTION:
 	case OBJECT_NATIVE_CALLABLE:
 	case OBJECT_CLOSURE:
-		fprintf(stream, "Function");
+		APPEND("Function");
 		break;
 	case OBJECT_UPVALUE: {
 		const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
-		print_type_to(stream, upvalue->closed);
+		written += sprint_type_to(buffer + written, size - written, upvalue->closed);
 		break;
 	}
 	case OBJECT_ARRAY: {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
 		if (array->size > 0) {
-			fprintf(stream, "Array[");
-			print_type_to(stream, array->values[0]);
-			fprintf(stream, "]");
+			APPEND("Array[");
+			written += sprint_type_to(buffer + written, size - written, array->values[0]);
+			APPEND("]");
 		} else {
-			fprintf(stream, "Array");
+			APPEND("Array");
 		}
 		break;
 	}
 	case OBJECT_TABLE:
-		fprintf(stream, "Table");
+		APPEND("Table");
 		break;
 	case OBJECT_ERROR:
-		fprintf(stream, "Error");
+		APPEND("Error");
 		break;
 	case OBJECT_RESULT: {
 		const ObjectResult *result = AS_CRUX_RESULT(value);
 		if (result->is_ok) {
-			fprintf(stream, "Result[");
-			print_type_to(stream, result->as.value);
-			fprintf(stream, "]");
+			APPEND("Result[");
+			written += sprint_type_to(buffer + written, size - written, result->as.value);
+			APPEND("]");
 		} else {
-			fprintf(stream, "Result[Error]");
+			APPEND("Result[Error]");
 		}
 		break;
 	}
 	case OBJECT_RANDOM:
-		fprintf(stream, "Random");
+		APPEND("Random");
 		break;
 	case OBJECT_FILE:
-		fprintf(stream, "File");
+		APPEND("File");
 		break;
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		fprintf(stream, "Vector[%d]", vector->dimensions);
+		APPEND("Vector[%d]", vector->dimensions);
 		break;
 	}
 	case OBJECT_MODULE_RECORD: {
-		fprintf(stream, "Module");
+		APPEND("Module");
 		break;
 	}
 	case OBJECT_STRUCT_INSTANCE: {
 		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(value);
-		fprintf(stream, "%s instance", instance->struct_type->name->chars);
+		APPEND("%s instance", instance->struct_type->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT: {
 		const ObjectStruct *struct_ = AS_CRUX_STRUCT(value);
-		fprintf(stream, "Struct %s", struct_->name->chars);
+		APPEND("Struct %s", struct_->name->chars);
 		break;
 	}
 	case OBJECT_COMPLEX: {
-		fprintf(stream, "Complex");
+		APPEND("Complex");
 		break;
 	}
 	case OBJECT_MATRIX: {
 		const ObjectMatrix *matrix = AS_CRUX_MATRIX(value);
-		fprintf(stream, "Matrix[%d, %d]", matrix->row_dim, matrix->col_dim);
+		APPEND("Matrix[%d, %d]", matrix->row_dim, matrix->col_dim);
 		break;
 	}
 	case OBJECT_RANGE: {
-		fprintf(stream, "Range");
+		APPEND("Range");
 		break;
 	}
 	case OBJECT_TUPLE: {
-		fprintf(stream, "Tuple");
+		APPEND("Tuple");
 		break;
 	}
 	case OBJECT_BUFFER: {
-		fprintf(stream, "Buffer");
+		APPEND("Buffer");
 		break;
 	}
 	case OBJECT_SET: {
-		fprintf(stream, "Set");
+		APPEND("Set");
 		break;
 	}
 	default:
-		fprintf(stream, "Unknown");
+		APPEND("Unknown");
 	}
+#undef APPEND
+	return written;
+}
+
+void print_type_to(FILE *stream, const Value value)
+{
+	char buffer[256];
+	sprint_type_to(buffer, sizeof(buffer), value);
+	fprintf(stream, "%s", buffer);
 }
 
 ObjectUpvalue *new_upvalue(VM *vm, Value *slot)

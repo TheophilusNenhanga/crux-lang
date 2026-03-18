@@ -1396,14 +1396,8 @@ ObjectResult *execute_callable(VM *vm, const Value callable, const int arg_count
 Value typeof_value(VM *vm, const Value value)
 {
 	char buffer[256];
-	FILE *memstream = fmemopen(buffer, sizeof(buffer), "w");
-	if (memstream) {
-		print_type_to(memstream, value);
-		fclose(memstream);
-		return OBJECT_VAL(copy_string(vm, buffer, (uint32_t)strlen(buffer)));
-	}
-
-	return OBJECT_VAL(copy_string(vm, "Unknown", 7));
+	sprint_type_to(buffer, sizeof(buffer), value);
+	return OBJECT_VAL(copy_string(vm, buffer, (uint32_t)strlen(buffer)));
 }
 
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *target, const Value operand,
