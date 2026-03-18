@@ -102,7 +102,7 @@ static CruxTokenType check_keyword(Scanner *scanner, const int start, const int 
 	if (scanner->current - scanner->start == start + length && memcmp(scanner->start + start, rest, length) == 0) {
 		return type;
 	}
-	return TOKEN_IDENTIFIER;
+	return CRUX_TOKEN_IDENTIFIER;
 }
 
 /**
@@ -117,9 +117,9 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'i':
-				return check_keyword(scanner, 2, 1, "l", TOKEN_NIL_TYPE);
+				return check_keyword(scanner, 2, 1, "l", CRUX_TOKEN_NIL_TYPE);
 			case 'e':
-				return check_keyword(scanner, 2, 3, "ver", TOKEN_NEVER_TYPE);
+				return check_keyword(scanner, 2, 3, "ver", CRUX_TOKEN_NEVER_TYPE);
 			}
 		}
 		break;
@@ -128,37 +128,37 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
 			case 'o':
-				return check_keyword(scanner, 2, 2, "ol", TOKEN_BOOL_TYPE);
+				return check_keyword(scanner, 2, 2, "ol", CRUX_TOKEN_BOOL_TYPE);
 			case 'u':
-				return check_keyword(scanner, 2, 4, "ffer", TOKEN_BUFFER_TYPE);
+				return check_keyword(scanner, 2, 4, "ffer", CRUX_TOKEN_BUFFER_TYPE);
 			}
 		}
 		break;
 	}
 	case 'I': {
-		return check_keyword(scanner, 1, 2, "nt", TOKEN_INT_TYPE);
+		return check_keyword(scanner, 1, 2, "nt", CRUX_TOKEN_INT_TYPE);
 	}
 	case 'F': {
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
 			case 'i':
-				return check_keyword(scanner, 2, 2, "le", TOKEN_FILE_TYPE);
+				return check_keyword(scanner, 2, 2, "le", CRUX_TOKEN_FILE_TYPE);
 			case 'l':
-				return check_keyword(scanner, 2, 3, "oat", TOKEN_FLOAT_TYPE);
+				return check_keyword(scanner, 2, 3, "oat", CRUX_TOKEN_FLOAT_TYPE);
 			}
 		}
 		break;
 	}
 	case 'C': {
-		return check_keyword(scanner, 1, 6, "omplex", TOKEN_COMPLEX_TYPE);
+		return check_keyword(scanner, 1, 6, "omplex", CRUX_TOKEN_COMPLEX_TYPE);
 	}
 	case 'S': {
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
 			case 't':
-				return check_keyword(scanner, 2, 4, "ring", TOKEN_STRING_TYPE);
+				return check_keyword(scanner, 2, 4, "ring", CRUX_TOKEN_STRING_TYPE);
 			case 'e':
-				return check_keyword(scanner, 2, 1, "t", TOKEN_SET_TYPE);
+				return check_keyword(scanner, 2, 1, "t", CRUX_TOKEN_SET_TYPE);
 			}
 		}
 		break;
@@ -167,9 +167,9 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
 			case 'u':
-				return check_keyword(scanner, 2, 3, "ple", TOKEN_TUPLE_TYPE);
+				return check_keyword(scanner, 2, 3, "ple", CRUX_TOKEN_TUPLE_TYPE);
 			case 'a':
-				return check_keyword(scanner, 2, 3, "ble", TOKEN_TABLE_TYPE);
+				return check_keyword(scanner, 2, 3, "ble", CRUX_TOKEN_TABLE_TYPE);
 			}
 		}
 		break;
@@ -184,15 +184,15 @@ static CruxTokenType identifier_type(Scanner *scanner)
 						if (scanner->current - scanner->start > 4) {
 							switch (scanner->start[3]) {
 							case 'g':
-								return check_keyword(scanner, 4, 1, "e", TOKEN_RANGE_TYPE);
+								return check_keyword(scanner, 4, 1, "e", CRUX_TOKEN_RANGE_TYPE);
 							case 'd':
-								return check_keyword(scanner, 4, 2, "om", TOKEN_RANDOM_TYPE);
+								return check_keyword(scanner, 4, 2, "om", CRUX_TOKEN_RANDOM_TYPE);
 							}
 						}
 					}
 				}
 			case 'e': {
-				return check_keyword(scanner, 2, 4, "sult", TOKEN_RESULT_TYPE);
+				return check_keyword(scanner, 2, 4, "sult", CRUX_TOKEN_RESULT_TYPE);
 			}
 			}
 		}
@@ -202,28 +202,28 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
 			case 'n':
-				return check_keyword(scanner, 2, 1, "y", TOKEN_ANY_TYPE);
+				return check_keyword(scanner, 2, 1, "y", CRUX_TOKEN_ANY_TYPE);
 			case 'r':
-				return check_keyword(scanner, 2, 3, "ray", TOKEN_ARRAY_TYPE);
+				return check_keyword(scanner, 2, 3, "ray", CRUX_TOKEN_ARRAY_TYPE);
 			}
 		}
 		break;
 	}
 	case 'V': {
-		return check_keyword(scanner, 1, 5, "ector", TOKEN_VECTOR_TYPE);
+		return check_keyword(scanner, 1, 5, "ector", CRUX_TOKEN_VECTOR_TYPE);
 	}
 	case 'M': {
-		return check_keyword(scanner, 1, 5, "atrix", TOKEN_MATRIX_TYPE);
+		return check_keyword(scanner, 1, 5, "atrix", CRUX_TOKEN_MATRIX_TYPE);
 	}
 	// language keywords
 	case 'a': {
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 's': {
-				return check_keyword(scanner, 2, 0, "", TOKEN_AS);
+				return check_keyword(scanner, 2, 0, "", CRUX_TOKEN_AS);
 			}
 			case 'n': {
-				return check_keyword(scanner, 2, 1, "d", TOKEN_AND);
+				return check_keyword(scanner, 2, 1, "d", CRUX_TOKEN_AND);
 			}
 			default:;
 			}
@@ -231,12 +231,12 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'b':
-		return check_keyword(scanner, 1, 4, "reak", TOKEN_BREAK);
+		return check_keyword(scanner, 1, 4, "reak", CRUX_TOKEN_BREAK);
 	case 'c': {
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'o':
-				return check_keyword(scanner, 2, 6, "ntinue", TOKEN_CONTINUE);
+				return check_keyword(scanner, 2, 6, "ntinue", CRUX_TOKEN_CONTINUE);
 			default:;
 			}
 		}
@@ -246,10 +246,10 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'y': {
-				return check_keyword(scanner, 2, 4, "nuse", TOKEN_DYN_USE);
+				return check_keyword(scanner, 2, 4, "nuse", CRUX_TOKEN_DYN_USE);
 			}
 			case 'e': {
-				return check_keyword(scanner, 2, 5, "fault", TOKEN_DEFAULT);
+				return check_keyword(scanner, 2, 5, "fault", CRUX_TOKEN_DEFAULT);
 			}
 			default:;
 			}
@@ -257,36 +257,36 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'e':
-		return check_keyword(scanner, 1, 3, "lse", TOKEN_ELSE);
+		return check_keyword(scanner, 1, 3, "lse", CRUX_TOKEN_ELSE);
 	case 'g': {
-		return check_keyword(scanner, 1, 3, "ive", TOKEN_GIVE);
+		return check_keyword(scanner, 1, 3, "ive", CRUX_TOKEN_GIVE);
 	}
 	case 'i':
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'm': {
-				return check_keyword(scanner, 2, 2, "pl", TOKEN_IMPL);
+				return check_keyword(scanner, 2, 2, "pl", CRUX_TOKEN_IMPL);
 			}
 			case 'f': {
-				return TOKEN_IF;
+				return CRUX_TOKEN_IF;
 			}
 			default:;
 			}
 		}
-		return check_keyword(scanner, 1, 1, "f", TOKEN_IF);
+		return check_keyword(scanner, 1, 1, "f", CRUX_TOKEN_IF);
 	case 'l':
-		return check_keyword(scanner, 1, 2, "et", TOKEN_LET);
+		return check_keyword(scanner, 1, 2, "et", CRUX_TOKEN_LET);
 	case 'n':
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'o': {
-				return check_keyword(scanner, 2, 1, "t", TOKEN_NOT);
+				return check_keyword(scanner, 2, 1, "t", CRUX_TOKEN_NOT);
 			}
 			case 'i': {
-				return check_keyword(scanner, 2, 1, "l", TOKEN_NIL);
+				return check_keyword(scanner, 2, 1, "l", CRUX_TOKEN_NIL);
 			}
 			case 'e': {
-				return check_keyword(scanner, 2, 1, "w", TOKEN_NEW);
+				return check_keyword(scanner, 2, 1, "w", CRUX_TOKEN_NEW);
 			}
 			default:;
 			}
@@ -294,17 +294,17 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		}
 		break;
 	case 'o':
-		return check_keyword(scanner, 1, 1, "r", TOKEN_OR);
+		return check_keyword(scanner, 1, 1, "r", CRUX_TOKEN_OR);
 	case 'r':
-		return check_keyword(scanner, 1, 5, "eturn", TOKEN_RETURN);
+		return check_keyword(scanner, 1, 5, "eturn", CRUX_TOKEN_RETURN);
 	case 's': {
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 't': {
-				return check_keyword(scanner, 2, 4, "ruct", TOKEN_STRUCT);
+				return check_keyword(scanner, 2, 4, "ruct", CRUX_TOKEN_STRUCT);
 			}
 			case 'h': {
-				return check_keyword(scanner, 2, 3, "ape", TOKEN_SHAPE);
+				return check_keyword(scanner, 2, 3, "ape", CRUX_TOKEN_SHAPE);
 			}
 			default:;
 			}
@@ -312,31 +312,31 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'w':
-		return check_keyword(scanner, 1, 4, "hile", TOKEN_WHILE);
+		return check_keyword(scanner, 1, 4, "hile", CRUX_TOKEN_WHILE);
 	case 'f': {
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'a':
-				return check_keyword(scanner, 2, 3, "lse", TOKEN_FALSE);
+				return check_keyword(scanner, 2, 3, "lse", CRUX_TOKEN_FALSE);
 			case 'o':
-				return check_keyword(scanner, 2, 1, "r", TOKEN_FOR);
+				return check_keyword(scanner, 2, 1, "r", CRUX_TOKEN_FOR);
 			case 'n':
-				return TOKEN_FN;
+				return CRUX_TOKEN_FN;
 			case 'r':
-				return check_keyword(scanner, 2, 2, "om", TOKEN_FROM);
+				return check_keyword(scanner, 2, 2, "om", CRUX_TOKEN_FROM);
 			default:;
 			}
 		}
 		break;
 	}
 	case 'm': {
-		return check_keyword(scanner, 1, 4, "atch", TOKEN_MATCH);
+		return check_keyword(scanner, 1, 4, "atch", CRUX_TOKEN_MATCH);
 	}
 	case 't': {
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'r':
-				return check_keyword(scanner, 2, 2, "ue", TOKEN_TRUE);
+				return check_keyword(scanner, 2, 2, "ue", CRUX_TOKEN_TRUE);
 			case 'y':
 				if (scanner->current - scanner->start > 2) {
 					switch (scanner->start[2]) {
@@ -344,8 +344,8 @@ static CruxTokenType identifier_type(Scanner *scanner)
 						if (scanner->current - scanner->start > 3) {
 							if (scanner->start[3] == 'e') {
 								if (scanner->current - scanner->start == 4)
-									return TOKEN_TYPE;
-								return check_keyword(scanner, 4, 2, "of", TOKEN_TYPEOF);
+									return CRUX_TOKEN_TYPE;
+								return check_keyword(scanner, 4, 2, "of", CRUX_TOKEN_TYPEOF);
 							}
 						}
 						break;
@@ -357,26 +357,26 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'u':
-		return check_keyword(scanner, 1, 2, "se", TOKEN_USE);
+		return check_keyword(scanner, 1, 2, "se", CRUX_TOKEN_USE);
 	case 'p':
 		if (scanner->current - scanner->start > 1) {
 			switch (scanner->start[1]) {
 			case 'a':
-				return check_keyword(scanner, 2, 3, "nic", TOKEN_PANIC);
+				return check_keyword(scanner, 2, 3, "nic", CRUX_TOKEN_PANIC);
 			case 'u':
-				return check_keyword(scanner, 2, 1, "b", TOKEN_PUB);
+				return check_keyword(scanner, 2, 1, "b", CRUX_TOKEN_PUB);
 			default:;
 			}
 		}
 		break;
 	case 'E':
-		return check_keyword(scanner, 1, 2, "rr", TOKEN_ERR);
+		return check_keyword(scanner, 1, 2, "rr", CRUX_TOKEN_ERR);
 	case 'O':
-		return check_keyword(scanner, 1, 1, "k", TOKEN_OK);
+		return check_keyword(scanner, 1, 1, "k", CRUX_TOKEN_OK);
 	default:;
 	}
 
-	return TOKEN_IDENTIFIER;
+	return CRUX_TOKEN_IDENTIFIER;
 }
 
 void init_scanner(Scanner *scanner, const char *source)
@@ -409,7 +409,7 @@ static Token make_token(Scanner *scanner, const CruxTokenType type)
 static Token error_token(Scanner *scanner, const char *message)
 {
 	Token token;
-	token.type = TOKEN_ERROR;
+	token.type = CRUX_TOKEN_ERROR;
 	token.start = message;
 	token.length = (int)strlen(message);
 	token.line = scanner->line;
@@ -458,7 +458,7 @@ static Token single_string(Scanner *scanner)
 		return error_token(scanner, "Unterminated String");
 	// The closing quote
 	advance(scanner);
-	return make_token(scanner, TOKEN_STRING);
+	return make_token(scanner, CRUX_TOKEN_STRING);
 }
 
 /**
@@ -487,7 +487,7 @@ static Token double_string(Scanner *scanner)
 		return error_token(scanner, "Unterminated String");
 	// The closing quote
 	advance(scanner);
-	return make_token(scanner, TOKEN_STRING);
+	return make_token(scanner, CRUX_TOKEN_STRING);
 }
 
 /**
@@ -502,7 +502,7 @@ static bool is_digit(const char c)
 
 /**
  * Scans a numeric literal (integer or float).
- * @return The numeric token (TOKEN_INT or TOKEN_FLOAT)
+ * @return The numeric token (CRUX_TOKEN_INT or CRUX_TOKEN_FLOAT)
  */
 static Token number(Scanner *scanner)
 {
@@ -516,9 +516,9 @@ static Token number(Scanner *scanner)
 			advance(scanner);
 	}
 	if (fpFound) {
-		return make_token(scanner, TOKEN_FLOAT);
+		return make_token(scanner, CRUX_TOKEN_FLOAT);
 	}
-	return make_token(scanner, TOKEN_INT);
+	return make_token(scanner, CRUX_TOKEN_INT);
 }
 
 /**
@@ -537,7 +537,7 @@ Token scan_token(Scanner *scanner)
 	skip_whitespace(scanner);
 	scanner->start = scanner->current;
 	if (is_at_end(scanner))
-		return make_token(scanner, TOKEN_EOF);
+		return make_token(scanner, CRUX_TOKEN_EOF);
 
 	const char c = advance(scanner);
 
@@ -548,91 +548,91 @@ Token scan_token(Scanner *scanner)
 
 	switch (c) {
 	case ':':
-		return make_token(scanner, TOKEN_COLON);
+		return make_token(scanner, CRUX_TOKEN_COLON);
 	case '(':
-		return make_token(scanner, TOKEN_LEFT_PAREN);
+		return make_token(scanner, CRUX_TOKEN_LEFT_PAREN);
 	case ')':
-		return make_token(scanner, TOKEN_RIGHT_PAREN);
+		return make_token(scanner, CRUX_TOKEN_RIGHT_PAREN);
 	case '{':
-		return make_token(scanner, TOKEN_LEFT_BRACE);
+		return make_token(scanner, CRUX_TOKEN_LEFT_BRACE);
 	case '}':
-		return make_token(scanner, TOKEN_RIGHT_BRACE);
+		return make_token(scanner, CRUX_TOKEN_RIGHT_BRACE);
 	case '[':
-		return make_token(scanner, TOKEN_LEFT_SQUARE);
+		return make_token(scanner, CRUX_TOKEN_LEFT_SQUARE);
 	case ']':
-		return make_token(scanner, TOKEN_RIGHT_SQUARE);
+		return make_token(scanner, CRUX_TOKEN_RIGHT_SQUARE);
 	case ';':
-		return make_token(scanner, TOKEN_SEMICOLON);
+		return make_token(scanner, CRUX_TOKEN_SEMICOLON);
 	case ',':
-		return make_token(scanner, TOKEN_COMMA);
+		return make_token(scanner, CRUX_TOKEN_COMMA);
 	case '.':
-		return make_token(scanner, TOKEN_DOT);
+		return make_token(scanner, CRUX_TOKEN_DOT);
 	case '-':
 		if (match(scanner, '>'))
-			return make_token(scanner, TOKEN_ARROW);
-		return make_token(scanner, match(scanner, '=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS);
+			return make_token(scanner, CRUX_TOKEN_ARROW);
+		return make_token(scanner, match(scanner, '=') ? CRUX_TOKEN_MINUS_EQUAL : CRUX_TOKEN_MINUS);
 	case '+':
-		return make_token(scanner, match(scanner, '=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS);
+		return make_token(scanner, match(scanner, '=') ? CRUX_TOKEN_PLUS_EQUAL : CRUX_TOKEN_PLUS);
 	case '/':
-		return make_token(scanner, match(scanner, '=') ? TOKEN_SLASH_EQUAL : TOKEN_SLASH);
+		return make_token(scanner, match(scanner, '=') ? CRUX_TOKEN_SLASH_EQUAL : CRUX_TOKEN_SLASH);
 	case '\\':
 		if (match(scanner, '=')) {
-			return make_token(scanner, TOKEN_BACK_SLASH_EQUAL);
+			return make_token(scanner, CRUX_TOKEN_BACK_SLASH_EQUAL);
 		}
-		return make_token(scanner, TOKEN_BACKSLASH);
+		return make_token(scanner, CRUX_TOKEN_BACKSLASH);
 	case '*': {
 		if (match(scanner, '*')) {
-			return make_token(scanner, TOKEN_STAR_STAR);
+			return make_token(scanner, CRUX_TOKEN_STAR_STAR);
 		}
 		if (match(scanner, '=')) {
-			return make_token(scanner, TOKEN_STAR_EQUAL);
+			return make_token(scanner, CRUX_TOKEN_STAR_EQUAL);
 		}
-		return make_token(scanner, TOKEN_STAR);
+		return make_token(scanner, CRUX_TOKEN_STAR);
 	}
 	case '%':
 		if (match(scanner, '=')) {
-			return make_token(scanner, TOKEN_PERCENT_EQUAL);
+			return make_token(scanner, CRUX_TOKEN_PERCENT_EQUAL);
 		}
-		return make_token(scanner, TOKEN_PERCENT);
+		return make_token(scanner, CRUX_TOKEN_PERCENT);
 	case '!': {
 		if (match(scanner, '=')) {
-			return make_token(scanner, TOKEN_BANG_EQUAL);
+			return make_token(scanner, CRUX_TOKEN_BANG_EQUAL);
 		}
 		return error_token(scanner, "Unexpected token");
 	}
 	case '=': {
 		if (match(scanner, '=')) {
-			return make_token(scanner, TOKEN_EQUAL_EQUAL);
+			return make_token(scanner, CRUX_TOKEN_EQUAL_EQUAL);
 		}
 		if (match(scanner, '>')) {
-			return make_token(scanner, TOKEN_EQUAL_ARROW);
+			return make_token(scanner, CRUX_TOKEN_EQUAL_ARROW);
 		}
-		return make_token(scanner, TOKEN_EQUAL);
+		return make_token(scanner, CRUX_TOKEN_EQUAL);
 	}
 	case '<':
 		if (match(scanner, '<')) {
-			return make_token(scanner, TOKEN_LEFT_SHIFT);
+			return make_token(scanner, CRUX_TOKEN_LEFT_SHIFT);
 		}
-		return make_token(scanner, match(scanner, '=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
+		return make_token(scanner, match(scanner, '=') ? CRUX_TOKEN_LESS_EQUAL : CRUX_TOKEN_LESS);
 	case '>':
 		if (match(scanner, '>')) {
-			return make_token(scanner, TOKEN_RIGHT_SHIFT);
+			return make_token(scanner, CRUX_TOKEN_RIGHT_SHIFT);
 		}
-		return make_token(scanner, match(scanner, '=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
+		return make_token(scanner, match(scanner, '=') ? CRUX_TOKEN_GREATER_EQUAL : CRUX_TOKEN_GREATER);
 	case '"':
 		return double_string(scanner);
 	case '\'':
 		return single_string(scanner);
 	case '?':
-		return make_token(scanner, TOKEN_QUESTION_MARK);
+		return make_token(scanner, CRUX_TOKEN_QUESTION_MARK);
 	case '&':
-		return make_token(scanner, TOKEN_AMPERSAND);
+		return make_token(scanner, CRUX_TOKEN_AMPERSAND);
 	case '|':
-		return make_token(scanner, TOKEN_PIPE);
+		return make_token(scanner, CRUX_TOKEN_PIPE);
 	case '^':
-		return make_token(scanner, TOKEN_CARET);
+		return make_token(scanner, CRUX_TOKEN_CARET);
 	case '~':
-		return make_token(scanner, TOKEN_TILDE);
+		return make_token(scanner, CRUX_TOKEN_TILDE);
 	default:;
 	}
 	return error_token(scanner, "Unexpected character.");
