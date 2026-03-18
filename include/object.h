@@ -443,6 +443,7 @@ ObjectString *copy_string(VM *vm, const char *chars, uint32_t length);
 ObjectString *to_string(VM *vm, Value value);
 void print_object(Value value, bool in_collection);
 void print_type_to(FILE *stream, Value value);
+int sprint_type_to(char *buffer, size_t size, Value value);
 void print_value_to(FILE *stream, Value value, bool inCollection);
 void print_error_type_to(FILE *stream, ErrorType type);
 void free_object_table(VM *vm, ObjectTable *table);
