@@ -4096,7 +4096,6 @@ static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 
 	pre_scan_pass(&pre_compiler_fns, false);
 
-	// CRITICAL: Unlink!
 	compiler->enclosed = NULL;
 	free(pre_compiler_fns.parser->scanner);
 	free(pre_compiler_fns.parser);

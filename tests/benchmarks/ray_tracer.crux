@@ -90,8 +90,8 @@ impl Metal {
     fn scatter(ray_in: Ray, rec: HitRecord) -> Table[String, Any] | Nil {
         let reflected = reflect(ray_in.direction.normalize()?, rec.normal);
         let scattered_ray = new Ray{
-            origin: rec.p,
-            direction: reflected.add(random_unit_vector().multiply(self.fuzz)?)?
+            origin = rec.p,
+            direction = reflected.add(random_unit_vector().multiply(self.fuzz as Float)?)?
         };
         if scattered_ray.direction.dot(rec.normal)? > 0.0 {
             return {
@@ -113,7 +113,7 @@ impl Lambertian {
         }
 
         return {
-            "scattered":   new Ray {origin: rec.p, direction: scatter_direction},
+            "scattered":   new Ray {origin = rec.p, direction = scatter_direction},
             "attenuation": self.albedo
         };
     }
@@ -150,11 +150,11 @@ fn hit_sphere(sphere: Sphere, ray: Ray, t_min: Float, t_max: Float) -> Nil | Hit
     }
 
     return new HitRecord {
-        p:          hit_p,
-        normal:     hit_normal,
-        t:          root,
-        front_face: is_front_face,
-        material:   sphere.material
+        p =          hit_p,
+        normal =     hit_normal,
+        t =          root,
+        front_face = is_front_face,
+        material =   sphere.material
     };
 }
 
@@ -205,41 +205,41 @@ fn ray_color(ray: Ray, depth: Float, world: Array[Sphere]) -> Vector[3] {
 fn main() -> Nil {
     let world: Array[Sphere] = [];
 
-    let ground = new Lambertian { albedo:Vec(3, [0.5, 0.5, 0.5])?, fuzz: nil };
-    let material1 = new Lambertian {albedo:Vec(3, [0.7, 0.3, 0.3])?, fuzz: nil };
-    let material2 = new Metal { albedo: Vec(3, [0.8, 0.6, 0.2])?, fuzz: 0.2};
-    let material3 = new Metal { albedo: Vec(3, [0.8, 0.8, 0.8])?, fuzz: 0.0};
+    let ground = new Lambertian { albedo = Vec(3, [0.5, 0.5, 0.5])?, fuzz = nil };
+    let material1 = new Lambertian { albedo = Vec(3, [0.7, 0.3, 0.3])?, fuzz = nil };
+    let material2 = new Metal { albedo = Vec(3, [0.8, 0.6, 0.2])?, fuzz = 0.2};
+    let material3 = new Metal { albedo = Vec(3, [0.8, 0.8, 0.8])?, fuzz = 0.0};
 
     world.push(
         new Sphere {
-            center:         Vec(3, [0.0,  -1000.0, -1.0])?,
-            radius:         1000.0,
-            radius_squared: 1000.0*1000.0,
-            material:       ground
+            center =        Vec(3, [0.0,  -1000.0, -1.0])?,
+            radius =        1000.0,
+            radius_squared = 1000.0*1000.0,
+            material =       ground
         }
     );
     world.push(
         new Sphere {
-            center: Vec(3, [0.0,     1.0,  0.0])?,
-            radius: 1.0,
-            radius_squared:1.0,
-            material: material1
+            center = Vec(3, [0.0,     1.0,  0.0])?,
+            radius = 1.0,
+            radius_squared = 1.0,
+            material = material1
         }
     );
     world.push(
         new Sphere {
-            center: Vec(3, [-4.0,    1.0,  0.0])?,
-            radius: 1.0,
-            radius_squared:1.0,
-            material: material2
+            center = Vec(3, [-4.0,    1.0,  0.0])?,
+            radius = 1.0,
+            radius_squared = 1.0,
+            material = material2
         }
     );
     world.push(
         new Sphere {
-            center: Vec(3, [4.0,     1.0,  0.0])?,
-            radius: 1.0,
-            radius_squared:1.0,
-            material: material3
+            center = Vec(3, [4.0,     1.0,  0.0])?,
+            radius = 1.0,
+            radius_squared = 1.0,
+            material = material3
         }
     );
 
@@ -291,7 +291,7 @@ fn main() -> Nil {
                     .add(vertical.multiply(vv)?)?
                     .subtract(camera_origin)?;
 
-                let r = new Ray {origin:camera_origin, direction:ray_dir};
+                let r = new Ray {origin = camera_origin, direction = ray_dir};
                 pixel_color = pixel_color.add(ray_color(r, MAX_DEPTH, world))?;
             }
 

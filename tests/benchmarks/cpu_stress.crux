@@ -1,4 +1,4 @@
-use _time_ms from "crux:time";
+use time_ms from "crux:time";
 use Random from "crux:random";
 use sqrt, abs, floor from "crux:math";
 
@@ -142,7 +142,7 @@ fn back_sub(lu, y) {
 
 fn run_matrix_mul_benchmark() {
     println("── Part 1: Dense Matrix Multiply  (" + string(MAT_N) + "×" + string(MAT_N) + ", " + string(MAT_MUL_RUNS) + " runs) ──");
-    let t0 = _time_ms();
+    let t0 = time_ms();
 
     let a  = mat_rand();
     let b  = mat_rand();
@@ -154,7 +154,7 @@ fn run_matrix_mul_benchmark() {
         a[0] = c[0] * 0.9999;
     }
 
-    let elapsed = _time_ms() - t0;
+    let elapsed = time_ms() - t0;
 
     // 2·N³ flops per multiply (N muls + N-1 adds per dot product, N² dot products)
     let flops_per  = 2.0 * MAT_N * MAT_N * MAT_N;
@@ -171,7 +171,7 @@ fn run_matrix_mul_benchmark() {
 
 fn run_lu_benchmark() {
     println("── Part 2: LU Decomposition + Linear Solve  (" + string(MAT_N) + "×" + string(MAT_N) + ", " + string(LU_RUNS) + " runs) ──");
-    let t0 = _time_ms();
+    let t0 = time_ms();
 
     let det_acc  = 0.0;
     let sol_norm = 0.0;
@@ -196,7 +196,7 @@ fn run_lu_benchmark() {
         for let i = 0; i < MAT_N; i += 1 { sol_norm += x[i] * x[i]; }
     }
 
-    let elapsed = _time_ms() - t0;
+    let elapsed = time_ms() - t0;
 
     // LU decomposition is ~(2/3)·N³ flops; solve is ~2·N²
     let flops_lu    = (2.0 / 3.0) * MAT_N * MAT_N * MAT_N;
@@ -266,7 +266,7 @@ fn run_mandelbrot_benchmark() {
     let inv_w = re_span / (CX_W - 1);
     let inv_h = im_span / (CX_H - 1);
 
-    let t0          = _time_ms();
+    let t0          = time_ms();
     let total_iters = 0;
     let escaped     = 0;
     let checksum    = 0.0;
@@ -283,7 +283,7 @@ fn run_mandelbrot_benchmark() {
         }
     }
 
-    let elapsed = _time_ms() - t0;
+    let elapsed = time_ms() - t0;
     let pixels  = CX_W * CX_H;
 
     println("  Pixels           : " + string(pixels));
@@ -308,7 +308,7 @@ fn run_julia_benchmark() {
     let inv_w   = z_span / (CX_W - 1);
     let inv_h   = z_span / (CX_H - 1);
 
-    let t0          = _time_ms();
+    let t0          = time_ms();
     let total_iters = 0;
     let escaped     = 0;
     let checksum    = 0.0;
@@ -324,7 +324,7 @@ fn run_julia_benchmark() {
         }
     }
 
-    let elapsed = _time_ms() - t0;
+    let elapsed = time_ms() - t0;
     let pixels  = CX_W * CX_H;
 
     println("  Escaped          : " + string(escaped));
@@ -359,13 +359,13 @@ fn cm_rand() {
         re.push(g_rng.float(-1.0, 1.0)?);
         im.push(g_rng.float(-1.0, 1.0)?);
     }
-    return new CMatrix { re: re, im: im };
+    return new CMatrix { re = re, im = im };
 }
 
 fn cm_zero() {
     let re = []; let im = [];
     for let i = 0; i < CM_N * CM_N; i += 1 { re.push(0.0); im.push(0.0); }
-    return new CMatrix { re: re, im: im };
+    return new CMatrix { re = re, im = im };
 }
 
 // C = A * B  over ℂ
@@ -408,7 +408,7 @@ fn cm_trace_mag(m) {
 
 fn run_complex_matrix_benchmark() {
     println("── Part 5: Complex Matrix Multiply  (" + string(CM_N) + "×" + string(CM_N) + " ℂ, " + string(CM_RUNS) + " runs) ──");
-    let t0 = _time_ms();
+    let t0 = time_ms();
 
     let a = cm_rand();
     let b = cm_rand();
@@ -421,7 +421,7 @@ fn run_complex_matrix_benchmark() {
         a.im[0] = c.im[0] * 0.9999;
     }
 
-    let elapsed = _time_ms() - t0;
+    let elapsed = time_ms() - t0;
 
     // Complex N×N multiply: N² dot products, each N complex muls (6 real muls, 2 adds)
     // plus N complex adds (2 adds each).  Standard count: 8·N³ real flops.
@@ -441,7 +441,7 @@ fn run_complex_matrix_benchmark() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn main() {
-    let t_start = _time_ms();
+    let t_start = time_ms();
 
     run_matrix_mul_benchmark();
     run_lu_benchmark();
@@ -449,7 +449,7 @@ fn main() {
     run_julia_benchmark();
     run_complex_matrix_benchmark();
 
-    let t_total = _time_ms() - t_start;
+    let t_total = time_ms() - t_start;
 
     println("════════════════════════════════════════════════════");
     println("Total wall time: " + string(t_total) + " ms");
