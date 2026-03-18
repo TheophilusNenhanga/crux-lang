@@ -49,7 +49,7 @@ fn move_right(obj: Positionable) -> Int {
     return obj.x + 1;
 }
 
-let p1 = new Player { x: 10, y: 20, health: 100.0 };
+let p1 = new Player { x = 10, y = 20, health = 100.0 };
 let new_x = move_right(p1);
 assert(new_x == 11, "Shape matching failed");
 println("Structural typing (Shapes) passed!");

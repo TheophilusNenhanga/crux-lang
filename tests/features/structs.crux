@@ -1,11 +1,11 @@
 println("=== START OF TESTING STRUCTS ===");
 
 struct Point { x, y }
-let p = new Point { x: 10, y: 20 };
+let p = new Point { x = 10, y = 20 };
 assert(p.x == 10 and p.y == 20, "Point coordinates are incorrect");
 
 struct TypedPoint { x: Int, y: Int }
-let tp = new TypedPoint { x: 10, y: 20 };
+let tp = new TypedPoint { x = 10, y = 20 };
 assert(tp.x == 10 and tp.y == 20, "TypedPoint coordinates are incorrect");
 
 struct PointWithMethods { x, y }
@@ -17,7 +17,7 @@ impl PointWithMethods {
         return self.y * self.y;
     }
 }
-let pw = new PointWithMethods { x: 10, y: 20 };
+let pw = new PointWithMethods { x = 10, y = 20 };
 assert(pw.x_squared() == 100 and pw.y_squared() == 400, "PointWithMethods failed to execute methods");
 
 struct Rect {
@@ -29,7 +29,7 @@ impl Rect {
         return self.width * self.height;
     }
 }
-let r = new Rect { width: 10.0, height: 20.0 };
+let r = new Rect { width = 10.0, height = 20.0 };
 assert(r.area() == 200.0, "Rect area calculation is incorrect");
 
 struct Square {
@@ -41,7 +41,7 @@ impl Square {
         return self.rect.area();
     }
 }
-let s = new Square { rect: r };
+let s = new Square { rect = r };
 assert(s.area() == 200.0, "Failed to call method from composed struct");
 
 

@@ -12,104 +12,84 @@ static ErrorDetails getErrorDetails(const ErrorType type)
 	case SYNTAX:
 		return (ErrorDetails){
 			"Syntax Error",
-			"Check for missing delimiters or incorrect syntax",
 		};
 	case MATH:
 		return (ErrorDetails){
 			"Math Error",
-			"Divide by a non-zero number",
 		};
 	case BOUNDS:
 		return (ErrorDetails){
 			"Bounds Error",
-			"Use an index that is greater than or equal to zero, "
-			"but less than the "
-			"size of the container by one.",
 		};
 	case LOOP_EXTENT: {
 		return (ErrorDetails){
 			"Loop Extent Error",
-			"Loop body cannot exceed 65535 statements",
 		};
 	}
 	case TYPE:
 		return (ErrorDetails){
 			"Type Error",
-			"Check that all values in the operation are of the "
-			"expected types",
 		};
 	case LIMIT: {
-		return (ErrorDetails){"Limit Error", "The program cannot handle this many constants"};
+		return (ErrorDetails){"Limit Error"};
 	}
 	case NAME: {
-		return (ErrorDetails){"Name Error", "Double check that this name exists."};
+		return (ErrorDetails){"Name Error"};
 	}
 	case CLOSURE_EXTENT: {
-		return (ErrorDetails){"Closure Extent Error", "Functions cannot close over 255 variables."};
+		return (ErrorDetails){"Closure Extent Error"};
 	}
 	case LOCAL_EXTENT: {
-		return (ErrorDetails){"Local Variable Extent Error", "Functions cannot have more than 255 local variables."};
+		return (ErrorDetails){"Local Variable Extent Error"};
 	}
 	case ARGUMENT_EXTENT: {
-		return (ErrorDetails){"Argument Extent Error", "Functions cannot have more than 255 arguments."};
+		return (ErrorDetails){"Argument Extent Error"};
 	}
 	case COLLECTION_EXTENT: {
-		return (ErrorDetails){"Collection Extent Error", "Collections cannot have more than 65535 elements in "
-														 "their definition."};
+		return (ErrorDetails){"Collection Extent Error"};
 	}
 	case VARIABLE_EXTENT: {
-		return (ErrorDetails){"Variable Extent Error", "Cannot declare more than 255 variables at a time."};
+		return (ErrorDetails){"Variable Extent Error"};
 	}
 	case RETURN_EXTENT: {
-		return (ErrorDetails){"Return Extent Error", "Cannot return more than 255 values at a time."};
+		return (ErrorDetails){"Return Extent Error"};
 	}
 	case ARGUMENT_MISMATCH: {
-		return (ErrorDetails){"Argument Mismatch Error", "The number of arguments in the call must match the "
-														 "function's declared parameters."};
+		return (ErrorDetails){"Argument Mismatch Error"};
 	}
 	case STACK_OVERFLOW: {
-		return (ErrorDetails){"Stack Overflow Error", "Too many frames on the stack. There may be an "
-													  "unterminated recursive call."};
+		return (ErrorDetails){"Stack Overflow Error"};
 	}
 	case COLLECTION_GET: {
-		return (ErrorDetails){"Collection Get Error", "Could not retrieve value from collection."};
+		return (ErrorDetails){"Collection Get Error"};
 	}
 	case COLLECTION_SET: {
-		return (ErrorDetails){"Collection Set Error", "Could not set value in collection. "
-													  "Check the key type and value."};
+		return (ErrorDetails){"Collection Set Error"};
 	}
 	case MEMORY: {
-		return (ErrorDetails){"Memory Error", "Cannot allocate more memory."};
+		return (ErrorDetails){"Memory Error"};
 	}
 	case ASSERT: {
-		return (ErrorDetails){"Assert Error", "Double check your program's expectations;"};
+		return (ErrorDetails){"Assert Error"};
 	}
 	case IMPORT_EXTENT: {
-		return (ErrorDetails){"Import Extent Error", "Import less external modules."};
+		return (ErrorDetails){"Import Extent Error"};
 	}
 	case IO: {
-		return (ErrorDetails){"IO Error", "An error occurred while reading from or "
-										  "writing to a file. Check if the file "
-										  "exists at the specified location."};
+		return (ErrorDetails){"IO Error"};
 	}
 	case IMPORT: {
-		return (ErrorDetails){"Import Error", "An error occurred while importing a module. Check "
-											  "the module path and name."};
+		return (ErrorDetails){"Import Error"};
 	}
 	case BRANCH_EXTENT: {
-		return (ErrorDetails){"Branch Extent Error", "You have exceeded the allowed number of "
-													 "branches. Use less branches."};
+		return (ErrorDetails){"Branch Extent Error"};
 	}
 	case VALUE: {
-		return (ErrorDetails){"Value Error", "Check the value and whether it's "
-											 "correct for the usage context."};
+		return (ErrorDetails){"Value Error"};
 	}
 	case RUNTIME:
 	default:
-		return (ErrorDetails){
-			"Runtime Error",
-			"An error occurred during program execution",
-		};
+		return (ErrorDetails){"Runtime Error"};
 	}
 }
 
@@ -203,7 +183,6 @@ static void error_at_vfmt(Parser *parser, const Token *token, ErrorType error_ty
 		print_error_line(token->line, parser->source, startCol, token->length > 0 ? token->length : 1);
 	}
 
-	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 }
 
@@ -239,8 +218,6 @@ void error_at(Parser *parser, const Token *token, const char *message, const Err
 
 		print_error_line(token->line, parser->source, startCol, token->length > 0 ? token->length : 1);
 	}
-
-	fprintf(stderr, "\n%s%s%s\n", MAGENTA, details.hint, RESET);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 }
 
@@ -363,8 +340,6 @@ void runtime_panic(ObjectModuleRecord *module_record, const ErrorType type, cons
 		}
 		traceModule = traceModule->enclosing_module;
 	}
-
-	fprintf(stderr, "\n\n%sSuggestion: %s%s\n", CYAN, MAGENTA, details.hint);
 	fprintf(stderr, "%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
 	module_record->owner->is_exiting = true;

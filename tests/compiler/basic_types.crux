@@ -67,9 +67,9 @@ struct Player {
 }
 
 let p1: Player = new Player {
-    name: "Hero",
-    score: 1500, // Matches Int | Float
-    is_active: true
+    name = "Hero",
+    score = 1500, // Matches Int | Float
+    is_active = true
 };
 p1.score = 2000.5; // Struct property assignment
 let p1_score: Int | Float = p1.score; // Struct property get
@@ -159,13 +159,13 @@ fn get_next(n: Node) -> Node | Nil {
 }
 
 let n2 = new Node {
-    next: nil,
-    value: 2
+    next = nil,
+    value = 2
 };
 
 let n1 = new Node {
-    next: n2,
-    value: 1
+    next = n2,
+    value = 1
 };
 
 let next = get_next(n1);
