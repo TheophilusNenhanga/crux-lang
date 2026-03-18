@@ -7,27 +7,29 @@
 #include <string.h>
 
 #include "panic.h"
-#include "vm_helpers.h"
 
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 
-/* TODO: Split this into two functions argv and argc */
-ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the command line arguments as an array
+ * TODO:CHNANGE TYPE TO {} (no arguments)
+ * Returns Result<Array>
+ */
+Value args_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 	ObjectModuleRecord *module_record = vm->current_module_record;
-	ObjectArray *resultArray = new_array(vm, 2, module_record);
-	ObjectArray *argvArray = new_array(vm, vm->args.argc, module_record);
+	ObjectArray *resultArray = new_array(vm, 2);
+	ObjectArray *argvArray = new_array(vm, vm->args.argc);
 	push(module_record, OBJECT_VAL(resultArray));
 	push(module_record, OBJECT_VAL(argvArray));
 
 	for (int i = 0; i < vm->args.argc; i++) {
 		char *arg = strdup(vm->args.argv[i]);
 		if (arg == NULL) {
-			ObjectResult *error_result = MAKE_GC_SAFE_ERROR(
+			Value error_result = MAKE_GC_SAFE_ERROR(
 				vm, "Failed to allocate memory for argument.",
 				MEMORY);
 			pop(module_record);
@@ -46,13 +48,15 @@ ObjectResult *args_function(VM *vm, int arg_count, const Value *args)
 	pop(module_record);
 	pop(module_record);
 
-	return new_ok_result(vm, OBJECT_VAL(resultArray));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(resultArray)));
 }
 
-/* TODO: This can fail if out of memory */
-Value platform_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the current operating system platform
+ * Returns String
+ */
+Value platform_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 #ifdef _WIN32
 	return OBJECT_VAL(copy_string(vm, "windows", 7));
@@ -65,10 +69,12 @@ Value platform_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-/* TODO: This can fail if Out of Memory */
-Value arch_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the CPU architecture
+ * Returns String
+ */
+Value arch_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)args;
 #if defined(__x86_64__) || defined(_M_X64)
 	return OBJECT_VAL(copy_string(vm, "x86_64", 6));
@@ -101,9 +107,12 @@ Value arch_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-Value pid_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Returns the current process ID
+ * Returns Int
+ */
+Value pid_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
 	(void)vm;
 	(void)args;
 #ifdef _WIN32
@@ -113,13 +122,13 @@ Value pid_function(VM *vm, int arg_count, const Value *args)
 #endif
 }
 
-ObjectResult *get_env_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Gets the value of an environment variable
+ * arg0 -> name: String
+ * Returns Result<String>
+ */
+Value get_env_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	if (!IS_CRUX_STRING(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument <name> must be of type 'string'.", TYPE);
-	}
 	const char *value = getenv(AS_C_STRING(args[0]));
 	if (value == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.",
@@ -138,29 +147,33 @@ ObjectResult *get_env_function(VM *vm, int arg_count, const Value *args)
 	push(vm->current_module_record, OBJECT_VAL(valueString));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(valueString));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *sleep_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Pauses execution for the specified number of seconds
+ * arg0 -> seconds: Int
+ * Returns Nil
+ */
+Value sleep_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "Argument <seconds> must be of type 'int'.", TYPE);
-	}
-
 #ifdef _WIN32
 	Sleep(AS_INT(args[0]));
 #else
 	sleep(AS_INT(args[0]));
 #endif
-	return new_ok_result(vm, BOOL_VAL(true));
+	return NIL_TYPE;
 }
 
-Value exit_function(VM *vm, int arg_count, const Value *args)
+/**
+ * Exits the program with the given exit code
+ * arg0 -> code: Int
+ * Returns (never returns)
+ */
+Value exit_function(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	/* TODO: exit the vm gracefully */
 	if (!IS_INT(args[0])) {
 		exit(1);

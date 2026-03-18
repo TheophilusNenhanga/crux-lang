@@ -29,6 +29,9 @@ typedef enum {
 	PREC_ASSIGNMENT, // =
 	PREC_OR, // or
 	PREC_AND, // and
+	PREC_BITWISE_OR, // |
+	PREC_BITWISE_XOR, // ^
+	PREC_BITWISE_AND, // &
 	PREC_EQUALITY, // == !=
 	PREC_COMPARISON, // < > <= >=
 	PREC_SHIFT, // << >>

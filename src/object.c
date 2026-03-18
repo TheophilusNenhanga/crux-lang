@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "table.h"
+#include "value.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -183,79 +185,109 @@ static uint32_t hashValue(const Value value)
 	return 0u;
 }
 
-void print_type(const Value value)
+void print_type_to(FILE *stream, const Value value)
 {
 	if (IS_INT(value)) {
-		printf("'int'");
+		fprintf(stream, "'Int'");
 		return;
 	}
 	if (IS_FLOAT(value)) {
-		printf("'float'");
+		fprintf(stream, "'Float'");
 		return;
 	}
 	if (IS_BOOL(value)) {
-		printf("'bool'");
+		fprintf(stream, "'Bool'");
 		return;
 	}
 	if (IS_NIL(value)) {
-		printf("'nil'");
+		fprintf(stream, "'Nil'");
 		return;
 	}
 	switch (OBJECT_TYPE(value)) {
 	case OBJECT_STRING:
-		printf("'string'");
+		fprintf(stream, "'String'");
 		break;
 	case OBJECT_FUNCTION:
-	case OBJECT_NATIVE_FUNCTION:
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION:
-	case OBJECT_NATIVE_METHOD:
-	case OBJECT_NATIVE_INFALLIBLE_METHOD:
+	case OBJECT_NATIVE_CALLABLE:
 	case OBJECT_CLOSURE:
-		printf("'function'");
+		fprintf(stream, "'Function'");
 		break;
-	case OBJECT_UPVALUE:
-		printf("'upvalue'");
+	case OBJECT_UPVALUE: {
+		const ObjectUpvalue *upvalue = AS_CRUX_UPVALUE(value);
+		print_type_to(stream, upvalue->closed);
 		break;
+	}
 	case OBJECT_ARRAY:
-		printf("'array'");
+		fprintf(stream, "'Array'");
 		break;
 	case OBJECT_TABLE:
-		printf("'table'");
+		fprintf(stream, "'Table'");
 		break;
 	case OBJECT_ERROR:
-		printf("'error'");
+		fprintf(stream, "'Error'");
 		break;
 	case OBJECT_RESULT:
-		printf("'result'");
+		fprintf(stream, "'Result'");
 		break;
 	case OBJECT_RANDOM:
-		printf("'random'");
+		fprintf(stream, "'Random'");
 		break;
 	case OBJECT_FILE:
-		printf("'file'");
+		fprintf(stream, "'File'");
 		break;
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		printf("'Vec<%d>'", vector->dimensions);
+		fprintf(stream, "'Vec<%d>'", vector->dimensions);
 		break;
 	}
 	case OBJECT_MODULE_RECORD: {
-		printf("'module'");
+		fprintf(stream, "'module'");
 		break;
 	}
 	case OBJECT_STRUCT_INSTANCE: {
 		const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(
 			value);
-		printf("'%s instance'", instance->struct_type->name->chars);
+		fprintf(stream, "'%s instance'",
+			instance->struct_type->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT: {
 		const ObjectStruct *struct_ = AS_CRUX_STRUCT(value);
-		printf("'%s struct'", struct_->name->chars);
+		fprintf(stream, "'%s struct'", struct_->name->chars);
+		break;
+	}
+	case OBJECT_COMPLEX: {
+		fprintf(stream, "'Complex'");
+		break;
+	}
+	case OBJECT_MATRIX: {
+		const ObjectMatrix *matrix = AS_CRUX_MATRIX(value);
+		fprintf(stream, "'Matrix<%d, %d>'", matrix->row_dim,
+			matrix->col_dim);
+		break;
+	}
+	case OBJECT_RANGE: {
+		const ObjectRange *range = AS_CRUX_RANGE(value);
+		fprintf(stream, "'Range'");
+		break;
+	}
+	case OBJECT_TUPLE: {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
+		fprintf(stream, "'Tuple'");
+		break;
+	}
+	case OBJECT_BUFFER: {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(value);
+		fprintf(stream, "'Buffer'");
+		break;
+	}
+	case OBJECT_SET: {
+		const ObjectSet *set = AS_CRUX_SET(value);
+		fprintf(stream, "'Set'");
 		break;
 	}
 	default:
-		printf("'unknown'");
+		fprintf(stream, "'unknown'");
 	}
 }
 
@@ -355,83 +387,83 @@ ObjectString *copy_string(VM *vm, const char *chars, const uint32_t length)
 	return allocateString(vm, heapChars, length, hash);
 }
 
-static void print_error_type(const ErrorType type)
+void print_error_type_to(FILE *stream, const ErrorType type)
 {
 	switch (type) {
 	case SYNTAX:
-		printf("syntax");
+		fprintf(stream, "syntax");
 		break;
 	case MATH:
-		printf("math");
+		fprintf(stream, "math");
 		break;
 	case BOUNDS:
-		printf("bounds");
+		fprintf(stream, "bounds");
 		break;
 	case RUNTIME:
-		printf("runtime");
+		fprintf(stream, "runtime");
 		break;
 	case TYPE:
-		printf("type");
+		fprintf(stream, "type");
 		break;
 	case LOOP_EXTENT:
-		printf("loop");
+		fprintf(stream, "loop");
 		break;
 	case LIMIT:
-		printf("limit");
+		fprintf(stream, "limit");
 		break;
 	case BRANCH_EXTENT:
-		printf("branch");
+		fprintf(stream, "branch");
 		break;
 	case CLOSURE_EXTENT:
-		printf("closure");
+		fprintf(stream, "closure");
 		break;
 	case LOCAL_EXTENT:
-		printf("local");
+		fprintf(stream, "local");
 		break;
 	case ARGUMENT_EXTENT:
-		printf("argument");
+		fprintf(stream, "argument");
 		break;
 	case NAME:
-		printf("name");
+		fprintf(stream, "name");
 		break;
 	case COLLECTION_EXTENT:
-		printf("collection");
+		fprintf(stream, "collection");
 		break;
 	case VARIABLE_EXTENT:
-		printf("variable");
+		fprintf(stream, "variable");
 		break;
 	case RETURN_EXTENT:
-		printf("return");
+		fprintf(stream, "return");
 		break;
 	case ARGUMENT_MISMATCH:
-		printf("argument mismatch");
+		fprintf(stream, "argument mismatch");
 		break;
 	case STACK_OVERFLOW:
-		printf("stack overflow");
+		fprintf(stream, "stack overflow");
 		break;
 	case COLLECTION_GET:
-		printf("collection get");
+		fprintf(stream, "collection get");
 		break;
 	case COLLECTION_SET:
-		printf("collection set");
+		fprintf(stream, "collection set");
 		break;
 	case MEMORY:
-		printf("memory");
+		fprintf(stream, "memory");
 		break;
 	case VALUE:
-		printf("value");
+		fprintf(stream, "value");
 		break;
 	case ASSERT:
-		printf("assert");
+		fprintf(stream, "assert");
 		break;
 	case IMPORT_EXTENT:
-		printf("import");
+		fprintf(stream, "import");
 		break;
 	case IO:
-		printf("io");
+		fprintf(stream, "io");
 		break;
 	case IMPORT:
-		printf("import");
+		fprintf(stream, "import");
 		break;
 	}
 }
@@ -445,53 +477,55 @@ static void print_error_type(const ErrorType type)
  *
  * @param function The ObjectFunction to print the name of.
  */
-static void print_function(const ObjectFunction *function)
+static void print_function_to(FILE *stream, const ObjectFunction *function)
 {
 	if (function->name == NULL) {
-		printf("<script>");
+		fprintf(stream, "<script>");
 		return;
 	}
-	printf("<fn %s>", function->name->chars);
+	fprintf(stream, "<fn %s>", function->name->chars);
 }
 
-static void print_array(const Value *values, const uint32_t size)
+static void print_array_to(FILE *stream, const Value *values,
+			   const uint32_t size)
 {
-	printf("[");
+	fprintf(stream, "[");
 	for (uint32_t i = 0; i < size; i++) {
-		print_value(values[i], true);
+		print_value_to(stream, values[i], true);
 		if (i != size - 1) {
-			printf(", ");
+			fprintf(stream, ", ");
 		}
 	}
-	printf("]");
+	fprintf(stream, "]");
 }
 
-static void print_table(const ObjectTableEntry *entries,
-			const uint32_t capacity, const uint32_t size)
+static void print_table_to(FILE *stream, const ObjectTableEntry *entries,
+			   const uint32_t capacity, const uint32_t size)
 {
 	uint32_t printed = 0;
-	printf("{");
+	fprintf(stream, "{");
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
-			print_value(entries[i].key, true);
-			printf(":");
-			print_value(entries[i].value, true);
+			print_value_to(stream, entries[i].key, true);
+			fprintf(stream, ":");
+			print_value_to(stream, entries[i].value, true);
 			if (printed != size - 1) {
-				printf(", ");
+				fprintf(stream, ", ");
 			}
 			printed++;
 		}
 	}
-	printf("}");
+	fprintf(stream, "}");
 }
 
-static void print_struct_instance(const ObjectStructInstance *instance)
+static void print_struct_instance_to(FILE *stream,
+				     const ObjectStructInstance *instance)
 {
-	printf("{");
+	fprintf(stream, "{");
 	int printed = 0;
 	const ObjectStruct *type = instance->struct_type;
 	if (instance->fields == NULL) {
-		printf("}");
+		fprintf(stream, "}");
 		return;
 	}
 	for (int i = 0; i < type->fields.capacity; i++) {
@@ -500,151 +534,177 @@ static void print_struct_instance(const ObjectStructInstance *instance)
 				type->fields.entries[i].value);
 			const ObjectString *fieldName =
 				type->fields.entries[i].key;
-			printf("%s: ", fieldName->chars);
-			print_value(instance->fields[index], true);
+			fprintf(stream, "%s: ", fieldName->chars);
+			print_value_to(stream, instance->fields[index], true);
 			if (printed != type->fields.count - 1) {
-				printf(", ");
+				fprintf(stream, ", ");
 			}
 			printed++;
 		}
 	}
-	printf("}");
+	fprintf(stream, "}");
 }
 
-static void print_result(const ObjectResult *result)
+static void print_result_to(FILE *stream, const ObjectResult *result)
 {
 	if (result->is_ok) {
-		printf("Ok<");
-		print_type(result->as.value);
-		printf(">");
+		fprintf(stream, "Ok<");
+		print_type_to(stream, result->as.value);
+		fprintf(stream, ">");
 	} else {
-		printf("Err<");
-		print_error_type(result->as.error->type);
-		printf(">");
+		fprintf(stream, "Err<");
+		print_error_type_to(stream, result->as.error->type);
+		fprintf(stream, ">");
 	}
 }
 
-void print_object(const Value value, const bool in_collection)
+void print_object_to(FILE *stream, const Value value, const bool in_collection)
 {
 	switch (OBJECT_TYPE(value)) {
 	case OBJECT_STRING: {
 		if (in_collection) {
-			printf("'%s'", AS_C_STRING(value));
+			fprintf(stream, "'%s'", AS_C_STRING(value));
 			break;
 		}
-		printf("%s", AS_C_STRING(value));
+		fprintf(stream, "%s", AS_C_STRING(value));
 		break;
 	}
 	case OBJECT_FUNCTION: {
-		print_function(AS_CRUX_FUNCTION(value));
+		print_function_to(stream, AS_CRUX_FUNCTION(value));
 		break;
 	}
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			value);
 		if (native->name != NULL) {
-			printf("<native fn %s>", native->name->chars);
+			fprintf(stream, "<native callable %s>",
+				native->name->chars);
 		} else {
-			printf("<native fn>");
-		}
-		break;
-	}
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
-		if (native->name != NULL) {
-			printf("<native method %s>", native->name->chars);
-		} else {
-			printf("<native method>");
-		}
-		break;
-	}
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
-		if (native->name != NULL) {
-			printf("<native infallible fn %s>",
-			       native->name->chars);
-		} else {
-			printf("<native infallible fn>");
+			fprintf(stream, "<native callable>");
 		}
 		break;
 	}
 	case OBJECT_CLOSURE: {
-		print_function(AS_CRUX_CLOSURE(value)->function);
+		print_function_to(stream, AS_CRUX_CLOSURE(value)->function);
 		break;
 	}
 	case OBJECT_UPVALUE: {
-		print_value(value, false);
+		print_value_to(stream, value, false);
 		break;
 	}
 	case OBJECT_ARRAY: {
 		const ObjectArray *array = AS_CRUX_ARRAY(value);
-		print_array(array->values, array->size);
+		print_array_to(stream, array->values, array->size);
 		break;
 	}
 	case OBJECT_TABLE: {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		print_table(table->entries, table->capacity, table->size);
+		print_table_to(stream, table->entries, table->capacity,
+			       table->size);
 		break;
 	}
 	case OBJECT_ERROR: {
-		printf("<error ");
-		print_error_type(AS_CRUX_ERROR(value)->type);
-		printf(">");
+		fprintf(stream, "<error ");
+		print_error_type_to(stream, AS_CRUX_ERROR(value)->type);
+		fprintf(stream, ">");
 		break;
 	}
 	case OBJECT_RESULT: {
-		print_result(AS_CRUX_RESULT(value));
+		print_result_to(stream, AS_CRUX_RESULT(value));
 		break;
 	}
 	case OBJECT_RANDOM: {
-		printf("<random>");
+		fprintf(stream, "<random>");
 		break;
 	}
 	case OBJECT_FILE: {
-		printf("<file>");
+		fprintf(stream, "<file>");
 		break;
 	}
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		printf("<native infallible method>");
-		break;
-	}
-
 	case OBJECT_MODULE_RECORD: {
-		printf("<module record>");
+		fprintf(stream, "<module record>");
 		break;
 	}
-
 	case OBJECT_STRUCT: {
-		printf("<struct type %s>", AS_CRUX_STRUCT(value)->name->chars);
+		fprintf(stream, "<struct type %s>",
+			AS_CRUX_STRUCT(value)->name->chars);
 		break;
 	}
 	case OBJECT_STRUCT_INSTANCE: {
-		print_struct_instance(AS_CRUX_STRUCT_INSTANCE(value));
+		print_struct_instance_to(stream,
+					 AS_CRUX_STRUCT_INSTANCE(value));
 		break;
 	}
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		printf("Vec%d(", vector->dimensions);
-		if (vector->dimensions > 4) {
-			for (uint32_t i = 0; i < vector->dimensions; i++) {
-				printf("%.17g", vector->as.h_components[i]);
-				if (i != vector->dimensions - 1) {
-					printf(", ");
-				}
-			}
-		} else {
-			for (uint32_t i = 0; i < vector->dimensions; i++) {
-				printf("%.17g", vector->as.s_components[i]);
-				if (i != vector->dimensions - 1) {
-					printf(", ");
-				}
+		fprintf(stream, "Vec%d(", vector->dimensions);
+		const double *comp = VECTOR_COMPONENTS(vector);
+		for (uint32_t i = 0; i < vector->dimensions; i++) {
+			fprintf(stream, "%.17g", comp[i]);
+			if (i != vector->dimensions - 1) {
+				fprintf(stream, ", ");
 			}
 		}
-		printf(")");
+		fprintf(stream, ")");
+		break;
+	}
+	case OBJECT_MATRIX: {
+		const ObjectMatrix *mat = AS_CRUX_MATRIX(value);
+		fprintf(stream, "Matrix(%ux%u)", mat->row_dim, mat->col_dim);
+		break;
+	}
+	case OBJECT_COMPLEX: {
+		const ObjectComplex *c = AS_CRUX_COMPLEX(value);
+		if (c->imag >= 0.0) {
+			fprintf(stream, "%.17g+%.17gi", c->real, c->imag);
+		} else {
+			fprintf(stream, "%.17g%.17gi", c->real, c->imag);
+		}
+		break;
+	}
+	case OBJECT_SET: {
+		fprintf(stream, "<Set>");
+		break;
+	}
+
+	case OBJECT_BUFFER: {
+		fprintf(stream, "<Buffer>");
+		break;
+	}
+	case OBJECT_TUPLE: {
+		fprintf(stream, "<Tuple>");
+		break;
+	}
+	case OBJECT_RANGE: {
+		fprintf(stream, "<Range>");
 		break;
 	}
 	}
+}
+
+void print_value_to(FILE *stream, const Value value, const bool inCollection)
+{
+	if (IS_BOOL(value)) {
+		fprintf(stream, AS_BOOL(value) ? "true" : "false");
+	} else if (IS_NIL(value)) {
+		fprintf(stream, "nil");
+	} else if (IS_FLOAT(value)) {
+		fprintf(stream, "%.17g", AS_FLOAT(value));
+	} else if (IS_INT(value)) {
+		fprintf(stream, "%d", AS_INT(value));
+	} else if (IS_CRUX_OBJECT(value)) {
+		print_object_to(stream, value, inCollection);
+	}
+}
+
+void print_value(const Value value, const bool inCollection)
+{
+	print_value_to(stdout, value, inCollection);
+}
+
+void print_object(const Value value, const bool in_collection)
+{
+	print_object_to(stdout, value, in_collection);
 }
 
 ObjectString *take_string(VM *vm, char *chars, const uint32_t length)
@@ -699,8 +759,8 @@ ObjectString *to_string(VM *vm, const Value value)
 		return copy_string(vm, buffer, length);
 	}
 
-	case OBJECT_NATIVE_FUNCTION: {
-		const ObjectNativeFunction *native = AS_CRUX_NATIVE_FUNCTION(
+	case OBJECT_NATIVE_CALLABLE: {
+		const ObjectNativeCallable *native = AS_CRUX_NATIVE_CALLABLE(
 			value);
 		if (native->name != NULL) {
 			const char *start = "<native fn ";
@@ -718,68 +778,6 @@ ObjectString *to_string(VM *vm, const Value value)
 			return result;
 		}
 		return copy_string(vm, "<native fn>", 11);
-	}
-
-	case OBJECT_NATIVE_METHOD: {
-		const ObjectNativeMethod *native = AS_CRUX_NATIVE_METHOD(value);
-		if (native->name != NULL) {
-			const char *start = "<native method ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native method>", 15);
-	}
-
-	case OBJECT_NATIVE_INFALLIBLE_FUNCTION: {
-		const ObjectNativeInfallibleFunction *native =
-			AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value);
-		if (native->name != NULL) {
-			const char *start = "<native infallible fn ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native infallible fn>", 21);
-	}
-
-	case OBJECT_NATIVE_INFALLIBLE_METHOD: {
-		const ObjectNativeInfallibleMethod *native =
-			AS_CRUX_NATIVE_INFALLIBLE_METHOD(value);
-		if (native->name != NULL) {
-			const char *start = "<native infallible method ";
-			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char,
-						strlen(start) + strlen(end) +
-							native->name->length +
-							1);
-			strcpy(buffer, start);
-			strcat(buffer, native->name->chars);
-			strcat(buffer, end);
-			ObjectString *result = take_string(vm, buffer,
-							   strlen(buffer));
-			FREE_ARRAY(vm, char, buffer, strlen(buffer) + 1);
-			return result;
-		}
-		return copy_string(vm, "<native infallible method>", 25);
 	}
 
 	case OBJECT_CLOSURE: {
@@ -909,6 +907,28 @@ ObjectString *to_string(VM *vm, const Value value)
 		return copy_string(vm, "<Vec<>>", 7);
 	}
 
+	case OBJECT_COMPLEX: {
+		return copy_string(vm, "<Complex>", 9);
+	}
+
+	case OBJECT_MATRIX: {
+		return copy_string(vm, "<Matrix>", 8);
+	}
+
+	case OBJECT_SET: {
+		return copy_string(vm, "<Set>", 5);
+	}
+
+	case OBJECT_BUFFER: {
+		return copy_string(vm, "<Buffer>", 8);
+	}
+	case OBJECT_TUPLE: {
+		return copy_string(vm, "<Tuple>", 7);
+	}
+	case OBJECT_RANGE: {
+		return copy_string(vm, "<Range>", 7);
+	}
+
 	default:
 		return copy_string(vm, "<Crux Object>", 13);
 	}
@@ -926,67 +946,35 @@ ObjectFunction *new_function(VM *vm)
 	return function;
 }
 
-ObjectNativeFunction *new_native_function(VM *vm, const CruxCallable function,
-					  const int arity, ObjectString *name)
+/**
+ *
+ * @param vm The Virtual Machine
+ * @param function The executable function
+ * @param arity The number of arguments
+ * @param name The name of the function
+ * @param arg_types The types of the function arguments. This should be an owned
+ * array
+ * @return The GC owned object
+ */
+ObjectNativeCallable *new_native_callable(VM *vm, const CruxCallable function,
+					  const int arity, ObjectString *name,
+					  const TypeMask *arg_types)
 {
 	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeFunction *native = ALLOCATE_OBJECT(vm, ObjectNativeFunction,
-						       OBJECT_NATIVE_FUNCTION);
+	ObjectNativeCallable *native = ALLOCATE_OBJECT(vm, ObjectNativeCallable,
+						       OBJECT_NATIVE_CALLABLE);
 	pop(vm->current_module_record);
 	native->function = function;
 	native->arity = arity;
 	native->name = name;
+	memcpy(native->arg_types, arg_types, arity * sizeof(TypeMask));
 	return native;
 }
 
-ObjectNativeMethod *new_native_method(VM *vm, const CruxCallable function,
-				      const int arity, ObjectString *name)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeMethod *native = ALLOCATE_OBJECT(vm, ObjectNativeMethod,
-						     OBJECT_NATIVE_METHOD);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	return native;
-}
-
-ObjectNativeInfallibleFunction *
-new_native_infallible_function(VM *vm, const CruxInfallibleCallable function,
-			       const int arity, ObjectString *name)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeInfallibleFunction *native =
-		ALLOCATE_OBJECT(vm, ObjectNativeInfallibleFunction,
-				OBJECT_NATIVE_INFALLIBLE_FUNCTION);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	return native;
-}
-
-ObjectNativeInfallibleMethod *
-new_native_infallible_method(VM *vm, const CruxInfallibleCallable function,
-			     const int arity, ObjectString *name)
-{
-	push(vm->current_module_record, OBJECT_VAL(name));
-	ObjectNativeInfallibleMethod *native =
-		ALLOCATE_OBJECT(vm, ObjectNativeInfallibleMethod,
-				OBJECT_NATIVE_INFALLIBLE_METHOD);
-	pop(vm->current_module_record);
-	native->function = function;
-	native->arity = arity;
-	native->name = name;
-	return native;
-}
-
-ObjectTable *new_table(VM *vm, const int element_count,
-		       ObjectModuleRecord *module_record)
+ObjectTable *new_object_table(VM *vm, const int element_count)
 {
 	ObjectTable *table = ALLOCATE_OBJECT(vm, ObjectTable, OBJECT_TABLE);
-	push(module_record, OBJECT_VAL(table));
+	push(vm->current_module_record, OBJECT_VAL(table));
 	table->size = 0;
 	table->entries = NULL;
 	const uint32_t newCapacity = element_count < 16
@@ -1000,7 +988,7 @@ ObjectTable *new_table(VM *vm, const int element_count,
 		table->entries[i].key = NIL_VAL;
 		table->entries[i].is_occupied = false;
 	}
-	pop(module_record);
+	pop(vm->current_module_record);
 	return table;
 }
 
@@ -1191,18 +1179,17 @@ bool object_table_get(ObjectTableEntry *entries, const uint32_t size,
 	return true;
 }
 
-ObjectArray *new_array(VM *vm, const uint32_t element_count,
-		       ObjectModuleRecord *module_record)
+ObjectArray *new_array(VM *vm, const uint32_t element_count)
 {
 	ObjectArray *array = ALLOCATE_OBJECT(vm, ObjectArray, OBJECT_ARRAY);
-	push(module_record, OBJECT_VAL(array));
+	push(vm->current_module_record, OBJECT_VAL(array));
 	array->capacity = calculateCollectionCapacity(element_count);
 	array->size = 0;
 	array->values = ALLOCATE(vm, Value, array->capacity);
 	for (uint32_t i = 0; i < array->capacity; i++) {
 		array->values[i] = NIL_VAL;
 	}
-	pop(module_record);
+	pop(vm->current_module_record);
 	return array;
 }
 
@@ -1409,4 +1396,67 @@ ObjectVector *new_vector(VM *vm, const uint32_t dimensions)
 	}
 	pop(vm->current_module_record);
 	return vector;
+}
+
+ObjectComplex *new_complex_number(VM *vm, const double real,
+				  const double imaginary)
+{
+	ObjectComplex *complex_number = ALLOCATE_OBJECT(vm, ObjectComplex,
+							OBJECT_COMPLEX);
+	complex_number->real = real;
+	complex_number->imag = imaginary;
+	return complex_number;
+}
+
+ObjectMatrix *new_matrix(VM *vm, const uint16_t row_dim, const uint16_t col_dim)
+{
+	ObjectMatrix *matrix = ALLOCATE_OBJECT(vm, ObjectMatrix, OBJECT_MATRIX);
+	matrix->row_dim = row_dim;
+	matrix->col_dim = col_dim;
+	push(vm->current_module_record, OBJECT_VAL(matrix));
+	matrix->data = ALLOCATE(vm, double, row_dim *col_dim);
+	pop(vm->current_module_record);
+	return matrix;
+}
+
+ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step)
+{
+	ObjectRange *range = ALLOCATE_OBJECT(vm, ObjectRange, OBJECT_RANGE);
+	range->start = start;
+	range->end = end;
+	range->step = step;
+	return range;
+}
+
+ObjectSet *new_set(VM *vm, uint32_t element_count)
+{
+	ObjectSet *set = ALLOCATE_OBJECT(vm, ObjectSet, OBJECT_SET);
+	push(vm->current_module_record, OBJECT_VAL(set));
+	set->entries = new_object_table(vm, element_count);
+	pop(vm->current_module_record);
+	return set;
+}
+
+ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size)
+{
+	ObjectBuffer *buffer = ALLOCATE_OBJECT(vm, ObjectBuffer, OBJECT_BUFFER);
+	buffer->capacity = buffer_size;
+	buffer->read_pos = 0;
+	buffer->write_pos = 0;
+	buffer->data = NULL;
+	push(vm->current_module_record, OBJECT_VAL(buffer));
+	buffer->data = ALLOCATE(vm, uint8_t, buffer->capacity);
+	pop(vm->current_module_record);
+	return buffer;
+}
+
+ObjectTuple *new_tuple(VM *vm, uint32_t size)
+{
+	ObjectTuple *tuple = ALLOCATE_OBJECT(vm, ObjectTuple, OBJECT_TUPLE);
+	tuple->elements = NULL;
+	tuple->size = size;
+	push(vm->current_module_record, OBJECT_VAL(tuple));
+	tuple->elements = ALLOCATE(vm, Value, size);
+	pop(vm->current_module_record);
+	return tuple;
 }

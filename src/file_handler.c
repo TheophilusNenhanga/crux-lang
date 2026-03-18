@@ -213,8 +213,9 @@ char *resolve_path(const char *base_path, const char *import_path)
 #else
 	char resolvedPath[MAX_PATH_LENGTH];
 	if (realpath(combinedPath, resolvedPath) == NULL) {
+		char *result = strdup(combinedPath);
 		free(combinedPath);
-		return strdup(combinedPath);
+		return result;
 	}
 	free(combinedPath);
 	return strdup(resolvedPath);

@@ -1,13 +1,16 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdint.h>
 #include <stdio.h>
 
-#include "../include/value.h"
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
+#include "value.h"
 #include "vm.h"
+
+#define NATIVE_FUNCTION_MAX_ARGS 8
 
 #define GC_PROTECT_START(current_module_record)                                \
 	Value *gc_stack_start = (current_module_record)->stack_top
@@ -33,28 +36,16 @@
 			new_error_result((vm), gc_safe_error);                 \
 		pop((vm)->current_module_record);                              \
 		pop((vm)->current_module_record);                              \
-		gcSafeErrorResult;                                             \
+		OBJECT_VAL(gcSafeErrorResult);                                 \
 	})
 
-#define MAKE_GC_SAFE_RESULT(vm, alreadySafeValue)                              \
+#define MAKE_GC_SAFE_RESULT(vm, object)                                        \
 	({                                                                     \
-		GC_PROTECT_START((vm)->current_module_record);                 \
-		GC_PROTECT((vm)->current_module_record, alreadySafeValue);     \
-		ObjectResult *gcSafeResult = newOkResult((vm),                 \
-							 alreadySafeValue);    \
-		GC_PROTECT_END((vm)->current_module_record);                   \
-		gcSafeResult;                                                  \
-	})
-
-#define MAKE_GC_SAFE_RESULT_WITH_ALLOC(vm, allocatingExpression)               \
-	({                                                                     \
-		GC_PROTECT_START((vm)->current_module_record);                 \
-		Value allocatedValue = (allocatingExpression);                 \
-		GC_PROTECT((vm)->current_module_record, allocatedValue);       \
-		ObjectResult *gcSafeResultWithAlloc =                          \
-			newOkResult((vm), allocatedValue);                     \
-		GC_PROTECT_END((vm)->current_module_record);                   \
-		gcSafeResultWithAlloc;                                         \
+		push((vm)->current_module_record, OBJECT_VAL(object));         \
+		ObjectResult *gcSafeResult =                                   \
+			new_ok_result((vm), OBJECT_VAL(object));               \
+		pop((vm)->current_module_record);                              \
+		OBJECT_VAL(gcSafeResult);                                      \
 	})
 
 #define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
@@ -62,19 +53,14 @@
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
-#define IS_CRUX_NATIVE_FUNCTION(value)                                         \
-	is_object_type(value, OBJECT_NATIVE_FUNCTION)
-#define IS_CRUX_NATIVE_METHOD(value) is_object_type(value, OBJECT_NATIVE_METHOD)
+#define IS_CRUX_NATIVE_CALLABLE(value)                                         \
+	is_object_type(value, OBJECT_NATIVE_CALLABLE)
 #define IS_CRUX_CLOSURE(value) is_object_type(value, OBJECT_CLOSURE)
 #define IS_CRUX_BOUND_METHOD(value) is_object_type(value, OBJECT_BOUND_METHOD)
 #define IS_CRUX_ARRAY(value) is_object_type(value, OBJECT_ARRAY)
 #define IS_CRUX_TABLE(value) is_object_type(value, OBJECT_TABLE)
 #define IS_CRUX_ERROR(value) is_object_type(value, OBJECT_ERROR)
 #define IS_CRUX_RESULT(value) is_object_type(value, OBJECT_RESULT)
-#define IS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_FUNCTION)
-#define IS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-	is_object_type(value, OBJECT_NATIVE_INFALLIBLE_METHOD)
 #define IS_CRUX_RANDOM(value) is_object_type(value, OBJECT_RANDOM)
 #define IS_CRUX_FILE(value) is_object_type(value, OBJECT_FILE)
 #define IS_CRUX_MODULE_RECORD(value) is_object_type(value, OBJECT_MODULE_RECORD)
@@ -82,24 +68,24 @@
 #define IS_CRUX_STRUCT_INSTANCE(value)                                         \
 	is_object_type(value, OBJECT_STRUCT_INSTANCE)
 #define IS_CRUX_VECTOR(value) is_object_type(value, OBJECT_VECTOR)
-#define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
+#define IS_CRUX_COMPLEX(value) is_object_type(value, OBJECT_COMPLEX)
+#define IS_CRUX_MATRIX(value) is_object_type(value, OBJECT_MATRIX)
+#define IS_CRUX_BUFFER(value) is_object_type(value, OBJECT_BUFFER)
+#define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
+#define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
+#define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
 
+#define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
 #define AS_CRUX_FUNCTION(value) ((ObjectFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_FUNCTION(value)                                         \
-	((ObjectNativeFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_METHOD(value)                                           \
-	((ObjectNativeMethod *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_NATIVE_CALLABLE(value)                                         \
+	((ObjectNativeCallable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_CLOSURE(value) ((ObjectClosure *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_BOUND_METHOD(value) ((ObjectBoundMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ARRAY(value) ((ObjectArray *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TABLE(value) ((ObjectTable *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_ERROR(value) ((ObjectError *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RESULT(value) ((ObjectResult *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_INFALLIBLE_FUNCTION(value)                              \
-	((ObjectNativeInfallibleFunction *)AS_CRUX_OBJECT(value))
-#define AS_CRUX_NATIVE_INFALLIBLE_METHOD(value)                                \
-	((ObjectNativeInfallibleMethod *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANDOM(value) ((ObjectRandom *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_FILE(value) ((ObjectFile *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_MODULE_RECORD(value)                                           \
@@ -109,6 +95,12 @@
 #define AS_CRUX_STRUCT_INSTANCE(value)                                         \
 	((ObjectStructInstance *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_VECTOR(value) ((ObjectVector *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_COMPLEX(value) ((ObjectComplex *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_MATRIX(value) ((ObjectMatrix *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_BUFFER(value) ((ObjectBuffer *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
 
 #define IS_CRUX_HASHABLE(value)                                                \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) ||          \
@@ -117,30 +109,33 @@
 typedef enum {
 	OBJECT_STRING,
 	OBJECT_FUNCTION,
-	OBJECT_NATIVE_FUNCTION,
-	OBJECT_NATIVE_METHOD,
+	OBJECT_NATIVE_CALLABLE,
 	OBJECT_CLOSURE,
 	OBJECT_UPVALUE,
 	OBJECT_ARRAY,
 	OBJECT_TABLE,
 	OBJECT_ERROR,
 	OBJECT_RESULT,
-	OBJECT_NATIVE_INFALLIBLE_FUNCTION,
-	OBJECT_NATIVE_INFALLIBLE_METHOD,
 	OBJECT_RANDOM,
 	OBJECT_FILE,
 	OBJECT_MODULE_RECORD,
 	OBJECT_STRUCT,
 	OBJECT_STRUCT_INSTANCE,
 	OBJECT_VECTOR,
+	OBJECT_COMPLEX,
+	OBJECT_MATRIX,
+	OBJECT_BUFFER,
+	OBJECT_SET,
+	OBJECT_TUPLE,
+	OBJECT_RANGE,
 } ObjectType;
 
-struct CruxObject {//8
+struct CruxObject { // 8
 	uint32_t pool_index;
 	ObjectType type;
 };
 
-struct PoolObject {//8
+struct PoolObject { // 8
 	void *data;
 };
 
@@ -152,8 +147,11 @@ struct PoolObject {//8
 	((obj)->data = (void *)((uintptr_t)(ptr) |                             \
 				((uintptr_t)(obj)->data & MARK_BIT)))
 #define SET_MARKED(obj, marked)                                                \
-	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |            \
+	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) |          \
 				((marked) ? MARK_BIT : 0)))
+
+#define TO_DOUBLE(value)                                                       \
+	(IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
 struct ObjectString { // 24
 	CruxObject object;
@@ -162,7 +160,7 @@ struct ObjectString { // 24
 	uint32_t hash;
 };
 
-typedef struct {//72
+typedef struct { // 72
 	CruxObject object;
 	int arity;
 	int upvalue_count;
@@ -171,28 +169,28 @@ typedef struct {//72
 	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
-typedef struct ObjectUpvalue {//32
+typedef struct ObjectUpvalue { // 32
 	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct ObjectClosure {//32
+typedef struct ObjectClosure { // 32
 	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
-typedef struct {//16
+typedef struct { // 16
 	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
@@ -225,14 +223,14 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
-struct ObjectResult {//24
+struct ObjectResult { // 24
 	CruxObject object;
 	bool is_ok;
 	union {
@@ -241,52 +239,30 @@ struct ObjectResult {//24
 	} as;
 };
 
-typedef ObjectResult *(*CruxCallable)(VM *vm, int arg_count, const Value *args);
-typedef Value (*CruxInfallibleCallable)(VM *vm, int arg_count,
-					const Value *args);
+typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct {//32
+typedef struct { // 64
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
 	int arity;
-} ObjectNativeFunction;
+	TypeMask arg_types[NATIVE_FUNCTION_MAX_ARGS];
+} ObjectNativeCallable;
 
-typedef struct {//32
-	CruxObject object;
-	CruxCallable function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeMethod;
-
-typedef struct {//32
-	CruxObject object;
-	CruxInfallibleCallable function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeInfallibleFunction;
-
-typedef struct {//32
-	CruxObject object;
-	CruxInfallibleCallable function;
-	ObjectString *name;
-	int arity;
-} ObjectNativeInfallibleMethod;
-
-typedef struct {//24
+typedef struct { // 24
 	Value key;
 	Value value;
 	bool is_occupied;
 } ObjectTableEntry;
 
-typedef struct {//24
+typedef struct { // 24
 	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
-typedef struct {//48
+typedef struct { // 48
 	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
@@ -295,13 +271,13 @@ typedef struct {//48
 	bool is_open;
 } ObjectFile;
 
-typedef struct {//32
+typedef struct { // 32
 	CruxObject object;
 	ObjectString *name;
 	Table fields; // <field_name: index>
 } ObjectStruct;
 
-struct ObjectStructInstance {//32
+struct ObjectStructInstance { // 32
 	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
@@ -309,17 +285,33 @@ struct ObjectStructInstance {//32
 };
 
 #define STATIC_VECTOR_SIZE 4
-#define VECTOR_COMPONENTS(vec) \
-((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
+#define VECTOR_COMPONENTS(vec)                                                 \
+	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components      \
+						 : (vec)->as.h_components)
 
-typedef struct {//48
+typedef struct { // 48
 	CruxObject object;
 	uint32_t dimensions;
 	union {
-		double* h_components; /* heap components */
+		double *h_components; /* heap components */
 		double s_components[STATIC_VECTOR_SIZE]; /* static components */
 	} as;
 } ObjectVector;
+
+typedef struct // 32
+{
+	CruxObject object;
+	double real;
+	double imag;
+} ObjectComplex;
+
+#define MATRIX_AT(m, i, j) ((m)->data[(i) * (m)->col_dim + (j)])
+typedef struct {
+	CruxObject object;
+	uint16_t row_dim;
+	uint16_t col_dim;
+	double *data;
+} ObjectMatrix;
 
 typedef enum {
 	STATE_LOADING,
@@ -327,7 +319,7 @@ typedef enum {
 	STATE_ERROR,
 } ModuleState;
 
-struct ObjectModuleRecord {//112
+struct ObjectModuleRecord { // 112
 	CruxObject object;
 	ObjectString *path;
 	Table globals;
@@ -345,6 +337,32 @@ struct ObjectModuleRecord {//112
 	bool is_main;
 	ModuleState state;
 };
+
+typedef struct { // 40
+	CruxObject object;
+	int32_t start;
+	int32_t end;
+	int32_t step;
+} ObjectRange;
+
+typedef struct { // 24
+	CruxObject object;
+	ObjectTable *entries;
+} ObjectSet;
+
+typedef struct { // 32
+	CruxObject object;
+	uint32_t read_pos;
+	uint32_t write_pos;
+	uint32_t capacity;
+	uint8_t *data;
+} ObjectBuffer;
+
+typedef struct { // 20
+	CruxObject object;
+	uint32_t size;
+	Value *elements;
+} ObjectTuple;
 
 static bool is_object_type(const Value value, const ObjectType type)
 {
@@ -408,59 +426,13 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function);
  * @param arity The expected number of arguments for the native function.
  * @param name The name of the native function as an ObjectString (for
  * debugging).
+ * @param arg_types The types of the arguments. This array must be owned
  *
  * @return A pointer to the newly created ObjectNativeFunction.
  */
-ObjectNativeFunction *new_native_function(VM *vm, CruxCallable function,
-					  int arity, ObjectString *name);
-
-/**
- * @brief Creates a new native method object.
- *
- * Native methods are similar to native functions but are associated with
- * classes. This function allocates and initializes a new ObjectNativeMethod.
- *
- * @param vm The virtual machine.
- * @param function The C function pointer representing the native method's
- * implementation.
- * @param arity The expected number of arguments for the native method.
- * @param name The name of the native method as an ObjectString (for debugging).
- *
- * @return A pointer to the newly created ObjectNativeMethod.
- */
-ObjectNativeMethod *new_native_method(VM *vm, CruxCallable function, int arity,
-				      ObjectString *name);
-
-/**
- * @brief Creates a new native infallible function object.
- *
- * Native infallible functions are implemented in C, callable from crux code,
- * and guaranteed not to return errors. This function allocates and initializes
- * a new ObjectNativeInfallibleFunction.
- *
- * @param vm The virtual machine.
- * @param function The C function pointer representing the native function's
- * implementation.
- * @param arity The expected number of arguments for the native function.
- * @param name The name of the native function as an ObjectString (for
- * debugging).
- *
- * @return A pointer to the newly created ObjectNativeInfallibleFunction.
- */
-ObjectNativeInfallibleFunction *
-new_native_infallible_function(VM *vm, CruxInfallibleCallable function,
-			       int arity, ObjectString *name);
-
-/**
- * @brief Creates a new native infallible method object.
- *
- * Native infallible methods are similar to native infallible functions but are
- * associated with classes. This function allocates and initializes a new
- * ObjectNativeInfallibleMethod.
- */
-ObjectNativeInfallibleMethod *
-new_native_infallible_method(VM *vm, CruxInfallibleCallable function, int arity,
-			     ObjectString *name);
+ObjectNativeCallable *new_native_callable(VM *vm, CruxCallable function,
+					  int arity, ObjectString *name,
+					  const TypeMask *arg_types);
 
 /**
  * @brief Creates a new function object.
@@ -485,12 +457,10 @@ ObjectFunction *new_function(VM *vm);
  * @param element_count Hint for initial table size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount` (or 16 if
  * `elementCount` is less than 16).
- * @param module_record
  *
  * @return A pointer to the newly created ObjectTable.
  */
-ObjectTable *new_table(VM *vm, int element_count,
-		       ObjectModuleRecord *module_record);
+ObjectTable *new_object_table(VM *vm, int element_count);
 
 /**
  * @brief Creates a new ok result with a boxed value.
@@ -528,12 +498,10 @@ ObjectResult *new_error_result(VM *vm, ObjectError *error);
  * @param vm The virtual machine.
  * @param element_count Hint for initial array size. The capacity will be the
  * next power of 2 greater than or equal to `elementCount`.
- * @param module_record
  *
  * @return A pointer to the newly created ObjectArray.
  */
-ObjectArray *new_array(VM *vm, uint32_t element_count,
-		       ObjectModuleRecord *module_record);
+ObjectArray *new_array(VM *vm, uint32_t element_count);
 
 /**
  * @brief Creates a new string object and takes ownership of the given character
@@ -596,7 +564,11 @@ ObjectString *to_string(VM *vm, Value value);
  */
 void print_object(Value value, bool in_collection);
 
-void print_type(Value value);
+void print_type_to(FILE *stream, Value value);
+
+void print_value_to(FILE *stream, Value value, bool inCollection);
+
+void print_error_type_to(FILE *stream, ErrorType type);
 
 /**
  * @brief Frees the memory associated with an object table.
@@ -616,16 +588,9 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record);
  * @brief Sets a key-value pair in an object table.
  *
  * This function inserts or updates a key-value pair in an ObjectTable. It
- * resizes the table if necessary to maintain performance and handles key
- * collisions using open addressing.
+ * resizes the table if necessary.
  *
- * @param vm The virtual machine.
- * @param table The ObjectTable to modify.
- * @param key The key Value.
- * @param value The value Value.
- *
- * @return true if the set operation was successful, false otherwise (e.g.,
- * memory allocation failure during resizing).
+ * @return true if the set operation was successful, false otherwise.
  */
 bool object_table_set(VM *vm, ObjectTable *table, Value key, Value value);
 
@@ -756,8 +721,20 @@ ObjectStruct *new_struct_type(VM *vm, ObjectString *name);
 ObjectStructInstance *new_struct_instance(VM *vm, ObjectStruct *struct_type,
 					  uint16_t field_count);
 
-ObjectVector *new_vector(VM* vm, uint32_t dimensions);
+ObjectVector *new_vector(VM *vm, uint32_t dimensions);
 
 void free_module_record(VM *vm, ObjectModuleRecord *module_record);
+
+ObjectComplex *new_complex_number(VM *vm, double real, double imaginary);
+
+ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
+
+ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
+
+ObjectSet *new_set(VM *vm, uint32_t element_count);
+
+ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
+
+ObjectTuple *new_tuple(VM *vm, uint32_t size);
 
 #endif

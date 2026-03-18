@@ -9,23 +9,25 @@
 #include "panic.h"
 #include "stdlib/time.h"
 
-Value time_seconds_function_(VM *vm,
-			     int arg_count,
-			     const Value *args)
+/**
+ * Returns the current Unix timestamp in seconds
+ * Returns Float
+ */
+Value time_seconds_function_(VM *vm, const Value *args)
 {
-	(void) vm;
-	(void) arg_count;
-	(void) args;
+	(void)vm;
+	(void)args;
 	return FLOAT_VAL((double)time(NULL));
 }
 
-Value time_milliseconds_function_(VM *vm,
-				  int arg_count,
-				  const Value *args)
+/**
+ * Returns the current Unix timestamp in milliseconds
+ * Returns Float
+ */
+Value time_milliseconds_function_(VM *vm, const Value *args)
 {
-	(void) vm;
-	(void) arg_count;
-	(void) args;
+	(void)vm;
+	(void)args;
 #ifdef _WIN32
 	SYSTEMTIME st;
 	GetSystemTime(&st);
@@ -38,25 +40,20 @@ Value time_milliseconds_function_(VM *vm,
 #else
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
-	uint64_t ms = (uint64_t)ts.tv_sec * 1000 +
-		      (uint64_t)ts.tv_nsec / 1000000;
+	const uint64_t ms = (uint64_t)ts.tv_sec * 1000 +
+			    (uint64_t)ts.tv_nsec / 1000000;
 #endif
 	return FLOAT_VAL((double)ms);
 }
 
-ObjectResult *sleep_seconds_function(VM *vm,
-				     int arg_count,
-				     const Value *args)
+/**
+ * Pauses execution for the specified number of seconds
+ * arg0 -> seconds: Float
+ * Returns Result<Nil>
+ */
+Value sleep_seconds_function(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Parameter <duration> must be of type 'int' | 'float'.",
-			TYPE);
-	}
-
-	const double seconds = AS_FLOAT(args[0]);
+	const double seconds = TO_DOUBLE(args[0]);
 	if (seconds < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Sleep duration cannot be negative.",
@@ -68,22 +65,17 @@ ObjectResult *sleep_seconds_function(VM *vm,
 #else
 	sleep((unsigned int)seconds);
 #endif
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
-ObjectResult *sleep_milliseconds_function(VM *vm,
-					  int arg_count,
-					  const Value *args)
+/**
+ * Pauses execution for the specified number of milliseconds
+ * arg0 -> milliseconds: Float
+ * Returns Result<Nil>
+ */
+Value sleep_milliseconds_function(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	if (!IS_INT(args[0]) || IS_FLOAT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Parameter <duration> must be of type 'int' | 'float'.",
-			TYPE);
-	}
-
-	const double milliseconds = AS_FLOAT(args[0]);
+	const double milliseconds = TO_DOUBLE(args[0]);
 	if (milliseconds < 0) {
 		return MAKE_GC_SAFE_ERROR(vm,
 					  "Sleep duration cannot be negative.",
@@ -96,7 +88,7 @@ ObjectResult *sleep_milliseconds_function(VM *vm,
 	usleep((useconds_t)(milliseconds * 1000));
 #endif
 
-	return new_ok_result(vm, NIL_VAL);
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
 
 static time_t get_current_time(void)
@@ -104,85 +96,92 @@ static time_t get_current_time(void)
 	return time(NULL);
 }
 
-Value year_function_(VM *vm,
-		     int arg_count,
-		     const Value *args)
+/**
+ * Returns the current year
+ * Returns Int
+ */
+Value year_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_year + 1900);
 }
 
-Value month_function_(VM *vm,
-		      int arg_count,
-		      const Value *args)
+/**
+ * Returns the current month (1-12)
+ * Returns Int
+ */
+Value month_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_mon + 1);
 }
 
-Value day_function_(VM *vm,
-		    int arg_count,
-		    const Value *args)
+/**
+ * Returns the current day of the month (1-31)
+ * Returns Int
+ */
+Value day_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_mday);
 }
 
-Value hour_function_(VM *vm,
-		     int arg_count,
-		     const Value *args)
+/**
+ * Returns the current hour (0-23)
+ * Returns Int
+ */
+Value hour_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_hour);
 }
 
-Value minute_function_(VM *vm,
-		       int arg_count,
-		       const Value *args)
+/**
+ * Returns the current minute (0-59)
+ * Returns Int
+ */
+Value minute_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_min);
 }
 
-Value second_function_(VM *vm,
-		       int arg_count,
-		       const Value *args)
+/**
+ * Returns the current second (0-59)
+ * Returns Int
+ */
+Value second_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_sec);
 }
 
-Value weekday_function_(VM *vm,
-			int arg_count,
-			const Value *args)
+/**
+ * Returns the current day of the week (1=Monday, 7=Sunday)
+ * Returns Int
+ */
+Value weekday_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	// 1 (Monday) - 7 (Sunday)
@@ -190,13 +189,14 @@ Value weekday_function_(VM *vm,
 	return INT_VAL(weekday);
 }
 
-Value day_of_year_function_(VM *vm,
-			    int arg_count,
-			    const Value *args)
+/**
+ * Returns the current day of the year (1-366)
+ * Returns Int
+ */
+Value day_of_year_function_(VM *vm, const Value *args)
 {
-	(void) arg_count;
-	(void) args;
-	(void) vm;
+	(void)args;
+	(void)vm;
 	const time_t t = get_current_time();
 	const struct tm *timeInfo = localtime(&t);
 	return INT_VAL(timeInfo->tm_yday + 1);

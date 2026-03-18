@@ -1,15 +1,10 @@
 #include <math.h>
-#include <stdlib.h>
 
 #include "object.h"
 #include "panic.h"
 #include "stdlib/vectors.h"
 
 #define EPSILON 1e-10
-#define STATIC_VECTOR_SIZE 4
-
-#define TO_DOUBLE(value)                                                       \
-	IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value))
 
 #define IS_ZERO_SCALAR(scalar) ((scalar) < EPSILON && (scalar) > -EPSILON)
 
@@ -137,22 +132,14 @@ static double vector_magnitude(const ObjectVector *vec)
 	return compute_magnitude(components, vec->dimensions);
 }
 
-/* arg_count = 2; arg0 -> dimension, arg1 -> components array */
-ObjectResult *new_vector_function(VM *vm, const int arg_count,
-				  const Value *args)
+/**
+ * Creates a new vector with the specified dimension and components
+ * arg0 -> dimension: Int
+ * arg1 -> components: Array
+ * Returns Result<Vector>
+ */
+Value new_vector_function(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_INT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<dimension> must be of type 'int'.",
-					  TYPE);
-	}
-	if (!IS_CRUX_ARRAY(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "<components> must be of type 'array'.", TYPE);
-	}
-
 	const ObjectArray *array = AS_CRUX_ARRAY(args[1]);
 
 	for (uint32_t i = 0; i < array->size; i++) {
@@ -183,21 +170,17 @@ ObjectResult *new_vector_function(VM *vm, const int arg_count,
 		components[i] = 0.0;
 	}
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_dot_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Computes the dot product of two vectors (vectors must have the same
+ * dimension) arg0 -> vector: Vector arg1 -> other: Vector Returns Result<Float>
+ */
+Value vector_dot_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "dot method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -214,19 +197,17 @@ ObjectResult *vector_dot_method(VM *vm, const int arg_count, const Value *args)
 	const double result = compute_dot_product(comp1, comp2,
 						  vec1->dimensions);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-ObjectResult *vector_add_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Adds two vectors together (vectors must have the same dimension)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
+Value vector_add_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "add method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -246,23 +227,19 @@ ObjectResult *vector_add_method(VM *vm, const int arg_count, const Value *args)
 
 	compute_vector_add(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_subtract_method(VM *vm, const int arg_count,
-				     const Value *args)
+/**
+ * Subtracts one vector from another (vectors must have the same dimension)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
+Value vector_subtract_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"subtract method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -282,23 +259,19 @@ ObjectResult *vector_subtract_method(VM *vm, const int arg_count,
 
 	compute_vector_subtract(result_comp, comp1, comp2, vec1->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
-				     const Value *args)
+/**
+ * Multiplies a vector by a scalar value
+ * arg0 -> vector: Vector
+ * arg1 -> scalar: Float
+ * Returns Result<Vector>
+ */
+Value vector_multiply_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "multiply method can only be used on "
-					  "Vector objects and numbers.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
@@ -310,24 +283,19 @@ ObjectResult *vector_multiply_method(VM *vm, const int arg_count,
 
 	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
 
-	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(result_vector));
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-
-	return result;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_divide_method(VM *vm, const int arg_count,
-				   const Value *args)
+/**
+ * Divides a vector by a scalar value
+ * arg0 -> vector: Vector
+ * arg1 -> scalar: Float
+ * Returns Result<Vector>
+ */
+Value vector_divide_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_NUMERIC(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "divide method can only be used on "
-					  "Vector objects and numbers.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 	const double scalar = TO_DOUBLE(args[1]);
 
@@ -342,40 +310,30 @@ ObjectResult *vector_divide_method(VM *vm, const int arg_count,
 
 	compute_scalar_divide(result_comp, comp, scalar, vec->dimensions);
 
-	return new_ok_result(vm, OBJECT_VAL(result_vector));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-ObjectResult *vector_magnitude_method(VM *vm, const int arg_count,
-				      const Value *args)
+/**
+ * Returns the magnitude (length) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
+Value vector_magnitude_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"magnitude method can only be used on Vector objects.",
-			TYPE);
-	}
-
+	(void)vm;
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
-
 	const double magnitude = vector_magnitude(vec);
 
-	return new_ok_result(vm, FLOAT_VAL(magnitude));
+	return FLOAT_VAL(magnitude);
 }
 
-ObjectResult *vector_normalize_method(VM *vm, const int arg_count,
-				      const Value *args)
+/**
+ * Returns a normalized (unit length) version of the vector
+ * arg0 -> vector: Vector
+ * Returns Result<Vector>
+ */
+Value vector_normalize_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"normalize method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
 
 	const double magnitude = vector_magnitude(vec);
@@ -392,21 +350,17 @@ ObjectResult *vector_normalize_method(VM *vm, const int arg_count,
 
 	compute_normalize(result_comp, comp, magnitude, vec->dimensions);
 
-	return new_ok_result(vm, OBJECT_VAL(result_vector));
+	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
 }
 
-ObjectResult *vector_distance_method(VM *vm, const int arg_count,
-				     const Value *args)
+/**
+ * Returns the Euclidean distance between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Float>
+ */
+Value vector_distance_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"distance method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -423,26 +377,23 @@ ObjectResult *vector_distance_method(VM *vm, const int arg_count,
 	const double distance = compute_distance(comp1, comp2,
 						 vec1->dimensions);
 
-	return new_ok_result(vm, FLOAT_VAL(distance));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(distance)));
 }
 
-ObjectResult *vector_cross_method(VM *vm, const int arg_count,
-				  const Value *args)
+/**
+ * Computes the cross product of two 3D vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
+Value vector_cross_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "cross method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
 	if (vec1->dimensions != 3 || vec2->dimensions != 3) {
 		return MAKE_GC_SAFE_ERROR(
-			vm, "cross product is only defined for 3D vectors.",
+			vm, "cross product is only defined for 3-D vectors.",
 			TYPE);
 	}
 
@@ -459,21 +410,17 @@ ObjectResult *vector_cross_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_angle_between_method(VM *vm, const int arg_count,
-					  const Value *args)
+/**
+ * Returns the angle in radians between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Float>
+ */
+Value vector_angle_between_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "angleBetween method can only be "
-					  "used on Vector objects.",
-					  TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
@@ -498,21 +445,18 @@ ObjectResult *vector_angle_between_method(VM *vm, const int arg_count,
 	const double clampedCos = fmax(-1.0, fmin(1.0, cosTheta));
 	const double result = acos(clampedCos);
 
-	return new_ok_result(vm, FLOAT_VAL(result));
+	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-ObjectResult *vector_lerp_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Linear interpolation between two vectors
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * arg2 -> t: Float (interpolation factor between 0 and 1)
+ * Returns Result<Vector>
+ */
+Value vector_lerp_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1]) ||
-	    !IS_NUMERIC(args[2])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"lerp method requires two Vector objects and a number.",
-			TYPE);
-	}
-
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 	const double t = TO_DOUBLE(args[2]);
@@ -534,21 +478,17 @@ ObjectResult *vector_lerp_method(VM *vm, const int arg_count, const Value *args)
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_reflect_method(VM *vm, const int arg_count,
-				    const Value *args)
+/**
+ * Reflects a vector off a surface with the given normal
+ * arg0 -> vector: Vector
+ * arg1 -> normal: Vector
+ * Returns Result<Vector>
+ */
+Value vector_reflect_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"reflect method can only be used on Vector objects.",
-			TYPE);
-	}
-
 	const ObjectVector *incident = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *normal = AS_CRUX_VECTOR(args[1]);
 
@@ -578,25 +518,23 @@ ObjectResult *vector_reflect_method(VM *vm, const int arg_count,
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
-	return res;
+	return OBJECT_VAL(res);
 }
 
-ObjectResult *vector_equals_method(VM *vm, const int arg_count,
-				   const Value *args)
+/**
+ * Checks if two vectors are equal (with epsilon tolerance)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Bool
+ */
+Value vector_equals_method(VM *vm, const Value *args)
 {
-	(void)arg_count;
-
-	if (!IS_CRUX_VECTOR(args[0]) || !IS_CRUX_VECTOR(args[1])) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "equals method can only be used on Vector objects.",
-			TYPE);
-	}
-
+	(void)vm;
 	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
 	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
 
 	if (vec1->dimensions != vec2->dimensions) {
-		return new_ok_result(vm, BOOL_VAL(false));
+		return BOOL_VAL(false);
 	}
 
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
@@ -604,13 +542,18 @@ ObjectResult *vector_equals_method(VM *vm, const int arg_count,
 
 	const bool equal = compute_equals(comp1, comp2, vec1->dimensions);
 
-	return new_ok_result(vm, BOOL_VAL(equal));
+	return BOOL_VAL(equal);
 }
 
-Value vector_x_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Returns the x component (first dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
+Value vector_x_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 1) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -619,10 +562,15 @@ Value vector_x_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_y_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Returns the y component (second dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
+Value vector_y_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 2) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -631,10 +579,15 @@ Value vector_y_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_z_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Returns the z component (third dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
+Value vector_z_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 3) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -643,10 +596,15 @@ Value vector_z_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_w_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Returns the w component (fourth dimension) of the vector
+ * arg0 -> vector: Vector
+ * Returns Float
+ */
+Value vector_w_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	if (vector->dimensions >= 4) {
 		const double *comp = VECTOR_COMPONENTS(vector);
@@ -655,10 +613,15 @@ Value vector_w_method(VM *vm, const int arg_count, const Value *args)
 	return NIL_VAL;
 }
 
-Value vector_dimension_method(VM *vm, const int arg_count, const Value *args)
+/**
+ * Returns the number of dimensions of the vector
+ * arg0 -> vector: Vector
+ * Returns Int
+ */
+Value vector_dimension_method(VM *vm, const Value *args)
 {
 	(void)vm;
-	(void)arg_count;
+
 	const ObjectVector *vector = AS_CRUX_VECTOR(args[0]);
 	return INT_VAL(vector->dimensions);
 }

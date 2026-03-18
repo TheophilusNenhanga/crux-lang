@@ -1,17 +1,19 @@
+use println from "crux:io";
+
 println("=== START OF TESTING STRUCTS ===");
 
 // Basic struct creation and typing
 struct Test {}
-assert((typeof Test) == "struct", "Failed to create struct with no fields.");
+assert((typeof Test) == "Struct", "Failed to create struct with no fields.");
 
 struct Point { x, y }
-assert((typeof Point) == "struct", "Failed to create struct with fields.");
+assert((typeof Point) == "Struct", "Failed to create struct with fields.");
 
 let t = new Test {};
-assert((typeof t) == "struct instance", "Failed to make an instance with no fields.");
+assert((typeof t) == "Struct instance", "Failed to make an instance with no fields.");
 
 let p = new Point {};
-assert((typeof p) == "struct instance", "Failed to make an instance of a struct that has two fields");
+assert((typeof p) == "Struct instance", "Failed to make an instance of a struct that has two fields");
 
 let p1 = new Point { x: 12 };
 assert(p1.x == 12, "Failed to create struct and set field value");
@@ -47,7 +49,7 @@ let calc = new Calculator {
 
 assert(calc.add(5, 3) == 8, "Failed to call function field - addition");
 assert(calc.multiply(4, 6) == 24, "Failed to call function field - multiplication");
-assert((typeof calc.add) == "function", "Function field should have function type");
+assert((typeof calc.add) == "Function", "Function field should have function type");
 
 // Function fields with closure over struct data
 struct Counter {

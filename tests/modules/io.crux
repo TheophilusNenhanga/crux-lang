@@ -1,8 +1,60 @@
-use open_file, print_to from "crux:io";
+use (
+    print,
+    println,
+    print_to,
+    println_to,
+    scan,
+    scanln,
+    nscan,
+    scan_from,
+    scanln_from,
+    nscan_from
+) from "crux:io";
 
-let f1 = open_file("test.txt", "w");
-f1 = match f1 {
-    Ok(file) => give file;
-    Err(e) => panic("Failed to open file in test case 1.\n" + e);
-};
-assert(typeof f1 == "file", "Failed to create file: test.txt");
+// testing print()
+print("This is a test.");
+print(" This should print on the same line.\n");
+
+// testing println()
+println("This should add a new line at the end.");
+println("This should be on a new line.");
+
+// testing print_to()
+print_to("stderr", "This is an error.");
+print_to("stdout", "This is not an error.");
+
+// testing println_to()
+print_to("stderr", "This is an error with a new line at the end.");
+print_to("stdout", "This is not an error with a new line at the end.");
+
+// Commenting these tests out because require user input
+// // testing scan
+// println("type 1 character");
+// let scan_res = scan()?;
+// println("You typed: " + scan_res);
+//
+// // testing nscan
+// println("Type 3 characters");
+// let nscan_res = nscan(3)?;
+// println("you typed: " + nscan_res);
+//
+// // testing scanln
+// println("Type a line");
+// let scanln_res = scanln()?;
+// println("you typed: " + scanln_res);
+//
+// // testing scan_from
+// println("type 1 character");
+// let scanfrom_res = scan_from("stdin")?;
+// println("you typed: " + scanfrom_res);
+//
+// // testing scanln_from
+// println("type a line");
+// let scanlnfrom_res = scanln_from("stdin")?;
+// println("you typed: " + scanlnfrom_res);
+//
+// // testing nscan_from
+// println("type 3 characters");
+// let nscanfrom_res = nscan_from("stdin", 3)?;
+// println("you typed: " + nscanfrom_res);
+//

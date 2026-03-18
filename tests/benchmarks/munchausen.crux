@@ -1,3 +1,5 @@
+use println from "crux:io";
+
 let max = 440000000;
 
 let cache = [0];

@@ -1,0 +1,202 @@
+use println from "crux:io";
+use Matrix, IMatrix, AMatrix from "crux:matrix";
+
+println("=== Testing Matrix Module ===");
+
+fn unwrap(r) {
+    return match r {
+        Ok(v) => give v;
+        Err(_) => give nil;
+    };
+}
+
+// Test Matrix constructor
+println("--- Testing Matrix constructor ---");
+let m1 = Matrix(3, 3)?;
+assert(typeof m1 == "Matrix", "Matrix() should return Matrix object");
+
+let m2 = Matrix(2, 4)?;
+assert(typeof m2 == "Matrix", "Matrix() should work for non-square matrices");
+println("Matrix constructor test passed");
+
+// Test rows and cols
+println("--- Testing rows and cols ---");
+assert(m1.rows() == 3, "rows() should return row count");
+assert(m1.cols() == 3, "cols() should return column count");
+assert(m2.rows() == 2, "rows() for 2x4 matrix");
+assert(m2.cols() == 4, "cols() for 2x4 matrix");
+println("rows() and cols() test passed");
+
+// Test set and get
+println("--- Testing set and get ---");
+m1.set(0, 0, 1.0)?;
+m1.set(0, 1, 2.0)?;
+m1.set(0, 2, 3.0)?;
+m1.set(1, 0, 4.0)?;
+m1.set(1, 1, 5.0)?;
+m1.set(1, 2, 6.0)?;
+m1.set(2, 0, 7.0)?;
+m1.set(2, 1, 8.0)?;
+m1.set(2, 2, 9.0)?;
+
+assert(m1.get(0, 0)? == 1.0, "get should return set value");
+assert(m1.get(1, 1)? == 5.0, "get should return set value");
+assert(m1.get(2, 2)? == 9.0, "get should return set value");
+println("set() and get() test passed");
+
+// Test IMatrix (identity matrix)
+println("--- Testing IMatrix (identity matrix) ---");
+let identity = IMatrix(3)?;
+assert(identity.get(0, 0)? == 1.0, "identity diagonal should be 1");
+assert(identity.get(1, 1)? == 1.0, "identity diagonal should be 1");
+assert(identity.get(2, 2)? == 1.0, "identity diagonal should be 1");
+assert(identity.get(0, 1)? == 0.0, "identity off-diagonal should be 0");
+assert(identity.get(1, 0)? == 0.0, "identity off-diagonal should be 0");
+println("IMatrix() test passed");
+
+// Test AMatrix (matrix from array)
+println("--- Testing AMatrix (matrix from array) ---");
+let arr = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+let m3 = AMatrix(2, 3, arr)?;
+assert(m3.get(0, 0)? == 1.0, "AMatrix first element");
+assert(m3.get(0, 2)? == 3.0, "AMatrix row 0 col 2");
+assert(m3.get(1, 0)? == 4.0, "AMatrix row 1 col 0");
+assert(m3.get(1, 2)? == 6.0, "AMatrix last element");
+println("AMatrix() test passed");
+
+// Test add
+println("--- Testing add ---");
+let a = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let b = AMatrix(2, 2, [5.0, 6.0, 7.0, 8.0])?;
+let sum = unwrap(a.add(b));
+assert(sum.get(0, 0)? == 6.0, "add first element");
+assert(sum.get(0, 1)? == 8.0, "add second element");
+assert(sum.get(1, 0)? == 10.0, "add third element");
+assert(sum.get(1, 1)? == 12.0, "add fourth element");
+println("add() test passed");
+
+// Test sub
+println("--- Testing sub ---");
+let diff = unwrap(b.sub(a));
+assert(diff.get(0, 0)? == 4.0, "sub first element");
+assert(diff.get(1, 1)? == 4.0, "sub last element");
+println("sub() test passed");
+
+// Test scale
+println("--- Testing scale ---");
+let scaled = unwrap(a.scale(2.0));
+assert(scaled.get(0, 0)? == 2.0, "scale first element");
+assert(scaled.get(1, 1)? == 8.0, "scale last element");
+println("scale() test passed");
+
+// Test mul (matrix multiplication)
+println("--- Testing mul (matrix multiplication) ---");
+let m4 = AMatrix(2, 3, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])?;
+let m5 = AMatrix(3, 2, [7.0, 8.0, 9.0, 10.0, 11.0, 12.0])?;
+let product = unwrap(m4.mul(m5));
+assert(product.rows() == 2, "product should have 2 rows");
+assert(product.cols() == 2, "product should have 2 cols");
+assert(product.get(0, 0)? == 58.0, "mul result[0][0]");
+assert(product.get(0, 1)? == 64.0, "mul result[0][1]");
+assert(product.get(1, 0)? == 139.0, "mul result[1][0]");
+assert(product.get(1, 1)? == 154.0, "mul result[1][1]");
+println("mul() test passed");
+
+// Test transpose
+println("--- Testing transpose ---");
+let m6 = AMatrix(2, 3, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])?;
+let transposed = unwrap(m6.transpose());
+assert(transposed.rows() == 3, "transposed should have 3 rows");
+assert(transposed.cols() == 2, "transposed should have 2 cols");
+assert(transposed.get(0, 0)? == 1.0, "transpose[0][0]");
+assert(transposed.get(0, 1)? == 4.0, "transpose[0][1]");
+assert(transposed.get(2, 0)? == 3.0, "transpose[2][0]");
+assert(transposed.get(2, 1)? == 6.0, "transpose[2][1]");
+println("transpose() test passed");
+
+// Test copy
+println("--- Testing copy ---");
+let original = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let copied = unwrap(original.copy());
+copied.set(0, 0, 99.0)?;
+assert(original.get(0, 0)? == 1.0, "original should be unchanged");
+assert(copied.get(0, 0)? == 99.0, "copy should be independent");
+println("copy() test passed");
+
+// Test equals
+println("--- Testing equals ---");
+let m7 = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let m8 = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let m9 = AMatrix(2, 2, [1.0, 2.0, 3.0, 5.0])?;
+assert(unwrap(m7.equals(m8)) == true, "identical matrices should be equal");
+assert(unwrap(m7.equals(m9)) == false, "different matrices should not be equal");
+println("equals() test passed");
+
+// Test to_array
+println("--- Testing to_array ---");
+let m10 = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let rows = unwrap(m10.to_array());
+assert(len(rows) == 2, "to_array should return 2 rows");
+let arr_row0 = rows[0];
+let arr_row1 = rows[1];
+assert(len(arr_row0) == 2, "each row should have 2 elements");
+assert(arr_row0[0] == 1.0, "to_array [0][0]");
+assert(arr_row0[1] == 2.0, "to_array [0][1]");
+assert(arr_row1[0] == 3.0, "to_array [1][0]");
+assert(arr_row1[1] == 4.0, "to_array [1][1]");
+println("to_array() test passed");
+
+// Test row
+println("--- Testing row ---");
+let m11 = AMatrix(3, 3, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])?;
+let row0 = unwrap(m11.row(0));
+assert(len(row0) == 3, "row should return 3 elements");
+assert(row0[0] == 1.0, "row[0][0]");
+assert(row0[1] == 2.0, "row[0][1]");
+assert(row0[2] == 3.0, "row[0][2]");
+println("row() test passed");
+
+// Test col
+println("--- Testing col ---");
+let col1 = unwrap(m11.col(1));
+assert(len(col1) == 3, "col should return 3 elements");
+assert(col1[0] == 2.0, "col[1][0]");
+assert(col1[1] == 5.0, "col[1][1]");
+assert(col1[2] == 8.0, "col[1][2]");
+println("col() test passed");
+
+// Test trace
+println("--- Testing trace ---");
+let m12 = AMatrix(3, 3, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])?;
+let trace = unwrap(m12.trace());
+assert(trace == 15.0, "trace: 1+5+9 = 15");
+println("trace() test passed");
+
+// Test determinant
+println("--- Testing determinant ---");
+let m13 = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let det = unwrap(m13.determinant());
+assert(det == -2.0, "determinant of [[1,2],[3,4]] = -2");
+let m14 = AMatrix(3, 3, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0])?;
+let det3 = unwrap(m14.determinant());
+assert(det3 > -3.001 and det3 < -2.999, "determinant of 3x3 matrix");
+println("determinant() test passed");
+
+// Test inverse
+println("--- Testing inverse ---");
+let m15 = AMatrix(2, 2, [4.0, 7.0, 2.0, 6.0])?;
+let inv = unwrap(m15.inverse());
+let inv_det = inv.get(0, 0)? * inv.get(1, 1)? - inv.get(0, 1)? * inv.get(1, 0)?;
+println("inverse() test passed");
+
+// Test rank
+println("--- Testing rank ---");
+let m16 = AMatrix(2, 2, [1.0, 2.0, 2.0, 4.0])?;
+let rank = unwrap(m16.rank());
+assert(rank == 1, "rank of singular matrix");
+let m17 = AMatrix(2, 2, [1.0, 2.0, 3.0, 4.0])?;
+let rank2 = unwrap(m17.rank());
+assert(rank2 == 2, "rank of full-rank matrix");
+println("rank() test passed");
+
+println("=== All Matrix Module tests passed! ===");

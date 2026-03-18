@@ -1,0 +1,139 @@
+use println from "crux:io";
+
+println("=== Testing String Methods ===");
+
+fn unwrap(r) {
+    return match r {
+        Ok(v) => give v;
+        Err(_) => give nil;
+    };
+}
+
+let test_string = "Hello, World!";
+
+// Test first
+println("--- Testing first ---");
+assert(unwrap(test_string.first()) == "H", "first() should return first character");
+assert(unwrap("A".first()) == "A", "first() should work on single char string");
+println("first() test passed");
+
+// Test last
+println("--- Testing last ---");
+assert(unwrap(test_string.last()) == "!", "last() should return last character");
+assert(unwrap("A".last()) == "A", "last() should work on single char string");
+println("last() test passed");
+
+// Test get
+println("--- Testing get ---");
+assert(unwrap(test_string.get(0)) == "H", "get(0) should return first character");
+assert(unwrap(test_string.get(1)) == "e", "get(1) should return second character");
+assert(unwrap(test_string.get(7)) == "W", "get(7) should return 'W'");
+println("get() test passed");
+
+// Test upper
+println("--- Testing upper ---");
+assert(unwrap(test_string.upper()) == "HELLO, WORLD!", "upper() should convert to uppercase");
+assert(unwrap("hello".upper()) == "HELLO", "upper() should convert lowercase");
+assert(unwrap("HELLO".upper()) == "HELLO", "upper() should leave uppercase unchanged");
+println("upper() test passed");
+
+// Test lower
+println("--- Testing lower ---");
+assert(unwrap(test_string.lower()) == "hello, world!", "lower() should convert to lowercase");
+assert(unwrap("HELLO".lower()) == "hello", "lower() should convert uppercase");
+assert(unwrap("hello".lower()) == "hello", "lower() should leave lowercase unchanged");
+println("lower() test passed");
+
+// Test strip
+println("--- Testing strip ---");
+assert(unwrap("  hello  ".strip()) == "hello", "strip() should remove leading/trailing spaces");
+assert(unwrap("\thello\t".strip()) == "hello", "strip() should remove tabs");
+assert(unwrap("hello".strip()) == "hello", "strip() should leave unmodified string unchanged");
+println("strip() test passed");
+
+// Test starts_with
+println("--- Testing starts_with ---");
+assert(unwrap(test_string.starts_with("Hello")) == true, "starts_with should return true for prefix");
+assert(unwrap(test_string.starts_with("World")) == false, "starts_with should return false for non-prefix");
+println("starts_with() test passed");
+
+// Test ends_with
+println("--- Testing ends_with ---");
+assert(unwrap(test_string.ends_with("World!")) == true, "ends_with should return true for suffix");
+assert(unwrap(test_string.ends_with("Hello")) == false, "ends_with should return false for non-suffix");
+println("ends_with() test passed");
+
+// Test contains
+println("--- Testing contains ---");
+assert(unwrap(test_string.contains("World")) == true, "contains should return true for substring");
+assert(unwrap(test_string.contains("world")) == false, "contains should be case-sensitive");
+assert(unwrap(test_string.contains("xyz")) == false, "contains should return false for non-existent substring");
+println("contains() test passed");
+
+// Test replace
+println("--- Testing replace ---");
+assert(unwrap(test_string.replace("World", "Crux")) == "Hello, Crux!", "replace should replace substring");
+assert(unwrap("hello hello".replace("hello", "hi")) == "hi hi", "replace should replace all occurrences");
+println("replace() test passed");
+
+// Test substring
+println("--- Testing substring ---");
+assert(unwrap(test_string.substring(0, 5)) == "Hello", "substring(0, 5) should return first 5 chars");
+assert(unwrap(test_string.substring(7, 12)) == "World", "substring(7, 12) should return 'World'");
+println("substring() test passed");
+
+// Test concat
+println("--- Testing concat ---");
+assert(unwrap("Hello".concat("World")) == "HelloWorld", "concat should join strings");
+assert(unwrap("hello".concat(" world")) == "hello world", "concat should join with space");
+println("concat() test passed");
+
+// Test is_empty
+println("--- Testing is_empty ---");
+assert("hello".is_empty() == false, "is_empty should return false for non-empty string");
+assert(" ".is_empty() == false, "is_empty should return false for whitespace string");
+println("is_empty() test passed");
+
+// Test is_alpha
+println("--- Testing is_alpha ---");
+assert("Hello".is_alpha() == true, "is_alpha should return true for alphabetic string");
+assert("Hello123".is_alpha() == false, "is_alpha should return false for alphanumeric");
+assert("hello world".is_alpha() == false, "is_alpha should return false for string with space");
+println("is_alpha() test passed");
+
+// Test is_digit
+println("--- Testing is_digit ---");
+assert("12345".is_digit() == true, "is_digit should return true for digit string");
+assert("123abc".is_digit() == false, "is_digit should return false for alphanumeric");
+println("is_digit() test passed");
+
+// Test is_lower
+println("--- Testing is_lower ---");
+assert("hello".is_lower() == true, "is_lower should return true for lowercase string");
+assert("Hello".is_lower() == false, "is_lower should return false for mixed case");
+assert("HELLO".is_lower() == false, "is_lower should return false for uppercase");
+println("is_lower() test passed");
+
+// Test is_upper
+println("--- Testing is_upper ---");
+assert("HELLO".is_upper() == true, "is_upper should return true for uppercase string");
+assert("Hello".is_upper() == false, "is_upper should return false for mixed case");
+assert("hello".is_upper() == false, "is_upper should return false for lowercase");
+println("is_upper() test passed");
+
+// Test is_space
+println("--- Testing is_space ---");
+assert("   ".is_space() == true, "is_space should return true for whitespace string");
+assert("\t\n".is_space() == true, "is_space should return true for tabs and newlines");
+assert(" hello ".is_space() == false, "is_space should return false for string with non-whitespace");
+println("is_space() test passed");
+
+// Test is_alnum
+println("--- Testing is_alnum ---");
+assert("Hello123".is_alnum() == true, "is_alnum should return true for alphanumeric");
+assert("HelloWorld".is_alnum() == true, "is_alnum should return true for alphabetic");
+assert("12345".is_alnum() == true, "is_alnum should return true for digits");
+assert("hello world".is_alnum() == false, "is_alnum should return false for string with space");
+println("is_alnum() test passed");
+
+println("=== All String Method tests passed! ===");
