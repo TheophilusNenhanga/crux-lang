@@ -28,7 +28,6 @@ void *alloc_memory(VM *vm, const size_t size)
 		// Allocate from heap
 		void *ptr = malloc(size);
 		if (!ptr) {
-			fprintf(stderr, "Error: Failed to allocate memory!\n");
 			return NULL;
 		}
 		return ptr;
@@ -37,7 +36,6 @@ void *alloc_memory(VM *vm, const size_t size)
 	// Allocate from slab
 	void *ptr = allocate_from_slab(slab);
 	if (!ptr) {
-		fprintf(stderr, "Error: Failed to allocate memory from slab!\n");
 		return NULL;
 	}
 	return ptr;
@@ -73,12 +71,17 @@ void *allocate_object_with_gc(VM *vm, const size_t size)
 	}
 	void *result = alloc_memory(vm, size);
 	if (result == NULL) {
-		if (vm->current_module_record) {
-			runtime_panic(vm->current_module_record, MEMORY, "Failed to allocate %zu bytes.", size);
-		} else {
-			fprintf(stderr, "Fatal error - Out of Memory: Failed to allocate %zu bytes.\n", size);
+		collect_garbage(vm);
+		result = alloc_memory(vm, size);
+		if (result == NULL) {
+			if (vm->current_module_record) {
+				runtime_panic(vm->current_module_record, MEMORY, "Failed to allocate %zu bytes.", size);
+			} else {
+				fprintf(stderr, "Fatal error - Out of Memory: Failed to allocate %zu bytes.\n", size);
+			}
+			free_vm(vm);
+			exit(1);
 		}
-		vm->exit_code = 1;
 	}
 	return result;
 }
@@ -87,14 +90,15 @@ void *allocate_object_without_gc(VM *vm, const size_t size)
 {
 	void *result = malloc(size);
 	if (result == NULL) {
-		fprintf(stderr,
-				"Fatal error - Out of Memory: Failed to allocate %zu "
-				"bytes.\n",
-				size);
-		if (vm) {
-			vm->is_exiting = true;
-			vm->exit_code = 1;
-		} else {
+		if (vm) collect_garbage(vm);
+		result = malloc(size);
+		if (result == NULL) {
+			if (vm && vm->current_module_record) {
+				runtime_panic(vm->current_module_record, MEMORY, "Failed to allocate %zu bytes.", size);
+			} else {
+				fprintf(stderr, "Fatal error - Out of Memory: Failed to allocate %zu bytes.\n", size);
+			}
+			if (vm) free_vm(vm);
 			exit(1);
 		}
 	}
@@ -140,10 +144,17 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize, const size_t newSi
 
 	void *result = realloc(pointer, newSize);
 	if (result == NULL) {
-		fprintf(stderr, "Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n", newSize);
-		vm->is_exiting = true;
-		vm->exit_code = 1;
-		return NULL;
+		if (vm) collect_garbage(vm);
+		result = realloc(pointer, newSize);
+		if (result == NULL) {
+			if (vm && vm->current_module_record) {
+				runtime_panic(vm->current_module_record, MEMORY, "Failed to reallocate %zu bytes.", newSize);
+			} else {
+				fprintf(stderr, "Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n", newSize);
+			}
+			if (vm) free_vm(vm);
+			exit(1);
+		}
 	}
 
 	return result;

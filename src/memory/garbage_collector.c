@@ -480,7 +480,7 @@ static void free_object(VM *vm, CruxObject *object)
 static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
-	FREE_ARRAY(vm, char, string->chars, string->length + 1);
+	FREE_ARRAY(vm, char, string->chars, string->byte_length + 1);
 	FREE_OBJECT(vm, ObjectString, object);
 }
 
