@@ -3,7 +3,7 @@ use Buffer from "crux:buffer";
 use Range from "crux:range";
 use Complex from "crux:complex";
 use Matrix from "crux:matrix";
-use Vec from "crux:vector";
+use Vector from "crux:vector";
 
 println("=== Testing the type function ===");
 
@@ -21,7 +21,7 @@ let j = ok("test");
 let k = Random();
 let l = Buffer();
 let m = Matrix(2, 2)?;
-let n = Vec(4, [1, 2, 3, 4])?;
+let n = Vector(4, [1, 2, 3, 4])?;
 let o = Complex(1, 2);
 let p = Range(0, 2, 10)?;
 

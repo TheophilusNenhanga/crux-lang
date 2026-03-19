@@ -314,7 +314,7 @@ void runtime_panic(ObjectModuleRecord *module_record, const ErrorType type, cons
 				funcModulePath = traceModule->path;
 			}
 
-			if (function->name == NULL || function->name->length == 0) {
+			if (function->name == NULL || function->name->byte_length == 0) {
 				if (funcModulePath != NULL) {
 					if (traceModule->is_repl) {
 						fprintf(stderr,

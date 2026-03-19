@@ -49,6 +49,7 @@ endif()
 file(GLOB HEADERS
 			"include/*.h"
 			"include/stdlib/*.h"
+			"deps/utf8/utf8.h"
 )
 
 if (NOT WIN32)
@@ -60,6 +61,7 @@ include_directories(include)
 if (NOT WIN32)
 	include_directories(deps/linenoise)
 endif()
+include_directories(deps/utf8)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(crux ${SOURCES} ${HEADERS})

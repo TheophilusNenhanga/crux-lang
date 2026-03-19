@@ -565,7 +565,7 @@ Value array_join_method(VM *vm, const Value *args)
 	}
 
 	// estimate: 3 chars per element + separators
-	size_t bufferSize = array->size * 3 + (array->size > 1 ? (array->size - 1) * separator->length : 0);
+	size_t bufferSize = array->size * 3 + (array->size > 1 ? (array->size - 1) * separator->byte_length : 0);
 	char *buffer = malloc(bufferSize);
 	if (!buffer) {
 		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", RUNTIME);
@@ -577,9 +577,9 @@ Value array_join_method(VM *vm, const Value *args)
 		ObjectString *element = to_string(vm, array->values[i]);
 		push(vm->current_module_record, OBJECT_VAL(element));
 
-		size_t neededSpace = element->length;
+		size_t neededSpace = element->byte_length;
 		if (i > 0) {
-			neededSpace += separator->length;
+			neededSpace += separator->byte_length;
 		}
 
 		if (actual_length + neededSpace > bufferSize) {
@@ -596,12 +596,12 @@ Value array_join_method(VM *vm, const Value *args)
 		}
 
 		if (i > 0) {
-			memcpy(buffer + actual_length, separator->chars, separator->length);
-			actual_length += separator->length;
+			memcpy(buffer + actual_length, separator->chars, separator->byte_length);
+			actual_length += separator->byte_length;
 		}
 
-		memcpy(buffer + actual_length, element->chars, element->length);
-		actual_length += element->length;
+		memcpy(buffer + actual_length, element->chars, element->byte_length);
+		actual_length += element->byte_length;
 
 		pop(vm->current_module_record); // element
 	}

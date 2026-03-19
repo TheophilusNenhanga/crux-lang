@@ -1,5 +1,5 @@
 use Random from "crux:random";
-use Vec from "crux:vector";
+use Vector from "crux:vector";
 use sqrt, min from "crux:math";
 use open from "crux:fs";
 
@@ -19,9 +19,9 @@ let COLOR_SCALE = 255.999;
 let INV_WIDTH = 1.0 / (IMAGE_WIDTH - 1);
 let INV_HEIGHT = 1.0 / (IMAGE_HEIGHT - 1);
 
-let VEC3_ZERO: Vector[3] = Vec(3, [0, 0, 0])?;
-let VEC3_WHITE: Vector[3] = Vec(3, [1.0, 1.0, 1.0])?;
-let VEC3_BLUE: Vector[3] = Vec(3, [0.5, 0.7, 1.0])?;
+let VEC3_ZERO: Vector[3] = Vector(3, [0, 0, 0])?;
+let VEC3_WHITE: Vector[3] = Vector(3, [1.0, 1.0, 1.0])?;
+let VEC3_BLUE: Vector[3] = Vector(3, [0.5, 0.7, 1.0])?;
 
 struct Ray {
     origin: Vector[3],
@@ -65,7 +65,7 @@ fn reflect(vector: Vector[3], normal: Vector[3]) -> Vector[3] {
 
 fn random_in_unit_sphere() -> Vector[3] {
     while true {
-        let p = Vec(3, [
+        let p = Vector(3, [
             g_random.float(-1.0, 1.0)?,
             g_random.float(-1.0, 1.0)?,
             g_random.float(-1.0, 1.0)?
@@ -186,7 +186,7 @@ fn ray_color(ray: Ray, depth: Float, world: Array[Sphere]) -> Vector[3] {
         if scatter_result != nil {
             let scattered_color = ray_color(scatter_result["scattered"], depth - 1, world);
             let att             = scatter_result["attenuation"];
-            return Vec(3, [
+            return Vector(3, [
                 att.x() * scattered_color.x(),
                 att.y() * scattered_color.y(),
                 att.z() * scattered_color.z()
@@ -205,14 +205,14 @@ fn ray_color(ray: Ray, depth: Float, world: Array[Sphere]) -> Vector[3] {
 fn main() -> Nil {
     let world: Array[Sphere] = [];
 
-    let ground = new Lambertian { albedo = Vec(3, [0.5, 0.5, 0.5])?, fuzz = nil };
-    let material1 = new Lambertian { albedo = Vec(3, [0.7, 0.3, 0.3])?, fuzz = nil };
-    let material2 = new Metal { albedo = Vec(3, [0.8, 0.6, 0.2])?, fuzz = 0.2};
-    let material3 = new Metal { albedo = Vec(3, [0.8, 0.8, 0.8])?, fuzz = 0.0};
+    let ground = new Lambertian { albedo = Vector(3, [0.5, 0.5, 0.5])?, fuzz = nil };
+    let material1 = new Lambertian { albedo = Vector(3, [0.7, 0.3, 0.3])?, fuzz = nil };
+    let material2 = new Metal { albedo = Vector(3, [0.8, 0.6, 0.2])?, fuzz = 0.2};
+    let material3 = new Metal { albedo = Vector(3, [0.8, 0.8, 0.8])?, fuzz = 0.0};
 
     world.push(
         new Sphere {
-            center =        Vec(3, [0.0,  -1000.0, -1.0])?,
+            center =        Vector(3, [0.0,  -1000.0, -1.0])?,
             radius =        1000.0,
             radius_squared = 1000.0*1000.0,
             material =       ground
@@ -220,7 +220,7 @@ fn main() -> Nil {
     );
     world.push(
         new Sphere {
-            center = Vec(3, [0.0,     1.0,  0.0])?,
+            center = Vector(3, [0.0,     1.0,  0.0])?,
             radius = 1.0,
             radius_squared = 1.0,
             material = material1
@@ -228,7 +228,7 @@ fn main() -> Nil {
     );
     world.push(
         new Sphere {
-            center = Vec(3, [-4.0,    1.0,  0.0])?,
+            center = Vector(3, [-4.0,    1.0,  0.0])?,
             radius = 1.0,
             radius_squared = 1.0,
             material = material2
@@ -236,7 +236,7 @@ fn main() -> Nil {
     );
     world.push(
         new Sphere {
-            center = Vec(3, [4.0,     1.0,  0.0])?,
+            center = Vector(3, [4.0,     1.0,  0.0])?,
             radius = 1.0,
             radius_squared = 1.0,
             material = material3
@@ -245,9 +245,9 @@ fn main() -> Nil {
 
     // Camera — positioned at (13,2,3) looking at the origin
     // with a fixed vertical field of view of ~20 degrees
-    let camera_origin = Vec(3, [13.0, 2.0, 3.0])?;
-    let camera_target = Vec(3, [0.0,  0.0, 0.0])?;
-    let camera_vup    = Vec(3, [0.0,  1.0, 0.0])?;
+    let camera_origin = Vector(3, [13.0, 2.0, 3.0])?;
+    let camera_target = Vector(3, [0.0,  0.0, 0.0])?;
+    let camera_vup    = Vector(3, [0.0,  1.0, 0.0])?;
 
     let focal_length    = 10.0;  // fixed — controls zoom independent of distance
     let viewport_height = 2.0 * (0.17632698070004336); // 2 * tan(vfov/2), vfov = 20 deg

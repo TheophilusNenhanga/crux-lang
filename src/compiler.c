@@ -1839,7 +1839,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				// ensure field exists on the struct
 				Value field_index_val;
 				if (!table_get(&definition->fields, fieldName, &field_index_val)) {
-					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length,
+					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->byte_length,
 									fieldName->chars);
 				} else {
 					// mark field as seen
@@ -1847,7 +1847,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 					if (field_index >= 0 && field_index < declared_field_count) {
 						if (field_seen[field_index]) {
 							compiler_panicf(compiler->parser, NAME, "Field '%.*s' specified more than once.",
-											(int)fieldName->length, fieldName->chars);
+											(int)fieldName->byte_length, fieldName->chars);
 						}
 						field_seen[field_index] = true;
 					}
@@ -1863,7 +1863,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 							type_record_name(declared_field_type, expected, sizeof(expected));
 							type_record_name(value_type, got, sizeof(got));
 							compiler_panicf(compiler->parser, TYPE, "Field '%.*s' expects type '%s', got '%s'.",
-											(int)fieldName->length, fieldName->chars, expected, got);
+											(int)fieldName->byte_length, fieldName->chars, expected, got);
 						}
 					}
 				}
@@ -1887,7 +1887,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 					Entry *entry = &definition->fields.entries[e];
 					if (entry->key != NULL && AS_INT(entry->value) == i) {
 						missing = entry->key->chars;
-						missing_len = (int)entry->key->length;
+						missing_len = (int)entry->key->byte_length;
 						break;
 					}
 				}

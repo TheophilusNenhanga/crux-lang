@@ -6,6 +6,7 @@
 #include "object.h"
 #include "panic.h"
 #include "stdlib/range.h"
+#include "utf8.h"
 
 static Value get_length(const Value value)
 {
@@ -13,7 +14,7 @@ static Value get_length(const Value value)
 		return INT_VAL(AS_CRUX_ARRAY(value)->size);
 	}
 	if (IS_CRUX_STRING(value)) {
-		return INT_VAL(AS_CRUX_STRING(value)->length);
+		return INT_VAL(AS_CRUX_STRING(value)->code_point_length);
 	}
 	if (IS_CRUX_TABLE(value)) {
 		return INT_VAL(AS_CRUX_TABLE(value)->size);
@@ -22,8 +23,7 @@ static Value get_length(const Value value)
 		return INT_VAL(AS_CRUX_VECTOR(value)->dimensions);
 	}
 	if (IS_CRUX_MATRIX(value)) {
-		return INT_VAL(AS_CRUX_MATRIX(value)->col_dim *
-			       AS_CRUX_MATRIX(value)->row_dim);
+		return INT_VAL(AS_CRUX_MATRIX(value)->col_dim * AS_CRUX_MATRIX(value)->row_dim);
 	}
 	if (IS_CRUX_RANGE(value)) {
 		const ObjectRange *range = AS_CRUX_RANGE(value);
@@ -66,14 +66,17 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectArray *array = new_array(vm, string->length);
+		ObjectArray *array = new_array(vm, string->code_point_length);
 		push(vm->current_module_record, OBJECT_VAL(array));
 
-		for (uint32_t i = 0; i < string->length; i++) {
-			ObjectString *char_str = copy_string(vm,
-							     &string->chars[i],
-							     1);
+		const utf8_int8_t *cursor = string->chars;
+
+		for (uint32_t i = 0; i < string->code_point_length; i++) {
+			size_t char_bytes = utf8codepointcalcsize(cursor);
+			ObjectString *char_str = copy_string(vm, cursor, char_bytes);
+
 			push(vm->current_module_record, OBJECT_VAL(char_str));
+
 			if (!array_add_back(vm, array, OBJECT_VAL(char_str))) {
 				pop(vm->current_module_record); // char_str
 				pop(vm->current_module_record); // array
@@ -81,6 +84,7 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 				return NIL_VAL;
 			}
 			pop(vm->current_module_record); // char_str
+			cursor += char_bytes;
 		}
 
 		const Value result = OBJECT_VAL(array);
@@ -99,10 +103,8 @@ static Value cast_array(VM *vm, const Value *args, bool *success)
 				break;
 			}
 			if (table->entries[i].is_occupied) {
-				if (!array_add_back(vm, array,
-						    table->entries[i].key) ||
-				    !array_add_back(vm, array,
-						    table->entries[i].value)) {
+				if (!array_add_back(vm, array, table->entries[i].key) ||
+					!array_add_back(vm, array, table->entries[i].value)) {
 					pop(vm->current_module_record); // array
 					*success = false;
 					return NIL_VAL;
@@ -151,17 +153,17 @@ static Value cast_table(VM *vm, const Value *args)
 
 	if (IS_CRUX_STRING(value)) {
 		const ObjectString *string = AS_CRUX_STRING(value);
-		ObjectTable *table = new_object_table(vm, (int)string->length);
+		ObjectTable *table = new_object_table(vm, (int)string->code_point_length);
 		push(vm->current_module_record, OBJECT_VAL(table));
 
-		for (uint32_t i = 0; i < string->length; i++) {
-			ObjectString *char_str = copy_string(vm,
-							     &string->chars[i],
-							     1);
+		utf8_int8_t *cursor = string->chars;
+		for (uint32_t i = 0; i < string->code_point_length; i++) {
+			uint32_t char_bytes = utf8codepointcalcsize(cursor);
+			ObjectString *char_str = copy_string(vm, cursor, char_bytes);
 			push(vm->current_module_record, OBJECT_VAL(char_str));
-			object_table_set(vm, table, INT_VAL(i),
-					 OBJECT_VAL(char_str));
+			object_table_set(vm, table, INT_VAL(i), OBJECT_VAL(char_str));
 			pop(vm->current_module_record); // char_str
+			cursor += char_bytes;
 		}
 
 		const Value result = OBJECT_VAL(table);
@@ -264,9 +266,7 @@ Value int_function(VM *vm, const Value *args)
 	const Value argument = args[0];
 	const Value value = cast_int(vm, argument, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to convert value to integer.",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to convert value to integer.", RUNTIME);
 	}
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
@@ -281,9 +281,7 @@ Value float_function(VM *vm, const Value *args)
 	bool success = true;
 	const Value value = cast_float(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to convert value to float.",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to convert value to float.", RUNTIME);
 	}
 	return OBJECT_VAL(new_ok_result(vm, value));
 }
@@ -310,9 +308,7 @@ Value array_function(VM *vm, const Value *args)
 	bool success = true;
 	const Value array = cast_array(vm, args, &success);
 	if (!success) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to convert value to array.",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to convert value to array.", RUNTIME);
 	}
 	return OBJECT_VAL(new_ok_result(vm, array));
 }
@@ -329,8 +325,10 @@ Value table_function(VM *vm, const Value *args)
 }
 
 /**
- * Formats a string using placeholders like {key} replaced with values from a
- * table arg0 -> format_string: String arg1 -> values: Table Returns Result<Nil>
+ * Formats a string using placeholders like {key} replaced with values from a table
+ * arg0 -> format_string: String
+ * arg1 -> values: Table
+ * Returns Result<Nil>
  */
 Value format_function(VM *vm, const Value *args)
 {
@@ -338,99 +336,89 @@ Value format_function(VM *vm, const Value *args)
 	const ObjectTable *table = AS_CRUX_TABLE(args[1]);
 
 	typedef struct {
-		uint32_t start;
-		uint32_t end;
-		ObjectString *key;
+		uint32_t byte_start;
+		uint32_t byte_end;
 		Value value;
 	} FormatToken;
 
 	uint32_t tokens_capacity = 8;
-
+	uint32_t token_count = 0;
 	FormatToken *tokens = malloc(sizeof(FormatToken) * tokens_capacity);
 
 	if (!tokens) {
-		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", VALUE);
 	}
 
 	bool in_token = false;
-	uint32_t token_count = 0;
-	uint32_t token_start = 0;
+	uint32_t token_start_offset = 0;
 
-	for (uint32_t i = 0; i < str->length; i++) {
-		if (str->chars[i] == '{') {
+	uint32_t byte_i = 0;
+	while (byte_i < str->byte_length) {
+		utf8_int8_t c = str->chars[byte_i];
+
+		if (c == '{') {
 			if (in_token) {
 				free(tokens);
-				return MAKE_GC_SAFE_ERROR(
-					vm,
-					"format token cannot have { within it",
-					VALUE);
+				return MAKE_GC_SAFE_ERROR(vm, "Format token cannot have { within it", VALUE);
 			}
 			in_token = true;
-			token_start = i;
-		} else if (str->chars[i] == '}') {
+			token_start_offset = byte_i;
+		} else if (c == '}') {
 			if (!in_token) {
 				free(tokens);
-				return MAKE_GC_SAFE_ERROR(
-					vm, "Unexpected } without matching {",
-					VALUE);
+				return MAKE_GC_SAFE_ERROR(vm, "Unexpected } without matching {", VALUE);
 			}
 
 			if (token_count >= tokens_capacity) {
 				tokens_capacity *= 2;
-				FormatToken *new_tokens = realloc(
-					tokens,
-					sizeof(FormatToken) * tokens_capacity);
+				FormatToken *new_tokens = realloc(tokens, sizeof(FormatToken) * tokens_capacity);
 				if (!new_tokens) {
 					free(tokens);
-					return MAKE_GC_SAFE_ERROR(
-						vm, "Memory allocation failed",
-						VALUE);
+					return MAKE_GC_SAFE_ERROR(vm, "Memory allocation failed", VALUE);
 				}
 				tokens = new_tokens;
 			}
 
-			const uint32_t key_length = i - token_start - 1;
-			ObjectString *key = copy_string(
-				vm, str->chars + token_start + 1, key_length);
+			const uint32_t key_byte_length = byte_i - token_start_offset - 1;
+			ObjectString *key = copy_string(vm, (const char *)(str->chars + token_start_offset + 1), key_byte_length);
+
 			push(vm->current_module_record, OBJECT_VAL(key));
-			Value value;
-			if (!object_table_get(table->entries, table->size,
-					      table->capacity, OBJECT_VAL(key),
-					      &value)) {
+
+			Value val;
+			bool found = object_table_get(table->entries, table->size, table->capacity, OBJECT_VAL(key), &val);
+
+			if (!found) {
 				free(tokens);
-				return MAKE_GC_SAFE_ERROR(
-					vm,
-					"Format token specified name that does "
-					"not exist in format table",
-					VALUE);
+				return MAKE_GC_SAFE_ERROR(vm, "Format token name does not exist in table", VALUE);
 			}
 
-			tokens[token_count].start = token_start;
-			tokens[token_count].end = i;
-			tokens[token_count].key = key;
-			tokens[token_count].value = value;
+			tokens[token_count].byte_start = token_start_offset;
+			tokens[token_count].byte_end = byte_i;
+			tokens[token_count].value = val;
 			token_count++;
 
 			in_token = false;
 		}
+		byte_i++;
 	}
 
 	if (in_token) {
 		free(tokens);
-		return MAKE_GC_SAFE_ERROR(vm, "Unterminated format token.",
-					  VALUE);
+		return MAKE_GC_SAFE_ERROR(vm, "Unterminated format token.", VALUE);
 	}
 
-	uint32_t current_token = 0;
-	for (uint32_t i = 0; i < str->length; i++) {
-		if (current_token < token_count &&
-		    i == tokens[current_token].start) {
-			print_value(tokens[current_token].value, false);
-			i = tokens[current_token].end;
-			current_token++;
+	uint32_t current_token_idx = 0;
+	uint32_t cursor_byte = 0;
+
+	while (cursor_byte < str->byte_length) {
+		if (current_token_idx < token_count && cursor_byte == tokens[current_token_idx].byte_start) {
+			print_value(tokens[current_token_idx].value, false);
+			cursor_byte = tokens[current_token_idx].byte_end + 1;
+			current_token_idx++;
 		} else {
-			printf("%c", str->chars[i]);
+			size_t char_bytes = utf8codepointcalcsize(str->chars + cursor_byte);
+			printf("%.*s", (int)char_bytes, str->chars + cursor_byte);
+			cursor_byte += (uint32_t)char_bytes;
 		}
 	}
 

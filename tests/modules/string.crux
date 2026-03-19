@@ -1,5 +1,3 @@
-
-
 println("=== Testing String Methods ===");
 
 fn unwrap(r) {
@@ -13,14 +11,14 @@ let test_string = "Hello, World!";
 
 // Test first
 println("--- Testing first ---");
-assert(unwrap(test_string.first()) == "H", "first() should return first character");
-assert(unwrap("A".first()) == "A", "first() should work on single char string");
+assert(test_string.first() == "H", "first() should return first character");
+assert("A".first() == "A", "first() should work on single char string");
 println("first() test passed");
 
 // Test last
 println("--- Testing last ---");
-assert(unwrap(test_string.last()) == "!", "last() should return last character");
-assert(unwrap("A".last()) == "A", "last() should work on single char string");
+assert(test_string.last() == "!", "last() should return last character");
+assert("A".last() == "A", "last() should work on single char string");
 println("last() test passed");
 
 // Test get
@@ -30,19 +28,19 @@ assert(unwrap(test_string.get(1)) == "e", "get(1) should return second character
 assert(unwrap(test_string.get(7)) == "W", "get(7) should return 'W'");
 println("get() test passed");
 
-// Test upper
-println("--- Testing upper ---");
-assert(unwrap(test_string.upper()) == "HELLO, WORLD!", "upper() should convert to uppercase");
-assert(unwrap("hello".upper()) == "HELLO", "upper() should convert lowercase");
-assert(unwrap("HELLO".upper()) == "HELLO", "upper() should leave uppercase unchanged");
-println("upper() test passed");
+// Test to_upper
+println("--- Testing to_upper ---");
+assert(test_string.to_upper() == "HELLO, WORLD!", "to_upper() should convert to uppercase");
+assert("hello".to_upper() == "HELLO", "to_upper() should convert lowercase");
+assert("HELLO".to_upper() == "HELLO", "to_upper() should leave uppercase unchanged");
+println("to_upper() test passed");
 
-// Test lower
-println("--- Testing lower ---");
-assert(unwrap(test_string.lower()) == "hello, world!", "lower() should convert to lowercase");
-assert(unwrap("HELLO".lower()) == "hello", "lower() should convert uppercase");
-assert(unwrap("hello".lower()) == "hello", "lower() should leave lowercase unchanged");
-println("lower() test passed");
+// Test to_lower
+println("--- Testing to_lower ---");
+assert(test_string.to_lower() == "hello, world!", "to_lower() should convert to lowercase");
+assert("HELLO".to_lower() == "hello", "to_lower() should convert uppercase");
+assert("hello".to_lower() == "hello", "to_lower() should leave lowercase unchanged");
+println("to_lower() test passed");
 
 // Test strip
 println("--- Testing strip ---");
@@ -65,9 +63,9 @@ println("ends_with() test passed");
 
 // Test contains
 println("--- Testing contains ---");
-assert(unwrap(test_string.contains("World")) == true, "contains should return true for substring");
-assert(unwrap(test_string.contains("world")) == false, "contains should be case-sensitive");
-assert(unwrap(test_string.contains("xyz")) == false, "contains should return false for non-existent substring");
+assert(test_string.contains("World") == true, "contains should return true for substring");
+assert(test_string.contains("world") == false, "contains should be case-sensitive");
+assert(test_string.contains("xyz") == false, "contains should return false for non-existent substring");
 println("contains() test passed");
 
 // Test replace
@@ -128,12 +126,12 @@ assert("\t\n".is_space() == true, "is_space should return true for tabs and newl
 assert(" hello ".is_space() == false, "is_space should return false for string with non-whitespace");
 println("is_space() test passed");
 
-// Test is_alnum
-println("--- Testing is_alnum ---");
-assert("Hello123".is_alnum() == true, "is_alnum should return true for alphanumeric");
-assert("HelloWorld".is_alnum() == true, "is_alnum should return true for alphabetic");
-assert("12345".is_alnum() == true, "is_alnum should return true for digits");
-assert("hello world".is_alnum() == false, "is_alnum should return false for string with space");
-println("is_alnum() test passed");
+// Test is_alphanum
+println("--- Testing is_alphanum ---");
+assert("Hello123".is_alphanum() == true, "is_alphanum should return true for alphanumeric");
+assert("HelloWorld".is_alphanum() == true, "is_alphanum should return true for alphabetic");
+assert("12345".is_alphanum() == true, "is_alphanum should return true for digits");
+assert("hello world".is_alphanum() == false, "is_alphanum should return false for string with space");
+println("is_alphanum() test passed");
 
 println("=== All String Method tests passed! ===");

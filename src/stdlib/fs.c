@@ -312,7 +312,7 @@ Value fs_read_all_method(VM *vm, const Value *args)
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to read file contents.", IO);
 	}
 
-	file->position += s->length;
+	file->position += s->byte_length;
 
 	push(vm->current_module_record, OBJECT_VAL(s));
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(s));
@@ -418,9 +418,9 @@ Value fs_write_method(VM *vm, const Value *args)
 	}
 
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
-	const size_t written = fwrite(content->chars, 1, content->length, file->file);
+	const size_t written = fwrite(content->chars, 1, content->byte_length, file->file);
 
-	if (written < content->length || ferror(file->file)) {
+	if (written < content->byte_length || ferror(file->file)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to file.", IO);
 	}
 
@@ -449,9 +449,9 @@ Value fs_writeln_method(VM *vm, const Value *args)
 	}
 
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
-	const size_t written = fwrite(content->chars, 1, content->length, file->file);
+	const size_t written = fwrite(content->chars, 1, content->byte_length, file->file);
 
-	if (written < content->length || ferror(file->file)) {
+	if (written < content->byte_length || ferror(file->file)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to file.", IO);
 	}
 
@@ -781,8 +781,8 @@ Value fs_write_file_function(VM *vm, const Value *args)
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
 	}
 
-	const size_t written = fwrite(content->chars, 1, content->length, fp);
-	const bool ok = (written == content->length) && !ferror(fp);
+	const size_t written = fwrite(content->chars, 1, content->byte_length, fp);
+	const bool ok = (written == content->byte_length) && !ferror(fp);
 	fclose(fp);
 
 	if (!ok) {
@@ -808,8 +808,8 @@ Value fs_append_file_function(VM *vm, const Value *args)
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
 	}
 
-	const size_t written = fwrite(content->chars, 1, content->length, fp);
-	const bool ok = (written == content->length) && !ferror(fp);
+	const size_t written = fwrite(content->chars, 1, content->byte_length, fp);
+	const bool ok = (written == content->byte_length) && !ferror(fp);
 	fclose(fp);
 
 	if (!ok) {

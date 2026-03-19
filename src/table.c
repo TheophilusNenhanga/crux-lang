@@ -24,13 +24,12 @@ void free_table(VM *vm, Table *table)
 
 static bool compare_strings(const ObjectString *a, const ObjectString *b)
 {
-	if (a->length != b->length)
+	if (a->byte_length != b->byte_length)
 		return false;
-	return memcmp(a->chars, b->chars, a->length) == 0;
+	return memcmp(a->chars, b->chars, a->byte_length) == 0;
 }
 
-static Entry *find_entry(Entry *entries, const int capacity,
-			 const ObjectString *key)
+static Entry *find_entry(Entry *entries, const int capacity, const ObjectString *key)
 {
 	uint32_t index = key->hash & (capacity - 1);
 	Entry *tombstone = NULL;
@@ -43,8 +42,7 @@ static Entry *find_entry(Entry *entries, const int capacity,
 			}
 			if (tombstone == NULL)
 				tombstone = entry;
-		} else if (entry->key == key ||
-			   compare_strings(entry->key, key)) {
+		} else if (entry->key == key || compare_strings(entry->key, key)) {
 			return entry;
 		}
 
@@ -134,8 +132,7 @@ void table_add_all(VM *vm, const Table *from, Table *to)
 	}
 }
 
-ObjectString *table_find_string(const Table *table, const char *chars,
-				const uint64_t length, const uint32_t hash)
+ObjectString *table_find_string(const Table *table, const char *chars, const uint64_t length, const uint32_t hash)
 {
 	if (table->count == 0)
 		return NULL;
@@ -147,9 +144,8 @@ ObjectString *table_find_string(const Table *table, const char *chars,
 			// Stop if we find an empty non tombstone entry
 			if (IS_NIL(entry->value))
 				return NULL;
-		} else if (entry->key->length == length &&
-			   entry->key->hash == hash &&
-			   memcmp(entry->key->chars, chars, length) == 0) {
+		} else if (entry->key->byte_length == length && entry->key->hash == hash &&
+				   memcmp(entry->key->chars, chars, length) == 0) {
 			// we found it
 			return entry->key;
 		}

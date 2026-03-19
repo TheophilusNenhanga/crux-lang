@@ -6,6 +6,7 @@
 
 #include "chunk.h"
 #include "table.h"
+#include "utf8.h"
 #include "value.h"
 #include "vm.h"
 
@@ -142,8 +143,9 @@ struct PoolObject { // 8
 
 struct ObjectString { // 24
 	CruxObject object;
-	char *chars;
-	uint32_t length; // this is the length without the null terminator
+	utf8_int8_t* chars;
+	uint32_t byte_length; // this is the length without the null terminator
+	uint32_t code_point_length;
 	uint32_t hash;
 };
 

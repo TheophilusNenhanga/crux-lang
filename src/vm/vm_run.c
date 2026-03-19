@@ -536,7 +536,7 @@ OP_GET_COLLECTION: {
 		uint32_t index = (uint32_t)AS_INT(indexValue);
 		ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
 		ObjectString *ch;
-		if (index >= string->length) {
+		if (index >= string->code_point_length) {
 			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
 			return INTERPRET_RUNTIME_ERROR;
 		}

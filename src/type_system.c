@@ -9,9 +9,9 @@
 
 static bool compare_strings(const ObjectString *a, const ObjectString *b)
 {
-	if (a->length != b->length)
+	if (a->byte_length != b->byte_length)
 		return false;
-	return memcmp(a->chars, b->chars, a->length) == 0;
+	return memcmp(a->chars, b->chars, a->byte_length) == 0;
 }
 
 static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const ObjectString *key)

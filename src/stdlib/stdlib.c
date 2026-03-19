@@ -221,26 +221,34 @@ bool initialize_std_lib(VM *vm)
 	// string methods
 	{
 		Callable methods[] = {
+			{"byte_length", string_byte_length_method, 1, ARGS(t_str), t_int},
 			{"first", string_first_method, 1, ARGS(t_str), t_str},
 			{"last", string_last_method, 1, ARGS(t_str), t_str},
 			{"get", string_get_method, 2, ARGS(t_str, t_int), res_str},
-			{"upper", string_upper_method, 1, ARGS(t_str), res_str},
-			{"lower", string_lower_method, 1, ARGS(t_str), res_str},
+			{"to_upper", string_to_upper_method, 1, ARGS(t_str), t_str},
+			{"to_lower", string_to_lower_method, 1, ARGS(t_str), t_str},
+			{"is_upper", string_is_upper_method, 1, ARGS(t_str), t_bool},
+			{"is_lower", string_is_lower_method, 1, ARGS(t_str), t_bool},
 			{"strip", string_strip_method, 1, ARGS(t_str), res_str},
+			{"substring", string_substring_method, 3, ARGS(t_str, t_int, t_int), RES(t_str)},
+			{"split", string_split_method, 2, ARGS(t_str, t_str), RES(arr_str)},
+			{"contains", string_contains_method, 2, ARGS(t_str, t_str), t_bool},
 			{"starts_with", string_starts_with_method, 2, ARGS(t_str, t_str), res_bool},
 			{"ends_with", string_ends_with_method, 2, ARGS(t_str, t_str), res_bool},
-			{"contains", string_contains_method, 2, ARGS(t_str, t_str), res_bool},
-			{"replace", string_replace_method, 3, ARGS(t_str, t_str, t_str), res_str},
-			{"split", string_split_method, 2, ARGS(t_str, t_str), RES(ARR(t_str))},
-			{"substring", string_substring_method, 3, ARGS(t_str, t_int, t_int), res_str},
-			{"concat", string_concat_method, 2, ARGS(t_str, t_str), res_str},
-			{"is_empty", string_is_empty_method, 1, ARGS(t_str), t_bool},
 			{"is_alpha", string_is_alpha_method, 1, ARGS(t_str), t_bool},
 			{"is_digit", string_is_digit_method, 1, ARGS(t_str), t_bool},
-			{"is_lower", string_is_lower_method, 1, ARGS(t_str), t_bool},
-			{"is_upper", string_is_upper_method, 1, ARGS(t_str), t_bool},
+			{"concat", string_concat_method, 2, ARGS(t_str, t_str), res_str},
+			{"reverse", string_reverse_method, 1, ARGS(t_str), RES(t_str)},
+			{"find", string_find_method, 2, ARGS(t_str, t_str), t_int},
+			{"repeat", string_repeat_method, 2, ARGS(t_str, t_int), RES(t_str)},
+			{"join", string_join_method, 2, ARGS(t_str, arr_any), t_str},
+			{"pad_left", string_pad_left_method, 3, ARGS(t_str, t_int, t_str), t_str},
+			{"pad_right", string_pad_right_method, 3, ARGS(t_str, t_int, t_str), t_str},
+			{"count", string_count_method, 2, ARGS(t_str, t_str), t_int},
+			{"is_empty", string_is_empty_method, 1, ARGS(t_str), t_bool},
 			{"is_space", string_is_space_method, 1, ARGS(t_str), t_bool},
-			{"is_alnum", string_is_al_num_method, 1, ARGS(t_str), t_bool},
+			{"is_alphanum", string_is_al_num_method, 1, ARGS(t_str), t_bool},
+			{"replace", string_replace_method, 3, ARGS(t_str, t_str, t_str), res_str},
 		};
 		init_type_method_table(vm, &vm->string_type, methods, ARRAY_COUNT(methods));
 	}
@@ -363,7 +371,7 @@ bool initialize_std_lib(VM *vm)
 		init_type_method_table(vm, &vm->vector_type, methods, ARRAY_COUNT(methods));
 
 		const Callable fns[] = {
-			{"Vec", new_vector_function, 2, ARGS(t_int, arr_num), RES(vec_any)},
+			{"Vector", new_vector_function, 2, ARGS(t_int, arr_num), RES(vec_any)},
 		};
 		if (!init_module(vm, "vector", fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;
