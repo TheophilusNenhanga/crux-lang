@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "alloc.h"
+#include "common.h"
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
@@ -646,7 +647,7 @@ static void free_object_type_table(VM *vm, CruxObject *object)
 {
 	ObjectTypeTable *table = (ObjectTypeTable *)object;
 	if (table->entries) {
-		free(table->entries);
+		FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
 	}
 	FREE_OBJECT(vm, ObjectTypeTable, object);
 }
@@ -772,7 +773,7 @@ void collect_garbage(VM *vm)
 	trace_references(vm);
 	table_remove_white(vm, &vm->strings); // Clean up string table
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * GC_HEAP_GROW_FACTOR;
+	vm->next_gc = vm->bytes_allocated * INIT_GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");

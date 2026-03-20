@@ -652,6 +652,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->struct_instance_stack.structs = NULL;
 	vm->main_compiler = NULL;
 
+	vm->heap_growth_factor = INIT_GC_HEAP_GROW_FACTOR;
+
 	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
 
 	reset_stack(vm->current_module_record);
