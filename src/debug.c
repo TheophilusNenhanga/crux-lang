@@ -64,10 +64,9 @@ static int byte_instruction(const char *name, const Chunk *chunk, const int offs
  */
 static int jump_instruction(const char *name, const int sign, const Chunk *chunk, const int offset)
 {
-	uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
-	jump |= chunk->code[offset + 2];
-	printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
-	return offset + 3;
+	uint16_t jump = chunk->code[offset + 1];
+	printf("%-16s %4d -> %d\n", name, offset, offset + 2 + sign * jump);
+	return offset + 2;
 }
 
 /**
@@ -199,24 +198,19 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_SET_UPVALUE:
 		return byte_instruction("OP_SET_UPVALUE", chunk, offset);
 	case OP_CLOSURE: {
-		/* TODO: FIX SEG FAULT */
 		offset++;
+		const uint16_t constant = chunk->code[offset++];
+		printf("%-16s %4d ", "OP_CLOSURE", constant);
+		print_value(chunk->constants.values[constant], false);
+		printf("\n");
+
+		const ObjectFunction *function = AS_CRUX_FUNCTION(chunk->constants.values[constant]);
+		for (int j = 0; j < function->upvalue_count; j++) {
+			const int isLocal = chunk->code[offset++];
+			const int index = chunk->code[offset++];
+			printf("%04d      |                     %s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
+		}
 		return offset;
-		// const uint16_t constant = chunk->code[offset++];
-		// printf("%-16s %4d ", "OP_CLOSURE", constant);
-		// print_value(chunk->constants.values[constant], false);
-		// printf("\n");
-		//
-		// const ObjectFunction *function = AS_CRUX_FUNCTION(
-		// 	chunk->constants.values[constant]);
-		// for (int j = 0; j < function->upvalue_count; j++) {
-		// 	const int isLocal = chunk->code[offset++];
-		// 	const int index = chunk->code[offset++];
-		// 	printf("%04d        |                %s %d\n",
-		// 	       offset - 2, isLocal ? "local" : "upvalue",
-		// 	       index);
-		// }
-		// return offset;
 	}
 	case OP_CLOSE_UPVALUE:
 		return simple_instruction("OP_CLOSE_UPVALUE", offset);
@@ -307,13 +301,13 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return simple_instruction("OP_MATCH_END", offset);
 	}
 	case OP_RESULT_MATCH_OK: {
-		return simple_instruction("OP_RESULT_MATCH_OK", offset);
+		return jump_instruction("OP_RESULT_MATCH_OK", 1, chunk, offset);
 	}
 	case OP_RESULT_MATCH_ERR: {
-		return simple_instruction("OP_RESULT_MATCH_ERR", offset);
+		return jump_instruction("OP_RESULT_MATCH_ERR", 1, chunk, offset);
 	}
 	case OP_RESULT_BIND: {
-		return constant_instruction("OP_RESULT_BIND", chunk, offset);
+		return byte_instruction("OP_RESULT_BIND", chunk, offset);
 	}
 	case OP_GIVE: {
 		return simple_instruction("OP_GIVE", offset);
@@ -337,13 +331,13 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return offset + 2 + 2 * nameCount;
 	}
 	case OP_STRUCT: {
-		return simple_instruction("OP_STRUCT", offset);
+		return constant_instruction("OP_STRUCT", chunk, offset);
 	}
 	case OP_STRUCT_INSTANCE_START: {
 		return simple_instruction("OP_STRUCT_INSTANCE_START", offset);
 	}
 	case OP_STRUCT_NAMED_FIELD: {
-		return simple_instruction("OP_STRUCT_NAMED_FIELD", offset);
+		return constant_instruction("OP_STRUCT_NAMED_FIELD", chunk, offset);
 	}
 	case OP_STRUCT_INSTANCE_END: {
 		return simple_instruction("OP_STRUCT_INSTANCE_END", offset);
