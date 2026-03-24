@@ -2387,6 +2387,11 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 
 		push(compiler->owner->current_module_record, OBJECT_VAL(resolved_type)); // resolved_type
 
+		if (compiler->scope_depth == 0 && compiler->owner->current_module_record
+			&& compiler->owner->current_module_record->is_repl) {
+			type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
+		}
+
 		type_table_set(compiler->type_table, name_str, resolved_type);
 
 		pop(compiler->owner->current_module_record); // resolved_type
