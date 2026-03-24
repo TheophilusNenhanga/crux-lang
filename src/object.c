@@ -505,6 +505,10 @@ static void print_array_to(FILE *stream, const Value *values, const uint32_t siz
 static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size)
 {
 	uint32_t printed = 0;
+	if (entries == NULL) {
+		fprintf(stream, "{}");
+		return;
+	}
 	fprintf(stream, "{");
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
@@ -1313,6 +1317,9 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 
 ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const bool is_repl, const bool is_main)
 {
+	GC_STATUS previous = vm->gc_status;
+	vm->gc_status = PAUSED;
+
 	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
@@ -1336,6 +1343,8 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 	moduleRecord->is_repl = is_repl;
 
 	moduleRecord->owner = vm;
+
+	vm->gc_status = previous;
 
 	return moduleRecord;
 }
@@ -1467,21 +1476,17 @@ ObjectTypeRecord *new_type_rec(VM *vm, TypeMask base_type)
 
 ObjectTypeTable *new_type_table(VM *vm, const int capacity)
 {
+	TypeEntry *entries = ALLOCATE(vm, TypeEntry, capacity);
+	for (int i = 0; i < capacity; i++) {
+		entries[i].key = NULL;
+		entries[i].value = NULL;
+	}
+
 	ObjectTypeTable *table = ALLOCATE_OBJECT(vm, ObjectTypeTable, OBJECT_TYPE_TABLE);
 	table->capacity = capacity;
 	table->count = 0;
-	table->entries = ALLOCATE(vm, TypeEntry, table->capacity);
-	for (int i = 0; i < table->capacity; i++) {
-		table->entries[i].key = NULL;
-		table->entries[i].value = NULL;
-	}
+	table->entries = entries;
 	return table;
-}
-
-void free_type_table(VM *vm, ObjectTypeTable *table)
-{
-	FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
-	table->entries = NULL;
 }
 
 void mark_object_type_table(VM *vm, ObjectTypeTable *table)

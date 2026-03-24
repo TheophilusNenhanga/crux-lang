@@ -160,7 +160,7 @@ fn hit_sphere(sphere: Sphere, ray: Ray, t_min: Float, t_max: Float) -> Nil | Hit
 
 fn hit_world(ray: Ray, world: Array[Sphere], t_min: Float, t_max: Float) -> HitRecord | Nil {
     let closest   = t_max;
-    let final_rec: HirRecord | Nil = nil;
+    let final_rec: HitRecord | Nil = nil;
 
     for let i = 0; i < len(world); i += 1 {
         let rec = hit_sphere(world[i], ray, t_min, closest);

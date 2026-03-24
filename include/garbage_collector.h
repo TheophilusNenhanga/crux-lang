@@ -20,8 +20,8 @@
 void *allocate_object_with_gc(VM *vm, size_t size);
 void *allocate_object_without_gc(VM *vm, size_t size);
 
-CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type);
-CruxObject *allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type);
+CruxObject *allocate_pooled_object(VM *vm, size_t size, ObjectType type);
+CruxObject *allocate_pooled_object_without_gc(VM *vm, size_t size, ObjectType type);
 
 #define ALLOCATE_OBJECT(vm, type, objectType) (type *)allocate_pooled_object(vm, sizeof(type), objectType)
 #define ALLOCATE_OBJECT_WITHOUT_GC(vm, type, objectType)                                                               \

@@ -1,8 +1,10 @@
 #include "type_system.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "garbage_collector.h"
 #include "object.h"
+#include "panic.h"
 #include "value.h"
 
 #define TYPE_GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
@@ -44,7 +46,7 @@ static void type_adjust_capacity(ObjectTypeTable *table, const int capacity)
 	}
 	table->count = 0;
 	for (int i = 0; i < table->capacity; i++) {
-		TypeEntry *entry = &table->entries[i];
+		const TypeEntry *entry = &table->entries[i];
 		if (entry->key == NULL)
 			continue;
 
@@ -110,6 +112,11 @@ bool type_table_delete(const ObjectTypeTable *table, const ObjectString *key)
 	return true;
 }
 
+/**
+ * Add all elements of `from` into `to`
+ * @param from must be gc rooted
+ * @param to must be gc rooted
+ */
 void type_table_add_all(const ObjectTypeTable *from, ObjectTypeTable *to)
 {
 	for (int i = 0; i < from->capacity; i++) {
@@ -198,7 +205,7 @@ void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
 				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},   {SET_TYPE, "Set"},
 				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
-				   {UNION_TYPE, "Union"}};
+				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"}};
 
 	int offset = 0;
 	bool first = true;
@@ -220,53 +227,98 @@ bool runtime_types_compatible(const TypeMask expected, const Value actual)
 	return (expected & actual_mask) != 0;
 }
 
+/**
+ * Creates a new array type record with the given element type.
+ * Roots the element type
+ */
 ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type)
 {
+	push(vm->current_module_record, OBJECT_VAL(element_type));
 	ObjectTypeRecord *rec = new_type_rec(vm, ARRAY_TYPE);
+	pop(vm->current_module_record);
 	rec->as.array_type.element_type = element_type;
 	return rec;
 }
 
+/**
+ * Creates a new table type record with the given key and value types.
+ * Roots the key and value types
+ */
 ObjectTypeRecord *new_table_type_rec(VM *vm, ObjectTypeRecord *key_type, ObjectTypeRecord *value_type)
 {
+	push(vm->current_module_record, OBJECT_VAL(key_type));
+	push(vm->current_module_record, OBJECT_VAL(value_type));
 	ObjectTypeRecord *rec = new_type_rec(vm, TABLE_TYPE);
+	pop(vm->current_module_record);
+	pop(vm->current_module_record);
 	rec->as.table_type.key_type = key_type;
 	rec->as.table_type.value_type = value_type;
 	return rec;
 }
 
+/**
+ * Creates a new result type record with the given ok type.
+ * Roots the ok type
+ */
 ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type)
 {
+	push(vm->current_module_record, OBJECT_VAL(ok_type));
 	ObjectTypeRecord *rec = new_type_rec(vm, RESULT_TYPE);
+	pop(vm->current_module_record);
 	rec->as.result_type.ok_type = ok_type;
 	return rec;
 }
 
-ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types, int field_count)
+/**
+ * Creates a new struct type record with the given definition and field types.
+ * Roots the definition and field types
+ */
+ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types,
+									  const int field_count)
 {
+	push(vm->current_module_record, OBJECT_VAL(definition));
+	push(vm->current_module_record, OBJECT_VAL(field_types));
 	ObjectTypeRecord *rec = new_type_rec(vm, STRUCT_TYPE);
+	pop(vm->current_module_record);
+	pop(vm->current_module_record);
 	rec->as.struct_type.definition = definition;
 	rec->as.struct_type.field_types = field_types;
 	rec->as.struct_type.field_count = field_count;
 	return rec;
 }
 
-ObjectTypeRecord *new_vector_type_rec(VM *vm, int dimensions)
+/**
+ * Creates a new vector type record with the given dimensions.
+ */
+ObjectTypeRecord *new_vector_type_rec(VM *vm, const int dimensions)
 {
 	ObjectTypeRecord *rec = new_type_rec(vm, VECTOR_TYPE);
 	rec->as.vector_type.dimensions = dimensions;
 	return rec;
 }
 
-ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord **element_types, int element_count)
+/**
+ * Creates a new tuple type record with the given element types.
+ * Roots the element types
+ */
+ObjectTypeRecord *new_tuple_type_rec(VM *vm, ObjectTypeRecord **element_types, const int element_count)
 {
+	for (int i = 0; i < element_count; i++) {
+		push(vm->current_module_record, OBJECT_VAL(element_types[i]));
+	}
 	ObjectTypeRecord *rec = new_type_rec(vm, TUPLE_TYPE);
 	rec->as.tuple_type.element_types = element_types;
 	rec->as.tuple_type.element_count = element_count;
+	for (int i = 0; i < element_count; i++) {
+		pop(vm->current_module_record);
+	}
 	return rec;
 }
 
-ObjectTypeRecord *new_matrix_type_rec(VM *vm, int rows, int cols)
+/**
+ * Creates a new matrix type record with the given dimensions.
+ */
+ObjectTypeRecord *new_matrix_type_rec(VM *vm, const int rows, const int cols)
 {
 	ObjectTypeRecord *rec = new_type_rec(vm, MATRIX_TYPE);
 	rec->as.matrix_type.rows = rows;
@@ -274,35 +326,86 @@ ObjectTypeRecord *new_matrix_type_rec(VM *vm, int rows, int cols)
 	return rec;
 }
 
-ObjectTypeRecord *new_function_type_rec(VM *vm, ObjectTypeRecord **arg_types, int arg_count,
+/**
+ * Creates a new function type record with the given argument types, return type, and argument count.
+ * Roots the argument types and return type
+ */
+ObjectTypeRecord *new_function_type_rec(VM *vm, ObjectTypeRecord **arg_types, const int arg_count,
 										ObjectTypeRecord *return_type)
 {
+	for (int i = 0; i < arg_count; i++) {
+		push(vm->current_module_record, OBJECT_VAL(arg_types[i]));
+	}
+	push(vm->current_module_record, OBJECT_VAL(return_type));
 	ObjectTypeRecord *rec = new_type_rec(vm, FUNCTION_TYPE);
+	pop(vm->current_module_record);
+	for (int i = 0; i < arg_count; i++) {
+		pop(vm->current_module_record);
+	}
 	rec->as.function_type.arg_types = arg_types;
 	rec->as.function_type.arg_count = arg_count;
 	rec->as.function_type.return_type = return_type;
 	return rec;
 }
 
+/**
+ * Creates a new set type record with the given element type.
+ * Roots the element type
+ */
 ObjectTypeRecord *new_set_type_rec(VM *vm, ObjectTypeRecord *element_type)
 {
+	push(vm->current_module_record, OBJECT_VAL(element_type));
 	ObjectTypeRecord *rec = new_type_rec(vm, SET_TYPE);
+	pop(vm->current_module_record);
 	rec->as.set_type.element_type = element_type;
 	return rec;
 }
 
-ObjectTypeRecord *new_shape_type_rec(VM *vm, ObjectTypeTable *element_types, int element_count)
+/**
+ * Creates a new shape type record with the given element types.
+ * Roots the element types
+ */
+ObjectTypeRecord *new_shape_type_rec(VM *vm, ObjectTypeTable *element_types, const int element_count)
 {
+	push(vm->current_module_record, OBJECT_VAL(element_types));
 	ObjectTypeRecord *rec = new_type_rec(vm, SHAPE_TYPE);
+	pop(vm->current_module_record);
 	rec->as.shape_type.element_types = element_types;
 	rec->as.shape_type.element_count = element_count;
 	return rec;
 }
 
+/**
+ * Creates a new union type record with the given element types and names.
+ * Roots the element types and names
+ */
 ObjectTypeRecord *new_union_type_rec(VM *vm, ObjectTypeRecord **element_types, ObjectString **element_names,
-									 int element_count)
+									 const int element_count)
 {
+	if (element_names != NULL) {
+		for (int i = 0; i < element_count; i++) {
+			push(vm->current_module_record, OBJECT_VAL(element_names[i]));
+		}
+	}
+	if (element_types != NULL) {
+		for (int i = 0; i < element_count; i++) {
+			push(vm->current_module_record, OBJECT_VAL(element_types[i]));
+		}
+	}
+
 	ObjectTypeRecord *rec = new_type_rec(vm, UNION_TYPE);
+
+	if (element_types != NULL) {
+		for (int i = 0; i < element_count; i++) {
+			pop(vm->current_module_record);
+		}
+	}
+	if (element_names != NULL) {
+		for (int i = 0; i < element_count; i++) {
+			pop(vm->current_module_record);
+		}
+	}
+
 	rec->as.union_type.element_types = element_types;
 	rec->as.union_type.element_names = element_names;
 	rec->as.union_type.element_count = element_count;
@@ -515,115 +618,221 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 	return false;
 }
 
-void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size)
+// Added this to not crash fail with deep recursion
+static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const int buf_size,
+								  const ObjectTypeRecord **seen, const int seen_count)
 {
 	if (!rec) {
 		snprintf(buf, buf_size, "Unknown");
 		return;
 	}
 
-	if (rec->base_type == ANY_TYPE) {
-		snprintf(buf, buf_size, "Any");
+	for (int i = 0; i < seen_count; i++) {
+		if (seen[i] == rec) {
+			snprintf(buf, buf_size, "<recursive>");
+			return;
+		}
+	}
+
+	const ObjectTypeRecord *next_seen[64];
+	int next_seen_count = seen_count;
+	if (seen_count < (int)(sizeof(next_seen) / sizeof(next_seen[0]))) {
+		memcpy(next_seen, seen, seen_count * sizeof(*seen));
+		next_seen[next_seen_count++] = rec;
+	} else {
+		snprintf(buf, buf_size, "<depth-limit>");
 		return;
 	}
 
-	TypeMask complex_mask = ARRAY_TYPE | TABLE_TYPE | RESULT_TYPE | TUPLE_TYPE | SET_TYPE | FUNCTION_TYPE |
-							STRUCT_TYPE | VECTOR_TYPE | MATRIX_TYPE | UNION_TYPE | SHAPE_TYPE;
-
-	if (!(rec->base_type & complex_mask)) {
-		type_mask_name(rec->base_type, buf, buf_size);
-		return;
-	}
+	if (buf_size > 0)
+		buf[0] = '\0';
 
 	switch (rec->base_type) {
+	case NIL_TYPE:
+		snprintf(buf, buf_size, "Nil");
+		break;
+	case BOOL_TYPE:
+		snprintf(buf, buf_size, "Bool");
+		break;
+	case INT_TYPE:
+		snprintf(buf, buf_size, "Int");
+		break;
+	case FLOAT_TYPE:
+		snprintf(buf, buf_size, "Float");
+		break;
+	case STRING_TYPE:
+		snprintf(buf, buf_size, "String");
+		break;
+	case ERROR_TYPE:
+		snprintf(buf, buf_size, "Error");
+		break;
+	case RANDOM_TYPE:
+		snprintf(buf, buf_size, "Random");
+		break;
+	case FILE_TYPE:
+		snprintf(buf, buf_size, "File");
+		break;
+	case COMPLEX_TYPE:
+		snprintf(buf, buf_size, "Complex");
+		break;
+	case MODULE_TYPE:
+		snprintf(buf, buf_size, "Module");
+		break;
+	case RANGE_TYPE:
+		snprintf(buf, buf_size, "Range");
+		break;
+	case ANY_TYPE:
+		snprintf(buf, buf_size, "Any");
+		break;
+	case NEVER_TYPE:
+		snprintf(buf, buf_size, "Never");
+		break;
+
 	case ARRAY_TYPE: {
-		char inner[128];
-		type_record_name(rec->as.array_type.element_type, inner, sizeof(inner));
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.array_type.element_type, inner, sizeof(inner), next_seen, next_seen_count);
 		snprintf(buf, buf_size, "Array[%s]", inner);
 		break;
 	}
 	case TABLE_TYPE: {
-		char key[128], val[128];
-		type_record_name(rec->as.table_type.key_type, key, sizeof(key));
-		type_record_name(rec->as.table_type.value_type, val, sizeof(val));
+		char key[256] = {0}, val[256] = {0};
+		type_record_name_impl(rec->as.table_type.key_type, key, sizeof(key), next_seen, next_seen_count);
+		type_record_name_impl(rec->as.table_type.value_type, val, sizeof(val), next_seen, next_seen_count);
 		snprintf(buf, buf_size, "Table[%s, %s]", key, val);
 		break;
 	}
 	case RESULT_TYPE: {
-		char inner[128];
-		type_record_name(rec->as.result_type.ok_type, inner, sizeof(inner));
-		snprintf(buf, buf_size, "Result[%s]", inner);
-		break;
-	}
-	case TUPLE_TYPE: {
-		if (rec->as.tuple_type.element_count == -1) {
-			snprintf(buf, buf_size, "Tuple");
-		} else {
-			int offset = snprintf(buf, buf_size, "Tuple[");
-			for (int i = 0; i < rec->as.tuple_type.element_count; i++) {
-				char inner[128];
-				type_record_name(rec->as.tuple_type.element_types[i], inner, sizeof(inner));
-				if (i > 0)
-					offset += snprintf(buf + offset, buf_size - offset, ", ");
-				offset += snprintf(buf + offset, buf_size - offset, "%s", inner);
-			}
-			snprintf(buf + offset, buf_size - offset, "]");
-		}
+		char ok[256] = {0};
+		type_record_name_impl(rec->as.result_type.ok_type, ok, sizeof(ok), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Result[%s]", ok);
 		break;
 	}
 	case SET_TYPE: {
-		char inner[128];
-		type_record_name(rec->as.set_type.element_type, inner, sizeof(inner));
-		snprintf(buf, buf_size, "Set[%s]", inner);
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.set_type.element_type, inner, sizeof(inner), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Set<%s>", inner);
 		break;
 	}
-	case VECTOR_TYPE:
-		if (rec->as.vector_type.dimensions == -1)
-			snprintf(buf, buf_size, "Vector[]");
-		else
-			snprintf(buf, buf_size, "Vector[%d]", rec->as.vector_type.dimensions);
-		break;
-	case MATRIX_TYPE:
-		if (rec->as.matrix_type.rows == -1)
-			snprintf(buf, buf_size, "Matrix[,]"); // Updated to print [,] explicitly as requested
-		else
-			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows, rec->as.matrix_type.cols);
-		break;
-	case STRUCT_TYPE:
-		if (rec->as.struct_type.definition)
-			snprintf(buf, buf_size, "Struct %s", rec->as.struct_type.definition->name->chars);
-		else
-			snprintf(buf, buf_size, "Struct");
-		break;
-	case FUNCTION_TYPE: {
-		int offset = snprintf(buf, buf_size, "fn(");
-		for (int i = 0; i < rec->as.function_type.arg_count; i++) {
-			char arg[128];
-			type_record_name(rec->as.function_type.arg_types[i], arg, sizeof(arg));
-			offset += snprintf(buf + offset, buf_size - offset, "%s%s", i == 0 ? "" : ", ", arg);
+	case STRUCT_TYPE: {
+		if (rec->as.struct_type.definition && rec->as.struct_type.definition->name) {
+			snprintf(buf, buf_size, "%s", rec->as.struct_type.definition->name->chars);
+		} else {
+			snprintf(buf, buf_size, "UnnamedStruct");
 		}
-		char ret[128];
-		type_record_name(rec->as.function_type.return_type, ret, sizeof(ret));
-		snprintf(buf + offset, buf_size - offset, ") -> %s", ret);
+		break;
+	}
+	case VECTOR_TYPE: {
+		if (rec->as.vector_type.dimensions == -1) {
+			snprintf(buf, buf_size, "Vector[]");
+		} else {
+			snprintf(buf, buf_size, "Vector[%d]", rec->as.vector_type.dimensions);
+		}
+		break;
+	}
+	case MATRIX_TYPE: {
+		if (rec->as.matrix_type.rows == -1 || rec->as.matrix_type.cols == -1) {
+			snprintf(buf, buf_size, "Matrix[]");
+		} else {
+			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows,
+					 rec->as.matrix_type.cols);
+		}
+		break;
+	}
+	case TUPLE_TYPE: {
+		int offset = 0;
+		int n = snprintf(buf + offset, buf_size - offset, "Tuple(");
+		if (n > 0 && n < buf_size - offset)
+			offset += n;
+
+		for (int i = 0; i < rec->as.tuple_type.element_count; i++) {
+			char elem_buf[256] = {0};
+			type_record_name_impl(rec->as.tuple_type.element_types[i], elem_buf, sizeof(elem_buf), next_seen,
+								  next_seen_count);
+			n = snprintf(buf + offset, buf_size - offset, "%s%s", i > 0 ? ", " : "", elem_buf);
+			if (n < 0 || n >= buf_size - offset)
+				break;
+			offset += n;
+		}
+
+		if (buf_size - offset > 0) {
+			snprintf(buf + offset, buf_size - offset, ")");
+		}
+		break;
+	}
+	case FUNCTION_TYPE: {
+		int offset = 0;
+		int n = snprintf(buf + offset, buf_size - offset, "(");
+		if (n > 0 && n < buf_size - offset)
+			offset += n;
+
+		for (int i = 0; i < rec->as.function_type.arg_count; i++) {
+			char arg_buf[256] = {0};
+			type_record_name_impl(rec->as.function_type.arg_types[i], arg_buf, sizeof(arg_buf), next_seen,
+								  next_seen_count);
+
+			n = snprintf(buf + offset, buf_size - offset, "%s%s", i > 0 ? ", " : "", arg_buf);
+			if (n < 0 || n >= buf_size - offset)
+				break; // Out of bounds check
+			offset += n;
+		}
+
+		n = snprintf(buf + offset, buf_size - offset, ") -> ");
+		if (n > 0 && n < buf_size - offset)
+			offset += n;
+
+		if (buf_size - offset > 0) {
+			type_record_name_impl(rec->as.function_type.return_type, buf + offset, buf_size - offset, next_seen,
+								  next_seen_count);
+		}
 		break;
 	}
 	case UNION_TYPE: {
 		int offset = 0;
 		for (int i = 0; i < rec->as.union_type.element_count; i++) {
-			char inner[128];
-			type_record_name(rec->as.union_type.element_types[i], inner, sizeof(inner));
-			// Print ' | ' between types, but not before the first one
-			offset += snprintf(buf + offset, buf_size - offset, "%s%s", i == 0 ? "" : " | ", inner);
+			char elem_buf[256] = {0};
+			type_record_name_impl(rec->as.union_type.element_types[i], elem_buf, sizeof(elem_buf), next_seen,
+								  next_seen_count);
+
+			const int n = snprintf(buf + offset, buf_size - offset, "%s%s", i > 0 ? " | " : "", elem_buf);
+			if (n < 0 || n >= buf_size - offset)
+				break;
+			offset += n;
+		}
+		break;
+	}
+	case SHAPE_TYPE: {
+		const ObjectTypeTable *field_types = rec->as.shape_type.element_types;
+		int offset = 0;
+		int printed = 0;
+		for (int i = 0; i < field_types->capacity; i++) {
+			if (field_types->entries[i].key) {
+				char elem_buf[256] = {0};
+				type_record_name_impl(field_types->entries[i].value, elem_buf, sizeof(elem_buf), next_seen,
+									  next_seen_count);
+
+				const int n = snprintf(buf + offset, buf_size - offset, "%s%s: %s", printed > 0 ? ", " : "",
+									   field_types->entries[i].key->chars, elem_buf);
+				if (n < 0 || n >= buf_size - offset)
+					break;
+				offset += n;
+				printed++;
+			}
 		}
 		break;
 	}
 	default:
-		type_mask_name(rec->base_type, buf, buf_size);
+		snprintf(buf, buf_size, "UnimplementedType");
 		break;
 	}
 }
 
-ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const char *str)
+void type_record_name(const ObjectTypeRecord *rec, char *buf, const int buf_size)
+{
+	const ObjectTypeRecord *seen[64] = {0};
+	type_record_name_impl(rec, buf, buf_size, seen, 0);
+}
+
+ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, const char *str)
 {
 	if (strcmp(str, "Int") == 0)
 		return new_type_rec(vm, INT_TYPE);
@@ -635,18 +844,47 @@ ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const ch
 		return new_type_rec(vm, NIL_TYPE);
 	if (strcmp(str, "String") == 0)
 		return new_type_rec(vm, STRING_TYPE);
-	if (strncmp(str, "Array", 5) == 0)
-		return new_array_type_rec(vm, new_type_rec(vm, ANY_TYPE));
-	if (strncmp(str, "Table", 5) == 0)
-		return new_table_type_rec(vm, new_type_rec(vm, ANY_TYPE), new_type_rec(vm, ANY_TYPE));
-	if (strncmp(str, "Result", 6) == 0)
-		return new_result_type_rec(vm, new_type_rec(vm, ANY_TYPE));
-	if (strncmp(str, "Function", 8) == 0)
-		return new_function_type_rec(vm, NULL, 0, new_type_rec(vm, ANY_TYPE));
+
+	if (strncmp(str, "Array", 5) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_array_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+	if (strncmp(str, "Table", 5) == 0) {
+		ObjectTypeRecord *any_k = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_k));
+		ObjectTypeRecord *any_v = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_v));
+		ObjectTypeRecord *res = new_table_type_rec(vm, any_k, any_v);
+		pop(vm->current_module_record);
+		pop(vm->current_module_record);
+		return res;
+	}
+	if (strncmp(str, "Result", 6) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_result_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+	if (strncmp(str, "Function", 8) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_function_type_rec(vm, NULL, 0, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
 	if (strncmp(str, "Tuple", 5) == 0)
 		return new_tuple_type_rec(vm, NULL, -1);
-	if (strncmp(str, "Set", 3) == 0)
-		return new_set_type_rec(vm, new_type_rec(vm, ANY_TYPE));
+	if (strncmp(str, "Set", 3) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_set_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
 	if (strncmp(str, "Vector", 6) == 0)
 		return new_vector_type_rec(vm, -1);
 	if (strncmp(str, "Matrix", 6) == 0)
@@ -655,10 +893,13 @@ ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const ch
 	if (strncmp(str, "Struct ", 7) == 0) {
 		if (type_table) {
 			ObjectString *name = copy_string(vm, str + 7, strlen(str + 7));
+			push(vm->current_module_record, OBJECT_VAL(name));
 			ObjectTypeRecord *rec = NULL;
 			if (type_table_get(type_table, name, &rec)) {
+				pop(vm->current_module_record);
 				return rec;
 			}
+			pop(vm->current_module_record);
 		}
 		return new_type_rec(vm, STRUCT_TYPE);
 	}
