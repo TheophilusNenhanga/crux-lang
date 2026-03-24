@@ -3,6 +3,7 @@
 
 #include "object.h"
 #include "value.h"
+#include "vm.h"
 
 bool runtime_types_compatible(TypeMask expected, Value actual);
 void type_mask_name(TypeMask mask, char *buf, int buf_size);
@@ -33,7 +34,7 @@ ObjectTypeRecord *new_union_type_rec(VM *vm, ObjectTypeRecord **element_types, O
 bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b);
 bool types_compatible(ObjectTypeRecord *a, ObjectTypeRecord *b);
 
-ObjectTypeRecord *type_from_string(VM *vm, ObjectTypeTable *type_table, const char *str);
+ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, const char *str);
 ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRecord *to_remove);
 bool is_numeric_type(ObjectTypeRecord *type);
 

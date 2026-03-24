@@ -1,5 +1,3 @@
-#include "compiler.h"
-
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,13 +6,12 @@
 
 #include "chunk.h"
 #include "common.h"
+#include "compiler.h"
 #include "debug.h"
 #include "file_handler.h"
-#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
-#include "type_system.h"
 #include "value.h"
 
 static void expression(Compiler *compiler);
@@ -37,124 +34,6 @@ static void declaration(Compiler *compiler);
 
 static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectString *path);
 
-static Chunk *current_chunk(const Compiler *compiler)
-{
-	return &compiler->function->chunk;
-}
-
-static void advance(const Compiler *compiler)
-{
-	compiler->parser->previous = compiler->parser->current;
-	for (;;) {
-		compiler->parser->current = scan_token(compiler->parser->scanner);
-		if (compiler->parser->current.type != CRUX_TOKEN_ERROR)
-			break;
-		compiler_panic(compiler->parser, compiler->parser->current.start, SYNTAX);
-	}
-}
-
-static void consume(const Compiler *compiler, const CruxTokenType type, const char *message)
-{
-	if (compiler->parser->current.type == type) {
-		advance(compiler);
-		return;
-	}
-	compiler_panic_at_current(compiler->parser, message, SYNTAX);
-}
-
-static bool check(const Compiler *compiler, const CruxTokenType type)
-{
-	return compiler->parser->current.type == type;
-}
-
-static bool match(const Compiler *compiler, const CruxTokenType type)
-{
-	if (!check(compiler, type))
-		return false;
-	advance(compiler);
-	return true;
-}
-
-static bool is_identifier_like(const CruxTokenType type)
-{
-	switch (type) {
-	case CRUX_TOKEN_IDENTIFIER:
-	// Type names that are also valid constructor/import names:
-	case CRUX_TOKEN_RANDOM_TYPE:
-	case CRUX_TOKEN_BUFFER_TYPE:
-	case CRUX_TOKEN_RANGE_TYPE:
-	case CRUX_TOKEN_VECTOR_TYPE:
-	case CRUX_TOKEN_MATRIX_TYPE:
-	case CRUX_TOKEN_COMPLEX_TYPE:
-	case CRUX_TOKEN_SET_TYPE:
-	case CRUX_TOKEN_TUPLE_TYPE:
-	case CRUX_TOKEN_FILE_TYPE:
-		return true;
-	default:
-		return false;
-	}
-}
-
-static bool check_identifier_like(const Compiler *compiler)
-{
-	return is_identifier_like(compiler->parser->current.type);
-}
-
-static void consume_identifier_like(const Compiler *compiler, const char *message)
-{
-	if (check_identifier_like(compiler)) {
-		advance(compiler);
-		return;
-	}
-	compiler_panic(compiler->parser, message, SYNTAX);
-}
-
-/**
- * lookup a callable in a vm stdlib table
- * @param compiler The current compiler
- * @param type_table The vm owned type table to look for a callable from
- * @param name_token The name of the callable
- * @return the callable otherwise NULL if no callable found
- */
-static const ObjectNativeCallable *lookup_stdlib_method(const Compiler *compiler, const Table *type_table,
-														const Token *name_token)
-{
-	const ObjectString *name = copy_string(compiler->owner, name_token->start, name_token->length);
-	Value value;
-	if (!table_get(type_table, name, &value))
-		return NULL;
-	if (!IS_CRUX_NATIVE_CALLABLE(value))
-		return NULL;
-	return AS_CRUX_NATIVE_CALLABLE(value);
-}
-
-static void emit_word(const Compiler *compiler, const uint16_t word)
-{
-	write_chunk(compiler->owner, current_chunk(compiler), word, compiler->parser->previous.line);
-}
-
-static void emit_words(const Compiler *compiler, const uint16_t word1, const uint16_t word2)
-{
-	emit_word(compiler, word1);
-	emit_word(compiler, word2);
-}
-
-static bool is_valid_table_key_type(ObjectTypeRecord *type)
-{
-	if (!type)
-		return false;
-	if (type->base_type == ANY_TYPE)
-		return true;
-	return (type->base_type & HASHABLE_TYPE) != 0;
-}
-
-#define T_ANY new_type_rec(compiler->owner, ANY_TYPE)
-#define T_BOOL new_type_rec(compiler->owner, BOOL_TYPE)
-#define T_INT new_type_rec(compiler->owner, INT_TYPE)
-#define T_FLOAT new_type_rec(compiler->owner, FLOAT_TYPE)
-#define T_STRING new_type_rec(compiler->owner, STRING_TYPE)
-#define T_NIL new_type_rec(compiler->owner, NIL_TYPE)
-
 ObjectTypeRecord *parse_type_record(Compiler *compiler)
 {
 	ObjectTypeRecord *type_record = NULL;
@@ -175,19 +54,29 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 			int field_count = 0;
 			ObjectTypeTable *field_types = new_type_table(compiler->owner, 8);
+			push(compiler->owner->current_module_record, OBJECT_VAL(field_types));
 			if (!check(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 				do {
 					consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected field name.");
 					ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 														  compiler->parser->previous.length);
+					push(compiler->owner->current_module_record, OBJECT_VAL(fieldName));
 					consume(compiler, CRUX_TOKEN_COLON, "Expected ':' after field name.");
 					ObjectTypeRecord *field_type = parse_type_record(compiler);
+					push(compiler->owner->current_module_record, OBJECT_VAL(field_type));
 					type_table_set(field_types, fieldName, field_type);
 					field_count++;
 				} while (match(compiler, CRUX_TOKEN_COMMA));
 			}
 			consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after shape definition.");
 			type_record = new_shape_type_rec(compiler->owner, field_types, field_count);
+
+			for (int i = 0; i < field_count; i++) {
+				pop(compiler->owner->current_module_record); // field type
+				pop(compiler->owner->current_module_record); // field name
+			}
+			pop(compiler->owner->current_module_record); // field_types
+
 		} else {
 			compiler_panic(compiler->parser, "Expected '{' for shape type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
@@ -195,8 +84,11 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, CRUX_TOKEN_ARRAY_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, ARRAY_TYPE);
-			type_record->as.array_type.element_type = parse_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
+			ObjectTypeRecord *parsed_type = parse_type_record(compiler);
+			type_record->as.array_type.element_type = parsed_type;
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after array element type.");
+			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for array type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
@@ -204,18 +96,27 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, CRUX_TOKEN_TABLE_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, TABLE_TYPE);
+			push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
 			ObjectTypeRecord *key_type = parse_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(key_type));
+
 			if (!is_valid_table_key_type(key_type)) {
-				char got[64];
+				pop(compiler->owner->current_module_record); // key_type
+				pop(compiler->owner->current_module_record); // type_record
+				char got[128];
 				type_record_name(key_type, got, sizeof(got));
-				compiler_panicf(compiler->parser, TYPE,
-								"Table key type '%s' is not hashable. Keys must be Int, Float, String, Bool, or Nil.",
-								got);
+				compiler_panicf(
+					compiler->parser, TYPE,
+					"Table key type '%s' is not hashable. Keys must be 'Int | Float | String | Bool | Nil'.", got);
+				return T_ANY;
 			}
+
 			type_record->as.table_type.key_type = key_type;
 			consume(compiler, CRUX_TOKEN_COMMA, "Expected ',' after key type.");
 			type_record->as.table_type.value_type = parse_type_record(compiler);
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after table element type.");
+			pop(compiler->owner->current_module_record); // key_type
+			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for table type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
@@ -223,9 +124,10 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, CRUX_TOKEN_VECTOR_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, VECTOR_TYPE);
+			push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
 
-			// generic vector type
 			if (match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
+				pop(compiler->owner->current_module_record); // type_record
 				type_record->as.vector_type.dimensions = -1;
 				return type_record;
 			}
@@ -234,6 +136,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			const int dimensions = (int)strtol(compiler->parser->previous.start, NULL, 10);
 			type_record->as.vector_type.dimensions = dimensions;
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after vector element type.");
+			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for vector type definition.", TYPE);
 			type_record = new_type_rec(compiler->owner, ANY_TYPE);
@@ -241,15 +144,18 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, CRUX_TOKEN_MATRIX_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, MATRIX_TYPE);
+			push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
+
 			if (match(compiler, CRUX_TOKEN_COMMA)) {
-				// generic matrix type
 				if (match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 					type_record->as.matrix_type.cols = -1;
 					type_record->as.matrix_type.rows = -1;
+					pop(compiler->owner->current_module_record); // type_record
 					return type_record;
 				} else {
+					pop(compiler->owner->current_module_record); // type_record
 					compiler_panic(compiler->parser, "Expected ']' to end definition of generic matrix type", SYNTAX);
-					type_record = T_ANY;
+					return T_ANY;
 				}
 			}
 
@@ -260,6 +166,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			type_record->as.matrix_type.rows = row_dim;
 			type_record->as.matrix_type.cols = col_dim;
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after matrix element type.");
+			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for matrix type definition.", TYPE);
 			type_record = T_ANY;
@@ -271,8 +178,10 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	} else if (match(compiler, CRUX_TOKEN_RESULT_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			ObjectTypeRecord *value_type = parse_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(value_type));
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after result value type.");
 			type_record = new_result_type_rec(compiler->owner, value_type);
+			pop(compiler->owner->current_module_record); // value_type
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for result type definition.", TYPE);
 			type_record = T_ANY;
@@ -288,19 +197,33 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 				compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 				return T_ANY;
 			}
+
 			if (!check(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 				do {
 					if (param_count == param_capacity) {
 						int old_capacity = param_capacity;
 						param_capacity = GROW_CAPACITY(param_capacity);
-						param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_capacity,
-												 param_capacity);
+						ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types,
+															  old_capacity, param_capacity);
+						if (!grown) {
+							FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_capacity);
+							for (int i = 0; i < param_count; i++)
+								pop(compiler->owner->current_module_record);
+							compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+							return T_ANY;
+						}
+						param_types = grown;
 					}
-					param_types[param_count++] = parse_type_record(compiler);
+					ObjectTypeRecord *param_type = parse_type_record(compiler);
+					push(compiler->owner->current_module_record, OBJECT_VAL(param_type));
+					param_types[param_count++] = param_type;
 				} while (match(compiler, CRUX_TOKEN_COMMA));
 			}
 			param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 			type_record = new_tuple_type_rec(compiler->owner, param_types, param_count);
+			for (int i = 0; i < param_count; i++) {
+				pop(compiler->owner->current_module_record); // param_types[i]
+			}
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after tuple element types.");
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for tuple type definition.", TYPE);
@@ -324,12 +247,19 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 					compiler_panic(compiler->parser, "Expected type.", TYPE);
 					inner = T_ANY;
 				}
+
+				// protect inner before array grows
+				push(compiler->owner->current_module_record, OBJECT_VAL(inner));
+
 				if (param_count == param_capacity) {
 					param_capacity = GROW_CAPACITY(param_capacity);
 					ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count,
 														  param_capacity);
 					if (!grown) {
 						FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_count);
+						// +1: account for inner
+						for (int i = 0; i < param_count + 1; i++)
+							pop(compiler->owner->current_module_record);
 						compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
 						return T_ANY;
 					}
@@ -343,12 +273,15 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		consume(compiler, CRUX_TOKEN_ARROW, "Expected '->' to separate function argument types from return type.");
 		ObjectTypeRecord *return_type = parse_type_record(compiler);
 		if (!return_type) {
+			for (int i = 0; i < param_count; i++) {
+				pop(compiler->owner->current_module_record); // param_types[i]
+			}
 			compiler_panic(compiler->parser, "Expected type.", TYPE);
 			FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity);
 			return T_ANY;
 		}
+		push(compiler->owner->current_module_record, OBJECT_VAL(return_type));
 
-		// Shrink to exact size
 		if (param_count < param_capacity) {
 			param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_capacity, param_count);
 		}
@@ -357,12 +290,22 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 		type_record->as.function_type.arg_types = param_types;
 		type_record->as.function_type.arg_count = param_count;
 		type_record->as.function_type.return_type = return_type;
+
+		pop(compiler->owner->current_module_record); // return_type
+		for (int i = 0; i < param_count; i++) {
+			pop(compiler->owner->current_module_record); // param_types[i]
+		}
+
 	} else if (match(compiler, CRUX_TOKEN_SET_TYPE)) {
 		type_record = new_type_rec(compiler->owner, SET_TYPE);
+		push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
-			type_record->as.set_type.element_type = parse_type_record(compiler);
+			ObjectTypeRecord *element_type = parse_type_record(compiler);
+			pop(compiler->owner->current_module_record); // type_record
+			type_record->as.set_type.element_type = element_type;
 			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after set element type.");
 		} else {
+			pop(compiler->owner->current_module_record); // type_record
 			type_record->as.set_type.element_type = T_ANY;
 		}
 	} else if (match(compiler, CRUX_TOKEN_RANDOM_TYPE)) {
@@ -381,7 +324,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			comp = comp->enclosing;
 		}
 		if (!found) {
-			// unknown name — degrade to ANY_TYPE.
+			compiler_panicf(compiler->parser, TYPE, "Unknown type: %s", name_str->chars);
 			type_record = T_ANY;
 		} else {
 			type_record = found;
@@ -392,171 +335,48 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 	}
 
 	if (type_record && match(compiler, CRUX_TOKEN_PIPE)) {
-		int cap = 4;
+		push(compiler->owner->current_module_record, OBJECT_VAL(type_record));
+		int capacity = 4;
 		int count = 1;
-		ObjectTypeRecord **variants = ALLOCATE(compiler->owner, ObjectTypeRecord *, cap);
+		ObjectTypeRecord **variants = ALLOCATE(compiler->owner, ObjectTypeRecord *, capacity);
+
 		if (!variants) {
 			compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
-			return type_record; // return first variant as fallback
+			pop(compiler->owner->current_module_record);
+			return type_record;
 		}
 		variants[0] = type_record;
 
 		do {
-			if (count == cap) {
-				cap *= 2;
-				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, count, cap);
+			if (count == capacity) {
+				capacity = GROW_CAPACITY(capacity);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, count, capacity);
 				if (!grown) {
 					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, variants, count);
 					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+					for (int i = 0; i < count; i++)
+						pop(compiler->owner->current_module_record);
 					return type_record;
 				}
 				variants = grown;
 			}
-			variants[count++] = parse_type_record(compiler);
+			ObjectTypeRecord *variant = parse_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(variant));
+			variants[count++] = variant;
 		} while (match(compiler, CRUX_TOKEN_PIPE));
 
-		if (count < cap) {
-			variants = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, cap, count);
+		if (count < capacity) {
+			variants = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, variants, capacity, count);
 		}
-		// element_names can be NULL for anonymous unions
+
 		type_record = new_union_type_rec(compiler->owner, variants, NULL, count);
+
+		for (int i = 0; i < count; i++) {
+			pop(compiler->owner->current_module_record);
+		}
 	}
 
 	return type_record;
-}
-
-/**
- * emits an OP_LOOP instruction
- * @param loopStart The starting point of the loop
- */
-static void emit_loop(Compiler *compiler, const int loopStart)
-{
-	emit_word(compiler, OP_LOOP);
-	// +1 takes into account the size of the OP_LOOP
-	const int offset = current_chunk(compiler)->count - loopStart + 1;
-	if (offset > UINT16_MAX) {
-		compiler_panic(compiler->parser, "Loop body too large.", LOOP_EXTENT);
-	}
-	emit_word(compiler, offset);
-}
-
-/**
- * Emits a jump instruction and placeholders for the jump offset.
- *
- * @param instruction The opcode for the jump instruction (e.g., OP_JUMP,
- * OP_JUMP_IF_FALSE).
- * @return The index of the jump instruction in the bytecode, used for patching
- * later.
- */
-static int emit_jump(Compiler *compiler, const uint16_t instruction)
-{
-	emit_word(compiler, instruction);
-	emit_word(compiler, 0xffff);
-	return current_chunk(compiler)->count - 1;
-}
-
-/**
- * Patches a jump instruction with the calculated offset.
- */
-static void patch_jump(Compiler *compiler, const int offset)
-{
-	// -1 to adjust for the bytecode for the jump offset itself
-	const int jump = current_chunk(compiler)->count - offset - 1;
-	if (jump > UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too much code to jump over.", BRANCH_EXTENT);
-	}
-	current_chunk(compiler)->code[offset] = (uint16_t)jump;
-}
-
-static void emit_return(Compiler *compiler)
-{
-	emit_word(compiler, OP_NIL_RETURN);
-}
-
-static uint16_t make_constant(Compiler *compiler, const Value value)
-{
-	const int constant = add_constant(compiler->owner, current_chunk(compiler), value);
-	if (constant >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many constants in one chunk.", LIMIT);
-		return 0;
-	}
-	return (uint16_t)constant;
-}
-
-static void emit_constant(Compiler *compiler, const Value value)
-{
-	const uint16_t constant = make_constant(compiler, value);
-	if (constant >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many constants", SYNTAX);
-	}
-	emit_words(compiler, OP_CONSTANT, constant);
-}
-
-static void push_loop_context(Compiler *compiler, const LoopType type, const int continueTarget)
-{
-	if (compiler->loop_depth >= UINT8_MAX) {
-		compiler_panic(compiler->parser, "Too many nested loops.", LOOP_EXTENT);
-		return;
-	}
-
-	LoopContext *context = &compiler->loop_stack[compiler->loop_depth++];
-	context->type = type;
-	context->continue_target = continueTarget;
-	context->break_jumps = NULL;
-	context->scope_depth = compiler->scope_depth;
-}
-
-static void pop_loop_context(Compiler *compiler)
-{
-	if (compiler->loop_depth <= 0) {
-		return;
-	}
-
-	const LoopContext *context = &compiler->loop_stack[--compiler->loop_depth];
-
-	// Patch all break jumps to jump to current position
-	BreakJump *breakJump = context->break_jumps;
-	while (breakJump != NULL) {
-		patch_jump(compiler, breakJump->jumpOffset);
-		BreakJump *next = breakJump->next;
-		FREE(compiler->owner, BreakJump, breakJump);
-		breakJump = next;
-	}
-}
-
-static void add_break_jump(Compiler *compiler, const int jumpOffset)
-{
-	if (compiler->loop_depth <= 0) {
-		compiler_panic(compiler->parser, "Cannot use 'break' outside of a loop.", SYNTAX);
-		return;
-	}
-
-	LoopContext *context = &compiler->loop_stack[compiler->loop_depth - 1];
-
-	BreakJump *breakJump = ALLOCATE(compiler->owner, BreakJump, 1);
-	breakJump->jumpOffset = jumpOffset;
-	breakJump->next = context->break_jumps;
-	context->break_jumps = breakJump;
-}
-
-void push_type_record(Compiler *compiler, ObjectTypeRecord *type_record)
-{
-	compiler->type_stack[compiler->type_stack_count++] = type_record;
-}
-
-ObjectTypeRecord *pop_type_record(Compiler *compiler)
-{
-	if (compiler->type_stack_count <= 0) {
-		return T_ANY; // return Any type on underflow
-	}
-	return compiler->type_stack[--compiler->type_stack_count];
-}
-
-ObjectTypeRecord *peek_type_record(Compiler *compiler)
-{
-	if (compiler->type_stack_count <= 0)
-		return NULL;
-	return compiler->type_stack[compiler->type_stack_count - 1];
 }
 
 bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const FunctionType type)
@@ -596,6 +416,11 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 		compiler->parser->panic_mode = false;
 	}
 
+	memset(compiler->locals, 0, sizeof(compiler->locals));
+	memset(compiler->upvalues, 0, sizeof(compiler->upvalues));
+	memset(compiler->type_stack, 0, sizeof(compiler->type_stack));
+	memset(compiler->loop_stack, 0, sizeof(compiler->loop_stack));
+
 	compiler->type_stack_count = 0;
 	compiler->function = NULL;
 	compiler->type = type;
@@ -606,6 +431,8 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	compiler->owner = vm;
 	compiler->has_return = false;
 	compiler->return_type = NULL;
+	compiler->last_give_type = NULL;
+	compiler->type_table = NULL;
 	compiler->type_table = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
 
 	// add core fn types for top-level scripts
@@ -670,328 +497,6 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	return true;
 }
 
-static uint16_t identifier_constant(Compiler *compiler, const Token *name)
-{
-	return make_constant(compiler, OBJECT_VAL(copy_string(compiler->owner, name->start, name->length)));
-}
-
-static void begin_scope(Compiler *compiler)
-{
-	compiler->scope_depth++;
-}
-
-static void cleanupLocalsToDepth(Compiler *compiler, const int targetDepth)
-{
-	while (compiler->local_count > 0 && compiler->locals[compiler->local_count - 1].depth > targetDepth) {
-		if (compiler->locals[compiler->local_count - 1].is_captured) {
-			emit_word(compiler, OP_CLOSE_UPVALUE);
-		} else {
-			emit_word(compiler, OP_POP);
-		}
-		compiler->local_count--;
-	}
-}
-
-static void emit_cleanup_for_jump(Compiler *compiler, const int targetDepth)
-{
-	int i = compiler->local_count - 1;
-	while (i >= 0 && compiler->locals[i].depth > targetDepth) {
-		if (compiler->locals[i].is_captured) {
-			emit_word(compiler, OP_CLOSE_UPVALUE);
-		} else {
-			emit_word(compiler, OP_POP);
-		}
-		i--;
-	}
-}
-
-/**
- * Ends the current scope.
- * Decreases the scope depth and emits OP_POP instructions to remove local
- * variables that go out of scope.
- */
-static void end_scope(Compiler *compiler)
-{
-	compiler->scope_depth--;
-	cleanupLocalsToDepth(compiler, compiler->scope_depth);
-}
-
-static bool identifiers_equal(const Token *a, const Token *b)
-{
-	if (a->length != b->length)
-		return false;
-	return memcmp(a->start, b->start, a->length) == 0;
-}
-
-/**
- * Resolves a local variable in the current compiler's scope.
- *
- * Searches the current compiler's local variables for a variable with the given
- * name.
- *
- * @param compiler The compiler whose scope to search.
- * @param name The token representing the variable name.
- * @return The index of the local variable if found, -1 otherwise.
- */
-static int resolve_local(const Compiler *compiler, const Token *name)
-{
-	for (int i = compiler->local_count - 1; i >= 0; i--) {
-		const Local *local = &compiler->locals[i];
-		if (identifiers_equal(name, &local->name)) {
-			if (local->depth == -1) {
-				compiler_panic(compiler->parser,
-							   "Cannot read local variable in "
-							   "its own initializer",
-							   NAME);
-			}
-			return i;
-		}
-	}
-	return -1;
-}
-
-static int get_current_continue_target(Compiler *compiler)
-{
-	if (compiler->loop_depth <= 0) {
-		compiler_panic(compiler->parser, "Cannot use 'continue' outside of a loop.", SYNTAX);
-		return -1;
-	}
-
-	return compiler->loop_stack[compiler->loop_depth - 1].continue_target;
-}
-
-/**
- * Adds an upvalue to the current function.
- *
- * An upvalue is a variable captured from an enclosing function's scope.
- *
- * @param compiler The current compiler.
- * @param index The index of the local variable in the enclosing function, or
- * the index of the upvalue.
- * @param isLocal true if the upvalue is a local variable in the enclosing
- * function, false if it's an upvalue itself.
- * @param type The type of the upvalue.
- * @return The index of the added upvalue in the current function's upvalue
- * array.
- */
-static int add_upvalue(Compiler *compiler, const uint16_t index, const bool isLocal, ObjectTypeRecord *type)
-{
-	const int upvalueCount = compiler->function->upvalue_count;
-
-	for (int i = 0; i < upvalueCount; i++) {
-		Upvalue *upvalue = &compiler->upvalues[i];
-		if (upvalue->index == index && upvalue->is_local == isLocal) {
-			if (!upvalue->type && type) {
-				upvalue->type = type;
-			}
-			return i;
-		}
-	}
-
-	if (upvalueCount >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many closure variables in function.", CLOSURE_EXTENT);
-		return 0;
-	}
-
-	compiler->upvalues[upvalueCount].is_local = isLocal;
-	compiler->upvalues[upvalueCount].index = index;
-	compiler->upvalues[upvalueCount].type = type;
-	return compiler->function->upvalue_count++;
-}
-
-/**
- * Resolves an upvalue in enclosing scopes.
- *
- * Searches enclosing compiler scopes for a local variable or upvalue with the
- * given name.
- *
- * @param compiler The current compiler.
- * @param name The token representing the variable name.
- * @return The index of the resolved upvalue if found, -1 otherwise.
- */
-static int resolve_upvalue(Compiler *compiler, Token *name)
-{
-	if (compiler->enclosing == NULL)
-		return -1;
-
-	const int local = resolve_local(compiler->enclosing, name);
-	if (local != -1) {
-		(compiler->enclosing)->locals[local].is_captured = true;
-		ObjectTypeRecord *type = compiler->enclosing->locals[local].type;
-		return add_upvalue(compiler, (uint16_t)local, true, type);
-	}
-
-	const int upValue = resolve_upvalue(compiler->enclosing, name);
-	if (upValue != -1) {
-		ObjectTypeRecord *type = compiler->enclosing->upvalues[upValue].type;
-		return add_upvalue(compiler, (uint16_t)upValue, false, type);
-	}
-
-	return -1;
-}
-
-/**
- * Adds a local variable to the current scope.
- *
- * @param name The token representing the name of the local variable.
- */
-static void add_local(Compiler *compiler, const Token name, ObjectTypeRecord *type)
-{
-	if (compiler->local_count == UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many local variables in function.", LOCAL_EXTENT);
-		return;
-	}
-
-	Local *local = &compiler->locals[compiler->local_count++];
-	local->name = name;
-	local->depth = -1;
-	local->is_captured = false;
-	local->type = type; // NULL until the initializer is complete
-}
-
-/**
- * Declares a variable in the current scope.
- *
- * Adds the variable name to the list of local variables, but does not mark it
- * as initialized yet.
- */
-static void declare_variable(Compiler *compiler)
-{
-	if (compiler->scope_depth == 0)
-		return;
-
-	const Token *name = &compiler->parser->previous;
-
-	for (int i = compiler->local_count - 1; i >= 0; i--) {
-		const Local *local = &compiler->locals[i];
-		if (local->depth != -1 && local->depth < compiler->scope_depth) {
-			break;
-		}
-		if (identifiers_equal(name, &local->name)) {
-			compiler_panic(compiler->parser, "Cannot redefine variable in the same scope", NAME);
-		}
-	}
-
-	add_local(compiler, *name, NULL);
-}
-
-/**
- * Marks the most recently declared local variable as initialized.
- *
- * This prevents reading a local variable before it has been assigned a value.
- */
-static void mark_initialized(Compiler *compiler)
-{
-	if (compiler->scope_depth == 0)
-		return;
-	compiler->locals[compiler->local_count - 1].depth = compiler->scope_depth;
-}
-
-/**
- * Parses a variable name and returns its constant pool index.
- *
- * @param errorMessage The error message to display if an identifier is not
- * found.
- * @return The index of the variable name constant in the constant pool.
- */
-static uint16_t parse_variable(Compiler *compiler, const char *errorMessage)
-{
-	consume(compiler, CRUX_TOKEN_IDENTIFIER, errorMessage);
-	declare_variable(compiler);
-	if (compiler->scope_depth > 0)
-		return 0;
-	return identifier_constant(compiler, &compiler->parser->previous);
-}
-
-static int match_compound_op(Compiler *compiler)
-{
-	if (match(compiler, CRUX_TOKEN_PLUS_EQUAL))
-		return COMPOUND_OP_PLUS;
-	if (match(compiler, CRUX_TOKEN_MINUS_EQUAL))
-		return COMPOUND_OP_MINUS;
-	if (match(compiler, CRUX_TOKEN_STAR_EQUAL))
-		return COMPOUND_OP_STAR;
-	if (match(compiler, CRUX_TOKEN_SLASH_EQUAL))
-		return COMPOUND_OP_SLASH;
-	if (match(compiler, CRUX_TOKEN_BACK_SLASH_EQUAL))
-		return COMPOUND_OP_BACK_SLASH;
-	if (match(compiler, CRUX_TOKEN_PERCENT_EQUAL))
-		return COMPOUND_OP_PERCENT;
-	return -1;
-}
-
-// check math types for all compound assignments
-static void check_compound_type_math(Compiler *compiler, ObjectTypeRecord *lhs_type, ObjectTypeRecord *rhs_type, int op)
-{
-	if (!lhs_type || !rhs_type || lhs_type->base_type == ANY_TYPE || rhs_type->base_type == ANY_TYPE)
-		return;
-
-	const bool lhs_num = lhs_type->base_type == INT_TYPE || lhs_type->base_type == FLOAT_TYPE;
-	const bool rhs_num = rhs_type->base_type == INT_TYPE || rhs_type->base_type == FLOAT_TYPE;
-
-	if (op == COMPOUND_OP_BACK_SLASH || op == COMPOUND_OP_PERCENT) {
-		if (lhs_type->base_type != INT_TYPE || rhs_type->base_type != INT_TYPE) {
-			char left_name[128], right_name[128];
-			type_record_name(lhs_type, left_name, sizeof(left_name));
-			type_record_name(rhs_type, right_name, sizeof(right_name));
-			compiler_panicf(compiler->parser, TYPE, "This compound operator requires Int operands, got '%s' and '%s'.",
-							left_name, right_name);
-		}
-	} else if (!lhs_num || !rhs_num) {
-		char left_name[128], right_name[128];
-		type_record_name(lhs_type, left_name, sizeof(left_name));
-		type_record_name(rhs_type, right_name, sizeof(right_name));
-		compiler_panicf(compiler->parser, TYPE, "Compound assignment requires numeric operands, got '%s' and '%s'.",
-						left_name, right_name);
-	}
-}
-
-/**
- * Defines a variable, emitting the bytecode to store its value.
- *
- * If the variable is global, emits OP_DEFINE_GLOBAL. Otherwise, it's a local
- * variable, and no bytecode is emitted at definition time (local variables are
- * implicitly defined when they are declared and initialized).
- *
- * @param global The index of the variable name constant in the constant pool
- * (for global variables).
- */
-static void define_variable(Compiler *compiler, const uint16_t global)
-{
-	if (compiler->scope_depth > 0) {
-		mark_initialized(compiler);
-		return;
-	}
-	if (global >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many variables.", SYNTAX);
-	}
-	emit_words(compiler, OP_DEFINE_GLOBAL, global);
-}
-
-static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const int op)
-{
-	const OpCode local_ops[] = {OP_SET_LOCAL_PLUS,	OP_SET_LOCAL_MINUS,		 OP_SET_LOCAL_STAR,
-								OP_SET_LOCAL_SLASH, OP_SET_LOCAL_INT_DIVIDE, OP_SET_LOCAL_MODULUS};
-	const OpCode upvalue_ops[] = {OP_SET_UPVALUE_PLUS,	OP_SET_UPVALUE_MINUS,	   OP_SET_UPVALUE_STAR,
-								  OP_SET_UPVALUE_SLASH, OP_SET_UPVALUE_INT_DIVIDE, OP_SET_UPVALUE_MODULUS};
-	const OpCode global_ops[] = {OP_SET_GLOBAL_PLUS,  OP_SET_GLOBAL_MINUS,		OP_SET_GLOBAL_STAR,
-								 OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
-	const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,  OP_SET_PROPERTY_MINUS,	  OP_SET_PROPERTY_STAR,
-								   OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
-
-	if (setOp == OP_SET_LOCAL)
-		return local_ops[op];
-	if (setOp == OP_SET_UPVALUE)
-		return upvalue_ops[op];
-	if (setOp == OP_SET_GLOBAL)
-		return global_ops[op];
-	if (setOp == OP_SET_PROPERTY)
-		return property_ops[op];
-
-	compiler_panic(compiler->parser, "Compiler Error: Failed to create bytecode for compound operation.", RUNTIME);
-	return setOp;
-}
-
 /**
  * Parses a named variable (local, upvalue, or global).
  * pushes the type of the variable onto the type stack.
@@ -1003,6 +508,8 @@ static OpCode get_compound_opcode(Compiler *compiler, const OpCode setOp, const 
 static void named_variable(Compiler *compiler, Token name, const bool can_assign)
 {
 	ObjectString *name_str = copy_string(compiler->owner, name.start, name.length);
+	push(compiler->owner->current_module_record, OBJECT_VAL(name_str));
+
 	uint16_t getOp, setOp;
 	int arg = resolve_local(compiler, &name);
 	ObjectTypeRecord *var_type = NULL;
@@ -1019,9 +526,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 		arg = identifier_constant(compiler, &name);
 		getOp = OP_GET_GLOBAL;
 		setOp = OP_SET_GLOBAL;
-
-		ObjectString *name_str = copy_string(compiler->owner, name.start, name.length);
-		Compiler *comp = compiler;
+		const Compiler *comp = compiler;
 		while (comp != NULL) {
 			if (type_table_get(comp->type_table, name_str, &var_type))
 				break;
@@ -1032,9 +537,10 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 			compiler_panicf(compiler->parser, TYPE,
 							"Undeclared variable '%.*s'. Did you forget to declare or import it?", name.length,
 							name.start);
-			var_type = T_ANY;
+			var_type = T_ANY; // This allocates!
 		}
 	}
+	push(compiler->owner->current_module_record, OBJECT_VAL(var_type));
 
 	if (can_assign) {
 		if (match(compiler, CRUX_TOKEN_EQUAL)) {
@@ -1051,10 +557,13 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 			}
 			emit_words(compiler, setOp, arg);
 			push_type_record(compiler, T_NIL);
+
+			pop(compiler->owner->current_module_record); // var_type
+			pop(compiler->owner->current_module_record); // name_str
 			return;
 		}
 
-		int op = match_compound_op(compiler);
+		const int op = match_compound_op(compiler);
 		if (op != -1) {
 			expression(compiler);
 			ObjectTypeRecord *rhs_type = pop_type_record(compiler);
@@ -1062,6 +571,9 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 
 			emit_words(compiler, get_compound_opcode(compiler, setOp, op), arg);
 			push_type_record(compiler, T_NIL);
+
+			pop(compiler->owner->current_module_record); // var_type
+			pop(compiler->owner->current_module_record); // name_str
 			return;
 		}
 	}
@@ -1079,20 +591,25 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 
 	emit_words(compiler, getOp, arg);
 	push_type_record(compiler, var_type);
+
+	pop(compiler->owner->current_module_record); // var_type
+	pop(compiler->owner->current_module_record); // name_str
 }
 
-static void and_(Compiler *compiler, bool can_assign)
+static void and_(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 
 	const ObjectTypeRecord *left_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(left_type));
+
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
 		char got[128];
 		type_record_name(left_type, got, sizeof(got));
 		compiler_panicf(compiler->parser, TYPE, "Left operand of 'and' must be of type 'Bool', got '%s'.", got);
 	}
 
-	NarrowingInfo left_narrowing = compiler->current_narrowing;
+	const NarrowingInfo left_narrowing = compiler->current_narrowing;
 
 	// Reset tracking for the right side
 	compiler->current_narrowing.tracked_local_index = -1;
@@ -1119,7 +636,11 @@ static void and_(Compiler *compiler, bool can_assign)
 		}
 	}
 
+	push(compiler->owner->current_module_record, original_type ? OBJECT_VAL(original_type) : NIL_VAL);
+
 	parse_precedence(compiler, PREC_AND);
+
+	pop(compiler->owner->current_module_record); // original_type
 
 	// Restore original type if temporarily narrowed it
 	if (left_narrowing.narrowed_to) {
@@ -1131,6 +652,8 @@ static void and_(Compiler *compiler, bool can_assign)
 	}
 
 	const ObjectTypeRecord *right_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(right_type));
+
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
 		char got[128];
 		type_record_name(right_type, got, sizeof(got));
@@ -1145,13 +668,18 @@ static void and_(Compiler *compiler, bool can_assign)
 	if (compiler->current_narrowing.local_index == -1 && compiler->current_narrowing.global_name == NULL) {
 		compiler->current_narrowing = left_narrowing;
 	}
+
+	pop(compiler->owner->current_module_record); // right_type
+	pop(compiler->owner->current_module_record); // left_type
 }
 
-static void or_(Compiler *compiler, bool can_assign)
+static void or_(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 
-	ObjectTypeRecord *left_type = pop_type_record(compiler);
+	const ObjectTypeRecord *left_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(left_type));
+
 	if (left_type && left_type->base_type != BOOL_TYPE && left_type->base_type != ANY_TYPE) {
 		char got[128];
 		type_record_name(left_type, got, sizeof(got));
@@ -1175,6 +703,8 @@ static void or_(Compiler *compiler, bool can_assign)
 	parse_precedence(compiler, PREC_OR);
 
 	ObjectTypeRecord *right_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(right_type));
+
 	if (right_type && right_type->base_type != BOOL_TYPE && right_type->base_type != ANY_TYPE) {
 		char got[128];
 		type_record_name(right_type, got, sizeof(got));
@@ -1194,8 +724,17 @@ static void or_(Compiler *compiler, bool can_assign)
 	compiler->current_narrowing.global_name = NULL;
 
 	push_type_record(compiler, T_BOOL);
+
+	pop(compiler->owner->current_module_record); // right_type
+	pop(compiler->owner->current_module_record); // left_type
 }
 
+/**
+ * Returns a compiled function. (top level script is also a function)
+ * Caller must root the returned function
+ * @param compiler The current compiler
+ * @return The compiled function
+ */
 static ObjectFunction *end_compiler(Compiler *compiler)
 {
 	emit_return(compiler);
@@ -1223,7 +762,13 @@ static void binary(Compiler *compiler, bool can_assign)
 
 	ObjectTypeRecord *right_type = pop_type_record(compiler);
 	ObjectTypeRecord *left_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(left_type));
+	push(compiler->owner->current_module_record, OBJECT_VAL(right_type));
+
 	ObjectTypeRecord *result_type = NULL;
+	// this slot will be used to protect the result
+	push(compiler->owner->current_module_record, NIL_VAL);
+	Value *result_slot = compiler->owner->current_module_record->stack_top - 1;
 
 	const bool either_any = (left_type && left_type->base_type == ANY_TYPE) ||
 							(right_type && right_type->base_type == ANY_TYPE) || !left_type || !right_type;
@@ -1236,7 +781,9 @@ static void binary(Compiler *compiler, bool can_assign)
 		} else {
 			emit_word(compiler, OP_NOT_EQUAL);
 		}
+
 		result_type = T_BOOL;
+		*result_slot = OBJECT_VAL(result_type);
 
 		if ((compiler->current_narrowing.tracked_local_index != -1 ||
 			 compiler->current_narrowing.tracked_global_name != NULL) &&
@@ -1254,10 +801,8 @@ static void binary(Compiler *compiler, bool can_assign)
 			ObjectTypeRecord *narrow = NULL;
 			ObjectTypeRecord *stripped = NULL;
 
-			if (compiler->current_narrowing.tracked_is_typeof) {
-				narrow = compiler->current_narrowing.tracked_literal_type;
-				stripped = strip_type(compiler->owner, var_type, narrow);
-			} else if (compiler->current_narrowing.tracked_literal_type->base_type == NIL_TYPE) {
+			if (compiler->current_narrowing.tracked_is_typeof ||
+				compiler->current_narrowing.tracked_literal_type->base_type == NIL_TYPE) {
 				narrow = compiler->current_narrowing.tracked_literal_type;
 				stripped = strip_type(compiler->owner, var_type, narrow);
 			}
@@ -1335,7 +880,6 @@ static void binary(Compiler *compiler, bool can_assign)
 						   TYPE);
 		}
 
-		// Int + Float => Float
 		if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
 			result_type = T_FLOAT;
 		} else {
@@ -1411,10 +955,7 @@ static void binary(Compiler *compiler, bool can_assign)
 	case CRUX_TOKEN_PIPE: {
 		if (!either_any) {
 			if (left_type->base_type != INT_TYPE || right_type->base_type != INT_TYPE) {
-				compiler_panic(compiler->parser,
-							   "Bitwise operators require Int "
-							   "operands.",
-							   TYPE);
+				compiler_panic(compiler->parser, "Bitwise operators require Int operands.", TYPE);
 			}
 		}
 
@@ -1460,15 +1001,20 @@ static void binary(Compiler *compiler, bool can_assign)
 	}
 
 	default:
-		// Should be unreachable.
 		result_type = T_ANY;
 		break;
 	}
 
+	// Update the slot
+	*result_slot = result_type ? OBJECT_VAL(result_type) : NIL_VAL;
 	push_type_record(compiler, result_type);
+
+	pop(compiler->owner->current_module_record); // result_slot
+	pop(compiler->owner->current_module_record); // right_type
+	pop(compiler->owner->current_module_record); // left_type
 }
 
-static void infix_call(Compiler *compiler, bool can_assign)
+static void infix_call(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 
@@ -1479,13 +1025,15 @@ static void infix_call(Compiler *compiler, bool can_assign)
 	if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 		do {
 			if (arg_count == UINT16_MAX) {
-				compiler_panic(compiler->parser,
-							   "Cannot have more than 65535 "
-							   "arguments.",
-							   ARGUMENT_EXTENT);
+				// Prevent stack leak if we panic inside this loop
+				for (int i = 0; i < arg_count; i++)
+					pop(compiler->owner->current_module_record);
+				compiler_panic(compiler->parser, "Cannot have more than 65535 arguments.", ARGUMENT_EXTENT);
+				return;
 			}
 			expression(compiler);
 			arg_types[arg_count] = pop_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(arg_types[arg_count]));
 			arg_count++;
 		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
@@ -1524,6 +1072,9 @@ static void infix_call(Compiler *compiler, bool can_assign)
 		pop_type_record(compiler);
 		push_type_record(compiler, T_ANY);
 	}
+	for (int i = 0; i < arg_count; i++) {
+		pop(compiler->owner->current_module_record);
+	}
 }
 
 static void literal(Compiler *compiler, bool can_assign)
@@ -1559,13 +1110,16 @@ static void dot(Compiler *compiler, const bool can_assign)
 	}
 
 	ObjectTypeRecord *object_type = peek_type_record(compiler);
-	if (!object_type)
+	if (!object_type) {
 		object_type = T_ANY;
+	}
+	push(compiler->owner->current_module_record, OBJECT_VAL(object_type));
 
 	// OP_SET_PROPERTY - this only works for structs
 	if (can_assign) {
 		const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
 													 method_name_token.length);
+		push(compiler->owner->current_module_record, OBJECT_VAL(field_name));
 		ObjectTypeRecord *field_type = NULL;
 
 		if (object_type->base_type == STRUCT_TYPE) {
@@ -1592,13 +1146,16 @@ static void dot(Compiler *compiler, const bool can_assign)
 			}
 
 			emit_words(compiler, OP_SET_PROPERTY, name_constant);
-			pop_type_record(compiler);
 			push_type_record(compiler, T_NIL);
+			pop_type_record(compiler);
+
+			pop(compiler->owner->current_module_record); // field_name
+			pop(compiler->owner->current_module_record); // object_type
 			return;
 		}
 
 		// Handle properties with compound op
-		int op = match_compound_op(compiler);
+		const int op = match_compound_op(compiler);
 		if (op != -1) {
 			if (object_type->base_type == STRUCT_TYPE && !field_type) {
 				compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)method_name_token.length,
@@ -1612,9 +1169,15 @@ static void dot(Compiler *compiler, const bool can_assign)
 			emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY, op), name_constant);
 			pop_type_record(compiler);
 			push_type_record(compiler, rhs_type); // assignment leaves the value on the stack
+
+			pop(compiler->owner->current_module_record); // field_name
+			pop(compiler->owner->current_module_record); // object_type
 			return;
 		}
+		pop(compiler->owner->current_module_record); // field_name
 	}
+
+	// TODO: Add get property
 
 	// OP_INVOKE
 	if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
@@ -1623,8 +1186,18 @@ static void dot(Compiler *compiler, const bool can_assign)
 
 		if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 			do {
+				if (arg_count >= UINT8_COUNT) {
+					for (int i = 0; i < arg_count; i++)
+						pop(compiler->owner->current_module_record);
+					pop(compiler->owner->current_module_record); // object_type
+					compiler_panic(compiler->parser, "Cannot have more than 255 arguments.", ARGUMENT_EXTENT);
+					return;
+				}
+
 				expression(compiler);
-				arg_types[arg_count++] = pop_type_record(compiler);
+				arg_types[arg_count] = pop_type_record(compiler);
+				push(compiler->owner->current_module_record, OBJECT_VAL(arg_types[arg_count]));
+				arg_count++;
 			} while (match(compiler, CRUX_TOKEN_COMMA));
 		}
 		consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
@@ -1653,7 +1226,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 			}
 
 		} else if (object_type->base_type != ANY_TYPE) {
-			VM *vm = compiler->owner;
+			const VM *vm = compiler->owner;
 			const Table *type_table = NULL;
 
 			switch (object_type->base_type) {
@@ -1746,6 +1319,11 @@ static void dot(Compiler *compiler, const bool can_assign)
 
 		pop_type_record(compiler);
 		push_type_record(compiler, method_return ? method_return : T_ANY);
+
+		for (int i = 0; i < (int)arg_count; i++) {
+			pop(compiler->owner->current_module_record);
+		}
+		pop(compiler->owner->current_module_record); // object_type
 		return;
 	}
 
@@ -1766,17 +1344,16 @@ static void dot(Compiler *compiler, const bool can_assign)
 							method_name_token.start);
 		}
 	}
-	// NOTE: Could add stdlib members here, or enums
 
 	pop_type_record(compiler);
 	push_type_record(compiler, result_type ? result_type : T_ANY);
+
+	pop(compiler->owner->current_module_record); // object_type
 }
 
 void struct_instance(Compiler *compiler, const bool can_assign)
 {
 	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name to start initialization.");
-
-	const Token struct_name_token = compiler->parser->previous;
 
 	named_variable(compiler, compiler->parser->previous, can_assign);
 
@@ -1826,6 +1403,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 					"Expected field name. Trailing commas after final field are not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
+			push(compiler->owner->current_module_record, OBJECT_VAL(fieldName));
 
 			consume(compiler, CRUX_TOKEN_EQUAL, "Expected '=' after struct field name.");
 
@@ -1833,21 +1411,21 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
 			if (type_known) {
-				ObjectTypeTable *field_types = struct_type->as.struct_type.field_types;
-				ObjectStruct *definition = struct_type->as.struct_type.definition;
+				const ObjectTypeTable *field_types = struct_type->as.struct_type.field_types;
+				const ObjectStruct *definition = struct_type->as.struct_type.definition;
 
 				// ensure field exists on the struct
 				Value field_index_val;
 				if (!table_get(&definition->fields, fieldName, &field_index_val)) {
-					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->length,
+					compiler_panicf(compiler->parser, NAME, "Struct has no field '%.*s'.", (int)fieldName->byte_length,
 									fieldName->chars);
 				} else {
 					// mark field as seen
-					const int field_index = (int)AS_INT(field_index_val);
+					const int field_index = AS_INT(field_index_val);
 					if (field_index >= 0 && field_index < declared_field_count) {
 						if (field_seen[field_index]) {
 							compiler_panicf(compiler->parser, NAME, "Field '%.*s' specified more than once.",
-											(int)fieldName->length, fieldName->chars);
+											(int)fieldName->byte_length, fieldName->chars);
 						}
 						field_seen[field_index] = true;
 					}
@@ -1863,7 +1441,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 							type_record_name(declared_field_type, expected, sizeof(expected));
 							type_record_name(value_type, got, sizeof(got));
 							compiler_panicf(compiler->parser, TYPE, "Field '%.*s' expects type '%s', got '%s'.",
-											(int)fieldName->length, fieldName->chars, expected, got);
+											(int)fieldName->byte_length, fieldName->chars, expected, got);
 						}
 					}
 				}
@@ -1871,23 +1449,25 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 			const uint16_t fieldNameConstant = make_constant(compiler, OBJECT_VAL(fieldName));
 			emit_words(compiler, OP_STRUCT_NAMED_FIELD, fieldNameConstant);
+
+			pop(compiler->owner->current_module_record); // unroot fieldName
 			fieldCount++;
 		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
 	// Check for missing fields — every declared field must be provided.
 	if (type_known && field_seen) {
-		ObjectStruct *definition = struct_type->as.struct_type.definition;
+		const ObjectStruct *definition = struct_type->as.struct_type.definition;
 
 		for (int i = 0; i < declared_field_count; i++) {
 			if (!field_seen[i]) {
 				const char *missing = "<unknown>";
 				int missing_len = 0;
 				for (int e = 0; e < definition->fields.capacity; e++) {
-					Entry *entry = &definition->fields.entries[e];
+					const Entry *entry = &definition->fields.entries[e];
 					if (entry->key != NULL && AS_INT(entry->value) == i) {
 						missing = entry->key->chars;
-						missing_len = (int)entry->key->length;
+						missing_len = (int)entry->key->byte_length;
 						break;
 					}
 				}
@@ -1911,6 +1491,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 
 /**
  * Parses an expression.
+ * Allocates - so protect before
  */
 static void expression(Compiler *compiler)
 {
@@ -1933,7 +1514,7 @@ static void block(Compiler *compiler)
 
 static void function(Compiler *compiler, const FunctionType type, ObjectTypeRecord *self_type)
 {
-	Compiler function_compiler;
+	Compiler function_compiler = {0};
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, type)) {
 		fprintf(stderr, "Fatal error: Memory allocation failed. Shutting down!\n");
 		exit(EXIT_FAILURE);
@@ -2013,6 +1594,13 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(fn));
+	push(compiler->owner->current_module_record, OBJECT_VAL(annotated_return_type));
+	for (int i = 0; i < param_count; i++) {
+		push(compiler->owner->current_module_record, OBJECT_VAL(param_types[i]));
+	}
+
 	emit_words(compiler, OP_CLOSURE, make_constant(compiler, OBJECT_VAL(fn)));
 
 	for (int i = 0; i < fn->upvalue_count; i++) {
@@ -2023,14 +1611,22 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 	ObjectTypeRecord *func_type = new_function_type_rec(compiler->owner, param_types, param_count,
 														annotated_return_type);
 	push_type_record(compiler, func_type);
+
+	for (int i = 0; i < param_count; i++) {
+		pop(compiler->owner->current_module_record); // param_types[i]
+	}
+	pop(compiler->owner->current_module_record); // annotated_return_type
+	pop(compiler->owner->current_module_record); // fn
 }
 
-static void fn_declaration(Compiler *compiler, bool is_public)
+static void fn_declaration(Compiler *compiler, const bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected function name.");
 
 	const Token fn_name_token = compiler->parser->previous;
 	ObjectString *name_str = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(name_str));
 
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
 
@@ -2038,13 +1634,15 @@ static void fn_declaration(Compiler *compiler, bool is_public)
 	function(compiler, TYPE_FUNCTION, NULL);
 
 	ObjectTypeRecord *fn_type = pop_type_record(compiler);
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(fn_type));
+
 	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, name_str, fn_type);
 	}
 
 	if (fn_type) {
 		if (compiler->scope_depth == 0) {
-			ObjectString *name_str = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
 			type_table_set(compiler->type_table, name_str, fn_type);
 		} else {
 			compiler->locals[local_index].type = fn_type;
@@ -2052,12 +1650,15 @@ static void fn_declaration(Compiler *compiler, bool is_public)
 	}
 
 	define_variable(compiler, global);
+
+	pop(compiler->owner->current_module_record); // fn_type
+	pop(compiler->owner->current_module_record); // name_str
 }
 
-static void anonymous_function(Compiler *compiler, bool can_assign)
+static void anonymous_function(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
-	Compiler function_compiler;
+	Compiler function_compiler = {0};
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, TYPE_ANONYMOUS)) {
 		fprintf(stderr, "Fatal error: Memory allocation failed. Shutting down!\n");
 		exit(EXIT_FAILURE);
@@ -2096,7 +1697,7 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 			function_compiler.locals[function_compiler.local_count - 1].type = param_type;
 
 			if (param_count == param_capacity) {
-				int old_cap = param_capacity;
+				const int old_cap = param_capacity;
 				param_capacity = GROW_CAPACITY(param_capacity);
 				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap,
 													  param_capacity);
@@ -2136,6 +1737,13 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 	}
 
 	ObjectFunction *fn = end_compiler(&function_compiler);
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(fn));
+	push(compiler->owner->current_module_record, OBJECT_VAL(annotated_return_type));
+	for (int i = 0; i < param_count; i++) {
+		push(compiler->owner->current_module_record, OBJECT_VAL(param_types[i]));
+	}
+
 	const uint16_t constantIndex = make_constant(compiler, OBJECT_VAL(fn));
 	emit_words(compiler, OP_ANON_FUNCTION, constantIndex);
 
@@ -2149,40 +1757,48 @@ static void anonymous_function(Compiler *compiler, bool can_assign)
 	ObjectTypeRecord *func_type = new_function_type_rec(compiler->owner, param_types, param_count,
 														annotated_return_type);
 	push_type_record(compiler, func_type);
+
+	for (int i = 0; i < param_count; i++) {
+		pop(compiler->owner->current_module_record); // param_types[i]
+	}
+	pop(compiler->owner->current_module_record); // annotated_return_type
+	pop(compiler->owner->current_module_record); // fn
 }
 
-static void array_literal(Compiler *compiler, bool can_assign)
+static void array_literal(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	uint16_t elementCount = 0;
 	ObjectTypeRecord *element_type = NULL;
 
+	push(compiler->owner->current_module_record, NIL_VAL);
+	const int type_root_stack_index = (int)(compiler->owner->current_module_record->stack_top -
+											compiler->owner->current_module_record->stack - 1);
+
 	if (!match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
 		do {
 			expression(compiler);
-
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
 
 			if (!element_type) {
 				element_type = value_type;
 			} else if (element_type->base_type != ANY_TYPE && value_type && value_type->base_type != ANY_TYPE) {
 				if (!types_compatible(element_type, value_type)) {
-					// Widen to Float if mix of Int/Float
 					if ((element_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
 						(element_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
 						element_type = T_FLOAT;
 					} else {
-						// widening for mixed tables
 						element_type = T_ANY;
 					}
 				}
 			}
 
+			compiler->owner->current_module_record->stack[type_root_stack_index] = element_type
+																					   ? OBJECT_VAL(element_type)
+																					   : NIL_VAL;
+
 			if (elementCount >= UINT16_MAX) {
-				compiler_panic(compiler->parser,
-							   "Too many elements in array "
-							   "literal.",
-							   COLLECTION_EXTENT);
+				compiler_panic(compiler->parser, "Too many elements in array literal.", COLLECTION_EXTENT);
 			}
 			elementCount++;
 		} while (match(compiler, CRUX_TOKEN_COMMA));
@@ -2190,8 +1806,8 @@ static void array_literal(Compiler *compiler, bool can_assign)
 	}
 
 	if (!element_type) {
-		// Empty array literal
 		element_type = T_ANY;
+		compiler->owner->current_module_record->stack[type_root_stack_index] = OBJECT_VAL(element_type);
 	}
 
 	emit_word(compiler, OP_ARRAY);
@@ -2199,27 +1815,37 @@ static void array_literal(Compiler *compiler, bool can_assign)
 
 	ObjectTypeRecord *array_type = new_array_type_rec(compiler->owner, element_type);
 	push_type_record(compiler, array_type);
+
+	pop(compiler->owner->current_module_record); // element_type
 }
 
-static void table_literal(Compiler *compiler, bool can_assign)
+static void table_literal(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	uint16_t elementCount = 0;
 	ObjectTypeRecord *table_key_type = NULL;
 	ObjectTypeRecord *table_value_type = NULL;
 
+	push(compiler->owner->current_module_record, NIL_VAL); // key
+	push(compiler->owner->current_module_record, NIL_VAL); // val
+	const int val_idx = (int)(compiler->owner->current_module_record->stack_top -
+							  compiler->owner->current_module_record->stack - 1);
+	const int key_idx = val_idx - 1;
+
 	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
 		do {
 			expression(compiler);
 			ObjectTypeRecord *key_type = pop_type_record(compiler);
 			consume(compiler, CRUX_TOKEN_COLON, "Expected ':' after table key.");
+
+			push(compiler->owner->current_module_record, OBJECT_VAL(key_type));
 			expression(compiler);
 			ObjectTypeRecord *value_type = pop_type_record(compiler);
+			pop(compiler->owner->current_module_record);
 
 			if (!table_key_type) {
 				table_key_type = key_type;
 			} else if (table_key_type->base_type != ANY_TYPE && key_type && key_type->base_type != ANY_TYPE) {
-				// table cannot have mixed key types
 				if (!types_equal(table_key_type, key_type)) {
 					char expected[128], got[128];
 					type_record_name(table_key_type, expected, sizeof(expected));
@@ -2233,16 +1859,20 @@ static void table_literal(Compiler *compiler, bool can_assign)
 				table_value_type = value_type;
 			} else if (table_value_type->base_type != ANY_TYPE && value_type && value_type->base_type != ANY_TYPE) {
 				if (!types_compatible(table_value_type, value_type)) {
-					// Widen to Float if mix of Int/Float
 					if ((table_value_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
 						(table_value_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
 						table_value_type = T_FLOAT;
 					} else {
-						// widening for mixed tables
 						table_value_type = T_ANY;
 					}
 				}
 			}
+
+			// update roots
+			compiler->owner->current_module_record->stack[key_idx] = table_key_type ? OBJECT_VAL(table_key_type)
+																					: NIL_VAL;
+			compiler->owner->current_module_record->stack[val_idx] = table_value_type ? OBJECT_VAL(table_value_type)
+																					  : NIL_VAL;
 
 			if (elementCount >= UINT16_MAX) {
 				compiler_panic(compiler->parser, "Too many elements in table literal.", COLLECTION_EXTENT);
@@ -2252,28 +1882,32 @@ static void table_literal(Compiler *compiler, bool can_assign)
 		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after table elements.");
 	}
 
-	if (!table_key_type) {
+	if (!table_key_type)
 		table_key_type = T_ANY;
-	}
-	if (!table_value_type) {
+	if (!table_value_type)
 		table_value_type = T_ANY;
-	}
+	compiler->owner->current_module_record->stack[key_idx] = OBJECT_VAL(table_key_type);
+	compiler->owner->current_module_record->stack[val_idx] = OBJECT_VAL(table_value_type);
 
 	emit_word(compiler, OP_TABLE);
 	emit_word(compiler, elementCount);
 
 	ObjectTypeRecord *table_type = new_table_type_rec(compiler->owner, table_key_type, table_value_type);
 	push_type_record(compiler, table_type);
+
+	pop(compiler->owner->current_module_record); // val
+	pop(compiler->owner->current_module_record); // key
 }
 
 static void collection_index(Compiler *compiler, const bool can_assign)
 {
 	ObjectTypeRecord *collection_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(collection_type));
 
 	expression(compiler);
 	ObjectTypeRecord *index_type = pop_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(index_type));
 
-	// Validate the index type against the collection type.
 	if (collection_type && index_type && index_type->base_type != ANY_TYPE && collection_type->base_type != ANY_TYPE) {
 		if (collection_type->base_type == ARRAY_TYPE) {
 			if (index_type->base_type != INT_TYPE) {
@@ -2329,24 +1963,27 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 				result_type = collection_type->as.table_type.value_type;
 			}
 		}
-		if (!result_type) {
-			result_type = new_type_rec(compiler->owner, ANY_TYPE);
-		}
-		push_type_record(compiler, result_type);
+		push_type_record(compiler, result_type ? result_type : T_ANY);
 	}
+
+	pop(compiler->owner->current_module_record); // index_type
+	pop(compiler->owner->current_module_record); // collection_type
 }
 
-static void var_declaration(Compiler *compiler, bool is_public)
+static void var_declaration(Compiler *compiler, const bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected Variable Name.");
-
 	const Token var_name = compiler->parser->previous;
 	ObjectString *name_str = copy_string(compiler->owner, var_name.start, var_name.length);
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(name_str));
 
 	ObjectTypeRecord *annotated_type = NULL;
 	if (match(compiler, CRUX_TOKEN_COLON)) {
 		annotated_type = parse_type_record(compiler);
 	}
+
+	push(compiler->owner->current_module_record, annotated_type ? OBJECT_VAL(annotated_type) : NIL_VAL);
 
 	ObjectTypeRecord *value_type = NULL;
 	if (match(compiler, CRUX_TOKEN_EQUAL)) {
@@ -2358,8 +1995,7 @@ static void var_declaration(Compiler *compiler, bool is_public)
 			char expected[128], got[128];
 			type_record_name(annotated_type, expected, sizeof(expected));
 			type_record_name(value_type, got, sizeof(got));
-			compiler_panicf(compiler->parser, TYPE, "Type mismatch in variable declaration: expected '%s', got '%s'.",
-							expected, got);
+			compiler_panicf(compiler->parser, TYPE, "Type mismatch: expected '%s', got '%s'.", expected, got);
 		}
 	} else {
 		if (annotated_type && annotated_type->base_type != NIL_TYPE && annotated_type->base_type != ANY_TYPE) {
@@ -2370,25 +2006,24 @@ static void var_declaration(Compiler *compiler, bool is_public)
 	}
 
 	ObjectTypeRecord *resolved_type = annotated_type ? annotated_type : value_type;
-	if (!resolved_type) {
+	if (!resolved_type)
 		resolved_type = T_ANY;
-	}
+
 	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
 	}
 
 	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after variable declaration.");
 
-	// register types
 	if (compiler->scope_depth > 0) {
 		compiler->locals[compiler->local_count - 1].type = resolved_type;
 	} else {
-		if (!type_table_set(compiler->type_table, name_str, resolved_type) && compiler->owner->current_module_record &&
-			!compiler->owner->current_module_record->is_repl) {
-			compiler_panicf(compiler->parser, TYPE, "Attempting to redefine variable '%s'.", name_str->chars);
-		}
+		type_table_set(compiler->type_table, name_str, resolved_type);
 	}
 	define_variable(compiler, global);
+
+	pop(compiler->owner->current_module_record); // annotated_type
+	pop(compiler->owner->current_module_record); // name_str
 }
 
 static void expression_statement(Compiler *compiler)
@@ -2444,7 +2079,7 @@ static void for_statement(Compiler *compiler)
 		expression(compiler);
 
 		// Condition must be Bool
-		ObjectTypeRecord *condition_type = pop_type_record(compiler);
+		const ObjectTypeRecord *condition_type = pop_type_record(compiler);
 		if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 			char got[128];
 			type_record_name(condition_type, got, sizeof(got));
@@ -2494,11 +2129,11 @@ static void if_statement(Compiler *compiler)
 
 	expression(compiler);
 
-	NarrowingInfo narrow_state = compiler->current_narrowing;
+	const NarrowingInfo narrow_state = compiler->current_narrowing;
 	ObjectTypeRecord *original_type = NULL;
 
 	// Condition must be Bool
-	ObjectTypeRecord *condition_type = pop_type_record(compiler);
+	const ObjectTypeRecord *condition_type = pop_type_record(compiler);
 	if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
 		compiler_panic(compiler->parser, "'if' condition must be of type 'Bool'.", TYPE);
 	}
@@ -2516,6 +2151,8 @@ static void if_statement(Compiler *compiler)
 			type_table_set(compiler->type_table, narrow_state.global_name, narrow_state.narrowed_to);
 		}
 	}
+
+	push(compiler->owner->current_module_record, original_type ? OBJECT_VAL(original_type) : NIL_VAL);
 
 	statement(compiler);
 
@@ -2543,6 +2180,8 @@ static void if_statement(Compiler *compiler)
 	}
 
 	patch_jump(compiler, elseJump);
+
+	pop(compiler->owner->current_module_record); // original_type
 
 	// restore original type
 	if (narrow_state.local_index != -1) {
@@ -2633,7 +2272,7 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 	consume(compiler, CRUX_TOKEN_FROM, "Expected 'from' after import statement.");
 	consume(compiler, CRUX_TOKEN_STRING, "Expected string literal for module name.");
 
-	bool isNative = (memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0);
+	const bool isNative = memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0;
 
 	if (is_dynamic && isNative) {
 		compiler_panic(compiler->parser, "Cannot use dynamic import for native modules. Use 'use'.", SYNTAX);
@@ -2652,6 +2291,8 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 		ObjectString *raw_path_str = copy_string(compiler->owner, compiler->parser->previous.start + 1,
 												 compiler->parser->previous.length - 2);
 
+		push(compiler->owner->current_module_record, OBJECT_VAL(raw_path_str)); // raw_path_str
+
 		const char *base_path = NULL;
 		if (compiler->owner->current_module_record && compiler->owner->current_module_record->path) {
 			base_path = compiler->owner->current_module_record->path->chars;
@@ -2662,11 +2303,16 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 		char *resolved_chars = resolve_path(base_path, raw_path_str->chars);
 		if (resolved_chars == NULL) {
 			compiler_panicf(compiler->parser, IMPORT, "Failed to resolve import path: '%s'", raw_path_str->chars);
+			pop(compiler->owner->current_module_record);
 			return;
 		}
 
 		ObjectString *path_str = copy_string(compiler->owner, resolved_chars, strlen(resolved_chars));
 		free(resolved_chars);
+
+		// FIXED: Swap roots
+		pop(compiler->owner->current_module_record); // raw_path_str
+		push(compiler->owner->current_module_record, OBJECT_VAL(path_str)); // path_str
 
 		module_const = make_constant(compiler, OBJECT_VAL(path_str));
 
@@ -2674,12 +2320,15 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 			statically_imported_mod = compile_module_statically(compiler, path_str);
 			if (!statically_imported_mod || statically_imported_mod->state == STATE_ERROR) {
 				compiler_panicf(compiler->parser, IMPORT, "Failed to compile module '%s'.", path_str->chars);
+				pop(compiler->owner->current_module_record); // path_str
 				return;
 			}
 		}
 
 		emit_words(compiler, OP_USE_MODULE, module_const);
 		emit_words(compiler, OP_FINISH_USE, nameCount);
+
+		pop(compiler->owner->current_module_record); // path_str
 	}
 
 	// vm will bind names/aliases at runtime
@@ -2696,8 +2345,10 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 
 	// type resolution
 	for (uint16_t i = 0; i < nameCount; i++) {
-		Token visible = aliasPresence[i] ? aliasTokens[i] : nameTokens[i];
+		const Token visible = aliasPresence[i] ? aliasTokens[i] : nameTokens[i];
 		ObjectString *name_str = copy_string(compiler->owner, visible.start, visible.length);
+
+		push(compiler->owner->current_module_record, OBJECT_VAL(name_str)); // name_str
 
 		ObjectTypeRecord *resolved_type = NULL;
 
@@ -2734,7 +2385,12 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 			resolved_type = T_ANY;
 		}
 
+		push(compiler->owner->current_module_record, OBJECT_VAL(resolved_type)); // resolved_type
+
 		type_table_set(compiler->type_table, name_str, resolved_type);
+
+		pop(compiler->owner->current_module_record); // resolved_type
+		pop(compiler->owner->current_module_record); // name_str
 	}
 }
 
@@ -2752,14 +2408,12 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name.");
 	const Token structName = compiler->parser->previous;
 
-	GC_PROTECT_START(compiler->owner->current_module_record);
-
 	ObjectString *struct_name_str = copy_string(compiler->owner, structName.start, structName.length);
-	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(struct_name_str));
+	push(compiler->owner->current_module_record, OBJECT_VAL(struct_name_str));
 
 	const uint16_t nameConstant = identifier_constant(compiler, &structName);
 	ObjectStruct *structObject = new_struct_type(compiler->owner, struct_name_str);
-	GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(structObject));
+	push(compiler->owner->current_module_record, OBJECT_VAL(structObject));
 
 	declare_variable(compiler);
 
@@ -2772,6 +2426,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
 
 	ObjectTypeTable *field_types = new_type_table(compiler->owner, INITIAL_TYPE_TABLE_SIZE);
+	push(compiler->owner->current_module_record, OBJECT_VAL(field_types));
 	int fieldCount = 0;
 
 	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
@@ -2785,8 +2440,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 					"Expected field name. Trailing comma after last field is not allowed.");
 			ObjectString *fieldName = copy_string(compiler->owner, compiler->parser->previous.start,
 												  compiler->parser->previous.length);
-
-			GC_PROTECT(compiler->owner->current_module_record, OBJECT_VAL(fieldName));
+			push(compiler->owner->current_module_record, OBJECT_VAL(fieldName));
 
 			Value fieldNameCheck;
 			if (table_get(&structObject->fields, fieldName, &fieldNameCheck)) {
@@ -2804,6 +2458,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 			} else {
 				field_type = T_ANY;
 			}
+			push(compiler->owner->current_module_record, OBJECT_VAL(field_type));
 
 			type_table_set(field_types, fieldName, field_type);
 
@@ -2816,9 +2471,8 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after struct body.");
 	}
 
-	GC_PROTECT_END(compiler->owner->current_module_record);
-
 	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, structObject, field_types, fieldCount);
+	push(compiler->owner->current_module_record, OBJECT_VAL(struct_type));
 
 	// type registration
 	if (compiler->scope_depth == 0) {
@@ -2829,13 +2483,23 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, struct_name_str, struct_type);
 	}
+
+	pop(compiler->owner->current_module_record); // struct_type
+	for (int i = 0; i < fieldCount; i++) {
+		pop(compiler->owner->current_module_record); // field_type
+		pop(compiler->owner->current_module_record); // fieldName
+	}
+	pop(compiler->owner->current_module_record); // field_types
+	pop(compiler->owner->current_module_record); // structObject
+	pop(compiler->owner->current_module_record); // struct_name_str
 }
 
 static void impl_declaration(Compiler *compiler)
 {
 	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected struct name after 'impl'.");
-	Token struct_name_token = compiler->parser->previous;
-	ObjectString *struct_name_str = copy_string(compiler->owner, struct_name_token.start, struct_name_token.length);
+	const Token struct_name_token = compiler->parser->previous;
+	const ObjectString *struct_name_str = copy_string(compiler->owner, struct_name_token.start,
+													  struct_name_token.length);
 
 	ObjectTypeRecord *struct_type = NULL;
 	if (!type_table_get(compiler->type_table, struct_name_str, &struct_type) || struct_type->base_type != STRUCT_TYPE) {
@@ -2859,17 +2523,21 @@ static void impl_declaration(Compiler *compiler)
 		consume(compiler, CRUX_TOKEN_FN, "Expected 'fn' inside impl block.");
 		consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected method name.");
 
-		Token method_name_tok = compiler->parser->previous;
+		const Token method_name_tok = compiler->parser->previous;
 		ObjectString *method_name_str = copy_string(compiler->owner, method_name_tok.start, method_name_tok.length);
-		uint16_t method_name_const = make_constant(compiler, OBJECT_VAL(method_name_str));
+		push(compiler->owner->current_module_record, OBJECT_VAL(method_name_str));
+		const uint16_t method_name_const = make_constant(compiler, OBJECT_VAL(method_name_str));
 
 		// slot 0 is preserved for self
 		function(compiler, TYPE_METHOD, struct_type);
 
 		ObjectTypeRecord *method_type = pop_type_record(compiler);
+		push(compiler->owner->current_module_record, OBJECT_VAL(method_type));
 		type_table_set(struct_type->as.struct_type.field_types, method_name_str, method_type);
 
 		emit_words(compiler, OP_METHOD, method_name_const);
+		pop(compiler->owner->current_module_record); // method_type
+		pop(compiler->owner->current_module_record); // method_name_str
 	}
 
 	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after impl body.");
@@ -2909,7 +2577,7 @@ static void result_unwrap(Compiler *compiler, bool can_assign)
  * Discards tokens until a statement boundary is found to minimize cascading
  * errors.
  */
-static void synchronize(Compiler *compiler)
+static void synchronize(const Compiler *compiler)
 {
 	compiler->parser->panic_mode = false;
 
@@ -2965,7 +2633,7 @@ static void give_statement(Compiler *compiler)
 	emit_word(compiler, OP_GIVE);
 }
 
-static void match_expression(Compiler *compiler, bool can_assign)
+static void match_expression(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	begin_match_scope(compiler);
@@ -2976,6 +2644,8 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	ObjectTypeRecord *target_type = pop_type_record(compiler);
 	if (!target_type)
 		target_type = T_ANY;
+
+	push(compiler->owner->current_module_record, OBJECT_VAL(target_type));
 
 	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' after match target.");
 
@@ -2992,6 +2662,10 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	// type that the arm produces
 	ObjectTypeRecord *arm_type = NULL;
 
+	push(compiler->owner->current_module_record, NIL_VAL);
+	const int arm_idx = (int)(compiler->owner->current_module_record->stack_top -
+							  compiler->owner->current_module_record->stack - 1);
+
 	while (!check(compiler, CRUX_TOKEN_RIGHT_BRACE) && !check(compiler, CRUX_TOKEN_EOF)) {
 		int jumpIfNotMatch = -1;
 		uint16_t bindingSlot = UINT16_MAX;
@@ -3000,10 +2674,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 
 		if (match(compiler, CRUX_TOKEN_DEFAULT)) {
 			if (hasDefault) {
-				compiler_panic(compiler->parser,
-							   "Cannot have multiple default "
-							   "patterns.",
-							   SYNTAX);
+				compiler_panic(compiler->parser, "Cannot have multiple default patterns.", SYNTAX);
 			}
 			hasDefault = true;
 
@@ -3095,7 +2766,7 @@ static void match_expression(Compiler *compiler, bool can_assign)
 
 		if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 			block(compiler);
-			// Blocks produce values with give and statements
+			// Blocks produce values with give and statements (usually the never type e.g. return, break)
 			this_arm_type = compiler->last_give_type ? compiler->last_give_type : T_NIL;
 		} else if (match(compiler, CRUX_TOKEN_GIVE)) {
 			if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
@@ -3132,6 +2803,8 @@ static void match_expression(Compiler *compiler, bool can_assign)
 								expected, got);
 			}
 		}
+
+		compiler->owner->current_module_record->stack[arm_idx] = arm_type ? OBJECT_VAL(arm_type) : NIL_VAL;
 
 		if (hasBinding) {
 			end_scope(compiler);
@@ -3174,6 +2847,9 @@ static void match_expression(Compiler *compiler, bool can_assign)
 	end_match_scope(compiler);
 
 	push_type_record(compiler, arm_type ? arm_type : T_ANY);
+
+	pop(compiler->owner->current_module_record); // arm_type
+	pop(compiler->owner->current_module_record); // target_type
 }
 
 static void continue_statement(Compiler *compiler)
@@ -3205,7 +2881,7 @@ static void break_statement(Compiler *compiler)
 static void panic_statement(Compiler *compiler)
 {
 	expression(compiler);
-	ObjectTypeRecord *type = pop_type_record(compiler);
+	const ObjectTypeRecord *type = pop_type_record(compiler);
 
 	if (type && type->base_type != STRING_TYPE && type->base_type != ANY_TYPE) {
 		char got[128];
@@ -3222,12 +2898,13 @@ static void type_declaration(Compiler *compiler, bool is_public)
 {
 	const uint16_t global = parse_variable(compiler, "Expected type name.");
 
-	Token type_name_token = compiler->parser->previous;
+	const Token type_name_token = compiler->parser->previous;
 	ObjectString *type_name_str = copy_string(compiler->owner, type_name_token.start, type_name_token.length);
-
+	push(compiler->owner->current_module_record, OBJECT_VAL(type_name_str));
 	consume(compiler, CRUX_TOKEN_EQUAL, "Expected '=' after type name.");
 
 	ObjectTypeRecord *aliased_type = parse_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(aliased_type));
 	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after type declaration.");
 
 	if (compiler->scope_depth == 0) {
@@ -3242,6 +2919,8 @@ static void type_declaration(Compiler *compiler, bool is_public)
 	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, type_name_str, aliased_type);
 	}
+	pop(compiler->owner->current_module_record);
+	pop(compiler->owner->current_module_record);
 }
 
 static void public_declaration(Compiler *compiler)
@@ -3396,7 +3075,7 @@ static char process_escape_sequence(const char escape, bool *hasError)
 	}
 }
 
-static void string(Compiler *compiler, bool can_assign)
+static void string(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	char *processed = ALLOCATE(compiler->owner, char, compiler->parser->previous.length);
@@ -3458,7 +3137,7 @@ static void string(Compiler *compiler, bool can_assign)
 	emit_constant(compiler, OBJECT_VAL(string));
 }
 
-static void unary(Compiler *compiler, bool can_assign)
+static void unary(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	const CruxTokenType operatorType = compiler->parser->previous.type;
@@ -3494,7 +3173,7 @@ static void unary(Compiler *compiler, bool can_assign)
 	}
 	case CRUX_TOKEN_TILDE: {
 		ObjectTypeRecord *int_expected = pop_type_record(compiler);
-		if (!int_expected || (int_expected->base_type != ANY_TYPE && !(int_expected->base_type == INT_TYPE))) {
+		if (!int_expected || (int_expected->base_type != ANY_TYPE && int_expected->base_type != INT_TYPE)) {
 			compiler_panicf(compiler->parser, TYPE, "Expected 'Int' type for '~' operator.");
 		}
 		push_type_record(compiler, int_expected);
@@ -3506,7 +3185,7 @@ static void unary(Compiler *compiler, bool can_assign)
 	}
 }
 
-static void typeof_expression(Compiler *compiler, bool can_assign)
+static void typeof_expression(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	parse_precedence(compiler, PREC_UNARY);
@@ -3515,7 +3194,7 @@ static void typeof_expression(Compiler *compiler, bool can_assign)
 	push_type_record(compiler, T_STRING);
 }
 
-static void type_coerce(Compiler *compiler, bool can_assign)
+static void type_coerce(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	ObjectTypeRecord *got_type = pop_type_record(compiler);
@@ -3531,7 +3210,7 @@ static void type_coerce(Compiler *compiler, bool can_assign)
 	}
 
 	push_type_record(compiler, type_record);
-	uint16_t type_const = make_constant(compiler, OBJECT_VAL(type_record));
+	const uint16_t type_const = make_constant(compiler, OBJECT_VAL(type_record));
 	emit_words(compiler, OP_TYPE_COERCE, type_const);
 }
 
@@ -3548,7 +3227,7 @@ static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectS
 		return mod;
 	}
 
-	FileResult result = read_file(path->chars);
+	const FileResult result = read_file(path->chars);
 	if (result.error) {
 		compiler_panicf(compiler->parser, IMPORT, "Could not read file '%s': %s", path->chars, result.error);
 		return NULL;
@@ -3561,7 +3240,7 @@ static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectS
 	ObjectModuleRecord *previous_module = compiler->owner->current_module_record;
 	compiler->owner->current_module_record = new_module;
 
-	Compiler imported_compiler;
+	Compiler imported_compiler = {0};
 	ObjectFunction *module_func = compile(compiler->owner, &imported_compiler, compiler, source);
 	free(result.content);
 	source = NULL;
@@ -3704,16 +3383,17 @@ static ParseRule *get_rule(const CruxTokenType type)
 	return &rules[type]; // Returns the rule at the given index
 }
 
-// Pre-scanner
-// A two-sub-pass scanner that collects top-level struct and
-// function signatures before the main compilation pass begins.
-// This gives the compiler knowledge of forward-referenced names
-//
-// First pass collects struct declarations
-// Second pass collects function signatures
+/**Pre-scanner
+ * A two-sub-pass scanner that collects top-level struct and
+ * function signatures before the main compilation pass begins.
+ * This gives the compiler knowledge of forward-referenced names
+ *
+ * First pass collects struct declarations
+ * Second pass collects function signatures
+ */
 
 // Advance the pre-scanner, skipping error tokens silently.
-static void pre_advance(Compiler *compiler)
+static void pre_advance(const Compiler *compiler)
 {
 	compiler->parser->previous = compiler->parser->current;
 	for (;;) {
@@ -3723,9 +3403,11 @@ static void pre_advance(Compiler *compiler)
 	}
 }
 
-// Skip a balanced brace block { ... } starting at the current token (which
-// must be CRUX_TOKEN_LEFT_BRACE). Handles nesting.
-static void pre_skip_block(Compiler *compiler)
+/**
+ * Skip a balanced brace block { ... } starting at the current token (which
+ * must be CRUX_TOKEN_LEFT_BRACE). Handles nesting.
+ */
+static void pre_skip_block(const Compiler *compiler)
 {
 	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_BRACE)
 		return;
@@ -3741,7 +3423,7 @@ static void pre_skip_block(Compiler *compiler)
 }
 
 // Skip a balanced parenthesis group ( ... ) starting at current token.
-static void pre_skip_parens(Compiler *compiler)
+static void pre_skip_parens(const Compiler *compiler)
 {
 	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_PAREN)
 		return;
@@ -3756,14 +3438,13 @@ static void pre_skip_parens(Compiler *compiler)
 	}
 }
 
-// Advance past a type annotation starting at the current token.
-// Handles nested brackets and parentheses (e.g. Array[Int], (Int)->Bool,
-// Table[String:Int], union types separated by '|').
+/**
+ * Advance past a type annotation starting at the current token.
+ * Handles nested brackets and parentheses (e.g. Array[Int], (Int)->Bool,
+ * Table[String:Int], union types separated by '|').
+ */
 static void pre_skip_type(Compiler *compiler)
 {
-	// A type may be: a keyword type, an identifier, a function type
-	// (parens), followed by optional '[...]' subscript, followed by
-	// optional '|' union chains.
 	for (;;) {
 		const CruxTokenType t = compiler->parser->current.type;
 
@@ -3826,13 +3507,17 @@ static void pre_collect_type(Compiler *compiler)
 
 	// parse_type_record uses the global current compiler and parser.
 	ObjectTypeRecord *resolved_type = parse_type_record(compiler);
+	push(compiler->owner->current_module_record, OBJECT_VAL(resolved_type));
 
 	// consume ';'
 	if (compiler->parser->current.type == CRUX_TOKEN_SEMICOLON)
 		pre_advance(compiler);
 
 	ObjectString *type_name = copy_string(compiler->owner, name_token.start, name_token.length);
+	push(compiler->owner->current_module_record, OBJECT_VAL(type_name));
 	type_table_set(compiler->type_table, type_name, resolved_type);
+	pop(compiler->owner->current_module_record); // type_name
+	pop(compiler->owner->current_module_record); // resolved_type
 }
 
 // Collect a single top-level struct declaration into pre_compiler's type_table.
@@ -3851,18 +3536,28 @@ static void pre_collect_struct(Compiler *compiler)
 	pre_advance(compiler); // consume '{'
 
 	ObjectTypeTable *field_types = new_type_table(compiler->owner, INITIAL_TYPE_TABLE_SIZE);
+	push(compiler->owner->current_module_record, OBJECT_VAL(field_types));
 	int field_count = 0;
 
 	ObjectString *struct_name = copy_string(compiler->owner, name_token.start, name_token.length);
+	push(compiler->owner->current_module_record, OBJECT_VAL(struct_name));
+
 	ObjectStruct *struct_obj = new_struct_type(compiler->owner, struct_name);
+	push(compiler->owner->current_module_record, OBJECT_VAL(struct_obj));
+
+	// Register the struct type before parsing fields so self-referential fields can resolve during the pre-pass.
+	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, struct_obj, field_types, 0);
+	push(compiler->owner->current_module_record, OBJECT_VAL(struct_type));
+	type_table_set(compiler->type_table, struct_name, struct_type);
 
 	while (compiler->parser->current.type != CRUX_TOKEN_RIGHT_BRACE &&
 		   compiler->parser->current.type != CRUX_TOKEN_EOF) {
 		// Field name
 		if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 			break;
-		Token field_tok = compiler->parser->current;
+		const Token field_tok = compiler->parser->current;
 		ObjectString *field_name = copy_string(compiler->owner, field_tok.start, field_tok.length);
+		push(compiler->owner->current_module_record, OBJECT_VAL(field_name));
 		pre_advance(compiler);
 
 		ObjectTypeRecord *field_type = NULL;
@@ -3872,12 +3567,12 @@ static void pre_collect_struct(Compiler *compiler)
 		} else {
 			field_type = new_type_rec(compiler->owner, ANY_TYPE);
 		}
-
+		push(compiler->owner->current_module_record, OBJECT_VAL(field_type));
 		type_table_set(field_types, field_name, field_type);
 		table_set(compiler->owner, &struct_obj->fields, field_name, INT_VAL(field_count));
 		field_count++;
 
-		// Allow trailing comma between fields.
+		// Allow trailing comma between fields. Min compiler will catch this later.
 		if (compiler->parser->current.type == CRUX_TOKEN_COMMA)
 			pre_advance(compiler);
 	}
@@ -3886,9 +3581,16 @@ static void pre_collect_struct(Compiler *compiler)
 	if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_BRACE)
 		pre_advance(compiler);
 
-	ObjectTypeRecord *struct_type = new_struct_type_rec(compiler->owner, struct_obj, field_types, field_count);
+	struct_type->as.struct_type.field_count = field_count;
 
-	type_table_set(compiler->type_table, struct_name, struct_type);
+	pop(compiler->owner->current_module_record); // struct type
+	for (int i = 0; i < field_count; i++) {
+		pop(compiler->owner->current_module_record); // field type
+		pop(compiler->owner->current_module_record); // field name
+	}
+	pop(compiler->owner->current_module_record); // struct name
+	pop(compiler->owner->current_module_record); // struct_obj
+	pop(compiler->owner->current_module_record); // field_types
 }
 
 // Collect a single top-level function signature into pre_compiler's type_table.
@@ -3896,7 +3598,7 @@ static void pre_collect_function(Compiler *compiler)
 {
 	if (compiler->parser->current.type != CRUX_TOKEN_IDENTIFIER)
 		return;
-	Token fn_name_token = compiler->parser->current;
+	const Token fn_name_token = compiler->parser->current;
 	pre_advance(compiler);
 
 	if (compiler->parser->current.type != CRUX_TOKEN_LEFT_PAREN)
@@ -3906,8 +3608,9 @@ static void pre_collect_function(Compiler *compiler)
 	int param_cap = 4;
 	int param_count = 0;
 	ObjectTypeRecord **param_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, param_cap);
-	if (!param_types)
+	if (!param_types) {
 		return;
+	}
 
 	while (compiler->parser->current.type != CRUX_TOKEN_RIGHT_PAREN &&
 		   compiler->parser->current.type != CRUX_TOKEN_EOF) {
@@ -3925,12 +3628,14 @@ static void pre_collect_function(Compiler *compiler)
 		} else {
 			param_type = new_type_rec(compiler->owner, ANY_TYPE);
 		}
+		push(compiler->owner->current_module_record, OBJECT_VAL(param_type));
 
 		if (param_count == param_cap) {
-			int old_cap = param_cap;
+			const int old_cap = param_cap;
 			param_cap = GROW_CAPACITY(param_cap);
 			ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap, param_cap);
 			if (!grown) {
+				pop(compiler->owner->current_module_record);
 				FREE_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, old_cap);
 				return;
 			}
@@ -3942,6 +3647,7 @@ static void pre_collect_function(Compiler *compiler)
 			pre_advance(compiler);
 	}
 
+	// shrink to actual size
 	param_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, param_types, param_cap, param_count);
 
 	if (compiler->parser->current.type == CRUX_TOKEN_RIGHT_PAREN)
@@ -3954,21 +3660,29 @@ static void pre_collect_function(Compiler *compiler)
 	} else {
 		return_type = T_ANY;
 	}
+	push(compiler->owner->current_module_record, OBJECT_VAL(return_type));
 
-	// Register the function ObjectTypeRecord.
 	ObjectTypeRecord *fn_type = new_function_type_rec(compiler->owner, param_types, param_count, return_type);
-
+	push(compiler->owner->current_module_record, OBJECT_VAL(fn_type));
 	ObjectString *fn_name = copy_string(compiler->owner, fn_name_token.start, fn_name_token.length);
+	push(compiler->owner->current_module_record, OBJECT_VAL(fn_name));
 	type_table_set(compiler->type_table, fn_name, fn_type);
 
 	// Skip the function body
 	pre_skip_block(compiler);
+	pop(compiler->owner->current_module_record); // fn_name
+	pop(compiler->owner->current_module_record); // fn_type
+	pop(compiler->owner->current_module_record); // return type
+	for (int i = 0; i < param_count; i++) {
+		pop(compiler->owner->current_module_record); // param_type
+	}
 }
 
-// Run a forward-scan sub-pass.
-// when collect_structs is true, collect struct declarations; when false,
-// collect function declarations (fn / pub fn).
-static void pre_scan_pass(Compiler *compiler, bool collect_structs)
+/**
+ * Run a forward-scan sub-pass.
+ * collects structs or functions based on the collect_structs flag.
+ */
+static void pre_scan_pass(Compiler *compiler, const bool collect_structs)
 {
 	// Reset parser to a clean state
 	compiler->parser->had_error = false;
@@ -3977,7 +3691,7 @@ static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 	pre_advance(compiler);
 
 	while (compiler->parser->current.type != CRUX_TOKEN_EOF) {
-		CruxTokenType t = compiler->parser->current.type;
+		const CruxTokenType t = compiler->parser->current.type;
 
 		if (t == CRUX_TOKEN_STRUCT) {
 			pre_advance(compiler); // consume 'struct'
@@ -4072,11 +3786,11 @@ static void pre_scan_pass(Compiler *compiler, bool collect_structs)
 }
 
 // Run both pre-scan sub-passes and merge results into `dest`.
-// The scanner must be initialised with init_scanner(source) before calling.
+// The scanner must be initialized before calling.
 static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 {
 	// Sub-pass 1: collect struct declarations
-	Compiler pre_compiler_structs;
+	Compiler pre_compiler_structs = {0};
 	init_compiler(compiler->owner, &pre_compiler_structs, compiler, TYPE_SCRIPT);
 	init_scanner(pre_compiler_structs.parser->scanner, source);
 
@@ -4086,12 +3800,13 @@ static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 
 	pre_scan_pass(&pre_compiler_structs, true);
 
+	push(compiler->owner->current_module_record, OBJECT_VAL(pre_compiler_structs.type_table));
 	compiler->enclosed = NULL;
 	free(pre_compiler_structs.parser->scanner);
 	free(pre_compiler_structs.parser);
 
 	// Sub-pass 2: collect function signatures
-	Compiler pre_compiler_fns;
+	Compiler pre_compiler_fns = {0};
 	init_compiler(compiler->owner, &pre_compiler_fns, compiler, TYPE_SCRIPT);
 	init_scanner(pre_compiler_fns.parser->scanner, source);
 	pre_compiler_fns.parser->had_error = false;
@@ -4101,12 +3816,16 @@ static void pre_scan(Compiler *compiler, char *source, ObjectTypeTable *dest)
 
 	pre_scan_pass(&pre_compiler_fns, false);
 
+	push(compiler->owner->current_module_record, OBJECT_VAL(pre_compiler_fns.type_table));
 	compiler->enclosed = NULL;
 	free(pre_compiler_fns.parser->scanner);
 	free(pre_compiler_fns.parser);
 
 	type_table_add_all(pre_compiler_structs.type_table, dest);
 	type_table_add_all(pre_compiler_fns.type_table, dest);
+
+	pop(compiler->owner->current_module_record); // pre_compiler_fns.type_table
+	pop(compiler->owner->current_module_record); // pre_compiler_structs.type_table
 }
 
 /**
@@ -4127,6 +3846,7 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 
 	// Run pre-scan, merging into a temporary staging table.
 	ObjectTypeTable *staging = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	push(vm->current_module_record, OBJECT_VAL(staging));
 	pre_scan(compiler, source, staging);
 
 	for (int i = 0; i < staging->capacity; i++) {
@@ -4135,6 +3855,7 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 			continue;
 		type_table_set(compiler->type_table, entry->key, entry->value);
 	}
+	pop(vm->current_module_record); // staging table
 
 	// Main compiler pass
 	init_scanner(compiler->parser->scanner, source);
@@ -4161,16 +3882,28 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 	return had_error ? NULL : function;
 }
 
-void mark_compiler_roots(VM *vm, Compiler *compiler)
+void mark_compiler_roots(VM *vm, const Compiler *compiler)
 {
 	if (compiler == NULL)
 		return;
-	Compiler *current = compiler;
+	const Compiler *current = compiler;
 	while (current != NULL) {
 		mark_object(vm, (CruxObject *)current->function);
 		mark_object(vm, (CruxObject *)current->return_type);
 		mark_object(vm, (CruxObject *)current->last_give_type);
 		mark_object(vm, (CruxObject *)current->type_table);
+
+		if (current->current_narrowing.tracked_global_name != NULL)
+			mark_object(vm, (CruxObject *)current->current_narrowing.tracked_global_name);
+		if (current->current_narrowing.tracked_literal_type != NULL)
+			mark_object(vm, (CruxObject *)current->current_narrowing.tracked_literal_type);
+		if (current->current_narrowing.global_name != NULL)
+			mark_object(vm, (CruxObject *)current->current_narrowing.global_name);
+		if (current->current_narrowing.narrowed_to != NULL)
+			mark_object(vm, (CruxObject *)current->current_narrowing.narrowed_to);
+		if (current->current_narrowing.stripped_down != NULL)
+			mark_object(vm, (CruxObject *)current->current_narrowing.stripped_down);
+
 		for (int i = 0; i < current->type_stack_count; i++) {
 			mark_object(vm, (CruxObject *)current->type_stack[i]);
 		}

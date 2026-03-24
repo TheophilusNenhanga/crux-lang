@@ -70,13 +70,13 @@ println("=== Testing write_float32_le() ===");
 let buf10 = Buffer();
 buf10.write_float32_le(3.14);
 let data10 = buf10.read_all().unwrap();
-assert(len(data10) == 4, "float32 should be 4 bytes");
+assert(data10.byte_length() == 4, "float32 should be 4 bytes");
 
 println("=== Testing write_float64_le() ===");
 let buf11 = Buffer();
 buf11.write_float64_le(3.14159);
 let data11 = buf11.read_all().unwrap();
-assert(len(data11) == 8, "float64 should be 8 bytes");
+assert(data11.byte_length() == 8, "float64 should be 8 bytes");
 
 println("=== Testing write_buffer() ===");
 let buf12 = Buffer();

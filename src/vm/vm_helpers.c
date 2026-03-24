@@ -88,9 +88,9 @@ void pop_import_stack(VM *vm)
 
 static bool stringEquals(const ObjectString *a, const ObjectString *b)
 {
-	if (a->length != b->length)
+	if (a->byte_length != b->byte_length)
 		return false;
-	return memcmp(a->chars, b->chars, a->length) == 0;
+	return memcmp(a->chars, b->chars, a->byte_length) == 0;
 }
 
 bool is_in_import_stack(const VM *vm, const ObjectString *path)
@@ -533,7 +533,7 @@ bool concatenate(VM *vm)
 	const ObjectString *stringA = AS_CRUX_STRING(a);
 	const ObjectString *stringB = AS_CRUX_STRING(b);
 
-	const uint64_t length = stringA->length + stringB->length;
+	const uint64_t length = stringA->byte_length + stringB->byte_length;
 	char *chars = ALLOCATE(vm, char, length + 1);
 
 	if (chars == NULL) {
@@ -541,8 +541,8 @@ bool concatenate(VM *vm)
 		return false;
 	}
 
-	memcpy(chars, stringA->chars, stringA->length);
-	memcpy(chars + stringA->length, stringB->chars, stringB->length);
+	memcpy(chars, stringA->chars, stringA->byte_length);
+	memcpy(chars + stringA->byte_length, stringB->chars, stringB->byte_length);
 	chars[length] = '\0';
 
 	ObjectString *result = take_string(vm, chars, length);
@@ -651,6 +651,8 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gray_stack = NULL;
 	vm->struct_instance_stack.structs = NULL;
 	vm->main_compiler = NULL;
+
+	vm->heap_growth_factor = INIT_GC_HEAP_GROW_FACTOR;
 
 	vm->current_module_record = new_object_module_record(vm, NULL, is_repl, true);
 

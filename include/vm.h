@@ -110,6 +110,7 @@ struct VM {
 	MatchHandler match_handler;
 	Args args;
 
+	double heap_growth_factor;
 	size_t bytes_allocated;
 	size_t next_gc;
 	CruxObject **gray_stack;

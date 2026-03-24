@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include "table.h"
+#include "utf8.h"
 #include "value.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -337,10 +338,11 @@ ObjectClosure *new_closure(VM *vm, ObjectFunction *function)
  *
  * @return A pointer to the newly created and interned ObjectString.
  */
-static ObjectString *allocateString(VM *vm, char *chars, const uint32_t length, const uint32_t hash)
+static ObjectString *allocate_string(VM *vm, utf8_int8_t *chars, const uint32_t byte_length, const uint32_t hash)
 {
 	ObjectString *string = ALLOCATE_OBJECT(vm, ObjectString, OBJECT_STRING);
-	string->length = length;
+	string->byte_length = byte_length;
+	string->code_point_length = utf8len(chars);
 	string->chars = chars;
 	string->hash = hash;
 	// intern the string
@@ -386,7 +388,7 @@ ObjectString *copy_string(VM *vm, const char *chars, const uint32_t length)
 	memcpy(heapChars, chars, length);
 	heapChars[length] = '\0'; // terminating the string because it is not
 							  // terminated in the source
-	return allocateString(vm, heapChars, length, hash);
+	return allocate_string(vm, heapChars, length, hash);
 }
 
 void print_error_type_to(FILE *stream, const ErrorType type)
@@ -503,6 +505,10 @@ static void print_array_to(FILE *stream, const Value *values, const uint32_t siz
 static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size)
 {
 	uint32_t printed = 0;
+	if (entries == NULL) {
+		fprintf(stream, "{}");
+		return;
+	}
 	fprintf(stream, "{");
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
@@ -629,7 +635,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_VECTOR: {
 		const ObjectVector *vector = AS_CRUX_VECTOR(value);
-		fprintf(stream, "Vec(%d)[", vector->dimensions);
+		fprintf(stream, "Vector(%d)[", vector->dimensions);
 		const double *comp = VECTOR_COMPONENTS(vector);
 		for (uint32_t i = 0; i < vector->dimensions; i++) {
 			fprintf(stream, "%.17g", comp[i]);
@@ -741,11 +747,11 @@ ObjectString *take_string(VM *vm, char *chars, const uint32_t length)
 	ObjectString *interned = table_find_string(&vm->strings, chars, length, hash);
 	if (interned != NULL) {
 		// free the string that was passed to us.
-		FREE_ARRAY(vm, char, chars, length + 1);
+		FREE_ARRAY(vm, utf8_int8_t, chars, length + 1);
 		return interned;
 	}
 
-	return allocateString(vm, chars, length, hash);
+	return allocate_string(vm, chars, length, hash);
 }
 
 ObjectString *to_string(VM *vm, const Value value)
@@ -789,7 +795,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		if (native->name != NULL) {
 			const char *start = "<native fn ";
 			const char *end = ">";
-			char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->length + 1);
+			char *buffer = ALLOCATE(vm, char, strlen(start) + strlen(end) + native->name->byte_length + 1);
 			strcpy(buffer, start);
 			strcat(buffer, native->name->chars);
 			strcat(buffer, end);
@@ -819,7 +825,7 @@ ObjectString *to_string(VM *vm, const Value value)
 		size_t bufSize = 2; // [] minimum
 		for (uint32_t i = 0; i < array->size; i++) {
 			const ObjectString *element = to_string(vm, array->values[i]);
-			bufSize += element->length + 2; // element + ", "
+			bufSize += element->byte_length + 2; // element + ", "
 		}
 
 		char *buffer = ALLOCATE(vm, char, bufSize);
@@ -832,8 +838,8 @@ ObjectString *to_string(VM *vm, const Value value)
 				*ptr++ = ' ';
 			}
 			const ObjectString *element = to_string(vm, array->values[i]);
-			memcpy(ptr, element->chars, element->length);
-			ptr += element->length;
+			memcpy(ptr, element->chars, element->byte_length);
+			ptr += element->byte_length;
 		}
 		*ptr++ = ']';
 
@@ -848,7 +854,7 @@ ObjectString *to_string(VM *vm, const Value value)
 			if (table->entries[i].is_occupied) {
 				const ObjectString *k = to_string(vm, table->entries[i].key);
 				const ObjectString *v = to_string(vm, table->entries[i].value);
-				bufSize += k->length + v->length + 4; // key:value
+				bufSize += k->byte_length + v->byte_length + 4; // key:value
 			}
 		}
 
@@ -868,11 +874,11 @@ ObjectString *to_string(VM *vm, const Value value)
 				const ObjectString *key = to_string(vm, table->entries[i].key);
 				const ObjectString *val = to_string(vm, table->entries[i].value);
 
-				memcpy(ptr, key->chars, key->length);
-				ptr += key->length;
+				memcpy(ptr, key->chars, key->byte_length);
+				ptr += key->byte_length;
 				*ptr++ = ':';
-				memcpy(ptr, val->chars, val->length);
-				ptr += val->length;
+				memcpy(ptr, val->chars, val->byte_length);
+				ptr += val->byte_length;
 			}
 		}
 		*ptr++ = '}';
@@ -913,7 +919,7 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 
 	case OBJECT_VECTOR: {
-		return copy_string(vm, "<Vec<>>", 7);
+		return copy_string(vm, "<Vector[]>", 10);
 	}
 
 	case OBJECT_COMPLEX: {
@@ -1311,6 +1317,9 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record)
 
 ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const bool is_repl, const bool is_main)
 {
+	GC_STATUS previous = vm->gc_status;
+	vm->gc_status = PAUSED;
+
 	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
@@ -1334,6 +1343,8 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 	moduleRecord->is_repl = is_repl;
 
 	moduleRecord->owner = vm;
+
+	vm->gc_status = previous;
 
 	return moduleRecord;
 }
@@ -1465,21 +1476,17 @@ ObjectTypeRecord *new_type_rec(VM *vm, TypeMask base_type)
 
 ObjectTypeTable *new_type_table(VM *vm, const int capacity)
 {
+	TypeEntry *entries = ALLOCATE(vm, TypeEntry, capacity);
+	for (int i = 0; i < capacity; i++) {
+		entries[i].key = NULL;
+		entries[i].value = NULL;
+	}
+
 	ObjectTypeTable *table = ALLOCATE_OBJECT(vm, ObjectTypeTable, OBJECT_TYPE_TABLE);
 	table->capacity = capacity;
 	table->count = 0;
-	table->entries = ALLOCATE(vm, TypeEntry, table->capacity);
-	for (int i = 0; i < table->capacity; i++) {
-		table->entries[i].key = NULL;
-		table->entries[i].value = NULL;
-	}
+	table->entries = entries;
 	return table;
-}
-
-void free_type_table(VM *vm, ObjectTypeTable *table)
-{
-	FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
-	table->entries = NULL;
 }
 
 void mark_object_type_table(VM *vm, ObjectTypeTable *table)

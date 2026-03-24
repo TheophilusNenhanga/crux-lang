@@ -6,14 +6,11 @@
 
 #include "chunk.h"
 #include "table.h"
+#include "utf8.h"
 #include "value.h"
 #include "vm.h"
 
 #define NATIVE_FUNCTION_MAX_ARGS 8
-
-#define GC_PROTECT_START(current_module_record) Value *gc_stack_start = (current_module_record)->stack_top
-#define GC_PROTECT(current_module_record, value) push((current_module_record), (value))
-#define GC_PROTECT_END(current_module_record) (current_module_record)->stack_top = gc_stack_start
 
 #define STATIC_STRING_LEN(static_string) sizeof((static_string)) - 1
 
@@ -142,8 +139,9 @@ struct PoolObject { // 8
 
 struct ObjectString { // 24
 	CruxObject object;
-	char *chars;
-	uint32_t length; // this is the length without the null terminator
+	utf8_int8_t* chars;
+	uint32_t byte_length; // this is the length without the null terminator
+	uint32_t code_point_length;
 	uint32_t hash;
 };
 
@@ -470,7 +468,6 @@ ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
 ObjectSet *new_set(VM *vm, uint32_t element_count);
 ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
-void free_type_table(VM* vm, ObjectTypeTable *table);
 void mark_object_type_table(VM *vm, ObjectTypeTable *table);
 ObjectTypeTable *new_type_table(VM *vm, int capacity);
 

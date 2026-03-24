@@ -289,11 +289,11 @@ Value write_string_buffer_method(VM *vm, const Value *args)
 	ObjectBuffer *buffer = AS_CRUX_BUFFER(args[0]);
 	ObjectString *string = AS_CRUX_STRING(args[1]);
 
-	if (!ensure_write_capacity(vm, buffer, (uint32_t)string->length))
+	if (!ensure_write_capacity(vm, buffer, (uint32_t)string->byte_length))
 		BUFFER_GROWTH_ERROR
 
-	memcpy(buffer->data + buffer->write_pos, string->chars, string->length);
-	buffer->write_pos += (uint32_t)string->length;
+	memcpy(buffer->data + buffer->write_pos, string->chars, string->byte_length);
+	buffer->write_pos += (uint32_t)string->byte_length;
 
 	push(vm->current_module_record, OBJECT_VAL(buffer));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(buffer));

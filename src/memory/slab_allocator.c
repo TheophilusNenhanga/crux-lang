@@ -19,7 +19,6 @@ SlabAllocator * init_slab_allocator(const uint16_t slot_size, const uint16_t cap
         if(slab->memory) free(slab->memory);
         if(slab->next_indexes) free(slab->next_indexes);
         free(slab);
-        fprintf(stderr, "Error: Failed to allocate slab memory.\n");
         return NULL;
     }
 

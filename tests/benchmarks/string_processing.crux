@@ -1,4 +1,4 @@
-use _time_ms from "crux:time";
+use time_ms from "crux:time";
 use Random from "crux:random";
 
 println("=== STRING PROCESSING BENCHMARK ===");
@@ -55,10 +55,10 @@ fn run_concat_benchmark() {
 
     for let si = 0; si < len(sizes); si += 1 {
         let n  = sizes[si];
-        let t0 = _time_ms();
+        let t0 = time_ms();
         let s  = "";
         for let i = 0; i < n; i += 1 { s = s + rand_char(); }
-        let elapsed = _time_ms() - t0;
+        let elapsed = time_ms() - t0;
         // Checksum: use final length so the string can't be DCE'd
         println("  n=" + string(n) + "  len=" + string(len(s)) + "  time=" + string(elapsed) + " ms");
     }
@@ -148,13 +148,13 @@ fn run_search_benchmark() {
     println("  Matches (KMP)   : " + string(kmp_count));
     println("  Agreement       : " + string(naive_count == kmp_count));
 
-    let t0 = _time_ms();
+    let t0 = time_ms();
     for let r = 0; r < RUNS; r += 1 { naive_search_all(haystack, needle); }
-    let naive_ms = _time_ms() - t0;
+    let naive_ms = time_ms() - t0;
 
-    let t1 = _time_ms();
+    let t1 = time_ms();
     for let r = 0; r < RUNS; r += 1 { kmp_search_all(haystack, needle, fail); }
-    let kmp_ms = _time_ms() - t1;
+    let kmp_ms = time_ms() - t1;
 
     println("  Naive ×" + string(RUNS) + " : " + string(naive_ms) + " ms");
     println("  KMP   ×" + string(RUNS) + " : " + string(kmp_ms) + " ms");
@@ -218,15 +218,15 @@ fn run_csv_benchmark() {
     let PARSE_RUNS = 10;
 
     println("  Generating " + string(ROWS) + " rows × " + string(COLS) + " cols...");
-    let tg  = _time_ms();
+    let tg  = time_ms();
     let csv = generate_csv(ROWS, COLS);
-    let gen_ms = _time_ms() - tg;
+    let gen_ms = time_ms() - tg;
     println("  CSV length     : " + string(len(csv)) + " chars  (generated in " + string(gen_ms) + " ms)");
 
-    let tp     = _time_ms();
+    let tp     = time_ms();
     let result = { "fields": 0, "chars": 0 };
     for let r = 0; r < PARSE_RUNS; r += 1 { result = parse_csv(csv); }
-    let parse_ms = _time_ms() - tp;
+    let parse_ms = time_ms() - tp;
 
     println("  Fields parsed  : " + string(result["fields"]));
     println("  Content chars  : " + string(result["chars"]));
@@ -316,13 +316,13 @@ fn run_rle_benchmark() {
     println("  Compression      : " + string(len(encoded) * 100 / len(src)) + "%");
     println("  Roundtrip OK     : " + string(len(decoded) == len(src)));
 
-    let te = _time_ms();
+    let te = time_ms();
     for let r = 0; r < RUNS; r += 1 { rle_encode(src); }
-    let enc_ms = _time_ms() - te;
+    let enc_ms = time_ms() - te;
 
-    let td = _time_ms();
+    let td = time_ms();
     for let r = 0; r < RUNS; r += 1 { rle_decode(encoded); }
-    let dec_ms = _time_ms() - td;
+    let dec_ms = time_ms() - td;
 
     println("  Encode ×" + string(RUNS) + "      : " + string(enc_ms) + " ms");
     println("  Decode ×" + string(RUNS) + "      : " + string(dec_ms) + " ms");
@@ -330,20 +330,6 @@ fn run_rle_benchmark() {
     println("  Decode avg       : " + string(dec_ms / RUNS) + " ms");
 
     println("");
-}
-
-fn rand_word() {
-    let i = int(g_rng.float(0.0, len(VOCAB))?)?;
-    return VOCAB[i];
-}
-
-fn generate_document(word_count) {
-    let s = "";
-    for let i = 0; i < word_count; i += 1 {
-        if i > 0 { s = s + " "; }
-        s = s + rand_word();
-    }
-    return s;
 }
 
 fn split_words(s) {
@@ -360,14 +346,14 @@ fn split_words(s) {
 }
 
 fn main() {
-    let t_start = _time_ms();
+    let t_start = time_ms();
 
     run_concat_benchmark();
     run_search_benchmark();
     run_csv_benchmark();
     run_rle_benchmark();
 
-    let total = _time_ms() - t_start;
+    let total = time_ms() - t_start;
     println("════════════════════════════════════════════════════");
     println("Total wall time: " + string(total) + " ms");
 }

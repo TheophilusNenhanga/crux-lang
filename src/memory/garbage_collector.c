@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "alloc.h"
+#include "common.h"
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
@@ -29,10 +30,11 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
-		vm->gray_stack = (CruxObject **)realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
-	}
-	if (vm->gray_stack == NULL) {
-		exit(1);
+		CruxObject** new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
+		if (new_objects == NULL) {
+			exit(1);
+		}
+		vm->gray_stack = new_objects;
 	}
 	vm->gray_stack[vm->gray_count++] = object;
 }
@@ -124,7 +126,6 @@ static void blacken_range(VM *vm, CruxObject *object);
 static void blacken_set(VM *vm, CruxObject *object);
 static void blacken_buffer(VM *vm, CruxObject *object);
 static void blacken_tuple(VM *vm, CruxObject *object);
-static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_matrix(VM *vm, CruxObject *object);
 static void blacken_type_record(VM *vm, CruxObject *object);
 static void blacken_type_table(VM *vm, CruxObject *object);
@@ -327,11 +328,11 @@ static void blacken_tuple(VM *vm, CruxObject *object)
 
 static void blacken_type_table(VM *vm, CruxObject *object)
 {
-	ObjectTypeTable *table = (ObjectTypeTable *)object;
+	const ObjectTypeTable *table = (ObjectTypeTable *)object;
 	if (!table->entries)
 		return;
 	for (int i = 0; i < table->capacity; i++) {
-		TypeEntry *entry = &table->entries[i];
+		const TypeEntry *entry = &table->entries[i];
 		if (entry->key == NULL)
 			continue;
 		mark_object(vm, (CruxObject *)entry->key);
@@ -341,7 +342,7 @@ static void blacken_type_table(VM *vm, CruxObject *object)
 
 static void blacken_type_record(VM *vm, CruxObject *object)
 {
-	ObjectTypeRecord *rec = (ObjectTypeRecord *)object;
+	const ObjectTypeRecord *rec = (ObjectTypeRecord *)object;
 	switch (rec->base_type) {
 	case ARRAY_TYPE:
 		mark_type_record(vm, rec->as.array_type.element_type);
@@ -480,7 +481,7 @@ static void free_object(VM *vm, CruxObject *object)
 static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
-	FREE_ARRAY(vm, char, string->chars, string->length + 1);
+	FREE_ARRAY(vm, char, string->chars, string->byte_length + 1);
 	FREE_OBJECT(vm, ObjectString, object);
 }
 
@@ -588,14 +589,13 @@ static void free_object_complex(VM *vm, CruxObject *object)
 
 static void free_object_set(VM *vm, CruxObject *object)
 {
-	ObjectSet *set = (ObjectSet *)object;
+	const ObjectSet *set = (ObjectSet *)object;
 	free_object_table_wrapper(vm, &set->entries->object);
 	FREE_OBJECT(vm, ObjectSet, object);
 }
 
 static void free_object_range(VM *vm, CruxObject *object)
 {
-	const ObjectRange *range = (ObjectRange *)object;
 	FREE_OBJECT(vm, ObjectRange, object);
 }
 
@@ -646,8 +646,11 @@ static void free_object_type_table(VM *vm, CruxObject *object)
 {
 	ObjectTypeTable *table = (ObjectTypeTable *)object;
 	if (table->entries) {
-		free(table->entries);
+		FREE_ARRAY(vm, TypeEntry, table->entries, table->capacity);
 	}
+	table->capacity = -1;
+	table->count = -1;
+	table->entries = NULL;
 	FREE_OBJECT(vm, ObjectTypeTable, object);
 }
 
@@ -772,7 +775,7 @@ void collect_garbage(VM *vm)
 	trace_references(vm);
 	table_remove_white(vm, &vm->strings); // Clean up string table
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * GC_HEAP_GROW_FACTOR;
+	vm->next_gc = vm->bytes_allocated * INIT_GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");
