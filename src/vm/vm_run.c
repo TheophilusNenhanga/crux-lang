@@ -40,8 +40,8 @@
  */
 InterpretResult run(VM *vm, const bool is_anonymous_frame)
 {
-	ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
-	CallFrame *frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
+	register ObjectModuleRecord *currentModuleRecord = vm->current_module_record;
+	register CallFrame *frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
 
 #define READ_SHORT() (*frame->ip++)
 #define READ_CONSTANT() (frame->closure->function->chunk.constants.values[READ_SHORT()])
@@ -154,9 +154,13 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_OPTION_MATCH_SOME,
 									&&OP_OPTION_MATCH_NONE,
 									&&OP_TYPE_MATCH,
+									&&OP_INVOKE_STDLIB,
+									&&OP_INVOKE_STDLIB_UNWRAP,
+									&&OP_POP_N,
+									&&OP_DEFINE_PUB_GLOBAL,
 									&&end};
 
-	uint16_t instruction;
+	register uint16_t instruction;
 #ifdef DEBUG_TRACE_EXECUTION
 	static uint16_t endIndex = sizeof(dispatchTable) / sizeof(dispatchTable[0]) - 1;
 #endif
@@ -308,21 +312,13 @@ OP_POP: {
 
 OP_DEFINE_GLOBAL: {
 	ObjectString *name = READ_STRING();
-	bool isPublic = false;
-	if (check_previous_instruction(frame, 3, OP_PUB)) {
-		isPublic = true;
-	}
-
 	ObjectModuleRecord *frame_module_record = frame->closure->function->module_record;
-	if (table_set(vm, &frame_module_record->globals, name, PEEK(currentModuleRecord, 0))) {
-		if (isPublic) {
-			table_set(vm, &frame_module_record->publics, name, PEEK(currentModuleRecord, 0));
-		}
-		pop(currentModuleRecord);
-		DISPATCH();
+	if (!table_set(vm, &frame_module_record->globals, name, PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, NAME, "Cannot define '%s' because it is already defined.", name->chars);
+		return INTERPRET_RUNTIME_ERROR;
 	}
-	runtime_panic(currentModuleRecord, NAME, "Cannot define '%s' because it is already defined.", name->chars);
-	return INTERPRET_RUNTIME_ERROR;
+	pop(currentModuleRecord);
+	DISPATCH();
 }
 
 OP_GET_GLOBAL: {
@@ -1806,6 +1802,114 @@ OP_SOME: {
 OP_NONE: {
 	ObjectOption *none = new_option(vm, NIL_VAL, false);
 	push(currentModuleRecord, OBJECT_VAL(none));
+	DISPATCH();
+}
+
+OP_INVOKE_STDLIB: {
+	Value callable = READ_CONSTANT();
+	int arg_count = READ_SHORT();
+
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+	const Value receiver = PEEK(current_module_record, arg_count);
+	const Value original = PEEK(current_module_record,
+								arg_count + 1); // Store the original caller
+
+	if (!IS_CRUX_OBJECT(receiver)) {
+		runtime_panic(current_module_record, TYPE, "Only instances have methods");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	arg_count++; // for the value that the method will act on
+
+	mark_value(vm, original);
+
+	// Save original stack order
+	current_module_record->stack_top[-arg_count - 1] = callable;
+	current_module_record->stack_top[-arg_count] = receiver;
+
+	if (!call_value(vm, callable, arg_count)) {
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	// restore the caller and put the result in the right place
+	const Value result = pop(current_module_record);
+	push(current_module_record, original);
+	push(current_module_record, result);
+
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
+
+	DISPATCH();
+}
+
+OP_INVOKE_STDLIB_UNWRAP: {
+	Value callable = READ_CONSTANT();
+	int arg_count = READ_SHORT();
+
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+	const Value receiver = PEEK(current_module_record, arg_count);
+	const Value original = PEEK(current_module_record,
+								arg_count + 1); // Store the original caller
+
+	if (!IS_CRUX_OBJECT(receiver)) {
+		runtime_panic(current_module_record, TYPE, "Only instances have methods");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	arg_count++; // for the value that the method will act on
+
+	mark_value(vm, original);
+
+	// Save original stack order
+	current_module_record->stack_top[-arg_count - 1] = callable;
+	current_module_record->stack_top[-arg_count] = receiver;
+
+	if (!call_value(vm, callable, arg_count)) {
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	// restore the caller and put the result in the right place
+	const Value result = pop(current_module_record);
+	push(current_module_record, original);
+
+	if (!IS_CRUX_RESULT(result)) {
+		runtime_panic(currentModuleRecord, TYPE, "Only the 'result' type supports unwrapping.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	ObjectResult *result_obj = AS_CRUX_RESULT(result);
+	if (result_obj->is_ok) {
+		push(currentModuleRecord, result_obj->as.value);
+	} else {
+		ObjectError *error = result_obj->as.error;
+		runtime_panic(currentModuleRecord, RUNTIME, "Panic: %s", error->message->chars);
+	}
+
+	frame = &currentModuleRecord->frames[currentModuleRecord->frame_count - 1];
+
+	DISPATCH();
+}
+
+OP_POP_N: {
+	uint16_t pop_count = READ_SHORT();
+#ifdef STACK_SAFETY
+	for (uint16_t i = 0; i < pop_count; i++) {
+		pop(currentModuleRecord);
+	}
+#else
+	currentModuleRecord->stack_top -= pop_count;
+#endif
+	DISPATCH();
+}
+
+OP_DEFINE_PUB_GLOBAL: {
+	ObjectString *name = READ_STRING();
+	ObjectModuleRecord *frame_module_record = frame->closure->function->module_record;
+	if (!table_set(vm, &frame_module_record->globals, name, PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, NAME, "Cannot define '%s' because it is already defined.", name->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	table_set(vm, &frame_module_record->publics, name, PEEK(currentModuleRecord, 0));
+
+	pop(currentModuleRecord);
 	DISPATCH();
 }
 

@@ -301,8 +301,9 @@ OpCode get_compound_opcode(const Compiler *compiler,  OpCode setOp, int op);
  * @param compiler
  * @param global The index of the variable name constant in the constant pool
  * (for global variables).
+ * @param is_public if this is a public declaration
  */
-void define_variable(Compiler *compiler, uint16_t global);
+void define_variable(Compiler *compiler, uint16_t global, bool is_public);
 
 /**
  * Check math types for compound operations
@@ -368,4 +369,15 @@ void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *ty
 bool match_type_name(const Compiler *compiler);
 
 TypeMask type_token_type_to_mask(CruxTokenType token_type);
+/**
+ * Checks if the previous opcode in the current chunk matches the given opcode.
+ *
+ * @param compiler The current compiler.
+ * @param op The opcode to check for.
+ * @param distance The distance from the current instruction to check
+ * @return true if the previous opcode matches, false otherwise.
+ */
+bool check_previous_op_code(const Compiler *compiler, OpCode op, int distance);
+bool set_previous_op_code(const Compiler *compiler, OpCode op, int distance);
+
 #endif // COMPILER_H

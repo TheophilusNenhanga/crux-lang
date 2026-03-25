@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "chunk.h"
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
@@ -187,6 +188,27 @@ const ObjectNativeCallable *lookup_stdlib_method(const Compiler *compiler, const
 	return AS_CRUX_NATIVE_CALLABLE(value);
 }
 
+bool check_previous_op_code(const Compiler *compiler, const OpCode op, const int distance)
+{
+	const Chunk *chunk = current_chunk(compiler);
+	if (chunk->count == 0)
+		return false;
+	if (chunk->count - distance < 0)
+		return false;
+	return chunk->code[chunk->count - distance] == op;
+}
+
+bool set_previous_op_code(const Compiler *compiler, const OpCode op, const int distance)
+{
+	const Chunk *chunk = current_chunk(compiler);
+	if (chunk->code == 0)
+		return false;
+	if (chunk->code - distance < 0)
+		return false;
+	chunk->code[chunk->count - distance] = op;
+	return true;
+}
+
 void emit_word(const Compiler *compiler, const uint16_t word)
 {
 	write_chunk(compiler->owner, current_chunk(compiler), word, compiler->parser->previous.line);
@@ -338,26 +360,57 @@ void begin_scope(Compiler *compiler)
 
 void cleanupLocalsToDepth(Compiler *compiler, const int targetDepth)
 {
+	uint16_t to_pop_count = 0;
 	while (compiler->local_count > 0 && compiler->locals[compiler->local_count - 1].depth > targetDepth) {
 		if (compiler->locals[compiler->local_count - 1].is_captured) {
+			if (to_pop_count > 0) {
+				if (to_pop_count == 1) {
+					emit_word(compiler, OP_POP);
+				} else {
+					emit_words(compiler, OP_POP_N, to_pop_count);
+				}
+			}
 			emit_word(compiler, OP_CLOSE_UPVALUE);
 		} else {
-			emit_word(compiler, OP_POP);
+			to_pop_count++;
 		}
 		compiler->local_count--;
+	}
+	if (to_pop_count > 0) {
+		if (to_pop_count == 1) {
+			emit_word(compiler, OP_POP);
+		} else {
+			emit_words(compiler, OP_POP_N, to_pop_count);
+		}
 	}
 }
 
 void emit_cleanup_for_jump(const Compiler *compiler, const int targetDepth)
 {
+	uint16_t to_pop_count = 0;
 	int i = compiler->local_count - 1;
 	while (i >= 0 && compiler->locals[i].depth > targetDepth) {
 		if (compiler->locals[i].is_captured) {
+			if (to_pop_count > 0) {
+				if (to_pop_count == 1) {
+					emit_word(compiler, OP_POP);
+				} else {
+					emit_words(compiler, OP_POP_N, to_pop_count);
+				}
+			}
+			to_pop_count = 0;
 			emit_word(compiler, OP_CLOSE_UPVALUE);
 		} else {
-			emit_word(compiler, OP_POP);
+			to_pop_count++;
 		}
 		i--;
+	}
+	if (to_pop_count > 0) {
+		if (to_pop_count == 1) {
+			emit_word(compiler, OP_POP);
+		} else {
+			emit_words(compiler, OP_POP_N, to_pop_count);
+		}
 	}
 }
 
@@ -548,7 +601,7 @@ void check_compound_type_math(const Compiler *compiler, ObjectTypeRecord *lhs_ty
 	}
 }
 
-void define_variable(Compiler *compiler, const uint16_t global)
+void define_variable(Compiler *compiler, const uint16_t global, bool is_public)
 {
 	if (compiler->scope_depth > 0) {
 		mark_initialized(compiler);
@@ -557,7 +610,7 @@ void define_variable(Compiler *compiler, const uint16_t global)
 	if (global >= UINT16_MAX) {
 		compiler_panic(compiler->parser, "Too many variables.", SYNTAX);
 	}
-	emit_words(compiler, OP_DEFINE_GLOBAL, global);
+	is_public ? emit_words(compiler, OP_DEFINE_PUB_GLOBAL, global) : emit_words(compiler, OP_DEFINE_GLOBAL, global);
 }
 
 OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const int op)

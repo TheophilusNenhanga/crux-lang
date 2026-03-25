@@ -138,21 +138,26 @@ struct VM {
 	Compiler *main_compiler;
 };
 
+#ifdef STACK_SAFETY
 #define push(module_record, value)                                                                                     \
-	do {                                                                                                               \
-		if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
-			runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                              \
-		}                                                                                                              \
-		*(module_record)->stack_top++ = (value);                                                                       \
-	} while (0)
+do {                                                                                                               \
+if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
+runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                                    \
+}                                                                                                              \
+*(module_record)->stack_top++ = (value);                                                                       \
+} while (0)
 
 #define pop(module_record)                                                                                             \
-	({                                                                                                                 \
-		if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
-			runtime_panic((module_record), RUNTIME, "Stack underflow error");                                    \
-		}                                                                                                              \
-		*--(module_record)->stack_top;                                                                                 \
-	})
+({                                                                                                                 \
+if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
+runtime_panic((module_record), RUNTIME, "Stack underflow error");                                          \
+}                                                                                                              \
+*--(module_record)->stack_top;                                                                                 \
+})
+#else
+#define push(module_record, value) *(module_record)->stack_top++ = (value)
+#define pop(module_record) *--(module_record)->stack_top
+#endif
 
 #define PEEK(module_record, distance) ((module_record)->stack_top[-1 - (distance)])
 
@@ -198,15 +203,6 @@ void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 bool binary_operation(VM *vm, OpCode operation);
 
 bool concatenate(VM *vm);
-
-/**
- * Checks if a previous instruction matches the expected opcode.
- * @param frame The current call frame
- * @param instructions_ago How many instructions to look back
- * @param instruction The opcode to check for
- * @return true if the previous instruction matches, false otherwise
- */
-bool check_previous_instruction(const CallFrame *frame, int instructions_ago, OpCode instruction);
 
 /**
  * Calls a value as a function with the given arguments.

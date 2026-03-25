@@ -434,6 +434,18 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_NONE: {
 		return simple_instruction("OP_NONE", offset);
 	}
+	case OP_INVOKE_STDLIB: {
+		return invoke_instruction("OP_INVOKE_STDLIB", chunk, offset);
+	}
+	case OP_INVOKE_STDLIB_UNWRAP: {
+		return invoke_instruction("OP_INVOKE_STDLIB_UNWRAP", chunk, offset);
+	}
+	case OP_POP_N: {
+		return inline_arg_instruction("OP_POP_N", chunk, offset);
+	}
+	case OP_DEFINE_PUB_GLOBAL: {
+		return constant_instruction("OP_DEFINE_PUB_GLOBAL", chunk, offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

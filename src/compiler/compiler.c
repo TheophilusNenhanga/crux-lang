@@ -1322,7 +1322,7 @@ static void infix_call(Compiler *compiler, const bool can_assign)
 	}
 }
 
-static void literal(Compiler *compiler, bool can_assign)
+static void literal(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	switch (compiler->parser->previous.type) {
@@ -1346,6 +1346,7 @@ static void literal(Compiler *compiler, bool can_assign)
 
 static void dot(Compiler *compiler, const bool can_assign)
 {
+	const ObjectNativeCallable *stdlib_callable = NULL;
 	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected property name after '.'.");
 	const uint16_t name_constant = identifier_constant(compiler, &compiler->parser->previous);
 	const Token method_name_token = compiler->parser->previous;
@@ -1422,13 +1423,12 @@ static void dot(Compiler *compiler, const bool can_assign)
 		pop(compiler->owner->current_module_record); // field_name
 	}
 
-	// TODO: Add get property
-
 	// OP_INVOKE
 	if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
 		uint16_t arg_count = 0;
 		ObjectTypeRecord *arg_types[UINT8_COUNT] = {0};
 
+		// compiling arguments
 		if (!check(compiler, CRUX_TOKEN_RIGHT_PAREN)) {
 			do {
 				if (arg_count >= UINT8_COUNT) {
@@ -1446,9 +1446,6 @@ static void dot(Compiler *compiler, const bool can_assign)
 			} while (match(compiler, CRUX_TOKEN_COMMA));
 		}
 		consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
-
-		emit_words(compiler, OP_INVOKE, name_constant);
-		emit_word(compiler, arg_count);
 
 		ObjectTypeRecord **method_arg_types = NULL;
 		ObjectTypeRecord *method_return = NULL;
@@ -1525,11 +1522,11 @@ static void dot(Compiler *compiler, const bool can_assign)
 			}
 
 			if (type_table) {
-				const ObjectNativeCallable *callable = lookup_stdlib_method(compiler, type_table, &method_name_token);
-				if (callable) {
-					method_arg_types = callable->arg_types;
-					method_arity = callable->arity;
-					method_return = callable->return_type;
+				stdlib_callable = lookup_stdlib_method(compiler, type_table, &method_name_token);
+				if (stdlib_callable) {
+					method_arg_types = stdlib_callable->arg_types;
+					method_arity = stdlib_callable->arity;
+					method_return = stdlib_callable->return_type;
 					method_found = true;
 				} else {
 					char type_name[128];
@@ -1541,7 +1538,7 @@ static void dot(Compiler *compiler, const bool can_assign)
 		}
 
 		if (method_found && method_arg_types) {
-			int param_offset = (object_type->base_type == STRUCT_TYPE) ? 0 : 1;
+			const int param_offset = (object_type->base_type == STRUCT_TYPE) ? 0 : 1;
 			int user_params = method_arity - param_offset;
 			if (user_params < 0)
 				user_params = 0;
@@ -1563,6 +1560,15 @@ static void dot(Compiler *compiler, const bool can_assign)
 					}
 				}
 			}
+		}
+
+		if (stdlib_callable) {
+			const uint16_t callable_index = make_constant(compiler, OBJECT_VAL(stdlib_callable));
+			emit_words(compiler, OP_INVOKE_STDLIB, callable_index);
+			emit_word(compiler, arg_count);
+		} else {
+			emit_words(compiler, OP_INVOKE, name_constant);
+			emit_word(compiler, arg_count);
 		}
 
 		pop_type_record(compiler);
@@ -1814,7 +1820,7 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 			}
 			param_types[param_count++] = param_type;
 
-			define_variable(&function_compiler, constant);
+			define_variable(&function_compiler, constant, false);
 		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
@@ -1897,7 +1903,7 @@ static void fn_declaration(Compiler *compiler, const bool is_public)
 		}
 	}
 
-	define_variable(compiler, global);
+	define_variable(compiler, global, is_public);
 
 	pop(compiler->owner->current_module_record); // fn_type
 	pop(compiler->owner->current_module_record); // name_str
@@ -1958,7 +1964,7 @@ static void anonymous_function(Compiler *compiler, const bool can_assign)
 			}
 			param_types[param_count++] = param_type;
 
-			define_variable(&function_compiler, constant);
+			define_variable(&function_compiler, constant, false);
 		} while (match(compiler, CRUX_TOKEN_COMMA));
 	}
 
@@ -2442,7 +2448,7 @@ static void var_declaration(Compiler *compiler, const bool is_public)
 	} else {
 		type_table_set(compiler->type_table, name_str, resolved_type);
 	}
-	define_variable(compiler, global);
+	define_variable(compiler, global, is_public);
 
 	pop(compiler->owner->current_module_record); // annotated_type
 	pop(compiler->owner->current_module_record); // name_str
@@ -2825,7 +2831,7 @@ static void struct_declaration(Compiler *compiler, bool is_public)
 
 	const uint16_t structConstant = make_constant(compiler, OBJECT_VAL(structObject));
 	emit_words(compiler, OP_STRUCT, structConstant);
-	define_variable(compiler, nameConstant);
+	define_variable(compiler, nameConstant, is_public);
 
 	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' before struct body.");
 
@@ -2949,7 +2955,7 @@ static void impl_declaration(Compiler *compiler)
 	emit_word(compiler, OP_POP);
 }
 
-static void result_unwrap(Compiler *compiler, bool can_assign)
+static void result_unwrap(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 
@@ -2969,7 +2975,12 @@ static void result_unwrap(Compiler *compiler, bool can_assign)
 		push_type_record(compiler, T_ANY);
 		return;
 	}
-	emit_word(compiler, OP_UNWRAP);
+
+	if (check_previous_op_code(compiler, OP_INVOKE_STDLIB, 3)) {
+		set_previous_op_code(compiler, OP_INVOKE_STDLIB_UNWRAP, 3);
+	}  else {
+		emit_word(compiler, OP_UNWRAP);
+	}
 
 	ObjectTypeRecord *ok_type = type->as.result_type.ok_type;
 	push_type_record(compiler, ok_type ? ok_type : T_ANY);
@@ -3499,7 +3510,7 @@ static void type_declaration(Compiler *compiler, bool is_public)
 	}
 
 	emit_constant(compiler, OBJECT_VAL(aliased_type));
-	define_variable(compiler, global);
+	define_variable(compiler, global, is_public);
 
 	if (is_public || (compiler->owner->current_module_record && compiler->owner->current_module_record->is_repl)) {
 		type_table_set(compiler->owner->current_module_record->types, type_name_str, aliased_type);

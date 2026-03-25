@@ -185,7 +185,7 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 				char expected_name[128];
 				char actual_name[128];
 				type_mask_name(native->arg_types[i]->base_type, expected_name, sizeof(expected_name));
-				TypeMask actual_mask = get_type_mask(args[i]);
+				const TypeMask actual_mask = get_type_mask(args[i]);
 				type_mask_name(actual_mask, actual_name, sizeof(actual_name));
 				runtime_panic(current_module_record, TYPE,
 							  "In %s() --- arg %d: expected "
@@ -1486,19 +1486,6 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 	}
 	table_set(vm, &current_module_record->globals, name, resultValue);
 	return INTERPRET_OK;
-}
-
-bool check_previous_instruction(const CallFrame *frame, const int instructions_ago, const OpCode instruction)
-{
-	const uint16_t *current = frame->ip;
-	const uint16_t *codeStart = frame->closure->function->chunk.code;
-
-	// Check if we have enough bytes before current position,
-	if (current - (instructions_ago + 2) < codeStart) {
-		return false;
-	}
-
-	return *(current - (instructions_ago + 2)) == instruction;
 }
 
 InterpretResult interpret(VM *vm, char *source)
