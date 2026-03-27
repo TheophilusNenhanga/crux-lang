@@ -1,0 +1,38 @@
+println("=== Testing basic range literal ===");
+let r = 0..10;
+assert(typeof r == "Range", "0..10 should create a Range");
+assert(r.start() == 0, "Range literal should preserve start");
+assert(r.step() == 1, "Two-part range literal should default step to 1");
+assert(r.end() == 10, "Range literal should preserve end");
+assert(len(r) == 10, "0..10 should have 10 elements");
+assert(r.contains(9) == true, "0..10 should contain 9");
+assert(r.contains(10) == false, "0..10 should exclude end");
+
+println("=== Testing explicit-step range literal ===");
+let stepped = 0..2..10;
+assert(typeof stepped == "Range", "0..2..10 should create a Range");
+assert(stepped.start() == 0, "Explicit-step range should preserve start");
+assert(stepped.step() == 2, "Explicit-step range should preserve step");
+assert(stepped.end() == 10, "Explicit-step range should preserve end");
+assert(len(stepped) == 5, "0..2..10 should have 5 elements");
+let stepped_arr = stepped.to_array()?;
+assert(stepped_arr[0] == 0, "First stepped range element should be 0");
+assert(stepped_arr[1] == 2, "Second stepped range element should be 2");
+assert(stepped_arr[2] == 4, "Third stepped range element should be 4");
+assert(stepped_arr[3] == 6, "Fourth stepped range element should be 6");
+assert(stepped_arr[4] == 8, "Fifth stepped range element should be 8");
+
+println("=== Testing negative-step range literal ===");
+let descending = 10..-2..0;
+assert(typeof descending == "Range", "10..-2..0 should create a Range");
+assert(descending.start() == 10, "Negative-step range should preserve start");
+assert(descending.step() == -2, "Negative-step range should preserve step");
+assert(descending.end() == 0, "Negative-step range should preserve end");
+let descending_arr = descending.to_array()?;
+assert(descending_arr[0] == 10, "First descending element should be 10");
+assert(descending_arr[1] == 8, "Second descending element should be 8");
+assert(descending_arr[2] == 6, "Third descending element should be 6");
+assert(descending_arr[3] == 4, "Fourth descending element should be 4");
+assert(descending_arr[4] == 2, "Fifth descending element should be 2");
+
+println("=== All range literal tests passed ===");
