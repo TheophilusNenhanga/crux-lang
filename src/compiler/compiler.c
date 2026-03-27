@@ -28,9 +28,38 @@ static void grouping(Compiler *compiler, bool can_assign);
 
 static void number(Compiler *compiler, bool can_assign);
 
+static bool parse_signed_int_literal(Compiler *compiler, int32_t *value, const char *message);
+
 static void set_literal(Compiler *compiler, bool can_assign);
 
 static void tuple_literal(Compiler *compiler, bool can_assign);
+
+static bool parse_signed_int_literal(Compiler *compiler, int32_t *value, const char *message)
+{
+	bool is_negative = false;
+	if (match(compiler, CRUX_TOKEN_MINUS)) {
+		is_negative = true;
+	}
+
+	if (!match(compiler, CRUX_TOKEN_INT)) {
+		compiler_panic(compiler->parser, message, SYNTAX);
+		return false;
+	}
+
+	char *end = NULL;
+	long parsed = strtol(compiler->parser->previous.start, &end, 10);
+	if (end == compiler->parser->previous.start) {
+		compiler_panic(compiler->parser, "Failed to parse integer literal in range.", SYNTAX);
+		return false;
+	}
+
+	if (is_negative) {
+		parsed = -parsed;
+	}
+
+	*value = (int32_t)parsed;
+	return true;
+}
 
 static void statement(Compiler *compiler);
 
@@ -1929,8 +1958,8 @@ static void tuple_literal(Compiler *compiler, const bool can_assign)
 	}
 
 	if (elementCount < element_capacity) {
-		ObjectTypeRecord **grown =
-			GROW_ARRAY(compiler->owner, ObjectTypeRecord *, element_types, element_capacity, elementCount);
+		ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, element_types, element_capacity,
+											  elementCount);
 		if (grown != NULL || elementCount == 0) {
 			element_types = grown;
 		}
@@ -2515,8 +2544,8 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 
 		push(compiler->owner->current_module_record, OBJECT_VAL(resolved_type)); // resolved_type
 
-		if (compiler->scope_depth == 0 && compiler->owner->current_module_record
-			&& compiler->owner->current_module_record->is_repl) {
+		if (compiler->scope_depth == 0 && compiler->owner->current_module_record &&
+			compiler->owner->current_module_record->is_repl) {
 			type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
 		}
 
@@ -3138,6 +3167,66 @@ static void grouping(Compiler *compiler, bool can_assign)
 static void number(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
+	if (check(compiler, CRUX_TOKEN_DOT_DOT)) {
+		if (compiler->parser->previous.type != CRUX_TOKEN_INT) {
+			compiler_panic(compiler->parser, "Range literals require an Int start value.", TYPE);
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+
+		char *start_end = NULL;
+		long start_long = strtol(compiler->parser->previous.start, &start_end, 10);
+		if (start_end == compiler->parser->previous.start) {
+			compiler_panic(compiler->parser, "Failed to parse range start.", SYNTAX);
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+
+		const int32_t start = (int32_t)start_long;
+		int32_t step = 1;
+		int32_t end_value = 0;
+
+		advance(compiler); // consume '..'
+		if (!parse_signed_int_literal(compiler, &end_value, "Expected Int literal after '..' in range literal.")) {
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+
+		if (match(compiler, CRUX_TOKEN_DOT_DOT)) {
+			step = end_value;
+			if (!parse_signed_int_literal(compiler, &end_value,
+										  "Expected Int literal after second '..' in range literal.")) {
+				push_type_record(compiler, T_ANY);
+				return;
+			}
+		}
+
+		if (step == 0) {
+			compiler_panic(compiler->parser, "Range literal step cannot be zero.", VALUE);
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+		if (step > 0 && start > end_value) {
+			compiler_panic(compiler->parser, "Range literal start cannot be greater than end when step is positive.",
+						   VALUE);
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+		if (step < 0 && start < end_value) {
+			compiler_panic(compiler->parser, "Range literal start cannot be less than end when step is negative.",
+						   VALUE);
+			push_type_record(compiler, T_ANY);
+			return;
+		}
+
+		emit_constant(compiler, INT_VAL(start));
+		emit_constant(compiler, INT_VAL(step));
+		emit_constant(compiler, INT_VAL(end_value));
+		emit_word(compiler, OP_RANGE);
+		push_type_record(compiler, new_type_rec(compiler->owner, RANGE_TYPE));
+		return;
+	}
+
 	char *end;
 	errno = 0;
 

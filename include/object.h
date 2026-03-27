@@ -471,5 +471,6 @@ ObjectTuple *new_tuple(VM *vm, uint32_t size);
 void mark_object_type_table(VM *vm, ObjectTypeTable *table);
 ObjectTypeTable *new_type_table(VM *vm, int capacity);
 bool set_add_value(VM *vm, ObjectSet *set, Value value);
+bool validate_range_values(int32_t start, int32_t step, int32_t end, const char **error_message);
 
 #endif

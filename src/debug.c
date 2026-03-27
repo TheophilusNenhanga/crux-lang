@@ -226,6 +226,8 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return inline_arg_instruction("OP_SET", chunk, offset);
 	case OP_TUPLE:
 		return inline_arg_instruction("OP_TUPLE", chunk, offset);
+	case OP_RANGE:
+		return simple_instruction("OP_RANGE", offset);
 	case OP_GET_COLLECTION:
 		return simple_instruction("OP_GET_COLLECTION", offset);
 	case OP_SET_COLLECTION:

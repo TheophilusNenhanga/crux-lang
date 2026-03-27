@@ -37,21 +37,11 @@ Value new_range_function(VM *vm, const Value *args)
 	int32_t step = AS_INT(args[1]);
 	int32_t end = AS_INT(args[2]);
 
-	if (step == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<step> cannot be zero.", VALUE);
+	const char *error_message = NULL;
+	if (!validate_range_values(start, step, end, &error_message)) {
+		return MAKE_GC_SAFE_ERROR(vm, error_message, VALUE);
 	}
-	if (step > 0 && start > end) {
-		return MAKE_GC_SAFE_ERROR(vm,
-								  "<start> cannot be greater than "
-								  "<end> when <step> is positive.",
-								  VALUE);
-	}
-	if (step < 0 && start < end) {
-		return MAKE_GC_SAFE_ERROR(vm,
-								  "<start> cannot be less than <end> "
-								  "when <step> is negative.",
-								  VALUE);
-	}
+
 	ObjectRange *range = new_range(vm, start, end, step);
 	push(vm->current_module_record, OBJECT_VAL(range));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(range));

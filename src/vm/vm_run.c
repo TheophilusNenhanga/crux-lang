@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "object.h"
 #include "panic.h"
+#include "stdlib/range.h"
 #include "stdlib/set.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
@@ -99,6 +100,7 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_TABLE,
 									&&OP_SET,
 									&&OP_TUPLE,
+									&&OP_RANGE,
 									&&OP_ANON_FUNCTION,
 									&&OP_PUB,
 									&&OP_MATCH,
@@ -815,6 +817,30 @@ OP_TUPLE: {
 		tuple->elements[i] = pop(currentModuleRecord);
 	}
 	push(currentModuleRecord, OBJECT_VAL(tuple));
+	DISPATCH();
+}
+
+OP_RANGE: {
+	Value end_value = pop(currentModuleRecord);
+	Value step_value = pop(currentModuleRecord);
+	Value start_value = pop(currentModuleRecord);
+
+	if (!IS_INT(start_value) || !IS_INT(step_value) || !IS_INT(end_value)) {
+		runtime_panic(currentModuleRecord, TYPE, "Range literal operands must be Int values.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	int32_t start = AS_INT(start_value);
+	int32_t step = AS_INT(step_value);
+	int32_t end = AS_INT(end_value);
+	const char *error_message = NULL;
+	if (!validate_range_values(start, step, end, &error_message)) {
+		runtime_panic(currentModuleRecord, VALUE, "%s", error_message);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectRange *range = new_range(vm, start, end, step);
+	push(currentModuleRecord, OBJECT_VAL(range));
 	DISPATCH();
 }
 

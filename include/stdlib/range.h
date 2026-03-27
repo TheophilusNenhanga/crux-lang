@@ -2,6 +2,7 @@
 #include "value.h"
 
 int32_t range_len(const ObjectRange *range);
+bool validate_range_values(int32_t start, int32_t step, int32_t end, const char **error_message);
 
 Value new_range_function(VM *vm, const Value *args);
 

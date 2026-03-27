@@ -574,6 +574,9 @@ Token scan_token(Scanner *scanner)
 	case ',':
 		return make_token(scanner, CRUX_TOKEN_COMMA);
 	case '.':
+		if (match(scanner, '.')) {
+			return make_token(scanner, CRUX_TOKEN_DOT_DOT);
+		}
 		return make_token(scanner, CRUX_TOKEN_DOT);
 	case '-':
 		if (match(scanner, '>'))

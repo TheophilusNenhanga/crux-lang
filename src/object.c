@@ -1508,3 +1508,23 @@ bool set_add_value(VM *vm, ObjectSet *set, Value value)
 	object_table_set(vm, set->entries, value, NIL_VAL);
 	return true;
 }
+
+bool validate_range_values(int32_t start, int32_t step, int32_t end, const char **error_message)
+{
+	if (step == 0) {
+		if (error_message)
+			*error_message = "<step> cannot be zero.";
+		return false;
+	}
+	if (step > 0 && start > end) {
+		if (error_message)
+			*error_message = "<start> cannot be greater than <end> when <step> is positive.";
+		return false;
+	}
+	if (step < 0 && start < end) {
+		if (error_message)
+			*error_message = "<start> cannot be less than <end> when <step> is negative.";
+		return false;
+	}
+	return true;
+}
