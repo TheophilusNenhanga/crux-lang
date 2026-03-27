@@ -28,6 +28,10 @@ static void grouping(Compiler *compiler, bool can_assign);
 
 static void number(Compiler *compiler, bool can_assign);
 
+static void set_literal(Compiler *compiler, bool can_assign);
+
+static void tuple_literal(Compiler *compiler, bool can_assign);
+
 static void statement(Compiler *compiler);
 
 static void declaration(Compiler *compiler);
@@ -1819,6 +1823,130 @@ static void array_literal(Compiler *compiler, const bool can_assign)
 	pop(compiler->owner->current_module_record); // element_type
 }
 
+static void set_literal(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	uint16_t elementCount = 0;
+	ObjectTypeRecord *element_type = NULL;
+
+	push(compiler->owner->current_module_record, NIL_VAL);
+	const int type_root_stack_index = (int)(compiler->owner->current_module_record->stack_top -
+											compiler->owner->current_module_record->stack - 1);
+
+	if (!match(compiler, CRUX_TOKEN_RIGHT_BRACE)) {
+		do {
+			expression(compiler);
+			ObjectTypeRecord *value_type = pop_type_record(compiler);
+
+			if (value_type && !is_valid_table_key_type(value_type)) {
+				char got[128];
+				type_record_name(value_type, got, sizeof(got));
+				compiler_panicf(compiler->parser, TYPE, "Set elements must be hashable, got '%s'.", got);
+			}
+
+			if (!element_type) {
+				element_type = value_type;
+			} else if (element_type->base_type != ANY_TYPE && value_type && value_type->base_type != ANY_TYPE) {
+				if (!types_compatible(element_type, value_type)) {
+					if ((element_type->base_type == INT_TYPE && value_type->base_type == FLOAT_TYPE) ||
+						(element_type->base_type == FLOAT_TYPE && value_type->base_type == INT_TYPE)) {
+						element_type = T_FLOAT;
+					} else {
+						element_type = T_ANY;
+					}
+				}
+			}
+
+			compiler->owner->current_module_record->stack[type_root_stack_index] = element_type
+																					   ? OBJECT_VAL(element_type)
+																					   : NIL_VAL;
+
+			if (elementCount >= UINT16_MAX) {
+				compiler_panic(compiler->parser, "Too many elements in set literal.", COLLECTION_EXTENT);
+			}
+			elementCount++;
+		} while (match(compiler, CRUX_TOKEN_COMMA));
+		consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after set elements.");
+	}
+
+	if (!element_type) {
+		element_type = T_ANY;
+		compiler->owner->current_module_record->stack[type_root_stack_index] = OBJECT_VAL(element_type);
+	}
+
+	emit_word(compiler, OP_SET);
+	emit_word(compiler, elementCount);
+
+	ObjectTypeRecord *set_type = new_set_type_rec(compiler->owner, element_type);
+	push_type_record(compiler, set_type);
+
+	pop(compiler->owner->current_module_record); // element_type
+}
+
+static void tuple_literal(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	uint16_t elementCount = 0;
+	int element_capacity = 4;
+	ObjectTypeRecord **element_types = ALLOCATE(compiler->owner, ObjectTypeRecord *, element_capacity);
+
+	if (element_types == NULL) {
+		compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+		push_type_record(compiler, T_ANY);
+		return;
+	}
+
+	if (!match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
+		do {
+			expression(compiler);
+			ObjectTypeRecord *value_type = pop_type_record(compiler);
+			push(compiler->owner->current_module_record, value_type ? OBJECT_VAL(value_type) : NIL_VAL);
+
+			if (elementCount == element_capacity) {
+				const int old_capacity = element_capacity;
+				element_capacity = GROW_CAPACITY(element_capacity);
+				ObjectTypeRecord **grown = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, element_types, old_capacity,
+													  element_capacity);
+				if (grown == NULL) {
+					FREE_ARRAY(compiler->owner, ObjectTypeRecord *, element_types, old_capacity);
+					for (uint16_t i = 0; i < elementCount; i++) {
+						pop(compiler->owner->current_module_record);
+					}
+					compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+					push_type_record(compiler, T_ANY);
+					return;
+				}
+				element_types = grown;
+			}
+
+			element_types[elementCount++] = value_type;
+
+			if (elementCount >= UINT16_MAX) {
+				compiler_panic(compiler->parser, "Too many elements in tuple literal.", COLLECTION_EXTENT);
+			}
+		} while (match(compiler, CRUX_TOKEN_COMMA));
+		consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after tuple elements.");
+	}
+
+	if (elementCount < element_capacity) {
+		ObjectTypeRecord **grown =
+			GROW_ARRAY(compiler->owner, ObjectTypeRecord *, element_types, element_capacity, elementCount);
+		if (grown != NULL || elementCount == 0) {
+			element_types = grown;
+		}
+	}
+
+	emit_word(compiler, OP_TUPLE);
+	emit_word(compiler, elementCount);
+
+	ObjectTypeRecord *tuple_type = new_tuple_type_rec(compiler->owner, element_types, elementCount);
+	push_type_record(compiler, tuple_type);
+
+	for (uint16_t i = 0; i < elementCount; i++) {
+		pop(compiler->owner->current_module_record);
+	}
+}
+
 static void table_literal(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
@@ -3269,6 +3397,8 @@ ParseRule rules[] = {
 	[CRUX_TOKEN_RIGHT_BRACE] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_LEFT_SQUARE] = {array_literal, collection_index, NULL, PREC_CALL},
 	[CRUX_TOKEN_RIGHT_SQUARE] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_DOLLAR_LEFT_BRACE] = {set_literal, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_DOLLAR_LEFT_SQUARE] = {tuple_literal, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_COMMA] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_DOT] = {NULL, dot, NULL, PREC_CALL},
 	[CRUX_TOKEN_MINUS] = {unary, binary, NULL, PREC_TERM},

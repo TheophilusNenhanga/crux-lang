@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "object.h"
 #include "panic.h"
+#include "stdlib/set.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH()                                                                                                     \
@@ -96,6 +97,8 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_GLOBAL_PLUS,
 									&&OP_SET_GLOBAL_MINUS,
 									&&OP_TABLE,
+									&&OP_SET,
+									&&OP_TUPLE,
 									&&OP_ANON_FUNCTION,
 									&&OP_PUB,
 									&&OP_MATCH,
@@ -784,6 +787,34 @@ OP_TABLE: {
 		}
 	}
 	push(currentModuleRecord, OBJECT_VAL(table));
+	DISPATCH();
+}
+
+OP_SET: {
+	uint16_t elementCount = READ_SHORT();
+	ObjectSet *set = new_set(vm, elementCount);
+	push(currentModuleRecord, OBJECT_VAL(set));
+	for (int i = elementCount - 1; i >= 0; i--) {
+		(void)i;
+		Value value = currentModuleRecord->stack_top[-2];
+		currentModuleRecord->stack_top[-2] = currentModuleRecord->stack_top[-1];
+		currentModuleRecord->stack_top--;
+		if (!set_add_value(vm, set, value)) {
+			pop(currentModuleRecord); // set
+			runtime_panic(currentModuleRecord, TYPE, "All set elements must be hashable.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+	}
+	DISPATCH();
+}
+
+OP_TUPLE: {
+	uint16_t elementCount = READ_SHORT();
+	ObjectTuple *tuple = new_tuple(vm, elementCount);
+	for (int i = elementCount - 1; i >= 0; i--) {
+		tuple->elements[i] = pop(currentModuleRecord);
+	}
+	push(currentModuleRecord, OBJECT_VAL(tuple));
 	DISPATCH();
 }
 

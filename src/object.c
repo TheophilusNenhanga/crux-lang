@@ -1496,3 +1496,15 @@ void mark_object_type_table(VM *vm, ObjectTypeTable *table)
 		mark_object(vm, (CruxObject *)table->entries[i].value);
 	}
 }
+
+/**
+ * Adds a value to a set, validating hashability and deduplicating by key.
+ */
+bool set_add_value(VM *vm, ObjectSet *set, Value value)
+{
+	if (!IS_CRUX_HASHABLE(value)) {
+		return false;
+	}
+	object_table_set(vm, set->entries, value, NIL_VAL);
+	return true;
+}

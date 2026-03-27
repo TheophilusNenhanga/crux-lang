@@ -561,6 +561,14 @@ Token scan_token(Scanner *scanner)
 		return make_token(scanner, CRUX_TOKEN_LEFT_SQUARE);
 	case ']':
 		return make_token(scanner, CRUX_TOKEN_RIGHT_SQUARE);
+	case '$':
+		if (match(scanner, '{')) {
+			return make_token(scanner, CRUX_TOKEN_DOLLAR_LEFT_BRACE);
+		}
+		if (match(scanner, '[')) {
+			return make_token(scanner, CRUX_TOKEN_DOLLAR_LEFT_SQUARE);
+		}
+		return error_token(scanner, "Unexpected token");
 	case ';':
 		return make_token(scanner, CRUX_TOKEN_SEMICOLON);
 	case ',':

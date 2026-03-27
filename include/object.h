@@ -470,5 +470,6 @@ ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
 void mark_object_type_table(VM *vm, ObjectTypeTable *table);
 ObjectTypeTable *new_type_table(VM *vm, int capacity);
+bool set_add_value(VM *vm, ObjectSet *set, Value value);
 
 #endif
