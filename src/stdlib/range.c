@@ -3,22 +3,6 @@
 #include "panic.h"
 #include "vm.h"
 
-int32_t range_len(const ObjectRange *range)
-{
-	if (range->step > 0)
-		return (range->end - range->start + range->step - 1) / range->step;
-	else
-		return (range->start - range->end - range->step - 1) / (-range->step);
-}
-
-static bool range_contains(const ObjectRange *range, int32_t value)
-{
-	if (range->step > 0)
-		return value >= range->start && value < range->end && (value - range->start) % range->step == 0;
-	else
-		return value <= range->start && value > range->end && (range->start - value) % (-range->step) == 0;
-}
-
 static bool range_is_empty(const ObjectRange *range)
 {
 	return range_len(range) <= 0;

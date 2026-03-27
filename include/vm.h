@@ -4,6 +4,7 @@
 #include "chunk.h"
 #include "table.h"
 #include "value.h"
+#include "utf8.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -12,6 +13,7 @@ typedef struct ObjectResult ObjectResult;
 typedef struct ObjectStructInstance ObjectStructInstance;
 typedef struct ObjectTypeRecord ObjectTypeRecord;
 typedef struct ObjectTypeTable ObjectTypeTable;
+typedef struct ObjectRange ObjectRange;
 typedef struct SlabAllocator SlabAllocator;
 typedef struct Compiler Compiler;
 
@@ -250,5 +252,7 @@ bool pushStructStack(VM *vm, ObjectStructInstance *struct_instance);
 ObjectStructInstance *peek_struct_stack(const VM *vm);
 
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *target, Value operand, OpCode op);
+bool range_indices_in_bounds(const ObjectRange *range, const uint32_t collection_size);
+bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const utf8_int8_t ***starts_out);
 
 #endif // VM_H

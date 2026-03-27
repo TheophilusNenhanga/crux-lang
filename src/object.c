@@ -502,14 +502,23 @@ static void print_array_to(FILE *stream, const Value *values, const uint32_t siz
 	fprintf(stream, "]");
 }
 
-static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size)
+static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size,
+						   bool is_set)
 {
 	uint32_t printed = 0;
 	if (entries == NULL) {
-		fprintf(stream, "{}");
+		if (is_set) {
+			fprintf(stream, "${}");
+		} else {
+			fprintf(stream, "{}");
+		}
 		return;
 	}
-	fprintf(stream, "{");
+	if (is_set) {
+		fprintf(stream, "${");
+	} else {
+		fprintf(stream, "{");
+	}
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
 			print_value_to(stream, entries[i].key, true);
@@ -600,7 +609,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TABLE: {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		print_table_to(stream, table->entries, table->capacity, table->size);
+		print_table_to(stream, table->entries, table->capacity, table->size, false);
 		break;
 	}
 	case OBJECT_ERROR: {
@@ -679,7 +688,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_SET: {
 		const ObjectSet *set = AS_CRUX_SET(value);
-		print_table_to(stream, set->entries->entries, set->entries->capacity, set->entries->size);
+		print_table_to(stream, set->entries->entries, set->entries->capacity, set->entries->size, true);
 		break;
 	}
 
@@ -689,7 +698,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TUPLE: {
 		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
-		fprintf(stream, "Tuple(%u)[", tuple->size);
+		fprintf(stream, "$[");
 		for (uint32_t i = 0; i < tuple->size; i++) {
 			if (i != 0) {
 				fprintf(stream, ", ");
@@ -1527,4 +1536,20 @@ bool validate_range_values(int32_t start, int32_t step, int32_t end, const char 
 		return false;
 	}
 	return true;
+}
+
+uint32_t range_len(const ObjectRange *range)
+{
+	if (range->step > 0)
+		return (range->end - range->start + range->step - 1) / range->step;
+	else
+		return (range->start - range->end - range->step - 1) / (-range->step);
+}
+
+bool range_contains(const ObjectRange *range, int32_t value)
+{
+	if (range->step > 0)
+		return value >= range->start && value < range->end && (value - range->start) % range->step == 0;
+	else
+		return value <= range->start && value > range->end && (range->start - value) % (-range->step) == 0;
 }

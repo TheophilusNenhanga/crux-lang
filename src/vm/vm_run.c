@@ -3,8 +3,10 @@
 
 #include "chunk.h"
 #include "file_handler.h"
+#include "garbage_collector.h"
 #include "stdlib/stdlib.h"
 #include "type_system.h"
+#include "utf8.h"
 #include "value.h"
 #include "vm.h"
 
@@ -141,6 +143,7 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_PROPERTY_MODULUS,
 									&&OP_BITWISE_NOT,
 									&&OP_TYPE_COERCE,
+									&&OP_GET_SLICE,
 									&&end};
 
 	uint16_t instruction;
@@ -547,7 +550,38 @@ OP_GET_COLLECTION: {
 		}
 		// Only single character indexing
 		ch = copy_string(vm, string->chars + index, 1);
-		pop_push(currentModuleRecord, OBJECT_VAL(ch));
+		pop_push(currentModuleRecord,
+				 OBJECT_VAL(ch)); // pop the string off the stack, push the character onto the stack
+		DISPATCH();
+	}
+	case OBJECT_TUPLE: {
+		if (!IS_INT(indexValue)) {
+			runtime_panic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		uint32_t index = (uint32_t)AS_INT(indexValue);
+		ObjectTuple *tuple = AS_CRUX_TUPLE(PEEK(currentModuleRecord, 0));
+		if (index >= tuple->size) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		Value value = tuple->elements[index];
+		pop_push(currentModuleRecord, value); // pop the tuple off the stack, push the value onto the stack
+		DISPATCH();
+	}
+	case OBJECT_BUFFER: {
+		if (!IS_INT(indexValue)) {
+			runtime_panic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		uint32_t index = (uint32_t)AS_INT(indexValue);
+		ObjectBuffer *buffer = AS_CRUX_BUFFER(PEEK(currentModuleRecord, 0));
+		if (index >= (buffer->write_pos - buffer->read_pos)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		Value value = AS_INT(buffer->data[index + buffer->read_pos]);
+		pop_push(currentModuleRecord, value); // pop the buffer off the stack, push the value onto the stack
 		DISPATCH();
 	}
 
@@ -1409,12 +1443,127 @@ OP_TYPE_COERCE: {
 	ObjectTypeRecord *type_record = AS_CRUX_TYPE_RECORD(value);
 	Value query = PEEK(currentModuleRecord, 0);
 	if (!runtime_types_compatible(type_record->base_type, query)) {
-		char type_name[100];
-		type_record_name(type_record, type_name, 100);
+		char type_name[128];
+		type_record_name(type_record, type_name, 128);
 		runtime_panic(currentModuleRecord, TYPE, "Failed to perform type coercion. Expected type: '%s'.", type_name);
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	// if the type matched then continue on like nothing happend
+	// if the type matched then continue on like nothing happened
+	DISPATCH();
+}
+
+OP_GET_SLICE: {
+	Value range_value = pop(currentModuleRecord);
+	ObjectRange *range = AS_CRUX_RANGE(range_value);
+	if (!IS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, TYPE, "Cannot get from a non-collection type.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	switch (AS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))->type) {
+	case OBJECT_ARRAY: {
+		ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, array->size)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectArray *slice = new_array(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			// okay to not check return, we allocated enough capacity
+			Value to_add = array->values[range->start + i * range->step];
+			array_add_back(vm, slice, to_add);
+		}
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_STRING: {
+		ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, string->code_point_length)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		const utf8_int8_t **codepoint_starts = NULL;
+		if (!collect_string_codepoint_starts(vm, string, &codepoint_starts)) {
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		char *buffer = ALLOCATE(vm, char, string->byte_length + 1);
+		if (buffer == NULL) {
+			FREE_ARRAY(vm, const utf8_int8_t *, codepoint_starts, string->code_point_length + 1);
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		uint32_t buffer_write_index = 0;
+		int32_t index = range->start;
+		for (uint32_t i = 0; i < len; i++, index += range->step) {
+			const uint32_t current_index = (uint32_t)index;
+			const uint32_t codepoint_size = (uint32_t)(codepoint_starts[current_index + 1] -
+													   codepoint_starts[current_index]);
+			memcpy(buffer + buffer_write_index, codepoint_starts[current_index], codepoint_size);
+			buffer_write_index += codepoint_size;
+		}
+		buffer[buffer_write_index] = '\0';
+		FREE_ARRAY(vm, const utf8_int8_t *, codepoint_starts, string->code_point_length + 1);
+
+		char *resized = GROW_ARRAY(vm, char, buffer, string->byte_length + 1, buffer_write_index + 1);
+		if (resized == NULL) {
+			FREE_ARRAY(vm, char, buffer, string->byte_length + 1);
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		buffer = resized;
+
+		ObjectString *slice = take_string(vm, buffer, buffer_write_index);
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_TUPLE: {
+		ObjectTuple *tuple = AS_CRUX_TUPLE(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, tuple->size)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectTuple *slice = new_tuple(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			slice->elements[i] = tuple->elements[range->start + i * range->step];
+		}
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_BUFFER: {
+		ObjectBuffer *buffer = AS_CRUX_BUFFER(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, buffer->write_pos - buffer->read_pos)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectArray *slice = new_array(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			const uint32_t index = (uint32_t)(range->start + i * range->step);
+			slice->values[i] = INT_VAL(buffer->data[buffer->read_pos + index]);
+		}
+		slice->size = len;
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+
+	default: {
+		runtime_panic(currentModuleRecord, TYPE, "Can only slice 'Array | String | Tuple | Buffer'");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	}
 	DISPATCH();
 }
 

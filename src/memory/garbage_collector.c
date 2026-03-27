@@ -30,7 +30,7 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
-		CruxObject** new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
+		CruxObject **new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
 		if (new_objects == NULL) {
 			exit(1);
 		}

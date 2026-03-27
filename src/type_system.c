@@ -733,8 +733,7 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		if (rec->as.matrix_type.rows == -1 || rec->as.matrix_type.cols == -1) {
 			snprintf(buf, buf_size, "Matrix[]");
 		} else {
-			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows,
-					 rec->as.matrix_type.cols);
+			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows, rec->as.matrix_type.cols);
 		}
 		break;
 	}

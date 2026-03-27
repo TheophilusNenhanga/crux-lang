@@ -397,6 +397,9 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_TYPE_COERCE: {
 		return constant_instruction("OP_TYPE_COERCE", chunk, offset);
 	}
+	case OP_GET_SLICE: {
+		return simple_instruction("OP_GET_SLICE", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

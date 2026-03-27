@@ -135,8 +135,8 @@ Value array_concat_method(VM *vm, const Value *args)
 Value array_slice_method(VM *vm, const Value *args)
 {
 	const ObjectArray *array = AS_CRUX_ARRAY(args[0]);
-	const int32_t start_index = AS_INT(args[1]);
-	const int32_t end_index = AS_INT(args[2]);
+	const uint32_t start_index = (uint32_t)AS_INT(args[1]);
+	const uint32_t end_index = (uint32_t)AS_INT(args[2]);
 
 	if (start_index > array->size) {
 		return MAKE_GC_SAFE_ERROR(vm, "<start_index> out of bounds.", BOUNDS);

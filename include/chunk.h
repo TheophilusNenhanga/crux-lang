@@ -100,6 +100,7 @@ typedef enum {
 	OP_SET_PROPERTY_MODULUS,
 	OP_BITWISE_NOT,
 	OP_TYPE_COERCE,
+	OP_GET_SLICE,
 } OpCode;
 
 typedef struct {

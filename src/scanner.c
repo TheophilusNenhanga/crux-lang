@@ -177,7 +177,7 @@ static CruxTokenType identifier_type(Scanner *scanner)
 	case 'R': {
 		if (scanner->current - scanner->start > 2) {
 			switch (scanner->start[1]) {
-			case 'a':
+			case 'a': {
 				if (scanner->current - scanner->start > 3) {
 					switch (scanner->start[2]) {
 					case 'n':
@@ -191,6 +191,8 @@ static CruxTokenType identifier_type(Scanner *scanner)
 						}
 					}
 				}
+				break;
+			}
 			case 'e': {
 				return check_keyword(scanner, 2, 4, "sult", CRUX_TOKEN_RESULT_TYPE);
 			}

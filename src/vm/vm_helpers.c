@@ -1516,3 +1516,36 @@ bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *
 	*target = result;
 	return true;
 }
+
+bool range_indices_in_bounds(const ObjectRange *range, const uint32_t collection_size)
+{
+	const uint32_t len = range_len(range);
+	int32_t index = range->start;
+
+	for (uint32_t i = 0; i < len; i++, index += range->step) {
+		if (index < 0 || index >= collection_size) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const utf8_int8_t ***starts_out)
+{
+	const uint32_t code_point_count = string->code_point_length;
+	const utf8_int8_t **starts = ALLOCATE(vm, const utf8_int8_t *, code_point_count + 1);
+	if (starts == NULL) {
+		return false;
+	}
+
+	const utf8_int8_t *cursor = (const utf8_int8_t *)string->chars;
+	utf8_int32_t codepoint = 0;
+	for (uint32_t i = 0; i < code_point_count; i++) {
+		starts[i] = cursor;
+		cursor = utf8codepoint(cursor, &codepoint);
+	}
+	starts[code_point_count] = cursor;
+
+	*starts_out = starts;
+	return true;
+}

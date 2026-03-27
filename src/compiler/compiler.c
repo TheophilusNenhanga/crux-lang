@@ -2066,11 +2066,13 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 	push(compiler->owner->current_module_record, OBJECT_VAL(index_type));
 
 	if (collection_type && index_type && index_type->base_type != ANY_TYPE && collection_type->base_type != ANY_TYPE) {
-		if (collection_type->base_type == ARRAY_TYPE) {
-			if (index_type->base_type != INT_TYPE) {
+		if (collection_type->base_type == ARRAY_TYPE || collection_type->base_type == STRING_TYPE ||
+			collection_type->base_type == TUPLE_TYPE || collection_type->base_type == BUFFER_TYPE) {
+			if (index_type->base_type != INT_TYPE && index_type->base_type != RANGE_TYPE) {
 				char got[128];
 				type_record_name(index_type, got, sizeof(got));
-				compiler_panicf(compiler->parser, TYPE, "Array index must be of type 'Int', got '%s'.", got);
+				compiler_panicf(compiler->parser, TYPE, "Collection index must be of type 'Int' | 'Range', got '%s'.",
+								got);
 			}
 		} else if (collection_type->base_type == TABLE_TYPE) {
 			ObjectTypeRecord *key_type = collection_type->as.table_type.key_type;
@@ -2084,9 +2086,15 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 		}
 	}
 
+	bool is_slice = index_type && index_type->base_type == RANGE_TYPE;
+
 	consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after index.");
 
 	if (can_assign && match(compiler, CRUX_TOKEN_EQUAL)) {
+		if (is_slice) {
+			compiler_panicf(compiler->parser, TYPE, "Cannot assign to a range slice of a collection.");
+		}
+
 		expression(compiler);
 		ObjectTypeRecord *value_type = pop_type_record(compiler);
 
@@ -2111,16 +2119,58 @@ static void collection_index(Compiler *compiler, const bool can_assign)
 		emit_word(compiler, OP_SET_COLLECTION);
 		push_type_record(compiler, T_NIL);
 	} else {
-		emit_word(compiler, OP_GET_COLLECTION);
-		ObjectTypeRecord *result_type = NULL;
-		if (collection_type) {
-			if (collection_type->base_type == ARRAY_TYPE) {
-				result_type = collection_type->as.array_type.element_type;
-			} else if (collection_type->base_type == TABLE_TYPE) {
-				result_type = collection_type->as.table_type.value_type;
+		if (is_slice) {
+			emit_word(compiler, OP_GET_SLICE);
+			ObjectTypeRecord *result_type = T_ANY;
+			if (collection_type) {
+				switch (collection_type->base_type) {
+				case TABLE_TYPE: {
+					compiler_panicf(compiler->parser, TYPE, "Cannot index a table with a range slice.");
+					break;
+				}
+				case ARRAY_TYPE: {
+					result_type = new_array_type_rec(compiler->owner, collection_type->as.array_type.element_type);
+					break;
+				}
+				case STRING_TYPE: {
+					result_type = T_STRING;
+					break;
+				}
+				case TUPLE_TYPE: {
+					result_type = new_tuple_type_rec(compiler->owner, NULL, -1);
+					break;
+				}
+				case BUFFER_TYPE: {
+					ObjectTypeRecord *element_type = T_INT;
+					push(compiler->owner->current_module_record, OBJECT_VAL(element_type));
+					result_type = new_array_type_rec(compiler->owner, element_type);
+					pop(compiler->owner->current_module_record);
+					break;
+				}
+				default: {
+					break;
+				}
+				}
 			}
+			push_type_record(compiler, result_type);
+		} else {
+			emit_word(compiler, OP_GET_COLLECTION);
+			ObjectTypeRecord *result_type = NULL;
+			if (collection_type) {
+				if (collection_type->base_type == ARRAY_TYPE) {
+					result_type = collection_type->as.array_type.element_type;
+				} else if (collection_type->base_type == TABLE_TYPE) {
+					result_type = collection_type->as.table_type.value_type;
+				} else if (collection_type->base_type == TUPLE_TYPE) {
+					result_type = T_ANY; // cannot determine element type
+				} else if (collection_type->base_type == STRING_TYPE) {
+					result_type = T_STRING;
+				} else if (collection_type->base_type == BUFFER_TYPE) {
+					result_type = T_INT;
+				}
+			}
+			push_type_record(compiler, result_type ? result_type : T_ANY);
 		}
-		push_type_record(compiler, result_type ? result_type : T_ANY);
 	}
 
 	pop(compiler->owner->current_module_record); // index_type
