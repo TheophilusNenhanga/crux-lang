@@ -3214,6 +3214,36 @@ static void grouping(Compiler *compiler, bool can_assign)
 	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
 }
 
+static void binary_number(Compiler *compiler, bool can_assign)
+{
+	(void)can_assign;
+	char *end = NULL;
+	// +2 to skip the "0b" prefix
+	long n = strtol(compiler->parser->previous.start + 2, &end, 2);
+	if (end == compiler->parser->previous.start) {
+		compiler_panic(compiler->parser, "Failed to parse binary literal.", SYNTAX);
+		push_type_record(compiler, T_ANY);
+		return;
+	}
+	emit_constant(compiler, INT_VAL((int32_t)n));
+	push_type_record(compiler, T_INT);
+}
+
+static void hex_number(Compiler *compiler, bool can_assign)
+{
+	(void)can_assign;
+	char *end = NULL;
+	// +2 to skip the "0x" prefix
+	long n = strtol(compiler->parser->previous.start + 2, &end, 16);
+	if (end == compiler->parser->previous.start) {
+		compiler_panic(compiler->parser, "Failed to parse hex literal.", SYNTAX);
+		push_type_record(compiler, T_ANY);
+		return;
+	}
+	emit_constant(compiler, INT_VAL((int32_t)n));
+	push_type_record(compiler, T_INT);
+}
+
 static void number(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
@@ -3565,6 +3595,8 @@ ParseRule rules[] = {
 	[CRUX_TOKEN_STRING] = {string, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_INT] = {number, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_FLOAT] = {number, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_BINARY_INT] = {binary_number, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_HEX_INT] = {hex_number, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_CONTINUE] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_BREAK] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_AND] = {NULL, and_, NULL, PREC_AND},

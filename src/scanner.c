@@ -492,14 +492,14 @@ static Token double_string(Scanner *scanner)
 	return make_token(scanner, CRUX_TOKEN_STRING);
 }
 
-/**
- * Checks if a character is a digit (0-9).
- * @param c The character to check
- * @return true if the character is a digit, false otherwise
- */
 static bool is_digit(const char c)
 {
 	return c >= '0' && c <= '9';
+}
+
+static bool is_hex_digit(const char c)
+{
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
 /**
@@ -508,17 +508,36 @@ static bool is_digit(const char c)
  */
 static Token number(Scanner *scanner)
 {
+	bool fp_found = false;
+	bool bin_found = false;
+	bool hex_found = false;
+
 	while (is_digit(peek(scanner)))
 		advance(scanner);
-	bool fpFound = false;
 	if (peek(scanner) == '.' && is_digit(peek_next(scanner))) {
-		fpFound = true;
+		fp_found = true;
 		advance(scanner);
 		while (is_digit(peek(scanner)))
 			advance(scanner);
+	} else if (peek(scanner) == 'b' && is_digit(peek_next(scanner))) {
+		bin_found = true;
+		advance(scanner);
+		while (is_digit(peek(scanner)))
+			advance(scanner);
+	} else if (peek(scanner) == 'x' && is_hex_digit(peek_next(scanner))) {
+		hex_found = true;
+		advance(scanner);
+		while (is_hex_digit(peek(scanner)))
+			advance(scanner);
 	}
-	if (fpFound) {
+	if (fp_found) {
 		return make_token(scanner, CRUX_TOKEN_FLOAT);
+	}
+	if (bin_found) {
+		return make_token(scanner, CRUX_TOKEN_BINARY_INT);
+	}
+	if (hex_found) {
+		return make_token(scanner, CRUX_TOKEN_HEX_INT);
 	}
 	return make_token(scanner, CRUX_TOKEN_INT);
 }

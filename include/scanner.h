@@ -58,6 +58,8 @@ typedef enum {
 	CRUX_TOKEN_STRING, //
 	CRUX_TOKEN_INT, //
 	CRUX_TOKEN_FLOAT, //
+	CRUX_TOKEN_BINARY_INT, // 0b
+	CRUX_TOKEN_HEX_INT, // 0x
 	// Keywords.
 	CRUX_TOKEN_AND, // and
 	CRUX_TOKEN_NOT, // not
