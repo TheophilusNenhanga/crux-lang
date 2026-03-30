@@ -270,7 +270,10 @@ static CruxTokenType identifier_type(Scanner *scanner)
 				return check_keyword(scanner, 2, 2, "pl", CRUX_TOKEN_IMPL);
 			}
 			case 'f': {
-				return CRUX_TOKEN_IF;
+				return check_keyword(scanner, 2, 0, "", CRUX_TOKEN_IF);
+			}
+			case 'n': {
+				return check_keyword(scanner, 2, 0, "", CRUX_TOKEN_IN);
 			}
 			default:;
 			}
@@ -323,7 +326,7 @@ static CruxTokenType identifier_type(Scanner *scanner)
 			case 'o':
 				return check_keyword(scanner, 2, 1, "r", CRUX_TOKEN_FOR);
 			case 'n':
-				return CRUX_TOKEN_FN;
+				return check_keyword(scanner, 2, 0, "", CRUX_TOKEN_FN);
 			case 'r':
 				return check_keyword(scanner, 2, 2, "om", CRUX_TOKEN_FROM);
 			default:;
@@ -346,7 +349,7 @@ static CruxTokenType identifier_type(Scanner *scanner)
 						if (scanner->current - scanner->start > 3) {
 							if (scanner->start[3] == 'e') {
 								if (scanner->current - scanner->start == 4)
-									return CRUX_TOKEN_TYPE;
+									return check_keyword(scanner, 4, 0, "", CRUX_TOKEN_TYPE);
 								return check_keyword(scanner, 4, 2, "of", CRUX_TOKEN_TYPEOF);
 							}
 						}

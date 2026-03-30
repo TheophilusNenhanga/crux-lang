@@ -101,6 +101,7 @@ typedef enum {
 	OP_BITWISE_NOT,
 	OP_TYPE_COERCE,
 	OP_GET_SLICE,
+	OP_IN,
 } OpCode;
 
 typedef struct {

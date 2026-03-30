@@ -400,6 +400,9 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_GET_SLICE: {
 		return simple_instruction("OP_GET_SLICE", offset);
 	}
+	case OP_IN: {
+		return simple_instruction("OP_IN", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

@@ -12,6 +12,7 @@
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
+#include "type_system.h"
 #include "value.h"
 
 static void expression(Compiler *compiler);
@@ -1030,6 +1031,19 @@ static void binary(Compiler *compiler, bool can_assign)
 		}
 		emit_word(compiler, OP_POWER);
 		result_type = T_FLOAT;
+		break;
+	}
+
+	case CRUX_TOKEN_IN: {
+		if (!either_any) {
+			if (!is_collection_type(right_type)) {
+				char right_name[128];
+				type_record_name(right_type, right_name, sizeof(right_name));
+				compiler_panicf(compiler->parser, TYPE, "'in' requires a collection type, got '%s'.", right_name);
+			}
+		}
+		emit_word(compiler, OP_IN);
+		result_type = T_BOOL;
 		break;
 	}
 
@@ -3625,6 +3639,7 @@ ParseRule rules[] = {
 	[CRUX_TOKEN_QUESTION_MARK] = {NULL, NULL, result_unwrap, PREC_CALL},
 	[CRUX_TOKEN_AS] = {NULL, type_coerce, NULL, PREC_COERCE},
 	[CRUX_TOKEN_TILDE] = {unary, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_IN] = {NULL, binary, NULL, PREC_IN},
 	[CRUX_TOKEN_PANIC] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_NIL_TYPE] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_BOOL_TYPE] = {NULL, NULL, NULL, PREC_NONE},

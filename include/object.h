@@ -365,8 +365,6 @@ typedef struct {
 	double *data;
 } ObjectMatrix;
 
-typedef struct TypeArena TypeArena;
-
 typedef enum {
 	STATE_LOADING,
 	STATE_LOADED,

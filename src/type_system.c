@@ -964,3 +964,22 @@ bool is_numeric_type(ObjectTypeRecord *type)
 	}
 	return false;
 }
+
+bool is_collection_type(ObjectTypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (type->base_type == ARRAY_TYPE || type->base_type == TABLE_TYPE || type->base_type == SET_TYPE ||
+		type->base_type == TUPLE_TYPE || type->base_type == STRING_TYPE || type->base_type == BUFFER_TYPE ||
+		type->base_type == RANGE_TYPE || type->base_type == VECTOR_TYPE)
+		return true;
+	if (type->base_type == UNION_TYPE) {
+		for (int i = 0; i < type->as.union_type.element_count; i++) {
+			if (!is_collection_type(type->as.union_type.element_types[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}

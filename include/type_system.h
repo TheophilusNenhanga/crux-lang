@@ -37,5 +37,6 @@ bool types_compatible(ObjectTypeRecord *a, ObjectTypeRecord *b);
 ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, const char *str);
 ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRecord *to_remove);
 bool is_numeric_type(ObjectTypeRecord *type);
+bool is_collection_type(ObjectTypeRecord *type);
 
 #endif // CRUX_LANG_TYPE_SYSTEM_H
