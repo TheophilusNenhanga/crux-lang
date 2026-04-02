@@ -360,24 +360,35 @@ void add_local(Compiler *compiler, const Token name, ObjectTypeRecord *type)
 	local->type = type; // NULL until the initializer is complete
 }
 
-void declare_variable(Compiler *compiler)
+/**
+ * Ensures that the given local name is available in the current scope.
+ */
+void ensure_local_name_available(const Compiler *compiler, const Token name)
 {
-	if (compiler->scope_depth == 0)
-		return;
-
-	const Token *name = &compiler->parser->previous;
-
 	for (int i = compiler->local_count - 1; i >= 0; i--) {
 		const Local *local = &compiler->locals[i];
 		if (local->depth != -1 && local->depth < compiler->scope_depth) {
 			break;
 		}
-		if (identifiers_equal(name, &local->name)) {
+		if (identifiers_equal(&name, &local->name)) {
 			compiler_panic(compiler->parser, "Cannot redefine variable in the same scope", NAME);
+			return;
 		}
 	}
+}
 
-	add_local(compiler, *name, NULL);
+void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *type)
+{
+	ensure_local_name_available(compiler, name);
+	add_local(compiler, name, type);
+}
+
+void declare_variable(Compiler *compiler)
+{
+	if (compiler->scope_depth == 0)
+		return;
+	const Token *name = &compiler->parser->previous;
+	declare_named_variable(compiler, *name, NULL);
 }
 
 void mark_initialized(Compiler *compiler)
@@ -412,7 +423,6 @@ int match_compound_op(const Compiler *compiler)
 		return COMPOUND_OP_PERCENT;
 	return -1;
 }
-
 
 void check_compound_type_math(const Compiler *compiler, ObjectTypeRecord *lhs_type, ObjectTypeRecord *rhs_type,
 							  const int op)

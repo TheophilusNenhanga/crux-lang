@@ -7,6 +7,7 @@
 #include "panic.h"
 #include "stdlib/range.h"
 #include "utf8.h"
+#include "value.h"
 
 static Value get_length(const Value value)
 {
@@ -428,4 +429,47 @@ Value format_function(VM *vm, const Value *args)
 
 	free(tokens);
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
+}
+
+Value iter_function(VM *vm, const Value *args)
+{
+	if (!IS_CRUX_OBJECT(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm, "Expected an object for iter.", VALUE);
+	}
+	ObjectType type = (AS_CRUX_OBJECT(args[0]))->type;
+	switch (type) {
+	case OBJECT_ARRAY:
+	case OBJECT_TABLE:
+	case OBJECT_SET:
+	case OBJECT_TUPLE:
+	case OBJECT_RANGE:
+	case OBJECT_BUFFER:
+	case OBJECT_STRING:
+	case OBJECT_VECTOR:
+	case OBJECT_MATRIX: {
+		ObjectIterator *iterator = new_iterator(vm, args[0]);
+		push(vm->current_module_record, OBJECT_VAL(iterator));
+		ObjectResult *result = new_ok_result(vm, OBJECT_VAL(iterator));
+		pop(vm->current_module_record);
+		return OBJECT_VAL(result);
+	}
+	case OBJECT_ITERATOR: {
+		return OBJECT_VAL(new_ok_result(vm, args[0]));
+	}
+	default:
+		return MAKE_GC_SAFE_ERROR(vm, "Expected an iterable object.", VALUE);
+	}
+}
+
+Value next_function(VM *vm, const Value *args)
+{
+	if (!IS_CRUX_ITERATOR(args[0])) {
+		return MAKE_GC_SAFE_ERROR(vm, "Expected type 'Iterator'.", TYPE);
+	}
+	ObjectIterator *iterator = AS_CRUX_ITERATOR(args[0]);
+	Value result;
+	if (!iterate_next(vm->current_module_record, iterator, &result)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Iterator has no more values.", VALUE);
+	}
+	return OBJECT_VAL(new_ok_result(vm, result));
 }

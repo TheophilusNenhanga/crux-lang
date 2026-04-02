@@ -145,6 +145,8 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_TYPE_COERCE,
 									&&OP_GET_SLICE,
 									&&OP_IN,
+									&&OP_ITER_INIT,
+									&&OP_ITER_NEXT,
 									&&end};
 
 	uint16_t instruction;
@@ -349,6 +351,40 @@ OP_GET_LOCAL: {
 OP_SET_LOCAL: {
 	uint16_t slot = READ_SHORT();
 	frame->slots[slot] = PEEK(currentModuleRecord, 0);
+	DISPATCH();
+}
+
+OP_ITER_INIT: {
+	const Value iterable = PEEK(currentModuleRecord, 0);
+	if (!IS_CRUX_OBJECT(iterable)) {
+		runtime_panic(currentModuleRecord, TYPE, "Cannot iterate over a non-iterable value");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	if (IS_CRUX_ITERATOR(iterable)) {
+		DISPATCH();
+	}
+
+	ObjectIterator *iterator = new_iterator(vm, iterable);
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(iterator);
+	DISPATCH();
+}
+
+OP_ITER_NEXT: {
+	uint16_t offset = READ_SHORT();
+	if (!IS_CRUX_ITERATOR(PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, TYPE, "Expected iterator state.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectIterator *iterator = AS_CRUX_ITERATOR(PEEK(currentModuleRecord, 0));
+	Value value;
+	if (!iterate_next(currentModuleRecord, iterator, &value)) {
+		pop(currentModuleRecord);
+		frame->ip += offset;
+		DISPATCH();
+	}
+
+	currentModuleRecord->stack_top[-1] = value;
 	DISPATCH();
 }
 
@@ -1578,124 +1614,125 @@ OP_IN: {
 
 	if (IS_CRUX_OBJECT(right)) {
 		switch (right_type) {
-			case OBJECT_ARRAY: {
-				ObjectArray* array = AS_CRUX_ARRAY(right);
-				bool found = false;
-				for (uint32_t i = 0; i < array->size; i++) {
-					if (values_equal(left, array->values[i])) {
-						found = true;
-						break;
-					}
+		case OBJECT_ARRAY: {
+			ObjectArray *array = AS_CRUX_ARRAY(right);
+			bool found = false;
+			for (uint32_t i = 0; i < array->size; i++) {
+				if (values_equal(left, array->values[i])) {
+					found = true;
+					break;
 				}
-				push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			}
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_STRING: {
+			ObjectString *str = AS_CRUX_STRING(right);
+			if (!IS_CRUX_STRING(left)) {
+				push(currentModuleRecord, FALSE_VAL);
 				break;
 			}
-			case OBJECT_STRING: {
-				ObjectString* str = AS_CRUX_STRING(right);
-				if (!IS_CRUX_STRING(left)) {
-					push(currentModuleRecord, FALSE_VAL);
-					break;
-				}
-				ObjectString* goal = AS_CRUX_STRING(left);
-				if (goal->byte_length == 0) {
-					push(currentModuleRecord, FALSE_VAL);
-					break;
-				}
+			ObjectString *goal = AS_CRUX_STRING(left);
+			if (goal->byte_length == 0) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
 
-				bool found = utf8str(str->chars, goal->chars) != NULL;
-				push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
-				break;
-			}
-			case OBJECT_TUPLE: {
-				ObjectTuple* tuple = AS_CRUX_TUPLE(right);
-				bool found = false;
-				for (uint32_t i = 0; i < tuple->size; i++) {
-					if (values_equal(left, tuple->elements[i])) {
-						found = true;
-						break;
-					}
-				}
-				push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
-				break;
-			}
-			case OBJECT_BUFFER: {
-				ObjectBuffer* buffer = AS_CRUX_BUFFER(right);
-				if (!IS_INT(left)) {
-					push(currentModuleRecord, FALSE_VAL);
+			bool found = utf8str(str->chars, goal->chars) != NULL;
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_TUPLE: {
+			ObjectTuple *tuple = AS_CRUX_TUPLE(right);
+			bool found = false;
+			for (uint32_t i = 0; i < tuple->size; i++) {
+				if (values_equal(left, tuple->elements[i])) {
+					found = true;
 					break;
 				}
-				bool found = false;
-				uint8_t int_val = (uint8_t)AS_INT(left);
-				for (uint32_t i = buffer->read_pos; i < buffer->write_pos; i++) {
-					if (buffer->data[i] == int_val) {
-						found = true;
-						break;
-					}
+			}
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_BUFFER: {
+			ObjectBuffer *buffer = AS_CRUX_BUFFER(right);
+			if (!IS_INT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			bool found = false;
+			uint8_t int_val = (uint8_t)AS_INT(left);
+			for (uint32_t i = buffer->read_pos; i < buffer->write_pos; i++) {
+				if (buffer->data[i] == int_val) {
+					found = true;
+					break;
 				}
+			}
 
-				push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_SET: {
+			ObjectSet *set = AS_CRUX_SET(right);
+			if (object_table_contains_key(set->entries, left)) {
+				push(currentModuleRecord, TRUE_VAL);
+			} else {
+				push(currentModuleRecord, FALSE_VAL);
+			}
+			break;
+		}
+		case OBJECT_RANGE: {
+			ObjectRange *range = AS_CRUX_RANGE(right);
+			if (!IS_INT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
 				break;
 			}
-			case OBJECT_SET: {
-				ObjectSet* set = AS_CRUX_SET(right);
-				if (object_table_contains_key(set->entries, left)) {
-					push(currentModuleRecord, TRUE_VAL);
-				} else {
-					push(currentModuleRecord, FALSE_VAL);
-				}
+			int32_t int_val = AS_INT(left);
+			push(currentModuleRecord, range_contains(range, int_val) ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_TABLE: {
+			ObjectTable *table = AS_CRUX_TABLE(right);
+			if (object_table_contains_key(table, left)) {
+				push(currentModuleRecord, TRUE_VAL);
+			} else {
+				push(currentModuleRecord, FALSE_VAL);
+			}
+			break;
+		}
+		case OBJECT_VECTOR: {
+			ObjectVector *vector = AS_CRUX_VECTOR(right);
+			if (vector->dimensions == 0) {
+				push(currentModuleRecord, FALSE_VAL);
 				break;
 			}
-			case OBJECT_RANGE: {
-				ObjectRange* range = AS_CRUX_RANGE(right);
-				if (!IS_INT(left)) {
-					push(currentModuleRecord, FALSE_VAL);
-					break;
-				}
-				int32_t int_val = AS_INT(left);
-				push(currentModuleRecord, range_contains(range, int_val) ? TRUE_VAL : FALSE_VAL);
+			if (!IS_INT(left) && !IS_FLOAT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
 				break;
 			}
-			case OBJECT_TABLE: {
-				ObjectTable* table = AS_CRUX_TABLE(right);
-				if (object_table_contains_key(table, left)) {
-					push(currentModuleRecord, TRUE_VAL);
-				} else {
-					push(currentModuleRecord, FALSE_VAL);
-				}
-				break;
-			}
-			case OBJECT_VECTOR: {
-				ObjectVector* vector = AS_CRUX_VECTOR(right);
-				if (vector->dimensions == 0) {
-					push(currentModuleRecord, FALSE_VAL);
-					break;
-				}
-				if (!IS_INT(left) && !IS_FLOAT(left)) {
-					push(currentModuleRecord, FALSE_VAL);
-					break;
-				}
-				double double_val = TO_DOUBLE(left);
-				if (vector->dimensions > STATIC_VECTOR_SIZE) {
-					for (uint32_t i = 0; i < vector->dimensions; i++) {
-						if (vector->as.h_components[i] != double_val) {
-							push(currentModuleRecord, FALSE_VAL);
-							break;
-						}
-					}
-				} else {
-					for (uint32_t i = 0; i < vector->dimensions; i++) {
-						if (vector->as.s_components[i] != double_val) {
-							push(currentModuleRecord, FALSE_VAL);
-							break;
-						}
+			double double_val = TO_DOUBLE(left);
+			if (vector->dimensions > STATIC_VECTOR_SIZE) {
+				for (uint32_t i = 0; i < vector->dimensions; i++) {
+					if (vector->as.h_components[i] != double_val) {
+						push(currentModuleRecord, FALSE_VAL);
+						break;
 					}
 				}
-				break;
+			} else {
+				for (uint32_t i = 0; i < vector->dimensions; i++) {
+					if (vector->as.s_components[i] != double_val) {
+						push(currentModuleRecord, FALSE_VAL);
+						break;
+					}
+				}
 			}
-			default: {
-				runtime_panic(currentModuleRecord, TYPE, "Can only check 'in' for 'Array | String | Tuple | Buffer | Set | Range | Table'");
-				return INTERPRET_RUNTIME_ERROR;
-			}
+			break;
+		}
+		default: {
+			runtime_panic(currentModuleRecord, TYPE,
+						  "Can only check 'in' for 'Array | String | Tuple | Buffer | Set | Range | Table'");
+			return INTERPRET_RUNTIME_ERROR;
+		}
 		}
 	}
 

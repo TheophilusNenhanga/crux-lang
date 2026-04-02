@@ -123,6 +123,7 @@ static void blacken_vector(VM *vm, CruxObject *object);
 static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 static void blacken_range(VM *vm, CruxObject *object);
+static void blacken_iterator(VM *vm, CruxObject *object);
 static void blacken_set(VM *vm, CruxObject *object);
 static void blacken_buffer(VM *vm, CruxObject *object);
 static void blacken_tuple(VM *vm, CruxObject *object);
@@ -148,6 +149,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_VECTOR] = blacken_vector,
 	[OBJECT_COMPLEX] = blacken_complex,
 	[OBJECT_RANGE] = blacken_range,
+	[OBJECT_ITERATOR] = blacken_iterator,
 	[OBJECT_SET] = blacken_set,
 	[OBJECT_BUFFER] = blacken_buffer,
 	[OBJECT_TUPLE] = blacken_tuple,
@@ -220,6 +222,12 @@ static void blacken_native_callable(VM *vm, CruxObject *object)
 		}
 	}
 	mark_type_record(vm, native->return_type);
+}
+
+static void blacken_iterator(VM *vm, CruxObject *object)
+{
+	const ObjectIterator *iterator = (ObjectIterator *)object;
+	mark_value(vm, iterator->iterable);
 }
 
 static void blacken_result(VM *vm, CruxObject *object)
@@ -347,6 +355,9 @@ static void blacken_type_record(VM *vm, CruxObject *object)
 	case ARRAY_TYPE:
 		mark_type_record(vm, rec->as.array_type.element_type);
 		break;
+	case ITERATOR_TYPE:
+		mark_type_record(vm, rec->as.iterator_type.element_type);
+		break;
 	case TABLE_TYPE:
 		mark_type_record(vm, rec->as.table_type.key_type);
 		mark_type_record(vm, rec->as.table_type.value_type);
@@ -415,6 +426,7 @@ static void free_object_vector(VM *vm, CruxObject *object);
 static void free_object_complex(VM *vm, CruxObject *object);
 static void free_object_set(VM *vm, CruxObject *object);
 static void free_object_range(VM *vm, CruxObject *object);
+static void free_object_iterator(VM *vm, CruxObject *object);
 static void free_object_buffer(VM *vm, CruxObject *object);
 static void free_object_tuple(VM *vm, CruxObject *object);
 static void free_object_matrix(VM *vm, CruxObject *object);
@@ -440,6 +452,7 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_COMPLEX] = free_object_complex,
 	[OBJECT_SET] = free_object_set,
 	[OBJECT_RANGE] = free_object_range,
+	[OBJECT_ITERATOR] = free_object_iterator,
 	[OBJECT_BUFFER] = free_object_buffer,
 	[OBJECT_TUPLE] = free_object_tuple,
 	[OBJECT_MATRIX] = free_object_matrix,
@@ -597,6 +610,11 @@ static void free_object_set(VM *vm, CruxObject *object)
 static void free_object_range(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectRange, object);
+}
+
+static void free_object_iterator(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectIterator, object);
 }
 
 static void free_object_buffer(VM *vm, CruxObject *object)

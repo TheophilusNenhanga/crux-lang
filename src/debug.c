@@ -189,6 +189,10 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return jump_instruction("OP_JUMP", 1, chunk, offset);
 	case OP_JUMP_IF_FALSE:
 		return jump_instruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+	case OP_ITER_INIT:
+		return simple_instruction("OP_ITER_INIT", offset);
+	case OP_ITER_NEXT:
+		return jump_instruction("OP_ITER_NEXT", 1, chunk, offset);
 	case OP_LOOP:
 		return jump_instruction("OP_LOOP", -1, chunk, offset);
 	case OP_CALL:

@@ -102,6 +102,8 @@ typedef enum {
 	OP_TYPE_COERCE,
 	OP_GET_SLICE,
 	OP_IN,
+	OP_ITER_INIT,
+	OP_ITER_NEXT,
 } OpCode;
 
 typedef struct {

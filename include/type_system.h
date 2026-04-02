@@ -18,6 +18,7 @@ void type_table_add_all(const ObjectTypeTable *from, ObjectTypeTable *to);
 ObjectTypeRecord *new_type_rec(VM *vm, TypeMask base_type);
 
 ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type);
+ObjectTypeRecord *new_iterator_type_rec(VM *vm, ObjectTypeRecord *element_type);
 ObjectTypeRecord *new_table_type_rec(VM *vm, ObjectTypeRecord *key_type, ObjectTypeRecord *value_type);
 ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type);
 ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types, int field_count);
@@ -36,7 +37,9 @@ bool types_compatible(ObjectTypeRecord *a, ObjectTypeRecord *b);
 
 ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, const char *str);
 ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRecord *to_remove);
-bool is_numeric_type(ObjectTypeRecord *type);
-bool is_collection_type(ObjectTypeRecord *type);
+bool is_numeric_type(const ObjectTypeRecord *type);
+bool is_collection_type(const ObjectTypeRecord *type);
+bool is_iterable_type(const ObjectTypeRecord *type);
+ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const ObjectTypeRecord *iterable_type);
 
 #endif // CRUX_LANG_TYPE_SYSTEM_H

@@ -273,6 +273,10 @@ int sprint_type_to(char *buffer, size_t size, const Value value)
 		APPEND("Range");
 		break;
 	}
+	case OBJECT_ITERATOR: {
+		APPEND("Iterator");
+		break;
+	}
 	case OBJECT_TUPLE: {
 		APPEND("Tuple");
 		break;
@@ -710,7 +714,11 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_RANGE: {
 		const ObjectRange *range = AS_CRUX_RANGE(value);
-		fprintf(stream, "Range(%d..%d..%d)", range->start, range->step, range->end);
+		fprintf(stream, "<Range(%d..%d..%d)>", range->start, range->step, range->end);
+		break;
+	}
+	case OBJECT_ITERATOR: {
+		fprintf(stream, "<iterator>");
 		break;
 	}
 	case OBJECT_TYPE_RECORD: {
@@ -951,6 +959,9 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 	case OBJECT_RANGE: {
 		return copy_string(vm, "<Range>", 7);
+	}
+	case OBJECT_ITERATOR: {
+		return copy_string(vm, "<Iterator>", 10);
 	}
 
 	default:
@@ -1442,6 +1453,14 @@ ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step)
 	return range;
 }
 
+ObjectIterator *new_iterator(VM *vm, Value iterable)
+{
+	ObjectIterator *iterator = ALLOCATE_OBJECT(vm, ObjectIterator, OBJECT_ITERATOR);
+	iterator->iterable = iterable;
+	iterator->index = 0;
+	return iterator;
+}
+
 ObjectSet *new_set(VM *vm, uint32_t element_count)
 {
 	ObjectSet *set = ALLOCATE_OBJECT(vm, ObjectSet, OBJECT_SET);
@@ -1552,4 +1571,108 @@ bool range_contains(const ObjectRange *range, int32_t value)
 		return value >= range->start && value < range->end && (value - range->start) % range->step == 0;
 	else
 		return value <= range->start && value > range->end && (range->start - value) % (-range->step) == 0;
+}
+
+/**
+ * Check if there is a next value in the current iterator
+ * Returns true if there is a next value, false otherwise.
+ * result is set to the next value if there is one.
+ */
+bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result)
+{
+	const Value iterable = iterator->iterable;
+
+	if (!IS_CRUX_OBJECT(iterable)) {
+		runtime_panic(module_record, TYPE, "Cannot iterate over a non-iterable value");
+		return false;
+	}
+
+	switch (OBJECT_TYPE(iterable)) {
+	case OBJECT_ARRAY: {
+		const ObjectArray *array = AS_CRUX_ARRAY(iterable);
+		if (iterator->index >= array->size) {
+			return false;
+		}
+		*result = array->values[iterator->index++];
+		return true;
+	}
+	case OBJECT_TUPLE: {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(iterable);
+		if (iterator->index >= tuple->size) {
+			return false;
+		}
+		*result = tuple->elements[iterator->index++];
+		return true;
+	}
+	case OBJECT_RANGE: {
+		const ObjectRange *range = AS_CRUX_RANGE(iterable);
+		const uint32_t len = range_len(range);
+		if (iterator->index >= len) {
+			return false;
+		}
+		*result = INT_VAL(range->start + (int32_t)iterator->index * range->step);
+		iterator->index++;
+		return true;
+	}
+	case OBJECT_STRING: {
+		const ObjectString *string = AS_CRUX_STRING(iterable);
+		if (iterator->index >= string->code_point_length) {
+			return false;
+		}
+		const utf8_int8_t **starts = NULL;
+		if (!collect_string_codepoint_starts(module_record->owner, string, &starts)) {
+			runtime_panic(module_record, MEMORY, "Failed to iterate string.");
+			return false;
+		}
+
+		const utf8_int8_t *start = starts[iterator->index];
+		const utf8_int8_t *end = starts[iterator->index + 1];
+		const int length = (int)(end - start);
+		ObjectString *element = copy_string(module_record->owner, (const char *)start, length);
+		FREE(module_record->owner, const utf8_int8_t *, starts);
+		*result = OBJECT_VAL(element);
+		iterator->index++;
+		return true;
+	}
+	case OBJECT_BUFFER: {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(iterable);
+		if (iterator->index >= buffer->write_pos) {
+			return false;
+		}
+		*result = INT_VAL(buffer->data[iterator->index++]);
+		return true;
+	}
+	case OBJECT_VECTOR: {
+		const ObjectVector *vector = AS_CRUX_VECTOR(iterable);
+		if (iterator->index >= vector->dimensions) {
+			return false;
+		}
+		*result = FLOAT_VAL(VECTOR_COMPONENTS(vector)[iterator->index++]);
+		return true;
+	}
+	case OBJECT_MATRIX: {
+		const ObjectMatrix *matrix = AS_CRUX_MATRIX(iterable);
+		if (iterator->index >= matrix->row_dim * matrix->col_dim) {
+			return false;
+		}
+		*result = FLOAT_VAL(matrix->data[iterator->index++]);
+		return true;
+	}
+	case OBJECT_SET: {
+		const ObjectSet *set = AS_CRUX_SET(iterable);
+		while (iterator->index < set->entries->capacity) {
+			const ObjectTableEntry *entry = &set->entries->entries[iterator->index++];
+			if (entry->is_occupied) {
+				*result = entry->key;
+				return true;
+			}
+		}
+		return false;
+	}
+	default:
+		runtime_panic(module_record, TYPE,
+					  "Cannot iterate over this value. Supported iterables are Array | Set | Tuple | String | Buffer | "
+					  "Range | Vector | Matrix | Iterator.");
+		return false;
+	}
 }

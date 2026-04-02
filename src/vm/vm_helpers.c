@@ -432,6 +432,7 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_STRUCT_INSTANCE] = handle_struct_instance_invoke,
 	[OBJECT_VECTOR] = handle_vector_invoke,
 	[OBJECT_RANGE] = handle_range_invoke,
+	[OBJECT_ITERATOR] = handle_undefined_invoke,
 	[OBJECT_SET] = handle_set_invoke,
 	[OBJECT_TUPLE] = handle_tuple_invoke,
 	[OBJECT_BUFFER] = handle_buffer_invoke,

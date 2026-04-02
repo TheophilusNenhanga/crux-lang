@@ -314,4 +314,8 @@ void add_local(Compiler *compiler, Token name, ObjectTypeRecord *type);
  */
 int resolve_upvalue(Compiler *compiler, Token *name);
 
+void ensure_local_name_available(const Compiler *compiler, const Token name);
+
+void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *type);
+
 #endif // COMPILER_H

@@ -119,6 +119,7 @@ typedef enum {
 	CRUX_TOKEN_RANGE_TYPE, // Range
 	CRUX_TOKEN_ANY_TYPE, // Any
 	CRUX_TOKEN_NEVER_TYPE, // Never
+	CRUX_TOKEN_ITERATOR_TYPE, // Iterator
 } CruxTokenType;
 
 typedef struct {

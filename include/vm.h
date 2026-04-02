@@ -9,6 +9,7 @@
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
+typedef struct ObjectIterator ObjectIterator;
 typedef struct ObjectResult ObjectResult;
 typedef struct ObjectStructInstance ObjectStructInstance;
 typedef struct ObjectTypeRecord ObjectTypeRecord;

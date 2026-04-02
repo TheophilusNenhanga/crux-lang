@@ -35,6 +35,13 @@ static void set_literal(Compiler *compiler, bool can_assign);
 
 static void tuple_literal(Compiler *compiler, bool can_assign);
 
+static Token peek_next_token(const Compiler *compiler);
+
+static bool next_token_is_for_in(const Compiler *compiler);
+
+static bool resolve_assignment_target(Compiler *compiler, Token name, uint16_t *set_op, int *arg,
+									  ObjectTypeRecord **target_type);
+
 static bool parse_signed_int_literal(Compiler *compiler, int32_t *value, const char *message)
 {
 	bool is_negative = false;
@@ -67,6 +74,173 @@ static void statement(Compiler *compiler);
 static void declaration(Compiler *compiler);
 
 static ObjectModuleRecord *compile_module_statically(Compiler *compiler, ObjectString *path);
+
+static Token peek_next_token(const Compiler *compiler)
+{
+	Scanner scanner = *compiler->parser->scanner;
+	return scan_token(&scanner);
+}
+
+static bool next_token_is_for_in(const Compiler *compiler)
+{
+	return check(compiler, CRUX_TOKEN_IDENTIFIER) && peek_next_token(compiler).type == CRUX_TOKEN_IN;
+}
+
+static bool resolve_assignment_target(Compiler *compiler, const Token name, uint16_t *set_op, int *arg,
+									  ObjectTypeRecord **target_type)
+{
+	ObjectString *name_str = copy_string(compiler->owner, name.start, name.length);
+	push(compiler->owner->current_module_record, OBJECT_VAL(name_str));
+
+	// First check if it's a local variable
+	*arg = resolve_local(compiler, &name);
+	if (*arg != -1) {
+		*set_op = OP_SET_LOCAL;
+		*target_type = compiler->locals[*arg].type;
+		pop(compiler->owner->current_module_record);
+		return true;
+	}
+
+	// Then check if it's an upvalue
+	Token mutable_name = name;
+	*arg = resolve_upvalue(compiler, &mutable_name);
+	if (*arg != -1) {
+		*set_op = OP_SET_UPVALUE;
+		*target_type = compiler->upvalues[*arg].type;
+		pop(compiler->owner->current_module_record);
+		return true;
+	}
+
+	// Otherwise it's a global variable
+	*arg = identifier_constant(compiler, &name);
+	*set_op = OP_SET_GLOBAL;
+	*target_type = NULL;
+
+	for (const Compiler *comp = compiler; comp != NULL; comp = comp->enclosing) {
+		if (type_table_get(comp->type_table, name_str, target_type)) {
+			break;
+		}
+	}
+
+	// if the variable is still not found, it's undeclared - panic
+	if (*target_type == NULL) {
+		compiler_panicf(compiler->parser, TYPE, "Undeclared variable '%.*s'.", name.length, name.start);
+		pop(compiler->owner->current_module_record);
+		return false;
+	}
+
+	pop(compiler->owner->current_module_record);
+	return true;
+}
+
+static void for_in(Compiler *compiler, const bool declares_binding)
+{
+	consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected loop variable name.");
+	const Token binding_name = compiler->parser->previous;
+	consume(compiler, CRUX_TOKEN_IN, "Expected 'in' after loop variable.");
+
+	ObjectTypeRecord *binding_type = T_ANY;
+	uint16_t set_op = OP_SET_LOCAL;
+	int target_arg = -1;
+	int iterator_slot = -1;
+
+	// Create a hidden iterator variable
+	static const char hidden_iter_name[] = "#for_iter";
+	const Token iterator_name = {.type = CRUX_TOKEN_IDENTIFIER,
+								 .start = hidden_iter_name,
+								 .length = (int)(sizeof(hidden_iter_name) - 1),
+								 .line = binding_name.line};
+	add_local(compiler, iterator_name, T_ANY);
+	iterator_slot = compiler->local_count - 1;
+
+	expression(compiler);
+	const ObjectTypeRecord *iterable_type = pop_type_record(compiler);
+	binding_type = get_iterable_element_type(compiler, iterable_type);
+	ObjectTypeRecord *iterator_type = new_iterator_type_rec(compiler->owner, binding_type);
+
+	emit_word(compiler, OP_ITER_INIT);
+	compiler->locals[iterator_slot].type = iterator_type;
+	mark_initialized(compiler);
+
+	if (declares_binding) {
+		declare_named_variable(compiler, binding_name, binding_type);
+		target_arg = compiler->local_count - 1;
+		emit_word(compiler, OP_NIL);
+		mark_initialized(compiler);
+	} else {
+		ObjectTypeRecord *target_type = NULL;
+		if (!resolve_assignment_target(compiler, binding_name, &set_op, &target_arg, &target_type)) {
+			return;
+		}
+
+		if (target_type && target_type->base_type != ANY_TYPE && binding_type->base_type != ANY_TYPE &&
+			!types_compatible(target_type, binding_type)) {
+			char expected[128], got[128];
+			type_record_name(target_type, expected, sizeof(expected));
+			type_record_name(binding_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "Cannot assign '%s' to variable of type '%s'.", got, expected);
+		}
+	}
+
+	const int loop_start = current_chunk(compiler)->count;
+	push_loop_context(compiler, LOOP_FOR, loop_start);
+
+	emit_words(compiler, OP_GET_LOCAL, iterator_slot);
+	const int exit_jump = emit_jump(compiler, OP_ITER_NEXT);
+	emit_words(compiler, set_op, target_arg);
+	emit_word(compiler, OP_POP);
+
+	statement(compiler);
+	emit_loop(compiler, loop_start);
+
+	patch_jump(compiler, exit_jump);
+	pop_loop_context(compiler);
+}
+
+static void c_style_for(Compiler *compiler)
+{
+	int loopStart = current_chunk(compiler)->count;
+	int exitJump = -1;
+
+	if (!match(compiler, CRUX_TOKEN_SEMICOLON)) { // if there is no semicolon, there is a condition
+		expression(compiler);
+
+		// Condition must be Bool
+		const ObjectTypeRecord *condition_type = pop_type_record(compiler);
+		if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
+			char got[128];
+			type_record_name(condition_type, got, sizeof(got));
+			compiler_panicf(compiler->parser, TYPE, "'for' condition must be of type 'Bool', got '%s'.", got);
+		}
+
+		consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after loop condition");
+		exitJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
+		emit_word(compiler, OP_POP);
+	}
+
+	const int bodyJump = emit_jump(compiler, OP_JUMP);
+	const int incrementStart = current_chunk(compiler)->count;
+	push_loop_context(compiler, LOOP_FOR, incrementStart);
+
+	// no type enforcement, but pop type
+	expression(compiler);
+	pop_type_record(compiler);
+	emit_word(compiler, OP_POP);
+
+	emit_loop(compiler, loopStart);
+	loopStart = incrementStart;
+	patch_jump(compiler, bodyJump);
+
+	statement(compiler);
+	emit_loop(compiler, loopStart);
+
+	if (exitJump != -1) {
+		patch_jump(compiler, exitJump);
+		emit_word(compiler, OP_POP);
+	}
+
+	pop_loop_context(compiler);
+}
 
 ObjectTypeRecord *parse_type_record(Compiler *compiler)
 {
@@ -113,7 +287,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 
 		} else {
 			compiler_panic(compiler->parser, "Expected '{' for shape type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, CRUX_TOKEN_ARRAY_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
@@ -125,7 +299,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for array type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, CRUX_TOKEN_TABLE_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
@@ -153,8 +327,20 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for table type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
+	} else if (match(compiler, CRUX_TOKEN_ITERATOR_TYPE)) {
+		if (!match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
+			compiler_panic(compiler->parser, "Expected '[' for iterator type definition.", TYPE);
+			type_record = T_ANY;
+		}
+		ObjectTypeRecord *element_type = parse_type_record(compiler);
+		if (!match(compiler, CRUX_TOKEN_RIGHT_SQUARE)) {
+			compiler_panic(compiler->parser, "Expected ']' after iterator element type.", TYPE);
+		}
+		push(compiler->owner->current_module_record, OBJECT_VAL(element_type));
+		type_record = new_iterator_type_rec(compiler->owner, element_type);
+		pop(compiler->owner->current_module_record); // element_type
 	} else if (match(compiler, CRUX_TOKEN_VECTOR_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
 			type_record = new_type_rec(compiler->owner, VECTOR_TYPE);
@@ -173,7 +359,7 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			pop(compiler->owner->current_module_record); // type_record
 		} else {
 			compiler_panic(compiler->parser, "Expected '[' for vector type definition.", TYPE);
-			type_record = new_type_rec(compiler->owner, ANY_TYPE);
+			type_record = T_ANY;
 		}
 	} else if (match(compiler, CRUX_TOKEN_MATRIX_TYPE)) {
 		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
@@ -889,7 +1075,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		emit_word(compiler, OP_ADD);
 
 		if (either_any) {
-			result_type = new_type_rec(compiler->owner, ANY_TYPE);
+			result_type = T_ANY;
 			break;
 		}
 
@@ -940,7 +1126,7 @@ static void binary(Compiler *compiler, bool can_assign)
 		emit_word(compiler, operatorType == CRUX_TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
 
 		if (either_any) {
-			result_type = new_type_rec(compiler->owner, ANY_TYPE);
+			result_type = T_ANY;
 		} else if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
 			result_type = T_FLOAT;
 		} else {
@@ -1442,7 +1628,7 @@ void struct_instance(Compiler *compiler, const bool can_assign)
 				if (field_seen)
 					FREE_ARRAY(compiler->owner, bool, field_seen, declared_field_count);
 				pop_type_record(compiler);
-				push_type_record(compiler, new_type_rec(compiler->owner, ANY_TYPE));
+				push_type_record(compiler, T_ANY);
 				return;
 			}
 
@@ -2285,55 +2471,32 @@ static void for_statement(Compiler *compiler)
 {
 	begin_scope(compiler);
 
+	if (check(compiler, CRUX_TOKEN_LET)) {
+		advance(compiler);
+		if (next_token_is_for_in(compiler)) {
+			for_in(compiler, true);
+			end_scope(compiler);
+			return;
+		}
+
+		var_declaration(compiler, false);
+		c_style_for(compiler);
+		end_scope(compiler);
+		return;
+	}
+
+	if (next_token_is_for_in(compiler)) {
+		for_in(compiler, false);
+		end_scope(compiler);
+		return;
+	}
+
 	if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
 		// no initializer
-	} else if (match(compiler, CRUX_TOKEN_LET)) {
-		var_declaration(compiler, false);
 	} else {
 		expression_statement(compiler);
 	}
-
-	int loopStart = current_chunk(compiler)->count;
-	int exitJump = -1;
-
-	if (!match(compiler, CRUX_TOKEN_SEMICOLON)) {
-		expression(compiler);
-
-		// Condition must be Bool
-		const ObjectTypeRecord *condition_type = pop_type_record(compiler);
-		if (condition_type && condition_type->base_type != BOOL_TYPE && condition_type->base_type != ANY_TYPE) {
-			char got[128];
-			type_record_name(condition_type, got, sizeof(got));
-			compiler_panicf(compiler->parser, TYPE, "'for' condition must be of type 'Bool', got '%s'.", got);
-		}
-
-		consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after loop condition");
-		exitJump = emit_jump(compiler, OP_JUMP_IF_FALSE);
-		emit_word(compiler, OP_POP);
-	}
-
-	const int bodyJump = emit_jump(compiler, OP_JUMP);
-	const int incrementStart = current_chunk(compiler)->count;
-	push_loop_context(compiler, LOOP_FOR, incrementStart);
-
-	// no type enforcement, but pop type
-	expression(compiler);
-	pop_type_record(compiler);
-	emit_word(compiler, OP_POP);
-
-	emit_loop(compiler, loopStart);
-	loopStart = incrementStart;
-	patch_jump(compiler, bodyJump);
-
-	statement(compiler);
-	emit_loop(compiler, loopStart);
-
-	if (exitJump != -1) {
-		patch_jump(compiler, exitJump);
-		emit_word(compiler, OP_POP);
-	}
-
-	pop_loop_context(compiler);
+	c_style_for(compiler);
 	end_scope(compiler);
 }
 
@@ -2930,7 +3093,7 @@ static void match_expression(Compiler *compiler, const bool can_assign)
 				ObjectTypeRecord *ok_type = (target_type->base_type == RESULT_TYPE)
 												? target_type->as.result_type.ok_type
 												: NULL;
-				compiler->locals[bindingSlot].type = ok_type ? ok_type : new_type_rec(compiler->owner, ANY_TYPE);
+				compiler->locals[bindingSlot].type = ok_type ? ok_type : T_ANY;
 
 				mark_initialized(compiler);
 				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
@@ -3012,7 +3175,7 @@ static void match_expression(Compiler *compiler, const bool can_assign)
 
 		// Check arm type consistency.
 		if (!this_arm_type)
-			this_arm_type = new_type_rec(compiler->owner, ANY_TYPE);
+			this_arm_type = T_ANY;
 
 		if (arm_type == NULL || arm_type->base_type == NEVER_TYPE) {
 			arm_type = this_arm_type;
@@ -3886,7 +4049,7 @@ static void pre_collect_struct(Compiler *compiler)
 			pre_advance(compiler); // consume ':'
 			field_type = parse_type_record(compiler);
 		} else {
-			field_type = new_type_rec(compiler->owner, ANY_TYPE);
+			field_type = T_ANY;
 		}
 		push(compiler->owner->current_module_record, OBJECT_VAL(field_type));
 		type_table_set(field_types, field_name, field_type);
@@ -3947,7 +4110,7 @@ static void pre_collect_function(Compiler *compiler)
 			pre_advance(compiler); // consume ':'
 			param_type = parse_type_record(compiler);
 		} else {
-			param_type = new_type_rec(compiler->owner, ANY_TYPE);
+			param_type = T_ANY;
 		}
 		push(compiler->owner->current_module_record, OBJECT_VAL(param_type));
 

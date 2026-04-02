@@ -168,9 +168,9 @@ let n1 = new Node {
     value = 1
 };
 
-let next = get_next(n1);
+let next_node = get_next(n1);
 
-let result = match next {
+let result = match next_node {
     nil => give "nil";
     default => give "not nil";
 };

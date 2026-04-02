@@ -60,6 +60,7 @@
 #define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
 #define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
 #define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
+#define IS_CRUX_ITERATOR(value) is_object_type(value, OBJECT_ITERATOR)
 #define IS_CRUX_TYPE_RECORD(value) is_object_type(value, OBJECT_TYPE_RECORD)
 #define IS_CRUX_TYPE_TABLE(value) is_object_type(value, OBJECT_TYPE_TABLE)
 
@@ -86,6 +87,7 @@
 #define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_ITERATOR(value) ((ObjectIterator *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_RECORD(value) ((ObjectTypeRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_TABLE(value) ((ObjectTypeTable *)AS_CRUX_OBJECT(value))
 
@@ -114,6 +116,7 @@ typedef enum {
 	OBJECT_SET,
 	OBJECT_TUPLE,
 	OBJECT_RANGE,
+	OBJECT_ITERATOR,
 	OBJECT_TYPE_RECORD,
 	OBJECT_TYPE_TABLE,
 } ObjectType;
@@ -294,6 +297,9 @@ struct ObjectTypeRecord { // 40
 			ObjectTypeTable *element_types;
 			int element_count;
 		} shape_type;
+		struct {
+			ObjectTypeRecord *element_type;
+		} iterator_type;
 	} as;
 };
 
@@ -371,6 +377,12 @@ typedef enum {
 	STATE_ERROR,
 	STATE_EXECUTED,
 } ModuleState;
+
+struct ObjectIterator {
+	CruxObject object;
+	Value iterable;
+	uint32_t index;
+};
 
 struct ObjectModuleRecord { // 120
 	CruxObject object;
@@ -463,6 +475,7 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 ObjectComplex *new_complex_number(VM *vm, double real, double imaginary);
 ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
 ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
+ObjectIterator *new_iterator(VM *vm, Value iterable);
 ObjectSet *new_set(VM *vm, uint32_t element_count);
 ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
@@ -473,5 +486,6 @@ bool validate_range_values(int32_t start, int32_t step, int32_t end, const char 
 
 uint32_t range_len(const ObjectRange *range);
 bool range_contains(const ObjectRange *range, int32_t value);
+bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result);
 
 #endif

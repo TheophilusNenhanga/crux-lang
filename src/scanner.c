@@ -136,7 +136,15 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'I': {
-		return check_keyword(scanner, 1, 2, "nt", CRUX_TOKEN_INT_TYPE);
+		if (scanner->current - scanner->start > 1) {
+			switch (scanner->start[1]) {
+			case 'n':
+				return check_keyword(scanner, 2, 1, "t", CRUX_TOKEN_INT_TYPE);
+			case 't':
+				return check_keyword(scanner, 2, 6, "erator", CRUX_TOKEN_ITERATOR_TYPE);
+			}
+		}
+		break;
 	}
 	case 'F': {
 		if (scanner->current - scanner->start > 2) {

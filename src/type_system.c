@@ -181,6 +181,8 @@ TypeMask get_type_mask(Value value)
 			return BUFFER_TYPE;
 		case OBJECT_RANGE:
 			return RANGE_TYPE;
+		case OBJECT_ITERATOR:
+			return ITERATOR_TYPE;
 		default:
 			return ANY_TYPE;
 		}
@@ -205,7 +207,7 @@ void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
 				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},   {SET_TYPE, "Set"},
 				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
-				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"}};
+				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"},	   {ITERATOR_TYPE, "Iterator"}};
 
 	int offset = 0;
 	bool first = true;
@@ -237,6 +239,15 @@ ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type)
 	ObjectTypeRecord *rec = new_type_rec(vm, ARRAY_TYPE);
 	pop(vm->current_module_record);
 	rec->as.array_type.element_type = element_type;
+	return rec;
+}
+
+ObjectTypeRecord *new_iterator_type_rec(VM *vm, ObjectTypeRecord *element_type)
+{
+	push(vm->current_module_record, OBJECT_VAL(element_type));
+	ObjectTypeRecord *rec = new_type_rec(vm, ITERATOR_TYPE);
+	pop(vm->current_module_record);
+	rec->as.iterator_type.element_type = element_type;
 	return rec;
 }
 
@@ -444,6 +455,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 		}
 		return true;
 	}
+	case ITERATOR_TYPE:
+		return types_equal(a->as.iterator_type.element_type, b->as.iterator_type.element_type);
 	case VECTOR_TYPE:
 		return a->as.vector_type.dimensions == b->as.vector_type.dimensions;
 	case MATRIX_TYPE:
@@ -573,6 +586,8 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		switch (got->base_type) {
 		case ARRAY_TYPE:
 			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
+		case ITERATOR_TYPE:
+			return types_compatible(expected->as.iterator_type.element_type, got->as.iterator_type.element_type);
 		case TABLE_TYPE:
 			return types_compatible(expected->as.table_type.key_type, got->as.table_type.key_type) &&
 				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
@@ -692,6 +707,12 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		char inner[256] = {0};
 		type_record_name_impl(rec->as.array_type.element_type, inner, sizeof(inner), next_seen, next_seen_count);
 		snprintf(buf, buf_size, "Array[%s]", inner);
+		break;
+	}
+	case ITERATOR_TYPE: {
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.iterator_type.element_type, inner, sizeof(inner), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Iterator[%s]", inner);
 		break;
 	}
 	case TABLE_TYPE: {
@@ -851,6 +872,15 @@ ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, co
 		pop(vm->current_module_record);
 		return res;
 	}
+
+	if (strncmp(str, "Iterator", 8) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_iterator_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+
 	if (strncmp(str, "Table", 5) == 0) {
 		ObjectTypeRecord *any_k = new_type_rec(vm, ANY_TYPE);
 		push(vm->current_module_record, OBJECT_VAL(any_k));
@@ -948,7 +978,7 @@ ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRec
 	return res;
 }
 
-bool is_numeric_type(ObjectTypeRecord *type)
+bool is_numeric_type(const ObjectTypeRecord *type)
 {
 	if (!type)
 		return false;
@@ -965,13 +995,13 @@ bool is_numeric_type(ObjectTypeRecord *type)
 	return false;
 }
 
-bool is_collection_type(ObjectTypeRecord *type)
+bool is_collection_type(const ObjectTypeRecord *type)
 {
 	if (!type)
 		return false;
 	if (type->base_type == ARRAY_TYPE || type->base_type == TABLE_TYPE || type->base_type == SET_TYPE ||
 		type->base_type == TUPLE_TYPE || type->base_type == STRING_TYPE || type->base_type == BUFFER_TYPE ||
-		type->base_type == RANGE_TYPE || type->base_type == VECTOR_TYPE)
+		type->base_type == RANGE_TYPE || type->base_type == VECTOR_TYPE || type->base_type == MATRIX_TYPE)
 		return true;
 	if (type->base_type == UNION_TYPE) {
 		for (int i = 0; i < type->as.union_type.element_count; i++) {
@@ -982,4 +1012,50 @@ bool is_collection_type(ObjectTypeRecord *type)
 		return true;
 	}
 	return false;
+}
+
+bool is_iterable_type(const ObjectTypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (is_collection_type(type))
+		return true;
+	if (type->base_type == ITERATOR_TYPE)
+		return true;
+	return false;
+}
+
+ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const ObjectTypeRecord *iterable_type)
+{
+	if (iterable_type == NULL || iterable_type->base_type == ANY_TYPE) {
+		return T_ANY;
+	}
+	switch (iterable_type->base_type) {
+	case ITERATOR_TYPE:
+		return iterable_type->as.iterator_type.element_type;
+	case ARRAY_TYPE:
+		return iterable_type->as.array_type.element_type;
+	case SET_TYPE:
+		return iterable_type->as.set_type.element_type;
+	case RANGE_TYPE:
+	case BUFFER_TYPE:
+		return T_INT;
+	case STRING_TYPE:
+		return T_STRING;
+	case VECTOR_TYPE:
+		return T_FLOAT;
+	case MATRIX_TYPE:
+		return T_FLOAT;
+	case TUPLE_TYPE:
+		return T_ANY;
+	default: {
+		char got[128];
+		type_record_name(iterable_type, got, sizeof(got));
+		compiler_panicf(
+			compiler->parser, TYPE,
+			"Iterable must be 'Iterator | Array | Set | Tuple | String | Buffer | Range | Vector | Matrix', got '%s'.",
+			got);
+		return T_ANY;
+	}
+	}
 }
