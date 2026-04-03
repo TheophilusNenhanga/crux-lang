@@ -289,6 +289,25 @@ int sprint_type_to(char *buffer, size_t size, const Value value)
 		APPEND("Set");
 		break;
 	}
+	case OBJECT_OPTION: {
+		const ObjectOption *option = AS_CRUX_OPTION(value);
+		if (option->is_some) {
+			APPEND("Option[");
+			written += sprint_type_to(buffer + written, size - written, option->value);
+			APPEND("]");
+		} else {
+			APPEND("Option[None]");
+		}
+		break;
+	}
+	case OBJECT_ENUM: {
+		APPEND("Enum");
+		break;
+	}
+	case OBJECT_COROUTINE: {
+		APPEND("Coroutine");
+		break;
+	}
 	default:
 		APPEND("Unknown");
 	}
@@ -728,6 +747,19 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TYPE_TABLE: {
 		fprintf(stream, "<TypeTable>");
+		break;
+	}
+	case OBJECT_OPTION: {
+		fprintf(stream, "<Option>");
+		break;
+	}
+	case OBJECT_ENUM: {
+		fprintf(stream, "<Enum>");
+		break;
+	}
+	case OBJECT_COROUTINE: {
+		fprintf(stream, "<Coroutine>");
+		break;
 	}
 	}
 }
@@ -962,6 +994,15 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 	case OBJECT_ITERATOR: {
 		return copy_string(vm, "<Iterator>", 10);
+	}
+	case OBJECT_OPTION: {
+		return copy_string(vm, "<Option>", 8);
+	}
+	case OBJECT_ENUM: {
+		return copy_string(vm, "<Enum>", 6);
+	}
+	case OBJECT_COROUTINE: {
+		return copy_string(vm, "<Coroutine>", 11);
 	}
 
 	default:
@@ -1675,4 +1716,12 @@ bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, V
 					  "Range | Vector | Matrix | Iterator.");
 		return false;
 	}
+}
+
+ObjectOption *new_option(VM *vm, Value value, bool is_some)
+{
+	ObjectOption *option = ALLOCATE_OBJECT(vm, ObjectOption, OBJECT_OPTION);
+	option->value = value;
+	option->is_some = is_some;
+	return option;
 }

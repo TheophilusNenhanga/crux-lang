@@ -407,6 +407,18 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_IN: {
 		return simple_instruction("OP_IN", offset);
 	}
+	case OP_OK: {
+		return simple_instruction("OP_OK", offset);
+	}
+	case OP_ERR: {
+		return simple_instruction("OP_ERROR", offset);
+	}
+	case OP_SOME: {
+		return simple_instruction("OP_SOME", offset);
+	}
+	case OP_NONE: {
+		return simple_instruction("OP_NONE", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

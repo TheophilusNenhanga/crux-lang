@@ -147,6 +147,10 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_IN,
 									&&OP_ITER_INIT,
 									&&OP_ITER_NEXT,
+									&&OP_OK,
+									&&OP_ERR,
+									&&OP_SOME,
+									&&OP_NONE,
 									&&end};
 
 	uint16_t instruction;
@@ -1736,6 +1740,39 @@ OP_IN: {
 		}
 	}
 
+	DISPATCH();
+}
+
+OP_OK: {
+	Value value = PEEK(currentModuleRecord, 0);
+	ObjectResult *result = new_ok_result(vm, value);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(result));
+	DISPATCH();
+}
+
+OP_ERR: {
+	Value err = PEEK(currentModuleRecord, 0);
+	ObjectError *error = new_error(vm, to_string(vm, err), RUNTIME, false);
+	push(currentModuleRecord, OBJECT_VAL(error));
+	ObjectResult *result = new_error_result(vm, error);
+	pop(currentModuleRecord);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(result));
+	DISPATCH();
+}
+
+OP_SOME: {
+	Value value = PEEK(currentModuleRecord, 0);
+	ObjectOption *some = new_option(vm, value, true);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(some));
+	DISPATCH();
+}
+
+OP_NONE: {
+	ObjectOption *none = new_option(vm, NIL_VAL, false);
+	push(currentModuleRecord, OBJECT_VAL(none));
 	DISPATCH();
 }
 

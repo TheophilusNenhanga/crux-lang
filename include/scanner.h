@@ -86,6 +86,8 @@ typedef enum {
 	CRUX_TOKEN_EQUAL_ARROW, // =>
 	CRUX_TOKEN_OK, // Ok
 	CRUX_TOKEN_ERR, // Err
+	CRUX_TOKEN_NONE, // None
+	CRUX_TOKEN_SOME, // Some
 	CRUX_TOKEN_DEFAULT, // default
 	CRUX_TOKEN_GIVE, // give
 	CRUX_TOKEN_TYPEOF, // typeof
@@ -120,6 +122,7 @@ typedef enum {
 	CRUX_TOKEN_ANY_TYPE, // Any
 	CRUX_TOKEN_NEVER_TYPE, // Never
 	CRUX_TOKEN_ITERATOR_TYPE, // Iterator
+	CRUX_TOKEN_OPTION_TYPE, // Option
 } CruxTokenType;
 
 typedef struct {

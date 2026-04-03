@@ -20,6 +20,7 @@ ObjectTypeRecord *new_type_rec(VM *vm, TypeMask base_type);
 ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type);
 ObjectTypeRecord *new_iterator_type_rec(VM *vm, ObjectTypeRecord *element_type);
 ObjectTypeRecord *new_table_type_rec(VM *vm, ObjectTypeRecord *key_type, ObjectTypeRecord *value_type);
+ObjectTypeRecord *new_option_type_rec(VM *vm, ObjectTypeRecord *element_type);
 ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type);
 ObjectTypeRecord *new_struct_type_rec(VM *vm, ObjectStruct *definition, ObjectTypeTable *field_types, int field_count);
 ObjectTypeRecord *new_vector_type_rec(VM *vm, int dimensions);

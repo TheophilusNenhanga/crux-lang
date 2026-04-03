@@ -130,6 +130,7 @@ static void blacken_tuple(VM *vm, CruxObject *object);
 static void blacken_matrix(VM *vm, CruxObject *object);
 static void blacken_type_record(VM *vm, CruxObject *object);
 static void blacken_type_table(VM *vm, CruxObject *object);
+static void blacken_option(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
@@ -141,6 +142,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_TABLE] = blacken_table,
 	[OBJECT_ERROR] = blacken_error,
 	[OBJECT_RESULT] = blacken_result,
+	[OBJECT_OPTION] = blacken_option,
 	[OBJECT_RANDOM] = blacken_random,
 	[OBJECT_FILE] = blacken_file,
 	[OBJECT_MODULE_RECORD] = blacken_module_record,
@@ -238,6 +240,12 @@ static void blacken_result(VM *vm, CruxObject *object)
 	} else {
 		mark_object(vm, (CruxObject *)result->as.error);
 	}
+}
+
+static void blacken_option(VM *vm, CruxObject *object)
+{
+	const ObjectOption *option = (ObjectOption *)object;
+	mark_value(vm, option->value);
 }
 
 static void blacken_random(VM *vm, CruxObject *object)
@@ -365,6 +373,9 @@ static void blacken_type_record(VM *vm, CruxObject *object)
 	case RESULT_TYPE:
 		mark_type_record(vm, rec->as.result_type.ok_type);
 		break;
+	case OPTION_TYPE:
+		mark_type_record(vm, rec->as.option_type.some_type);
+		break;
 	case STRUCT_TYPE:
 		if (rec->as.struct_type.definition) {
 			mark_object(vm, (CruxObject *)rec->as.struct_type.definition);
@@ -417,6 +428,7 @@ static void free_object_array(VM *vm, CruxObject *object);
 static void free_object_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_error(VM *vm, CruxObject *object);
 static void free_object_result(VM *vm, CruxObject *object);
+static void free_object_option(VM *vm, CruxObject *object);
 static void free_object_random(VM *vm, CruxObject *object);
 static void free_object_file(VM *vm, CruxObject *object);
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object);
@@ -443,6 +455,7 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_TABLE] = free_object_table_wrapper,
 	[OBJECT_ERROR] = free_object_error,
 	[OBJECT_RESULT] = free_object_result,
+	[OBJECT_OPTION] = free_object_option,
 	[OBJECT_RANDOM] = free_object_random,
 	[OBJECT_FILE] = free_object_file,
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
@@ -548,6 +561,11 @@ static void free_object_error(VM *vm, CruxObject *object)
 static void free_object_result(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectResult, object);
+}
+
+static void free_object_option(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectOption, object);
 }
 
 static void free_object_random(VM *vm, CruxObject *object)
@@ -736,6 +754,7 @@ void mark_roots(VM *vm)
 	mark_table(vm, &vm->error_type);
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
+	mark_table(vm, &vm->option_type);
 	mark_table(vm, &vm->vector_type);
 	mark_table(vm, &vm->complex_type);
 	mark_table(vm, &vm->matrix_type);
@@ -793,7 +812,7 @@ void collect_garbage(VM *vm)
 	trace_references(vm);
 	table_remove_white(vm, &vm->strings); // Clean up string table
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * INIT_GC_HEAP_GROW_FACTOR;
+	vm->next_gc = vm->bytes_allocated * vm->heap_growth_factor;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");

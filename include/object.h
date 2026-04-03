@@ -63,6 +63,10 @@
 #define IS_CRUX_ITERATOR(value) is_object_type(value, OBJECT_ITERATOR)
 #define IS_CRUX_TYPE_RECORD(value) is_object_type(value, OBJECT_TYPE_RECORD)
 #define IS_CRUX_TYPE_TABLE(value) is_object_type(value, OBJECT_TYPE_TABLE)
+#define IS_CRUX_OPTION(value) is_object_type(value, OBJECT_OPTION)
+#define IS_CRUX_ENUM(value) is_object_type(value, OBJECT_ENUM)
+#define IS_CRUX_COROUTINE(value) is_object_type(value, OBJECT_COROUTINE)
+
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -90,6 +94,11 @@
 #define AS_CRUX_ITERATOR(value) ((ObjectIterator *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_RECORD(value) ((ObjectTypeRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_TABLE(value) ((ObjectTypeTable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_OPTION(value) ((ObjectOption *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_ENUM(value) ((ObjectEnum *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_COROUTINE(value) ((ObjectCoroutine *)AS_CRUX_OBJECT(value))
+
+
 
 #define IS_CRUX_HASHABLE(value)                                                                                        \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
@@ -119,6 +128,9 @@ typedef enum {
 	OBJECT_ITERATOR,
 	OBJECT_TYPE_RECORD,
 	OBJECT_TYPE_TABLE,
+	OBJECT_OPTION,
+	OBJECT_ENUM,
+	OBJECT_COROUTINE,
 } ObjectType;
 
 struct CruxObject { // 8
@@ -229,12 +241,28 @@ struct ObjectResult { // 24
 	} as;
 };
 
+typedef struct { // 24
+	CruxObject object;
+	Value value;
+	bool is_some;
+} ObjectOption;
+
 typedef struct { // 32
 	CruxObject object;
 	ObjectString *name;
 	Table fields;
 	Table methods;
 } ObjectStruct;
+
+// Not implemented yet
+typedef struct { // 24
+	CruxObject object;
+} ObjectEnum;
+
+// Not implemented yet
+typedef struct { // 24
+	CruxObject object;
+} ObjectCoroutine;
 
 typedef struct ObjectTypeTable ObjectTypeTable;
 
@@ -264,6 +292,9 @@ struct ObjectTypeRecord { // 40
 		struct {
 			ObjectTypeRecord *ok_type;
 		} result_type;
+		struct {
+			ObjectTypeRecord *some_type;
+		} option_type;
 		struct {
 			ObjectTypeTable *field_types;
 			int field_count;
@@ -488,4 +519,5 @@ uint32_t range_len(const ObjectRange *range);
 bool range_contains(const ObjectRange *range, int32_t value);
 bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result);
 
+ObjectOption *new_option(VM *vm, Value value, bool is_some);
 #endif

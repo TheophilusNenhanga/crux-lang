@@ -183,6 +183,12 @@ TypeMask get_type_mask(Value value)
 			return RANGE_TYPE;
 		case OBJECT_ITERATOR:
 			return ITERATOR_TYPE;
+		case OBJECT_OPTION:
+			return OPTION_TYPE;
+		case OBJECT_COROUTINE:
+			return COROUTINE_TYPE;
+		case OBJECT_ENUM:
+			return ENUM_TYPE;
 		default:
 			return ANY_TYPE;
 		}
@@ -200,14 +206,15 @@ void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 	static const struct {
 		TypeMask bit;
 		const char *name;
-	} entries[] = {{NIL_TYPE, "Nil"},		{BOOL_TYPE, "Bool"},	   {INT_TYPE, "Int"},
-				   {FLOAT_TYPE, "Float"},	{SHAPE_TYPE, "Shape"},	   {STRING_TYPE, "String"},
-				   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},	   {FUNCTION_TYPE, "Function"},
-				   {ERROR_TYPE, "Error"},	{RESULT_TYPE, "Result"},   {FILE_TYPE, "File"},
-				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
-				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},   {SET_TYPE, "Set"},
-				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
-				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"},	   {ITERATOR_TYPE, "Iterator"}};
+	} entries[] = {{NIL_TYPE, "Nil"},		{BOOL_TYPE, "Bool"},		   {INT_TYPE, "Int"},
+				   {FLOAT_TYPE, "Float"},	{SHAPE_TYPE, "Shape"},		   {STRING_TYPE, "String"},
+				   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},		   {FUNCTION_TYPE, "Function"},
+				   {ERROR_TYPE, "Error"},	{RESULT_TYPE, "Result"},	   {FILE_TYPE, "File"},
+				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"},	   {MATRIX_TYPE, "Matrix"},
+				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},	   {SET_TYPE, "Set"},
+				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},	   {RANGE_TYPE, "Range"},
+				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"},		   {ITERATOR_TYPE, "Iterator"},
+				   {OPTION_TYPE, "Option"}, {COROUTINE_TYPE, "Coroutine"}, {ENUM_TYPE, "Enum"}};
 
 	int offset = 0;
 	bool first = true;
@@ -277,6 +284,15 @@ ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type)
 	ObjectTypeRecord *rec = new_type_rec(vm, RESULT_TYPE);
 	pop(vm->current_module_record);
 	rec->as.result_type.ok_type = ok_type;
+	return rec;
+}
+
+ObjectTypeRecord *new_option_type_rec(VM *vm, ObjectTypeRecord *some_type)
+{
+	push(vm->current_module_record, OBJECT_VAL(some_type));
+	ObjectTypeRecord *rec = new_type_rec(vm, OPTION_TYPE);
+	pop(vm->current_module_record);
+	rec->as.option_type.some_type = some_type;
 	return rec;
 }
 
@@ -442,6 +458,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 			   types_equal(a->as.table_type.value_type, b->as.table_type.value_type);
 	case RESULT_TYPE:
 		return types_equal(a->as.result_type.ok_type, b->as.result_type.ok_type);
+	case OPTION_TYPE:
+		return types_equal(a->as.option_type.some_type, b->as.option_type.some_type);
 	case SET_TYPE:
 		return types_equal(a->as.set_type.element_type, b->as.set_type.element_type);
 	case TUPLE_TYPE: {
@@ -593,6 +611,8 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
 		case RESULT_TYPE:
 			return types_compatible(expected->as.result_type.ok_type, got->as.result_type.ok_type);
+		case OPTION_TYPE:
+			return types_compatible(expected->as.option_type.some_type, got->as.option_type.some_type);
 		case TUPLE_TYPE: {
 			if (expected->as.tuple_type.element_count == -1 || got->as.tuple_type.element_count == -1)
 				return true;
@@ -726,6 +746,12 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		char ok[256] = {0};
 		type_record_name_impl(rec->as.result_type.ok_type, ok, sizeof(ok), next_seen, next_seen_count);
 		snprintf(buf, buf_size, "Result[%s]", ok);
+		break;
+	}
+	case OPTION_TYPE: {
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.option_type.some_type, inner, sizeof(inner), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Option[%s]", inner);
 		break;
 	}
 	case SET_TYPE: {
@@ -898,6 +924,14 @@ ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, co
 		pop(vm->current_module_record);
 		return res;
 	}
+	if (strncmp(str, "Option", 6) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_option_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+
 	if (strncmp(str, "Function", 8) == 0) {
 		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
 		push(vm->current_module_record, OBJECT_VAL(any_type));

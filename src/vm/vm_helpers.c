@@ -354,6 +354,16 @@ static bool handle_result_invoke(VM *vm, const ObjectString *name, const int arg
 	undefined_method_return(vm->current_module_record, name);
 }
 
+static bool handle_option_invoke(VM *vm, const ObjectString *name, const int arg_count, const Value original,
+								 const Value receiver)
+{
+	Value value;
+	if (table_get(&vm->option_type, name, &value)) {
+		return handle_invoke(vm, arg_count, receiver, original, value);
+	}
+	undefined_method_return(vm->current_module_record, name);
+}
+
 static bool handle_range_invoke(VM *vm, const ObjectString *name, const int arg_count, const Value original,
 								const Value receiver)
 {
@@ -425,6 +435,7 @@ static const TypeInvokeHandler invoke_dispatch_table[] = {
 	[OBJECT_TABLE] = handle_table_invoke,
 	[OBJECT_ERROR] = handle_error_invoke,
 	[OBJECT_RESULT] = handle_result_invoke,
+	[OBJECT_OPTION] = handle_option_invoke,
 	[OBJECT_RANDOM] = handle_random_invoke,
 	[OBJECT_FILE] = handle_file_invoke,
 	[OBJECT_MODULE_RECORD] = handle_undefined_invoke,
@@ -666,6 +677,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	init_table(&vm->random_type);
 	init_table(&vm->file_type);
 	init_table(&vm->result_type);
+	init_table(&vm->option_type);
 	init_table(&vm->vector_type);
 	init_table(&vm->complex_type);
 	init_table(&vm->matrix_type);
@@ -734,6 +746,7 @@ void free_vm(VM *vm)
 	free_table(vm, &vm->random_type);
 	free_table(vm, &vm->file_type);
 	free_table(vm, &vm->result_type);
+	free_table(vm, &vm->option_type);
 	free_table(vm, &vm->vector_type);
 	free_table(vm, &vm->complex_type);
 	free_table(vm, &vm->matrix_type);

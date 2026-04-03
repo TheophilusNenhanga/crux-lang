@@ -1,5 +1,3 @@
-
-
 // Testing match keyword
 
 println("=== Testing the match keyword ===");
@@ -73,19 +71,19 @@ fn test_match() {
 
 assert(test_match() == "not", "The match keyword did not work in a function");
 
-let m7 = match ok("test") {
+let m7 = match Ok("test") {
     Ok(value) => {
         give value;
     }
     Err(error) => {
-        give error;
+        give error.message();
     }
 };
 
 assert(typeof m7 == "String", "match failed to bind value from result matching.");
 
 
-let m8 = match err("test") {
+let m8 = match Err("test") {
     Ok(value) => {
         give value;
     }

@@ -1,0 +1,56 @@
+println("=== Start of testing for-in loops ===");
+
+println("--- Testing array iteration with declared binding ---");
+let arr_sum = 0;
+for let item in [1, 2, 3, 4] {
+    arr_sum += item;
+}
+assert(arr_sum == 10, "For-in array sum incorrect.");
+
+println("--- Testing range iteration with existing binding ---");
+let last = -1;
+for last in 0..1..4 {
+}
+assert(last == 3, "For-in range should leave last assigned item.");
+
+println("--- Testing tuple iteration with continue ---");
+let tuple_sum = 0;
+for let value in $[1, 2, 3, 4] {
+    if value % 2 == 0 {
+        continue;
+    }
+    tuple_sum += value;
+}
+assert(tuple_sum == 4, "For-in tuple continue handling incorrect.");
+
+println("--- Testing break in for-in loop ---");
+let break_count = 0;
+for let n in [10, 20, 30, 40] {
+    break_count += 1;
+    if n == 30 {
+        break;
+    }
+}
+assert(break_count == 3, "For-in break handling incorrect.");
+
+println("--- Testing iter() and next() builtins ---");
+let iter_values = iter([5, 6, 7])?;
+let first = next(iter_values).unwrap();
+let second = next(iter_values).unwrap();
+let third = next(iter_values).unwrap();
+assert(first == 5, "next(iter(...)) should return the first element.");
+assert(second == 6, "next(iter(...)) should return the second element.");
+assert(third == 7, "next(iter(...)) should return the third element.");
+
+println("--- Testing for-in over an Iterator ---");
+let iterator_sum = 0;
+for let value in (iter([2, 4, 6])?) {
+    iterator_sum += value;
+}
+assert(iterator_sum == 12, "For-in should accept Iterator values.");
+
+println("--- Testing iterator exhaustion ---");
+let exhausted = next(iter_values);
+assert(typeof exhausted == "Option[None]", "Exhausted next() should return an None Option.");
+
+println("=== End of testing for-in loops ===");

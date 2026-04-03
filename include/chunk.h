@@ -104,6 +104,10 @@ typedef enum {
 	OP_IN,
 	OP_ITER_INIT,
 	OP_ITER_NEXT,
+	OP_OK,
+	OP_ERR,
+	OP_SOME,
+	OP_NONE,
 } OpCode;
 
 typedef struct {

@@ -120,6 +120,8 @@ static CruxTokenType identifier_type(Scanner *scanner)
 				return check_keyword(scanner, 2, 1, "l", CRUX_TOKEN_NIL_TYPE);
 			case 'e':
 				return check_keyword(scanner, 2, 3, "ver", CRUX_TOKEN_NEVER_TYPE);
+			case 'o':
+				return check_keyword(scanner, 2, 2, "ne", CRUX_TOKEN_NONE);
 			}
 		}
 		break;
@@ -167,6 +169,8 @@ static CruxTokenType identifier_type(Scanner *scanner)
 				return check_keyword(scanner, 2, 4, "ring", CRUX_TOKEN_STRING_TYPE);
 			case 'e':
 				return check_keyword(scanner, 2, 1, "t", CRUX_TOKEN_SET_TYPE);
+			case 'o':
+				return check_keyword(scanner, 2, 2, "me", CRUX_TOKEN_SOME);
 			}
 		}
 		break;
@@ -385,7 +389,16 @@ static CruxTokenType identifier_type(Scanner *scanner)
 	case 'E':
 		return check_keyword(scanner, 1, 2, "rr", CRUX_TOKEN_ERR);
 	case 'O':
-		return check_keyword(scanner, 1, 1, "k", CRUX_TOKEN_OK);
+		if (scanner->current - scanner->start > 1) {
+			switch (scanner->start[1]) {
+			case 'k':
+				return check_keyword(scanner, 2, 0, "", CRUX_TOKEN_OK);
+			case 'p':
+				return check_keyword(scanner, 2, 4, "tion", CRUX_TOKEN_OPTION_TYPE);
+			default:;
+			}
+		}
+		break;
 	default:;
 	}
 

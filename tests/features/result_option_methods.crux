@@ -1,0 +1,28 @@
+println("=== Testing Result and Option methods ===");
+
+let ok = Ok(42);
+let err = Err("boom");
+let some = Some("value");
+let none = None;
+
+assert(ok.is_ok(), "Ok should report is_ok");
+assert(not ok.is_err(), "Ok should not report is_err");
+assert(ok.unwrap() == 42, "Ok.unwrap() should return value");
+assert(ok.unwrap_or(0) == 42, "Ok.unwrap_or() should return value");
+
+assert(not err.is_ok(), "Err should not report is_ok");
+assert(err.is_err(), "Err should report is_err");
+assert(typeof err.unwrap() == "Error", "Err.unwrap() should return Error");
+assert(err.unwrap_or(99) == 99, "Err.unwrap_or() should return default");
+
+assert(some.is_some(), "Some should report is_some");
+assert(not some.is_none(), "Some should not report is_none");
+assert(some.unwrap() == "value", "Some.unwrap() should return contained value");
+assert(some.unwrap_or("fallback") == "value", "Some.unwrap_or() should return contained value");
+
+assert(not none.is_some(), "None should not report is_some");
+assert(none.is_none(), "None should report is_none");
+assert(none.unwrap() == nil, "None.unwrap() should return nil");
+assert(none.unwrap_or("fallback") == "fallback", "None.unwrap_or() should return default");
+
+println("=== Result and Option methods test complete ===");

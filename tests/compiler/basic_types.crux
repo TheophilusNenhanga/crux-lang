@@ -108,9 +108,9 @@ v_wild = v_exact; // Vector[3] is compatible with Vector[]!
 println("--- 10. RESULT TYPES & MATCH EXPRESSIONS ---");
 fn might_fail(fail: Bool) -> Result[Int] {
     if fail {
-        return err("It failed!");
+        return Err("It failed!");
     }
-    return ok(42);
+    return Ok(42);
 }
 
 let res: Result[Int] = might_fail(false);

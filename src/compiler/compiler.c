@@ -406,6 +406,17 @@ ObjectTypeRecord *parse_type_record(Compiler *compiler)
 			compiler_panic(compiler->parser, "Expected '[' for result type definition.", TYPE);
 			type_record = T_ANY;
 		}
+	} else if (match(compiler, CRUX_TOKEN_OPTION_TYPE)) {
+		if (match(compiler, CRUX_TOKEN_LEFT_SQUARE)) {
+			ObjectTypeRecord *some_type = parse_type_record(compiler);
+			push(compiler->owner->current_module_record, OBJECT_VAL(some_type));
+			consume(compiler, CRUX_TOKEN_RIGHT_SQUARE, "Expected ']' after option some type.");
+			type_record = new_option_type_rec(compiler->owner, some_type);
+			pop(compiler->owner->current_module_record); // some_type
+		} else {
+			compiler_panic(compiler->parser, "Expected '[' for option type definition.", TYPE);
+			type_record = T_ANY;
+		}
 	} else if (match(compiler, CRUX_TOKEN_RANGE_TYPE)) {
 		type_record = new_type_rec(compiler->owner, RANGE_TYPE);
 	} else if (match(compiler, CRUX_TOKEN_TUPLE_TYPE)) {
@@ -1477,6 +1488,9 @@ static void dot(Compiler *compiler, const bool can_assign)
 				break;
 			case RESULT_TYPE:
 				type_table = &vm->result_type;
+				break;
+			case OPTION_TYPE:
+				type_table = &vm->option_type;
 				break;
 			case FILE_TYPE:
 				type_table = &vm->file_type;
@@ -3673,6 +3687,66 @@ static void typeof_expression(Compiler *compiler, const bool can_assign)
 	push_type_record(compiler, T_STRING);
 }
 
+/**
+ * Ok(<expression>)
+ */
+static void ok_expression(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	consume(compiler, CRUX_TOKEN_LEFT_PAREN, "Expected '(' after 'Ok' keyword.");
+	expression(compiler);
+	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after 'Ok' value.");
+	ObjectTypeRecord *type = new_type_rec(compiler->owner, RESULT_TYPE);
+	type->as.result_type.ok_type = pop_type_record(compiler);
+	emit_word(compiler, OP_OK);
+	push_type_record(compiler, type);
+}
+
+/**
+ * Err(<expression>)
+ */
+static void err_expression(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	consume(compiler, CRUX_TOKEN_LEFT_PAREN, "Expected '(' after 'Err' keyword.");
+	expression(compiler);
+	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after 'Err' value.");
+	pop_type_record(compiler); // discard the type
+	emit_word(compiler, OP_ERR);
+	ObjectTypeRecord *any = T_ANY;
+	push(compiler->owner->current_module_record, OBJECT_VAL(any));
+	ObjectTypeRecord *type = new_type_rec(compiler->owner, RESULT_TYPE);
+	type->as.result_type.ok_type = any;
+	pop(compiler->owner->current_module_record);
+	push_type_record(compiler, type);
+}
+
+/**
+ * Some(<expression>)
+ */
+static void some_expression(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	consume(compiler, CRUX_TOKEN_LEFT_PAREN, "Expected '(' after 'Some' keyword.");
+	expression(compiler);
+	consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after 'Some' value.");
+	ObjectTypeRecord *type = new_type_rec(compiler->owner, OPTION_TYPE);
+	type->as.option_type.some_type = pop_type_record(compiler);
+	emit_word(compiler, OP_SOME);
+	push_type_record(compiler, type);
+}
+
+/**
+ * None
+ */
+static void none_expression(Compiler *compiler, const bool can_assign)
+{
+	(void)can_assign;
+	emit_word(compiler, OP_NONE);
+	// no type
+	push_type_record(compiler, new_option_type_rec(compiler->owner, T_ANY));
+}
+
 static void type_coerce(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
@@ -3794,6 +3868,10 @@ ParseRule rules[] = {
 	[CRUX_TOKEN_ERROR] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_DEFAULT] = {NULL, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_EQUAL_ARROW] = {NULL, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_OK] = {ok_expression, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_ERR] = {err_expression, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_SOME] = {some_expression, NULL, NULL, PREC_NONE},
+	[CRUX_TOKEN_NONE] = {none_expression, NULL, NULL, PREC_NONE},
 	[CRUX_TOKEN_MATCH] = {match_expression, NULL, NULL, PREC_PRIMARY},
 	[CRUX_TOKEN_TYPEOF] = {typeof_expression, NULL, NULL, PREC_UNARY},
 	[CRUX_TOKEN_STRUCT] = {NULL, NULL, NULL, PREC_NONE},

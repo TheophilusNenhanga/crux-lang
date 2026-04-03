@@ -439,7 +439,6 @@ Value iter_function(VM *vm, const Value *args)
 	ObjectType type = (AS_CRUX_OBJECT(args[0]))->type;
 	switch (type) {
 	case OBJECT_ARRAY:
-	case OBJECT_TABLE:
 	case OBJECT_SET:
 	case OBJECT_TUPLE:
 	case OBJECT_RANGE:
@@ -463,13 +462,12 @@ Value iter_function(VM *vm, const Value *args)
 
 Value next_function(VM *vm, const Value *args)
 {
-	if (!IS_CRUX_ITERATOR(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Expected type 'Iterator'.", TYPE);
-	}
 	ObjectIterator *iterator = AS_CRUX_ITERATOR(args[0]);
 	Value result;
 	if (!iterate_next(vm->current_module_record, iterator, &result)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Iterator has no more values.", VALUE);
+		ObjectOption *option = new_option(vm, NIL_VAL, false);
+		return OBJECT_VAL(option);
 	}
-	return OBJECT_VAL(new_ok_result(vm, result));
+	ObjectOption *option = new_option(vm, result, true);
+	return OBJECT_VAL(option);
 }

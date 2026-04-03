@@ -99,6 +99,7 @@ struct VM {
 	Table error_type;
 	Table file_type;
 	Table result_type;
+	Table option_type;
 	Table vector_type;
 	Table complex_type;
 	Table matrix_type;
