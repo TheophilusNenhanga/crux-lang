@@ -433,41 +433,19 @@ Value format_function(VM *vm, const Value *args)
 
 Value iter_function(VM *vm, const Value *args)
 {
-	if (!IS_CRUX_OBJECT(args[0])) {
-		return MAKE_GC_SAFE_ERROR(vm, "Expected an object for iter.", VALUE);
-	}
-	ObjectType type = (AS_CRUX_OBJECT(args[0]))->type;
-	switch (type) {
-	case OBJECT_ARRAY:
-	case OBJECT_SET:
-	case OBJECT_TUPLE:
-	case OBJECT_RANGE:
-	case OBJECT_BUFFER:
-	case OBJECT_STRING:
-	case OBJECT_VECTOR:
-	case OBJECT_MATRIX: {
-		ObjectIterator *iterator = new_iterator(vm, args[0]);
-		push(vm->current_module_record, OBJECT_VAL(iterator));
-		ObjectResult *result = new_ok_result(vm, OBJECT_VAL(iterator));
-		pop(vm->current_module_record);
-		return OBJECT_VAL(result);
-	}
-	case OBJECT_ITERATOR: {
-		return OBJECT_VAL(new_ok_result(vm, args[0]));
-	}
-	default:
+	Value iterator;
+	if (!get_iterator_from_value(vm, args[0], &iterator)) {
 		return MAKE_GC_SAFE_ERROR(vm, "Expected an iterable object.", VALUE);
 	}
+	return OBJECT_VAL(new_ok_result(vm, iterator));
 }
 
 Value next_function(VM *vm, const Value *args)
 {
-	ObjectIterator *iterator = AS_CRUX_ITERATOR(args[0]);
-	Value result;
-	if (!iterate_next(vm->current_module_record, iterator, &result)) {
-		ObjectOption *option = new_option(vm, NIL_VAL, false);
-		return OBJECT_VAL(option);
+	Value option;
+	if (!get_next_option_from_iterator(vm, args[0], &option)) {
+		ObjectOption *none = new_option(vm, NIL_VAL, false);
+		return OBJECT_VAL(none);
 	}
-	ObjectOption *option = new_option(vm, result, true);
-	return OBJECT_VAL(option);
+	return option;
 }

@@ -360,35 +360,29 @@ OP_SET_LOCAL: {
 
 OP_ITER_INIT: {
 	const Value iterable = PEEK(currentModuleRecord, 0);
-	if (!IS_CRUX_OBJECT(iterable)) {
-		runtime_panic(currentModuleRecord, TYPE, "Cannot iterate over a non-iterable value");
+	Value iterator;
+	if (!get_iterator_from_value(vm, iterable, &iterator)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	if (IS_CRUX_ITERATOR(iterable)) {
-		DISPATCH();
-	}
-
-	ObjectIterator *iterator = new_iterator(vm, iterable);
-	currentModuleRecord->stack_top[-1] = OBJECT_VAL(iterator);
+	currentModuleRecord->stack_top[-1] = iterator;
 	DISPATCH();
 }
 
 OP_ITER_NEXT: {
 	uint16_t offset = READ_SHORT();
-	if (!IS_CRUX_ITERATOR(PEEK(currentModuleRecord, 0))) {
-		runtime_panic(currentModuleRecord, TYPE, "Expected iterator state.");
+	Value option;
+	if (!get_next_option_from_iterator(vm, PEEK(currentModuleRecord, 0), &option)) {
 		return INTERPRET_RUNTIME_ERROR;
 	}
 
-	ObjectIterator *iterator = AS_CRUX_ITERATOR(PEEK(currentModuleRecord, 0));
-	Value value;
-	if (!iterate_next(currentModuleRecord, iterator, &value)) {
+	ObjectOption *next_option = AS_CRUX_OPTION(option);
+	if (!next_option->is_some) {
 		pop(currentModuleRecord);
-		frame->ip += offset;
+		frame->ip += offset; // jump to after the loop
 		DISPATCH();
 	}
 
-	currentModuleRecord->stack_top[-1] = value;
+	currentModuleRecord->stack_top[-1] = next_option->value; // set the value to the next item
 	DISPATCH();
 }
 

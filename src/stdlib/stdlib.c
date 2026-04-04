@@ -227,8 +227,8 @@ bool initialize_std_lib(VM *vm)
 								{"array", array_function, 1, ARGS(t_any), RES(arr_any)},
 								{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
 								{"println", io_println_function, 1, ARGS(t_any), t_nil},
-								{"iter", iter_function, 1, ARGS(iterable), RES(iter_any)},
-								{"next", next_function, 1, ARGS(iter_any), opt_any}};
+								{"iter", iter_function, 1, ARGS(t_any), res_any},
+								{"next", next_function, 1, ARGS(t_any), opt_any}};
 
 		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;

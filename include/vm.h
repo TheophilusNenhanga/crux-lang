@@ -220,6 +220,9 @@ ObjectUpvalue *capture_upvalue(VM *vm, Value *local);
 
 bool handle_invoke(VM *vm, int arg_count, Value receiver, Value original, Value value);
 
+bool get_iterator_from_value(VM *vm, Value value, Value *iterator_out);
+bool get_next_option_from_iterator(VM *vm, Value iterator, Value *option_out);
+
 /**
  * Invokes a method on an object with the given arguments.
  * @param vm The virtual machine

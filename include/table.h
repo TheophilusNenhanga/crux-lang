@@ -91,4 +91,6 @@ void table_remove_white(const VM *vm, const Table *table);
  */
 void mark_table(VM *vm, const Table *table);
 
+bool compare_strings(const ObjectString *a, const ObjectString *b);
+
 #endif

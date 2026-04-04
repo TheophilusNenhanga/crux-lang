@@ -1,0 +1,52 @@
+println("=== Testing User Iterators ===");
+
+struct Counter {
+    current: Int,
+    end: Int
+}
+
+impl Counter {
+    fn __iter() -> Counter {
+        return self;
+    }
+
+    fn __next() -> Option[Int] {
+        if self.current >= self.end {
+            return None;
+        }
+
+        let value = self.current;
+        self.current = self.current + 1;
+        return Some(value);
+    }
+}
+
+let counter = new Counter {
+    current = 0,
+    end = 4
+};
+
+let sum = 0;
+for let value in counter {
+    sum = sum + value;
+}
+
+assert(sum == 6, "for-in should work with user-defined iterables");
+
+let counter2 = new Counter {
+    current = 1,
+    end = 3
+};
+
+let it = iter(counter2)?;
+let first = next(it);
+let second = next(it);
+let third = next(it);
+
+assert(first.is_some(), "first next() should produce Some");
+assert(second.is_some(), "second next() should produce Some");
+assert(third.is_none(), "third next() should produce None");
+assert(first.unwrap() == 1, "first produced value is wrong");
+assert(second.unwrap() == 2, "second produced value is wrong");
+
+println("=== User Iterators test complete ===");

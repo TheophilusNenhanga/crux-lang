@@ -22,7 +22,7 @@ void free_table(VM *vm, Table *table)
 	init_table(table);
 }
 
-static bool compare_strings(const ObjectString *a, const ObjectString *b)
+bool compare_strings(const ObjectString *a, const ObjectString *b)
 {
 	if (a->byte_length != b->byte_length)
 		return false;

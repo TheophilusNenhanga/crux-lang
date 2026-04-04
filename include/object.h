@@ -520,4 +520,6 @@ bool range_contains(const ObjectRange *range, int32_t value);
 bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result);
 
 ObjectOption *new_option(VM *vm, Value value, bool is_some);
+
+uint32_t hash_string(const char *key, const size_t length);
 #endif

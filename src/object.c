@@ -386,7 +386,7 @@ static ObjectString *allocate_string(VM *vm, utf8_int8_t *chars, const uint32_t 
  *
  * @return A 32-bit hash code for the string.
  */
-static uint32_t hash_string(const char *key, const size_t length)
+uint32_t hash_string(const char *key, const size_t length)
 {
 	static const uint32_t FNV_OFFSET_BIAS = 2166136261u;
 	static const uint32_t FNV_PRIME = 16777619u;

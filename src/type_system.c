@@ -9,11 +9,17 @@
 
 #define TYPE_GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
 
-static bool compare_strings(const ObjectString *a, const ObjectString *b)
+/**
+ * A lightweight version of copy_string that does not heap allocate
+ */
+static ObjectString make_lookup_string(const char *chars, const uint32_t length)
 {
-	if (a->byte_length != b->byte_length)
-		return false;
-	return memcmp(a->chars, b->chars, a->byte_length) == 0;
+	ObjectString key = {0};
+	key.chars = (utf8_int8_t *)chars;
+	key.byte_length = length;
+	key.code_point_length = length;
+	key.hash = hash_string(chars, length);
+	return key;
 }
 
 static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const ObjectString *key)
@@ -40,10 +46,6 @@ static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const 
 static void type_adjust_capacity(ObjectTypeTable *table, const int capacity)
 {
 	TypeEntry *entries = calloc(capacity, sizeof(TypeEntry));
-	for (int i = 0; i < capacity; i++) {
-		entries[i].key = NULL;
-		entries[i].value = NULL;
-	}
 	table->count = 0;
 	for (int i = 0; i < table->capacity; i++) {
 		const TypeEntry *entry = &table->entries[i];
@@ -1056,6 +1058,44 @@ bool is_iterable_type(const ObjectTypeRecord *type)
 		return true;
 	if (type->base_type == ITERATOR_TYPE)
 		return true;
+	if (type->base_type == STRUCT_TYPE) {
+		const ObjectTypeTable *field_types = type->as.struct_type.field_types;
+		if (field_types && field_types->entries) {
+			ObjectString iter_key = make_lookup_string("__iter", sizeof("__iter") - 1);
+			ObjectString next_key = make_lookup_string("__next", sizeof("__next") - 1);
+			ObjectTypeRecord *iter_method = NULL;
+			ObjectTypeRecord *next_method = NULL;
+			type_table_get(field_types, &iter_key, &iter_method);
+			type_table_get(field_types, &next_key, &next_method);
+
+			if (next_method && next_method->base_type == FUNCTION_TYPE &&
+				next_method->as.function_type.arg_count == 0 && next_method->as.function_type.return_type &&
+				next_method->as.function_type.return_type->base_type == OPTION_TYPE) {
+				return true;
+			}
+
+			if (iter_method && iter_method->base_type == FUNCTION_TYPE &&
+				iter_method->as.function_type.arg_count == 0) {
+				ObjectTypeRecord *ret = iter_method->as.function_type.return_type;
+				if (!ret || ret->base_type == ANY_TYPE || ret->base_type == ITERATOR_TYPE) {
+					return true;
+				}
+				if (ret->base_type == STRUCT_TYPE) {
+					ObjectString inner_next_key = make_lookup_string("__next", sizeof("__next") - 1);
+					ObjectTypeRecord *inner_next = NULL;
+					const ObjectTypeTable *inner_fields = ret->as.struct_type.field_types;
+					if (inner_fields && inner_fields->entries) {
+						type_table_get(inner_fields, &inner_next_key, &inner_next);
+					}
+					if (inner_next && inner_next->base_type == FUNCTION_TYPE &&
+						inner_next->as.function_type.arg_count == 0 && inner_next->as.function_type.return_type &&
+						inner_next->as.function_type.return_type->base_type == OPTION_TYPE) {
+						return true;
+					}
+				}
+			}
+		}
+	}
 	return false;
 }
 
@@ -1082,14 +1122,49 @@ ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const Obje
 		return T_FLOAT;
 	case TUPLE_TYPE:
 		return T_ANY;
+	case STRUCT_TYPE: {
+		const ObjectTypeTable *field_types = iterable_type->as.struct_type.field_types;
+		ObjectString iter_key = make_lookup_string("__iter", sizeof("__iter") - 1);
+		ObjectString next_key = make_lookup_string("__next", sizeof("__next") - 1);
+		ObjectTypeRecord *iter_method = NULL;
+		ObjectTypeRecord *next_method = NULL;
+
+		if (field_types && field_types->entries) {
+			type_table_get(field_types, &iter_key, &iter_method);
+			type_table_get(field_types, &next_key, &next_method);
+		}
+
+		if (next_method && next_method->base_type == FUNCTION_TYPE && next_method->as.function_type.arg_count == 0 &&
+			next_method->as.function_type.return_type &&
+			next_method->as.function_type.return_type->base_type == OPTION_TYPE) {
+			ObjectTypeRecord *some_type = next_method->as.function_type.return_type->as.option_type.some_type;
+			return some_type ? some_type : T_ANY;
+		}
+
+		if (iter_method && iter_method->base_type == FUNCTION_TYPE && iter_method->as.function_type.arg_count == 0) {
+			ObjectTypeRecord *ret = iter_method->as.function_type.return_type;
+			if (!ret || ret->base_type == ANY_TYPE) {
+				return T_ANY;
+			}
+			if (ret->base_type == ITERATOR_TYPE) {
+				return ret->as.iterator_type.element_type ? ret->as.iterator_type.element_type : T_ANY;
+			}
+			if (ret->base_type == STRUCT_TYPE) {
+				return get_iterable_element_type(compiler, ret);
+			}
+		}
+		break;
+	}
 	default: {
 		char got[128];
 		type_record_name(iterable_type, got, sizeof(got));
-		compiler_panicf(
-			compiler->parser, TYPE,
-			"Iterable must be 'Iterator | Array | Set | Tuple | String | Buffer | Range | Vector | Matrix', got '%s'.",
-			got);
+		compiler_panicf(compiler->parser, TYPE,
+						"Iterable must be 'Iterator | Array | Set | Tuple | String | Buffer | Range | Vector | Matrix "
+						"| Struct with __iter/__next methods', got '%s'.",
+						got);
 		return T_ANY;
 	}
 	}
+
+	return T_ANY;
 }

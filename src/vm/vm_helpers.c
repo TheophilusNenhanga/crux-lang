@@ -243,6 +243,156 @@ bool handle_invoke(VM *vm, const int arg_count, const Value receiver, const Valu
 
 typedef bool (*TypeInvokeHandler)(VM *vm, const ObjectString *name, int arg_count, Value original, Value receiver);
 
+static bool is_builtin_iterable_value(const Value value)
+{
+	if (!IS_CRUX_OBJECT(value)) {
+		return false;
+	}
+
+	switch (OBJECT_TYPE(value)) {
+	case OBJECT_ARRAY:
+	case OBJECT_SET:
+	case OBJECT_TUPLE:
+	case OBJECT_RANGE:
+	case OBJECT_BUFFER:
+	case OBJECT_STRING:
+	case OBJECT_VECTOR:
+	case OBJECT_MATRIX:
+	case OBJECT_ITERATOR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool find_named_method_on_struct_instance(VM *vm, const Value receiver, ObjectString *name, Value *method_out)
+{
+	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
+		return false;
+	}
+
+	const ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+	return table_get(&instance->struct_type->methods, name, method_out);
+}
+
+static bool invoke_zero_arg_struct_method(VM *vm, const Value receiver, const char *method_name, Value *result_out)
+{
+	ObjectString *method_name_obj = copy_string(vm, method_name, (int)strlen(method_name));
+	Value method_val;
+	if (!find_named_method_on_struct_instance(vm, receiver, method_name_obj, &method_val)) {
+		return false;
+	}
+
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+	Value *saved_top = current_module_record->stack_top;
+	push(current_module_record, receiver);
+
+	const uint32_t current_frame_count = current_module_record->frame_count;
+	if (!call_value(vm, method_val, 0)) {
+		current_module_record->stack_top = saved_top;
+		return false;
+	}
+
+	InterpretResult result = INTERPRET_OK;
+	if (current_module_record->frame_count > current_frame_count) {
+		result = run(vm, true);
+		current_module_record->frame_count = current_frame_count;
+	}
+
+	if (result != INTERPRET_OK) {
+		current_module_record->stack_top = saved_top;
+		return false;
+	}
+
+	*result_out = PEEK(current_module_record, 0);
+	current_module_record->stack_top = saved_top;
+	return true;
+}
+
+bool get_iterator_from_value(VM *vm, const Value value, Value *iterator_out)
+{
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+
+	if (!IS_CRUX_OBJECT(value)) {
+		runtime_panic(current_module_record, TYPE, "Cannot iterate over a non-iterable value.");
+		return false;
+	}
+
+	if (is_builtin_iterable_value(value)) {
+		if (IS_CRUX_ITERATOR(value)) {
+			*iterator_out = value;
+			return true;
+		}
+
+		ObjectIterator *iterator = new_iterator(vm, value);
+		*iterator_out = OBJECT_VAL(iterator);
+		return true;
+	}
+
+	if (IS_CRUX_STRUCT_INSTANCE(value)) {
+		Value iter_result;
+		if (invoke_zero_arg_struct_method(vm, value, "__iter", &iter_result)) {
+			if (!IS_CRUX_OBJECT(iter_result)) {
+				runtime_panic(current_module_record, TYPE, "__iter() must return an iterator object.");
+				return false;
+			}
+			if (IS_CRUX_ITERATOR(iter_result) || IS_CRUX_STRUCT_INSTANCE(iter_result)) {
+				*iterator_out = iter_result;
+				return true;
+			}
+			runtime_panic(current_module_record, TYPE,
+						  "__iter() must return an Iterator or a struct instance implementing __next().");
+			return false;
+		}
+
+		ObjectString *next_name = copy_string(vm, "__next", sizeof("__next") - 1);
+		if (find_named_method_on_struct_instance(vm, value, next_name, &iter_result)) {
+			*iterator_out = value;
+			return true;
+		}
+	}
+
+	runtime_panic(current_module_record, TYPE, "Expected an iterable value.");
+	return false;
+}
+
+bool get_next_option_from_iterator(VM *vm, const Value iterator, Value *option_out)
+{
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+
+	if (IS_CRUX_ITERATOR(iterator)) {
+		ObjectIterator *builtin_iterator = AS_CRUX_ITERATOR(iterator);
+		Value next_value;
+		if (!iterate_next(current_module_record, builtin_iterator, &next_value)) {
+			ObjectOption *none = new_option(vm, NIL_VAL, false);
+			*option_out = OBJECT_VAL(none);
+			return true;
+		}
+		ObjectOption *some = new_option(vm, next_value, true);
+		*option_out = OBJECT_VAL(some);
+		return true;
+	}
+
+	if (IS_CRUX_STRUCT_INSTANCE(iterator)) {
+		Value next_result;
+		if (!invoke_zero_arg_struct_method(vm, iterator, "__next", &next_result)) {
+			runtime_panic(current_module_record, TYPE, "Iterator struct must define __next() -> Option.");
+			return false;
+		}
+
+		if (!IS_CRUX_OPTION(next_result)) {
+			runtime_panic(current_module_record, TYPE, "__next() must return Option.");
+			return false;
+		}
+
+		*option_out = next_result;
+		return true;
+	}
+
+	runtime_panic(current_module_record, TYPE, "Expected an iterator value.");
+	return false;
+}
+
 static bool handle_string_invoke(VM *vm, const ObjectString *name, const int arg_count, const Value original,
 								 const Value receiver)
 {

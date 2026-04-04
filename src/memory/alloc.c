@@ -58,6 +58,8 @@ void free_memory(VM *vm, void *ptr, const size_t size)
 		free_from_slab(vm->slab_32, ptr);
 	} else if (size <= 48) {
 		free_from_slab(vm->slab_48, ptr);
+	} else if (size <= 64) {
+		free_from_slab(vm->slab_64, ptr);
 	} else {
 		free(ptr);
 	}
@@ -90,7 +92,8 @@ void *allocate_object_without_gc(VM *vm, const size_t size)
 {
 	void *result = malloc(size);
 	if (result == NULL) {
-		if (vm) collect_garbage(vm);
+		if (vm)
+			collect_garbage(vm);
 		result = malloc(size);
 		if (result == NULL) {
 			if (vm && vm->current_module_record) {
@@ -98,7 +101,8 @@ void *allocate_object_without_gc(VM *vm, const size_t size)
 			} else {
 				fprintf(stderr, "Fatal error - Out of Memory: Failed to allocate %zu bytes.\n", size);
 			}
-			if (vm) free_vm(vm);
+			if (vm)
+				free_vm(vm);
 			exit(1);
 		}
 	}
@@ -144,7 +148,8 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize, const size_t newSi
 
 	void *result = realloc(pointer, newSize);
 	if (result == NULL) {
-		if (vm) collect_garbage(vm);
+		if (vm)
+			collect_garbage(vm);
 		result = realloc(pointer, newSize);
 		if (result == NULL) {
 			if (vm && vm->current_module_record) {
@@ -152,7 +157,8 @@ void *reallocate(VM *vm, void *pointer, const size_t oldSize, const size_t newSi
 			} else {
 				fprintf(stderr, "Fatal error - Out of Memory: Failed to reallocate %zu bytes.\n", newSize);
 			}
-			if (vm) free_vm(vm);
+			if (vm)
+				free_vm(vm);
 			exit(1);
 		}
 	}
