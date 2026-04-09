@@ -434,6 +434,111 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_NONE: {
 		return simple_instruction("OP_NONE", offset);
 	}
+	case OP_ADD_INT: {
+		return simple_instruction("OP_ADD_INT", offset);
+	}
+	case OP_ADD_NUM: {
+		return simple_instruction("OP_ADD_NUM", offset);
+	}
+	case OP_SUBTRACT_INT: {
+		return simple_instruction("OP_SUBTRACT_INT", offset);
+	}
+	case OP_SUBTRACT_NUM: {
+		return simple_instruction("OP_SUBTRACT_NUM", offset);
+	}
+	case OP_MULTIPLY_INT: {
+		return simple_instruction("OP_MULTIPLY_INT", offset);
+	}
+	case OP_MULTIPLY_NUM: {
+		return simple_instruction("OP_MULTIPLY_NUM", offset);
+	}
+	case OP_DIVIDE_NUM: {
+		return simple_instruction("OP_DIVIDE_NUM", offset);
+	}
+	case OP_INT_DIVIDE_INT: {
+		return simple_instruction("OP_INT_DIVIDE_INT", offset);
+	}
+	case OP_MODULUS_INT: {
+		return simple_instruction("OP_MODULUS_INT", offset);
+	}
+	case OP_POWER_INT: {
+		return simple_instruction("OP_POWER_INT", offset);
+	}
+	case OP_POWER_NUM: {
+		return simple_instruction("OP_POWER_NUM", offset);
+	}
+	case OP_ADD_VECTOR_VECTOR: {
+		return simple_instruction("OP_ADD_VECTOR_VECTOR", offset);
+	}
+	case OP_SUBTRACT_VECTOR_VECTOR: {
+		return simple_instruction("OP_SUBTRACT_VECTOR_VECTOR", offset);
+	}
+	case OP_MULTIPLY_VECTOR_VECTOR: {
+		return simple_instruction("OP_MULTIPLY_VECTOR_VECTOR", offset);
+	}
+	case OP_DIVIDE_VECTOR_VECTOR: {
+		return simple_instruction("OP_DIVIDE_VECTOR_VECTOR", offset);
+	}
+	case OP_MULTIPLY_VECTOR_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_VECTOR_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_VECTOR: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_VECTOR", offset);
+	}
+	case OP_DIVIDE_VECTOR_SCALAR: {
+		return simple_instruction("OP_DIVIDE_VECTOR_SCALAR", offset);
+	}
+	case OP_ADD_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_ADD_COMPLEX_COMPLEX", offset);
+	}
+	case OP_SUBTRACT_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_SUBTRACT_COMPLEX_COMPLEX", offset);
+	}
+	case OP_MULTIPLY_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_MULTIPLY_COMPLEX_COMPLEX", offset);
+	}
+	case OP_DIVIDE_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_DIVIDE_COMPLEX_COMPLEX", offset);
+	}
+	case OP_MULTIPLY_COMPLEX_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_COMPLEX_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_COMPLEX: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_COMPLEX", offset);
+	}
+	case OP_DIVIDE_COMPLEX_SCALAR: {
+		return simple_instruction("OP_DIVIDE_COMPLEX_SCALAR", offset);
+	}
+	case OP_ADD_MATRIX_MATRIX: {
+		return simple_instruction("OP_ADD_MATRIX_MATRIX", offset);
+	}
+	case OP_SUBTRACT_MATRIX_MATRIX: {
+		return simple_instruction("OP_SUBTRACT_MATRIX_MATRIX", offset);
+	}
+	case OP_ADD_MATRIX_SCALAR: {
+		return simple_instruction("OP_ADD_MATRIX_SCALAR", offset);
+	}
+	case OP_ADD_SCALAR_MATRIX: {
+		return simple_instruction("OP_ADD_SCALAR_MATRIX", offset);
+	}
+	case OP_SUBTRACT_MATRIX_SCALAR: {
+		return simple_instruction("OP_SUBTRACT_MATRIX_SCALAR", offset);
+	}
+	case OP_SUBTRACT_SCALAR_MATRIX: {
+		return simple_instruction("OP_SUBTRACT_SCALAR_MATRIX", offset);
+	}
+	case OP_MULTIPLY_MATRIX_MATRIX: {
+		return simple_instruction("OP_MULTIPLY_MATRIX_MATRIX", offset);
+	}
+	case OP_MULTIPLY_MATRIX_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_MATRIX_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_MATRIX: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_MATRIX", offset);
+	}
+	case OP_DIVIDE_MATRIX_SCALAR: {
+		return simple_instruction("OP_DIVIDE_MATRIX_SCALAR", offset);
+	}
 	case OP_INVOKE_STDLIB: {
 		return invoke_instruction("OP_INVOKE_STDLIB", chunk, offset);
 	}

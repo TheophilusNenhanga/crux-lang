@@ -201,6 +201,7 @@ void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 	push((module_record), (value))
 
 bool binary_operation(VM *vm, OpCode operation);
+bool specialized_binary_operation(VM *vm, OpCode operation);
 
 bool concatenate(VM *vm);
 

@@ -985,6 +985,59 @@ static ObjectFunction *end_compiler(Compiler *compiler)
 	return function;
 }
 
+static bool is_primitive_numeric_type(const ObjectTypeRecord *type)
+{
+	return type && (type->base_type == INT_TYPE || type->base_type == FLOAT_TYPE);
+}
+
+static int merge_vector_dimensions(Compiler *compiler, const ObjectTypeRecord *left_type,
+								   const ObjectTypeRecord *right_type, const char *operation)
+{
+	const int left_dim = left_type->as.vector_type.dimensions;
+	const int right_dim = right_type->as.vector_type.dimensions;
+
+	if (left_dim != -1 && right_dim != -1 && left_dim != right_dim) {
+		compiler_panicf(compiler->parser, TYPE, "Vectors must have the same dimension for %s.", operation);
+	}
+
+	return left_dim != -1 ? left_dim : right_dim;
+}
+
+static ObjectTypeRecord *merge_matrix_shape(Compiler *compiler, const ObjectTypeRecord *left_type,
+											const ObjectTypeRecord *right_type, const char *operation)
+{
+	const int left_rows = left_type->as.matrix_type.rows;
+	const int left_cols = left_type->as.matrix_type.cols;
+	const int right_rows = right_type->as.matrix_type.rows;
+	const int right_cols = right_type->as.matrix_type.cols;
+
+	if (left_rows != -1 && right_rows != -1 && left_rows != right_rows) {
+		compiler_panicf(compiler->parser, TYPE, "Matrices must have the same dimensions for %s.", operation);
+	}
+	if (left_cols != -1 && right_cols != -1 && left_cols != right_cols) {
+		compiler_panicf(compiler->parser, TYPE, "Matrices must have the same dimensions for %s.", operation);
+	}
+
+	return new_matrix_type_rec(compiler->owner, left_rows != -1 ? left_rows : right_rows,
+							   left_cols != -1 ? left_cols : right_cols);
+}
+
+static ObjectTypeRecord *matrix_multiply_result_type(Compiler *compiler, const ObjectTypeRecord *left_type,
+													 const ObjectTypeRecord *right_type)
+{
+	const int left_rows = left_type->as.matrix_type.rows;
+	const int left_cols = left_type->as.matrix_type.cols;
+	const int right_rows = right_type->as.matrix_type.rows;
+	const int right_cols = right_type->as.matrix_type.cols;
+
+	if (left_cols != -1 && right_rows != -1 && left_cols != right_rows) {
+		compiler_panicf(compiler->parser, TYPE, "Matrix multiplication requires lhs.cols == rhs.rows, got %d and %d.",
+						left_cols, right_rows);
+	}
+
+	return new_matrix_type_rec(compiler->owner, left_rows, right_cols);
+}
+
 static void binary(Compiler *compiler, bool can_assign)
 {
 	(void)can_assign;
@@ -998,7 +1051,6 @@ static void binary(Compiler *compiler, bool can_assign)
 	push(compiler->owner->current_module_record, OBJECT_VAL(right_type));
 
 	ObjectTypeRecord *result_type = NULL;
-	// this slot will be used to protect the result
 	push(compiler->owner->current_module_record, NIL_VAL);
 	Value *result_slot = compiler->owner->current_module_record->stack_top - 1;
 
@@ -1084,83 +1136,230 @@ static void binary(Compiler *compiler, bool can_assign)
 	}
 
 	case CRUX_TOKEN_PLUS: {
-		emit_word(compiler, OP_ADD);
-
 		if (either_any) {
+			emit_word(compiler, OP_ADD);
 			result_type = T_ANY;
 			break;
 		}
 
-		const bool left_str = left_type->base_type == STRING_TYPE;
-		const bool right_str = right_type->base_type == STRING_TYPE;
-
-		if (left_str || right_str) {
-			if (!left_str || !right_str) {
+		if (left_type->base_type == STRING_TYPE || right_type->base_type == STRING_TYPE) {
+			if (left_type->base_type != STRING_TYPE || right_type->base_type != STRING_TYPE) {
 				compiler_panic(compiler->parser, "Cannot use '+' between String and non-String.", TYPE);
 			}
+			emit_word(compiler, OP_ADD);
 			result_type = T_STRING;
 			break;
 		}
 
-		const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
-		const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
-
-		if (!left_num || !right_num) {
-			compiler_panic(compiler->parser,
-						   "'+' requires numeric or String "
-						   "operands.",
-						   TYPE);
+		if (is_primitive_numeric_type(left_type) && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler,
+					  left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE ? OP_ADD_INT : OP_ADD_NUM);
+			result_type = (left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE) ? T_INT : T_FLOAT;
+			break;
 		}
 
-		if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = T_FLOAT;
-		} else {
-			result_type = T_INT;
+		if (left_type->base_type == VECTOR_TYPE && right_type->base_type == VECTOR_TYPE) {
+			emit_word(compiler, OP_ADD_VECTOR_VECTOR);
+			result_type = new_vector_type_rec(compiler->owner,
+											  merge_vector_dimensions(compiler, left_type, right_type, "addition"));
+			break;
 		}
+
+		if (left_type->base_type == COMPLEX_TYPE && right_type->base_type == COMPLEX_TYPE) {
+			emit_word(compiler, OP_ADD_COMPLEX_COMPLEX);
+			result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+			break;
+		}
+
+		if (left_type->base_type == MATRIX_TYPE && right_type->base_type == MATRIX_TYPE) {
+			emit_word(compiler, OP_ADD_MATRIX_MATRIX);
+			result_type = merge_matrix_shape(compiler, left_type, right_type, "addition");
+			break;
+		}
+
+		if (left_type->base_type == MATRIX_TYPE && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler, OP_ADD_MATRIX_SCALAR);
+			result_type = new_matrix_type_rec(compiler->owner, left_type->as.matrix_type.rows,
+											  left_type->as.matrix_type.cols);
+			break;
+		}
+
+		if (is_primitive_numeric_type(left_type) && right_type->base_type == MATRIX_TYPE) {
+			emit_word(compiler, OP_ADD_SCALAR_MATRIX);
+			result_type = new_matrix_type_rec(compiler->owner, right_type->as.matrix_type.rows,
+											  right_type->as.matrix_type.cols);
+			break;
+		}
+
+		compiler_panic(compiler->parser, "'+' requires String, numeric, Vector, Complex, or Matrix operands.", TYPE);
+		result_type = T_ANY;
 		break;
 	}
 
 	case CRUX_TOKEN_MINUS:
 	case CRUX_TOKEN_STAR: {
-		if (!either_any) {
-			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
-			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
+		if (either_any) {
+			emit_word(compiler, operatorType == CRUX_TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
+			result_type = T_ANY;
+			break;
+		}
 
-			if (!left_num || !right_num) {
-				char left_name[128], right_name[128];
-				type_record_name(left_type, left_name, sizeof(left_name));
-				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE, "%s requires numeric operands, got '%s' and '%s'.",
-								operatorType == CRUX_TOKEN_MINUS ? "'-'" : "'*'", left_name, right_name);
+		if (is_primitive_numeric_type(left_type) && is_primitive_numeric_type(right_type)) {
+			if (operatorType == CRUX_TOKEN_MINUS) {
+				emit_word(compiler, left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE
+										? OP_SUBTRACT_INT
+										: OP_SUBTRACT_NUM);
+			} else {
+				emit_word(compiler, left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE
+										? OP_MULTIPLY_INT
+										: OP_MULTIPLY_NUM);
+			}
+			result_type = (left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE) ? T_INT : T_FLOAT;
+			break;
+		}
+
+		if (operatorType == CRUX_TOKEN_MINUS) {
+			if (left_type->base_type == VECTOR_TYPE && right_type->base_type == VECTOR_TYPE) {
+				emit_word(compiler, OP_SUBTRACT_VECTOR_VECTOR);
+				result_type = new_vector_type_rec(compiler->owner, merge_vector_dimensions(compiler, left_type,
+																						   right_type, "subtraction"));
+				break;
+			}
+			if (left_type->base_type == COMPLEX_TYPE && right_type->base_type == COMPLEX_TYPE) {
+				emit_word(compiler, OP_SUBTRACT_COMPLEX_COMPLEX);
+				result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+				break;
+			}
+			if (left_type->base_type == MATRIX_TYPE && right_type->base_type == MATRIX_TYPE) {
+				emit_word(compiler, OP_SUBTRACT_MATRIX_MATRIX);
+				result_type = merge_matrix_shape(compiler, left_type, right_type, "subtraction");
+				break;
+			}
+			if (left_type->base_type == MATRIX_TYPE && is_primitive_numeric_type(right_type)) {
+				emit_word(compiler, OP_SUBTRACT_MATRIX_SCALAR);
+				result_type = new_matrix_type_rec(compiler->owner, left_type->as.matrix_type.rows,
+												  left_type->as.matrix_type.cols);
+				break;
+			}
+			if (is_primitive_numeric_type(left_type) && right_type->base_type == MATRIX_TYPE) {
+				emit_word(compiler, OP_SUBTRACT_SCALAR_MATRIX);
+				result_type = new_matrix_type_rec(compiler->owner, right_type->as.matrix_type.rows,
+												  right_type->as.matrix_type.cols);
+				break;
+			}
+		} else {
+			if (left_type->base_type == VECTOR_TYPE && right_type->base_type == VECTOR_TYPE) {
+				const int left_dim = left_type->as.vector_type.dimensions;
+				const int right_dim = right_type->as.vector_type.dimensions;
+				if ((left_dim != -1 && left_dim != 3) || (right_dim != -1 && right_dim != 3)) {
+					compiler_panic(compiler->parser, "Vector cross product requires 3D vectors.", TYPE);
+				}
+				emit_word(compiler, OP_MULTIPLY_VECTOR_VECTOR);
+				result_type = new_vector_type_rec(compiler->owner, 3);
+				break;
+			}
+			if (left_type->base_type == VECTOR_TYPE && is_primitive_numeric_type(right_type)) {
+				emit_word(compiler, OP_MULTIPLY_VECTOR_SCALAR);
+				result_type = new_vector_type_rec(compiler->owner, left_type->as.vector_type.dimensions);
+				break;
+			}
+			if (is_primitive_numeric_type(left_type) && right_type->base_type == VECTOR_TYPE) {
+				emit_word(compiler, OP_MULTIPLY_SCALAR_VECTOR);
+				result_type = new_vector_type_rec(compiler->owner, right_type->as.vector_type.dimensions);
+				break;
+			}
+			if (left_type->base_type == COMPLEX_TYPE && right_type->base_type == COMPLEX_TYPE) {
+				emit_word(compiler, OP_MULTIPLY_COMPLEX_COMPLEX);
+				result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+				break;
+			}
+			if (left_type->base_type == COMPLEX_TYPE && is_primitive_numeric_type(right_type)) {
+				emit_word(compiler, OP_MULTIPLY_COMPLEX_SCALAR);
+				result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+				break;
+			}
+			if (is_primitive_numeric_type(left_type) && right_type->base_type == COMPLEX_TYPE) {
+				emit_word(compiler, OP_MULTIPLY_SCALAR_COMPLEX);
+				result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+				break;
+			}
+			if (left_type->base_type == MATRIX_TYPE && right_type->base_type == MATRIX_TYPE) {
+				emit_word(compiler, OP_MULTIPLY_MATRIX_MATRIX);
+				result_type = matrix_multiply_result_type(compiler, left_type, right_type);
+				break;
+			}
+			if (left_type->base_type == MATRIX_TYPE && is_primitive_numeric_type(right_type)) {
+				emit_word(compiler, OP_MULTIPLY_MATRIX_SCALAR);
+				result_type = new_matrix_type_rec(compiler->owner, left_type->as.matrix_type.rows,
+												  left_type->as.matrix_type.cols);
+				break;
+			}
+			if (is_primitive_numeric_type(left_type) && right_type->base_type == MATRIX_TYPE) {
+				emit_word(compiler, OP_MULTIPLY_SCALAR_MATRIX);
+				result_type = new_matrix_type_rec(compiler->owner, right_type->as.matrix_type.rows,
+												  right_type->as.matrix_type.cols);
+				break;
 			}
 		}
 
-		emit_word(compiler, operatorType == CRUX_TOKEN_MINUS ? OP_SUBTRACT : OP_MULTIPLY);
-
-		if (either_any) {
-			result_type = T_ANY;
-		} else if (left_type->base_type == FLOAT_TYPE || right_type->base_type == FLOAT_TYPE) {
-			result_type = T_FLOAT;
-		} else {
-			result_type = T_INT;
+		{
+			char left_name[128], right_name[128];
+			type_record_name(left_type, left_name, sizeof(left_name));
+			type_record_name(right_type, right_name, sizeof(right_name));
+			compiler_panicf(compiler->parser, TYPE, "%s is not defined for '%s' and '%s'.",
+							operatorType == CRUX_TOKEN_MINUS ? "'-'" : "'*'", left_name, right_name);
 		}
+		result_type = T_ANY;
 		break;
 	}
 
 	case CRUX_TOKEN_SLASH: {
-		if (!either_any) {
-			const bool left_num = left_type->base_type == INT_TYPE || left_type->base_type == FLOAT_TYPE;
-			const bool right_num = right_type->base_type == INT_TYPE || right_type->base_type == FLOAT_TYPE;
-			if (!left_num || !right_num) {
-				char left_name[128], right_name[128];
-				type_record_name(left_type, left_name, sizeof(left_name));
-				type_record_name(right_type, right_name, sizeof(right_name));
-				compiler_panicf(compiler->parser, TYPE, "'/' requires numeric operands, got '%s' and '%s'.", left_name,
-								right_name);
-			}
+		if (either_any) {
+			emit_word(compiler, OP_DIVIDE);
+			result_type = T_FLOAT;
+			break;
 		}
-		emit_word(compiler, OP_DIVIDE);
-		result_type = T_FLOAT;
+
+		if (is_primitive_numeric_type(left_type) && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler, OP_DIVIDE_NUM);
+			result_type = T_FLOAT;
+			break;
+		}
+		if (left_type->base_type == VECTOR_TYPE && right_type->base_type == VECTOR_TYPE) {
+			emit_word(compiler, OP_DIVIDE_VECTOR_VECTOR);
+			result_type = new_vector_type_rec(compiler->owner,
+											  merge_vector_dimensions(compiler, left_type, right_type, "division"));
+			break;
+		}
+		if (left_type->base_type == VECTOR_TYPE && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler, OP_DIVIDE_VECTOR_SCALAR);
+			result_type = new_vector_type_rec(compiler->owner, left_type->as.vector_type.dimensions);
+			break;
+		}
+		if (left_type->base_type == COMPLEX_TYPE && right_type->base_type == COMPLEX_TYPE) {
+			emit_word(compiler, OP_DIVIDE_COMPLEX_COMPLEX);
+			result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+			break;
+		}
+		if (left_type->base_type == COMPLEX_TYPE && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler, OP_DIVIDE_COMPLEX_SCALAR);
+			result_type = new_type_rec(compiler->owner, COMPLEX_TYPE);
+			break;
+		}
+		if (left_type->base_type == MATRIX_TYPE && is_primitive_numeric_type(right_type)) {
+			emit_word(compiler, OP_DIVIDE_MATRIX_SCALAR);
+			result_type = new_matrix_type_rec(compiler->owner, left_type->as.matrix_type.rows,
+											  left_type->as.matrix_type.cols);
+			break;
+		}
+
+		{
+			char left_name[128], right_name[128];
+			type_record_name(left_type, left_name, sizeof(left_name));
+			type_record_name(right_type, right_name, sizeof(right_name));
+			compiler_panicf(compiler->parser, TYPE, "'/' is not defined for '%s' and '%s'.", left_name, right_name);
+		}
+		result_type = T_ANY;
 		break;
 	}
 
@@ -1175,7 +1374,11 @@ static void binary(Compiler *compiler, bool can_assign)
 								operatorType == CRUX_TOKEN_PERCENT ? "'%'" : "'\\'", left_name, right_name);
 			}
 		}
-		emit_word(compiler, operatorType == CRUX_TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
+		if (either_any) {
+			emit_word(compiler, operatorType == CRUX_TOKEN_PERCENT ? OP_MODULUS : OP_INT_DIVIDE);
+		} else {
+			emit_word(compiler, operatorType == CRUX_TOKEN_PERCENT ? OP_MODULUS_INT : OP_INT_DIVIDE_INT);
+		}
 		result_type = T_INT;
 		break;
 	}
@@ -1227,7 +1430,12 @@ static void binary(Compiler *compiler, bool can_assign)
 								right_name);
 			}
 		}
-		emit_word(compiler, OP_POWER);
+		if (either_any) {
+			emit_word(compiler, OP_POWER);
+		} else {
+			emit_word(compiler, left_type->base_type == INT_TYPE && right_type->base_type == INT_TYPE ? OP_POWER_INT
+																									  : OP_POWER_NUM);
+		}
 		result_type = T_FLOAT;
 		break;
 	}
@@ -2978,7 +3186,7 @@ static void result_unwrap(Compiler *compiler, const bool can_assign)
 
 	if (check_previous_op_code(compiler, OP_INVOKE_STDLIB, 3)) {
 		set_previous_op_code(compiler, OP_INVOKE_STDLIB_UNWRAP, 3);
-	}  else {
+	} else {
 		emit_word(compiler, OP_UNWRAP);
 	}
 
@@ -3085,15 +3293,15 @@ static void add_exhaustive_match_type(Compiler *compiler, MatchExhaustiveness *e
 	if (exhaustiveness->matched_types_count + 1 > exhaustiveness->matched_types_capacity) {
 		const int old_capacity = exhaustiveness->matched_types_capacity;
 		exhaustiveness->matched_types_capacity = GROW_CAPACITY(old_capacity);
-		exhaustiveness->matched_types =
-			GROW_ARRAY(compiler->owner, ObjectTypeRecord *, exhaustiveness->matched_types, old_capacity,
-					   exhaustiveness->matched_types_capacity);
+		exhaustiveness->matched_types = GROW_ARRAY(compiler->owner, ObjectTypeRecord *, exhaustiveness->matched_types,
+												   old_capacity, exhaustiveness->matched_types_capacity);
 	}
 
 	exhaustiveness->matched_types[exhaustiveness->matched_types_count++] = type;
 }
 
-static void record_type_pattern_coverage(Compiler *compiler, MatchExhaustiveness *exhaustiveness, TypeMask matched_type_mask)
+static void record_type_pattern_coverage(Compiler *compiler, MatchExhaustiveness *exhaustiveness,
+										 TypeMask matched_type_mask)
 {
 	ObjectTypeRecord *target_type = exhaustiveness->target_type;
 	if (target_type == NULL)
@@ -3200,8 +3408,9 @@ static void new_match_expression(Compiler *compiler, const bool can_assign)
 					pattern.is_binding = true;
 					declare_variable(compiler);
 					pattern.binding_slot = compiler->local_count - 1;
-					ObjectTypeRecord *ok_type =
-						target_type->base_type == RESULT_TYPE ? target_type->as.result_type.ok_type : T_ANY;
+					ObjectTypeRecord *ok_type = target_type->base_type == RESULT_TYPE
+													? target_type->as.result_type.ok_type
+													: T_ANY;
 					compiler->locals[pattern.binding_slot].type = ok_type;
 					mark_initialized(compiler);
 				}

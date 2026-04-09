@@ -60,7 +60,7 @@ struct Sphere {
 
 fn reflect(vector: Vector[3], normal: Vector[3]) -> Vector[3] {
     let d = vector.dot(normal)?;
-    return vector.subtract(normal.multiply(2.0 * d)?)?;
+    return vector - normal * (2.0 * d);
 }
 
 fn random_in_unit_sphere() -> Vector[3] {
@@ -82,7 +82,7 @@ fn random_unit_vector() -> Vector[3] {
 
 impl Ray {
     fn at(t: Float) -> Vector[3] {
-         return self.origin.add(self.direction.multiply(t)?)?;
+         return self.origin + self.direction * t;
     }
 }
 
@@ -91,7 +91,7 @@ impl Metal {
         let reflected = reflect(ray_in.direction.normalize()?, rec.normal);
         let scattered_ray = new Ray{
             origin = rec.p,
-            direction = reflected.add(random_unit_vector().multiply(self.fuzz as Float)?)?
+            direction = reflected + random_unit_vector() * (self.fuzz as Float)
         };
         if scattered_ray.direction.dot(rec.normal)? > 0.0 {
             return {
@@ -105,7 +105,7 @@ impl Metal {
 
 impl Lambertian {
     fn scatter(ray_in: Ray, rec: HitRecord) -> Table[String, Any] {
-        let scatter_direction = rec.normal.add(random_unit_vector())?;
+        let scatter_direction = rec.normal + random_unit_vector();
 
         // Degenerate scatter direction — fall back to the surface normal
         if scatter_direction.magnitude() < 0.001 {
@@ -120,7 +120,7 @@ impl Lambertian {
 }
 
 fn hit_sphere(sphere: Sphere, ray: Ray, t_min: Float, t_max: Float) -> Nil | HitRecord {
-    let oc          = ray.origin.subtract(sphere.center)?;
+    let oc          = ray.origin - sphere.center;
     let a           = ray.direction.dot(ray.direction)?;
     let half_b      = oc.dot(ray.direction)?;
     let c           = oc.dot(oc)? - sphere.radius_squared;
@@ -141,12 +141,12 @@ fn hit_sphere(sphere: Sphere, ray: Ray, t_min: Float, t_max: Float) -> Nil | Hit
     }
 
     let hit_p          = ray.at(root);
-    let outward_normal = hit_p.subtract(sphere.center)?.divide(sphere.radius)?;
+    let outward_normal = (hit_p - sphere.center) / sphere.radius;
     let is_front_face  = ray.direction.dot(outward_normal)? < 0.0;
     let hit_normal: Vector[3] = outward_normal;
 
     if not is_front_face {
-        hit_normal = outward_normal.multiply(-1.0)?;
+        hit_normal = outward_normal * -1.0;
     }
 
     return new HitRecord {
@@ -199,7 +199,7 @@ fn ray_color(ray: Ray, depth: Float, world: Array[Sphere]) -> Vector[3] {
     // Background: vertical gradient from white to sky blue
     let unit_dir = ray.direction.normalize()?;
     let t        = 0.5 * (unit_dir.y() + 1.0);
-    return VEC3_WHITE.multiply(1.0 - t)?.add(VEC3_BLUE.multiply(t)?)?;
+    return VEC3_WHITE * (1.0 - t) + VEC3_BLUE * t;
 }
 
 fn main() -> Nil {
@@ -254,16 +254,16 @@ fn main() -> Nil {
     let viewport_width  = IMAGE_ASPECT_RATIO * viewport_height;
 
     // Orthonormal camera basis
-    let w = camera_origin.subtract(camera_target)?.normalize()?;
-    let u = camera_vup.cross(w)?.normalize()?;
-    let v = w.cross(u)?;
+    let w = (camera_origin - camera_target).normalize()?;
+    let u = (camera_vup * w).normalize()?;
+    let v = w * u;
 
-    let horizontal         = u.multiply(viewport_width * focal_length)?;
-    let vertical           = v.multiply(viewport_height * focal_length)?;
+    let horizontal         = u * (viewport_width * focal_length);
+    let vertical           = v * (viewport_height * focal_length);
     let lower_left_corner  = camera_origin
-        .subtract(horizontal.multiply(0.5)?)?
-        .subtract(vertical.multiply(0.5)?)?
-        .subtract(w.multiply(focal_length)?)?;
+        - horizontal * 0.5
+        - vertical * 0.5
+        - w * focal_length;
 
     println("Rendering " + string(IMAGE_WIDTH) + "x" + string(IMAGE_HEIGHT) + "...");
     println("Samples per pixel : " + string(SAMPLES_PER_PIXEL));
@@ -287,12 +287,12 @@ fn main() -> Nil {
                 let vv = (j + g_random.float(0.0, 1.0)?) * INV_HEIGHT;
 
                 let ray_dir = lower_left_corner
-                    .add(horizontal.multiply(uu)?)?
-                    .add(vertical.multiply(vv)?)?
-                    .subtract(camera_origin)?;
+                    + horizontal * uu
+                    + vertical * vv
+                    - camera_origin;
 
                 let r = new Ray {origin = camera_origin, direction = ray_dir};
-                pixel_color = pixel_color.add(ray_color(r, MAX_DEPTH, world))?;
+                pixel_color = pixel_color + ray_color(r, MAX_DEPTH, world);
             }
 
             // Gamma-correct (gamma 2) and convert to [0, 255]

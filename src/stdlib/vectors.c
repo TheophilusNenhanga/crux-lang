@@ -200,22 +200,10 @@ Value vector_dot_method(VM *vm, const Value *args)
 	return OBJECT_VAL(new_ok_result(vm, FLOAT_VAL(result)));
 }
 
-/**
- * Adds two vectors together (vectors must have the same dimension)
- * arg0 -> vector: Vector
- * arg1 -> other: Vector
- * Returns Result<Vector>
- */
-Value vector_add_method(VM *vm, const Value *args)
+Value vector_add_value(VM *vm, const ObjectVector *vec1, const ObjectVector *vec2)
 {
-	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
-	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
-
 	if (vec1->dimensions != vec2->dimensions) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Vectors must have the same dimension for addition.",
-			TYPE);
+		return MAKE_GC_SAFE_ERROR(vm, "Vectors must have the same dimension for addition.", TYPE);
 	}
 
 	ObjectVector *result_vector = new_vector(vm, vec1->dimensions);
@@ -224,12 +212,120 @@ Value vector_add_method(VM *vm, const Value *args)
 	const double *comp1 = VECTOR_COMPONENTS(vec1);
 	const double *comp2 = VECTOR_COMPONENTS(vec2);
 	double *result_comp = VECTOR_COMPONENTS(result_vector);
-
 	compute_vector_add(result_comp, comp1, comp2, vec1->dimensions);
 
 	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
 	pop(vm->current_module_record);
 	return OBJECT_VAL(res);
+}
+
+Value vector_subtract_value(VM *vm, const ObjectVector *vec1, const ObjectVector *vec2)
+{
+	if (vec1->dimensions != vec2->dimensions) {
+		return MAKE_GC_SAFE_ERROR(vm, "Vectors must have the same dimension for subtraction.", TYPE);
+	}
+
+	ObjectVector *result_vector = new_vector(vm, vec1->dimensions);
+	push(vm->current_module_record, OBJECT_VAL(result_vector));
+
+	const double *comp1 = VECTOR_COMPONENTS(vec1);
+	const double *comp2 = VECTOR_COMPONENTS(vec2);
+	double *result_comp = VECTOR_COMPONENTS(result_vector);
+	compute_vector_subtract(result_comp, comp1, comp2, vec1->dimensions);
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
+}
+
+Value vector_scalar_multiply_value(VM *vm, const ObjectVector *vec, const double scalar)
+{
+	ObjectVector *result_vector = new_vector(vm, vec->dimensions);
+	push(vm->current_module_record, OBJECT_VAL(result_vector));
+
+	const double *comp = VECTOR_COMPONENTS(vec);
+	double *result_comp = VECTOR_COMPONENTS(result_vector);
+	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
+}
+
+Value vector_scalar_divide_value(VM *vm, const ObjectVector *vec, const double scalar)
+{
+	if (IS_ZERO_SCALAR(scalar)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Cannot divide by zero.", MATH);
+	}
+
+	ObjectVector *result_vector = new_vector(vm, vec->dimensions);
+	push(vm->current_module_record, OBJECT_VAL(result_vector));
+
+	const double *comp = VECTOR_COMPONENTS(vec);
+	double *result_comp = VECTOR_COMPONENTS(result_vector);
+	compute_scalar_divide(result_comp, comp, scalar, vec->dimensions);
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
+}
+
+Value vector_component_divide_value(VM *vm, const ObjectVector *vec1, const ObjectVector *vec2)
+{
+	if (vec1->dimensions != vec2->dimensions) {
+		return MAKE_GC_SAFE_ERROR(vm, "Vectors must have the same dimension for division.", TYPE);
+	}
+
+	ObjectVector *result_vector = new_vector(vm, vec1->dimensions);
+	push(vm->current_module_record, OBJECT_VAL(result_vector));
+
+	const double *comp1 = VECTOR_COMPONENTS(vec1);
+	const double *comp2 = VECTOR_COMPONENTS(vec2);
+	double *result_comp = VECTOR_COMPONENTS(result_vector);
+	for (uint32_t i = 0; i < vec1->dimensions; i++) {
+		if (IS_ZERO_SCALAR(comp2[i])) {
+			pop(vm->current_module_record);
+			return MAKE_GC_SAFE_ERROR(vm, "Cannot divide by zero component.", MATH);
+		}
+		result_comp[i] = comp1[i] / comp2[i];
+	}
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
+}
+
+Value vector_cross_value(VM *vm, const ObjectVector *vec1, const ObjectVector *vec2)
+{
+	if (vec1->dimensions != 3 || vec2->dimensions != 3) {
+		return MAKE_GC_SAFE_ERROR(vm, "cross product is only defined for 3-D vectors.", TYPE);
+	}
+
+	ObjectVector *tmp = new_vector(vm, 3);
+	push(vm->current_module_record, OBJECT_VAL(tmp));
+
+	const double *comp1 = VECTOR_COMPONENTS(vec1);
+	const double *comp2 = VECTOR_COMPONENTS(vec2);
+	double *result_comp = VECTOR_COMPONENTS(tmp);
+
+	result_comp[0] = comp1[1] * comp2[2] - comp1[2] * comp2[1];
+	result_comp[1] = comp1[2] * comp2[0] - comp1[0] * comp2[2];
+	result_comp[2] = comp1[0] * comp2[1] - comp1[1] * comp2[0];
+
+	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
+	pop(vm->current_module_record);
+	return OBJECT_VAL(res);
+}
+
+/**
+ * Adds two vectors together (vectors must have the same dimension)
+ * arg0 -> vector: Vector
+ * arg1 -> other: Vector
+ * Returns Result<Vector>
+ */
+Value vector_add_method(VM *vm, const Value *args)
+{
+	return vector_add_value(vm, AS_CRUX_VECTOR(args[0]), AS_CRUX_VECTOR(args[1]));
 }
 
 /**
@@ -240,28 +336,7 @@ Value vector_add_method(VM *vm, const Value *args)
  */
 Value vector_subtract_method(VM *vm, const Value *args)
 {
-	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
-	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
-
-	if (vec1->dimensions != vec2->dimensions) {
-		return MAKE_GC_SAFE_ERROR(
-			vm,
-			"Vectors must have the same dimension for subtraction.",
-			TYPE);
-	}
-
-	ObjectVector *result_vector = new_vector(vm, vec1->dimensions);
-	push(vm->current_module_record, OBJECT_VAL(result_vector));
-
-	const double *comp1 = VECTOR_COMPONENTS(vec1);
-	const double *comp2 = VECTOR_COMPONENTS(vec2);
-	double *result_comp = VECTOR_COMPONENTS(result_vector);
-
-	compute_vector_subtract(result_comp, comp1, comp2, vec1->dimensions);
-
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
-	pop(vm->current_module_record);
-	return OBJECT_VAL(res);
+	return vector_subtract_value(vm, AS_CRUX_VECTOR(args[0]), AS_CRUX_VECTOR(args[1]));
 }
 
 /**
@@ -272,20 +347,7 @@ Value vector_subtract_method(VM *vm, const Value *args)
  */
 Value vector_multiply_method(VM *vm, const Value *args)
 {
-	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
-	const double scalar = TO_DOUBLE(args[1]);
-
-	ObjectVector *result_vector = new_vector(vm, vec->dimensions);
-	push(vm->current_module_record, OBJECT_VAL(result_vector));
-
-	const double *comp = VECTOR_COMPONENTS(vec);
-	double *result_comp = VECTOR_COMPONENTS(result_vector);
-
-	compute_scalar_multiply(result_comp, comp, scalar, vec->dimensions);
-
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(result_vector));
-	pop(vm->current_module_record);
-	return OBJECT_VAL(res);
+	return vector_scalar_multiply_value(vm, AS_CRUX_VECTOR(args[0]), TO_DOUBLE(args[1]));
 }
 
 /**
@@ -296,21 +358,7 @@ Value vector_multiply_method(VM *vm, const Value *args)
  */
 Value vector_divide_method(VM *vm, const Value *args)
 {
-	const ObjectVector *vec = AS_CRUX_VECTOR(args[0]);
-	const double scalar = TO_DOUBLE(args[1]);
-
-	if (IS_ZERO_SCALAR(scalar)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Cannot divide by zero.", MATH);
-	}
-
-	ObjectVector *result_vector = new_vector(vm, vec->dimensions);
-
-	const double *comp = VECTOR_COMPONENTS(vec);
-	double *result_comp = VECTOR_COMPONENTS(result_vector);
-
-	compute_scalar_divide(result_comp, comp, scalar, vec->dimensions);
-
-	return OBJECT_VAL(new_ok_result(vm, OBJECT_VAL(result_vector)));
+	return vector_scalar_divide_value(vm, AS_CRUX_VECTOR(args[0]), TO_DOUBLE(args[1]));
 }
 
 /**
@@ -388,29 +436,7 @@ Value vector_distance_method(VM *vm, const Value *args)
  */
 Value vector_cross_method(VM *vm, const Value *args)
 {
-	const ObjectVector *vec1 = AS_CRUX_VECTOR(args[0]);
-	const ObjectVector *vec2 = AS_CRUX_VECTOR(args[1]);
-
-	if (vec1->dimensions != 3 || vec2->dimensions != 3) {
-		return MAKE_GC_SAFE_ERROR(
-			vm, "cross product is only defined for 3-D vectors.",
-			TYPE);
-	}
-
-	ObjectVector *tmp = new_vector(vm, 3);
-	push(vm->current_module_record, OBJECT_VAL(tmp));
-
-	const double *comp1 = VECTOR_COMPONENTS(vec1);
-	const double *comp2 = VECTOR_COMPONENTS(vec2);
-	double *result_comp = VECTOR_COMPONENTS(tmp);
-
-	result_comp[0] = comp1[1] * comp2[2] - comp1[2] * comp2[1];
-	result_comp[1] = comp1[2] * comp2[0] - comp1[0] * comp2[2];
-	result_comp[2] = comp1[0] * comp2[1] - comp1[1] * comp2[0];
-
-	ObjectResult *res = new_ok_result(vm, OBJECT_VAL(tmp));
-	pop(vm->current_module_record);
-	return OBJECT_VAL(res);
+	return vector_cross_value(vm, AS_CRUX_VECTOR(args[0]), AS_CRUX_VECTOR(args[1]));
 }
 
 /**

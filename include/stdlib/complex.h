@@ -12,6 +12,13 @@ Value square_magnitude_complex_number_method(VM *vm, const Value* args);
 
 Value new_complex_function(VM *vm, const Value* args);
 
+Value complex_add_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs);
+Value complex_subtract_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs);
+Value complex_multiply_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs);
+Value complex_divide_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs);
+Value complex_scalar_multiply_value(VM *vm, const ObjectComplex *value, double scalar);
+Value complex_scalar_divide_value(VM *vm, const ObjectComplex *value, double scalar);
+
 Value add_complex_number_method(VM *vm, const Value* args);
 Value sub_complex_number_method(VM *vm, const Value* args);
 Value mul_complex_number_method(VM *vm, const Value* args);
