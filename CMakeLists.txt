@@ -6,76 +6,98 @@ project(crux-lang C)
 
 set(CMAKE_C_STANDARD 11)
 
+option(CRUX_STACK_SAFETY "Enable stack push/pop safety checks" ON)
+option(CRUX_DEBUG_TRACE_EXECUTION "Enable execution tracing" OFF)
+option(CRUX_DEBUG_PRINT_CODE "Print compiled bytecode" OFF)
+option(CRUX_DEBUG_LOG_GC "Enable GC logging" OFF)
+option(CRUX_DEBUG_STRESS_GC "Enable GC stress mode" OFF)
+set(CRUX_VERSION "dev" CACHE STRING "Crux language version")
+
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-	add_compile_options(-g -O0 -Wswitch-enum -Wimplicit-fallthrough)
+if (CMAKE_BUILD_TYPE STREQUAL "ASAN" AND NOT UNIX)
+    message(FATAL_ERROR "ASAN builds are only allowed on UNIX-like systems")
+endif()
 
-	if (UNIX)
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
-	endif ()
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "ASAN")
+    add_compile_options(-g3 -O0 -Wimplicit-fallthrough)
 
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fstack-protector-strong")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fstack-protector-strong")
 
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wextra")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat=2 -Wformat-security")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wnull-dereference -Wstack-protector")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Warray-bounds -Wshift-overflow")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wextra")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat=2 -Wformat-security")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wnull-dereference -Wstack-protector")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Warray-bounds -Wshift-overflow")
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "ASAN")
+    if (UNIX)
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
+    endif ()
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-	add_compile_options(-O3 -fno-delete-null-pointer-checks -flto -flto=auto)
+    add_compile_options(-O3 -fno-delete-null-pointer-checks -flto -flto=auto)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Perf")
-	add_compile_options(-O2 -g -fno-omit-frame-pointer -fopt-info-vec-missed -fno-delete-null-pointer-checks -flto)
+    add_compile_options(-O2 -g -fno-omit-frame-pointer -fno-delete-null-pointer-checks -flto -flto=auto)
 endif()
 
 file(GLOB SOURCES
-				"src/*.c"
-				"src/stdlib/*.c"
-				"src/vm/*.c"
-				"src/memory/*.c"
-				"src/compiler/*.c"
+    "src/*.c"
+    "src/stdlib/*.c"
+    "src/vm/*.c"
+    "src/memory/*.c"
+    "src/compiler/*.c"
 )
 
 if (NOT WIN32)
-	list(APPEND SOURCES "deps/linenoise/linenoise.c")
+    list(APPEND SOURCES "deps/linenoise/linenoise.c")
 endif()
 
 file(GLOB HEADERS
-			"include/*.h"
-			"include/stdlib/*.h"
-			"deps/utf8/utf8.h"
+   "include/*.h"
+   "include/stdlib/*.h"
+   "deps/utf8/utf8.h"
 )
 
 if (NOT WIN32)
-	list(APPEND HEADERS "deps/linenoise/linenoise.h")
+    list(APPEND HEADERS "deps/linenoise/linenoise.h")
 endif()
 
 include_directories(include)
 
 if (NOT WIN32)
-	include_directories(deps/linenoise)
+    include_directories(deps/linenoise)
 endif()
 include_directories(deps/utf8)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(crux ${SOURCES} ${HEADERS})
 
+target_compile_definitions(crux PRIVATE
+        $<$<BOOL:${CRUX_STACK_SAFETY}>:STACK_SAFETY>
+        $<$<BOOL:${CRUX_DEBUG_TRACE_EXECUTION}>:DEBUG_TRACE_EXECUTION>
+        $<$<BOOL:${CRUX_DEBUG_PRINT_CODE}>:DEBUG_PRINT_CODE>
+        $<$<BOOL:${CRUX_DEBUG_LOG_GC}>:DEBUG_LOG_GC>
+        $<$<BOOL:${CRUX_DEBUG_STRESS_GC}>:DEBUG_STRESS_GC>
+        CRUX_VERSION="${CRUX_VERSION}"
+)
+
 if (UNIX)
-	target_link_libraries(crux PRIVATE m)
+    target_link_libraries(crux PRIVATE m)
 endif ()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND UNIX)
-	target_link_options(crux PRIVATE -fsanitize=address -fsanitize=undefined)
+if (CMAKE_BUILD_TYPE STREQUAL "ASAN")
+    target_link_options(crux PRIVATE -fsanitize=address -fsanitize=undefined)
 endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Profile")
-	target_compile_options(crux PRIVATE -pg)
-	target_link_options(crux PRIVATE -pg)
+    target_compile_options(crux PRIVATE -pg)
+    target_link_options(crux PRIVATE -pg)
 endif ()

@@ -90,6 +90,10 @@ typedef uint32_t TypeMask;
 #define RANGE_TYPE (1u << 20)
 #define SHAPE_TYPE (1u << 21)
 #define UNION_TYPE (1u << 22)
+#define ITERATOR_TYPE (1u << 23)
+#define OPTION_TYPE (1u << 24)
+#define COROUTINE_TYPE (1u << 25)
+#define ENUM_TYPE (1u << 26)
 
 #define NEVER_TYPE (1u << 30)
 #define ANY_TYPE (1u << 31)

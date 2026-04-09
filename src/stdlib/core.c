@@ -7,6 +7,7 @@
 #include "panic.h"
 #include "stdlib/range.h"
 #include "utf8.h"
+#include "value.h"
 
 static Value get_length(const Value value)
 {
@@ -428,4 +429,23 @@ Value format_function(VM *vm, const Value *args)
 
 	free(tokens);
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
+}
+
+Value iter_function(VM *vm, const Value *args)
+{
+	Value iterator;
+	if (!get_iterator_from_value(vm, args[0], &iterator)) {
+		return MAKE_GC_SAFE_ERROR(vm, "Expected an iterable object.", VALUE);
+	}
+	return OBJECT_VAL(new_ok_result(vm, iterator));
+}
+
+Value next_function(VM *vm, const Value *args)
+{
+	Value option;
+	if (!get_next_option_from_iterator(vm, args[0], &option)) {
+		ObjectOption *none = new_option(vm, NIL_VAL, false);
+		return OBJECT_VAL(none);
+	}
+	return option;
 }

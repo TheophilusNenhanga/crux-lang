@@ -16,10 +16,9 @@ Value new_set_function(VM *vm, const Value *args)
 	ObjectSet *set = new_set(vm, INITIAL_SET_CAPACITY);
 	for (uint32_t i = 0; i < array->size; i++) {
 		Value value = array->values[i];
-		if (!IS_CRUX_HASHABLE(value)) {
+		if (!set_add_value(vm, set, value)) {
 			return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 		}
-		object_table_set(vm, set->entries, value, NIL_VAL);
 	}
 	push(vm->current_module_record, OBJECT_VAL(set));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(set));
@@ -37,10 +36,9 @@ Value add_set_method(VM *vm, const Value *args)
 {
 	ObjectSet *set = AS_CRUX_SET(args[0]);
 	Value value = args[1];
-	if (!IS_CRUX_HASHABLE(value)) {
+	if (!set_add_value(vm, set, value)) {
 		return MAKE_GC_SAFE_ERROR(vm, "All set elements must be hashable.", TYPE);
 	}
-	object_table_set(vm, set->entries, value, NIL_VAL);
 	return value;
 }
 

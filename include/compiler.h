@@ -1,10 +1,12 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include <stdint.h>
 #include "garbage_collector.h"
 #include "object.h"
 #include "scanner.h"
 #include "type_system.h"
+#include "common.h"
 
 /**
  * @brief Parser state used during compilation.
@@ -32,6 +34,7 @@ typedef enum {
 	PREC_BITWISE_AND, // &
 	PREC_EQUALITY, // == !=
 	PREC_COMPARISON, // < > <= >=
+	PREC_IN, // in
 	PREC_SHIFT, // << >>
 	PREC_TERM, // + -
 	PREC_FACTOR, // * /
@@ -93,6 +96,49 @@ typedef struct {
 	ObjectTypeRecord *stripped_down;
 } NarrowingInfo;
 
+typedef enum {
+    MATCH_PATTERN_DEFAULT,
+    MATCH_PATTERN_OK,
+    MATCH_PATTERN_ERR,
+    MATCH_PATTERN_SOME,
+    MATCH_PATTERN_NONE,
+    MATCH_PATTERN_EXPRESSION,
+    MATCH_PATTERN_TYPE
+} MatchPatternType;
+
+typedef struct {
+    MatchPatternType type;
+    int jump_if_not_match;
+    uint16_t binding_slot;
+    ObjectTypeRecord* type_produced;
+    bool is_binding;
+} MatchPattern;
+
+typedef struct {
+    ObjectTypeRecord* target_type;
+    ObjectTypeRecord* resultant_type;
+    bool has_ok;
+    bool has_err;
+    bool has_some;
+    bool has_none;
+    bool has_literal;
+    bool has_type;
+    bool has_default;
+    ObjectTypeRecord** matched_types;
+    int matched_types_count;
+    int matched_types_capacity;
+}MatchExhaustiveness;
+
+typedef struct {
+    MatchPattern *patterns;
+    int pattern_count;
+    int pattern_capacity;
+    MatchExhaustiveness exhaustiveness;
+    int* end_jumps;
+    int jump_count;
+    int jump_capacity;
+} MatchCompiler;
+
 struct Compiler {
 	VM *owner;
 	Compiler *enclosing;
@@ -102,7 +148,6 @@ struct Compiler {
 	ObjectTypeRecord *return_type;
 	int local_count;
 	int scope_depth; // 0 is global scope
-	int match_depth; // 0 is no match
 	int loop_depth; // 0 is no loop
 	LoopContext loop_stack[UINT8_COUNT];
 	Local locals[UINT8_COUNT];
@@ -114,6 +159,8 @@ struct Compiler {
 	Parser *parser;
 	bool has_return;
 	NarrowingInfo current_narrowing;
+    MatchCompiler match_compiler[MATCH_NEST_DEPTH];
+    int match_depth;
 };
 typedef void (*ParseFn)(Compiler *compiler, const bool can_assign);
 
@@ -130,6 +177,7 @@ typedef struct {
 #define T_FLOAT new_type_rec(compiler->owner, FLOAT_TYPE)
 #define T_STRING new_type_rec(compiler->owner, STRING_TYPE)
 #define T_NIL new_type_rec(compiler->owner, NIL_TYPE)
+#define T_ERROR new_type_rec(compiler->owner, ERROR_TYPE)
 
 void mark_compiler_roots(VM *vm, const Compiler *compiler);
 ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *source);
@@ -313,4 +361,11 @@ void add_local(Compiler *compiler, Token name, ObjectTypeRecord *type);
  */
 int resolve_upvalue(Compiler *compiler, Token *name);
 
+void ensure_local_name_available(const Compiler *compiler, const Token name);
+
+void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *type);
+
+bool match_type_name(const Compiler *compiler);
+
+TypeMask type_token_type_to_mask(CruxTokenType token_type);
 #endif // COMPILER_H

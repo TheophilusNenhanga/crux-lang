@@ -9,11 +9,14 @@
 #include "stdlib/core.h"
 #include "stdlib/error.h"
 #include "stdlib/fs.h"
+#include "stdlib/gc.h"
 #include "stdlib/io.h"
 #include "stdlib/math.h"
 #include "stdlib/matrix.h"
+#include "stdlib/option.h"
 #include "stdlib/random.h"
 #include "stdlib/range.h"
+#include "stdlib/result.h"
 #include "stdlib/set.h"
 #include "stdlib/stdlib.h"
 #include "stdlib/string.h"
@@ -57,20 +60,37 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 
 #define ARGS0 NULL
 
+#define name_any copy_string(SA, "Any", sizeof("Any"))
 #define name_int copy_string(SA, "Int", sizeof("Int"))
 #define name_float copy_string(SA, "Float", sizeof("Float"))
 #define name_string copy_string(SA, "String", sizeof("String"))
 #define name_nil copy_string(SA, "Nil", sizeof("Nil"))
 #define name_bool copy_string(SA, "Bool", sizeof("Bool"))
+#define name_vec copy_string(SA, "Vector[]", sizeof("Vector[]"))
+#define name_mat copy_string(SA, "Matrix[,]", sizeof("Matrix[,]"))
+#define name_set copy_string(SA, "Set[]", sizeof("Set[]"))
+#define name_tbl copy_string(SA, "Table[,]", sizeof("Table[,]"))
+#define name_rang copy_string(SA, "Range", sizeof("Range"))
+#define name_buf copy_string(SA, "Buffer", sizeof("Buffer"))
+#define name_iter copy_string(SA, "Iterator[]", sizeof("Iterator[]"))
+#define name_tup copy_string(SA, "Tuple[]", sizeof("Tuple[]"))
+#define name_arr copy_string(SA, "Array[Any]", sizeof("Array[Any]"))
+#define name_iterable                                                                                                  \
+	copy_string(                                                                                                       \
+		SA, "Iterator[] | Array[Any] | Vector[] | Matrix[,] | Set[] | Table[,] | Tuple[] | Range | Buffer | String",   \
+		sizeof(                                                                                                        \
+			"Iterator[] | Array[Any] | Vector[] | Matrix[,] | Set[] | Table[,] | Tuple[] | Range | Buffer | String"))
 
 #define REC(t) new_type_rec(SA, (t))
 #define ARR(elem) new_array_type_rec(SA, (elem))
+#define ITER(elem) new_iterator_type_rec(SA, (elem))
 #define TUP_ANY new_tuple_type_rec(SA, NULL, -1)
 #define SET_ANY new_set_type_rec(SA, t_any)
 #define TBL(k, v) new_table_type_rec(SA, (k), (v))
 #define RES(ok) new_result_type_rec(SA, (ok))
 #define SET_OF(elem) new_set_type_rec(SA, (elem))
 #define TABLE_OF(key, value) new_table_type_rec(SA, (key), (value))
+#define OPT(elem) new_option_type_rec(SA, (elem))
 
 #define VEC(dim) new_vector_type_rec(SA, (dim))
 #define MAT(row, col) new_matrix_type_rec(SA, (row), (col))
@@ -91,9 +111,23 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define t_buf REC(BUFFER_TYPE)
 #define t_never REC(NEVER_TYPE)
 
+#define arr_str ARR(t_str)
+#define arr_any ARR(t_any)
+#define arr_int ARR(t_int)
+#define arr_flt ARR(t_flt)
+#define set_any SET_OF(t_any)
+#define vec_any VEC(-1)
+#define mat_any MAT(-1, -1)
+#define tbl_any TABLE_OF(t_any, t_any)
+#define iter_any ITER(t_any)
+#define opt_any OPT(t_any)
+
 #define hashable                                                                                                       \
 	UNI(ARGS(t_nil, t_int, t_flt, t_bool, t_str), NAMES(name_nil, name_int, name_float, name_bool, name_string), 5)
 #define numeric UNI(ARGS(t_int, t_flt), NAMES(name_int, name_float), 2)
+#define iterable                                                                                                       \
+	UNI(ARGS(iter_any, arr_any, mat_any, TUP_ANY, t_str, set_any, vec_any, t_rang, t_buf),                             \
+		NAMES(name_iter, name_arr, name_mat, name_tup, name_string, name_set, name_vec, name_rang, name_buf), 9)
 
 // Compound types
 #define res_nil RES(t_nil)
@@ -103,16 +137,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define res_flt RES(t_flt)
 #define res_bool RES(t_bool)
 
-#define arr_str ARR(t_str)
-#define arr_any ARR(t_any)
-#define arr_int ARR(t_int)
-#define arr_flt ARR(t_flt)
 #define arr_num ARR(numeric)
-
-#define set_any SET_OF(t_any)
-#define vec_any VEC(-1)
-#define mat_any MAT(-1, -1)
-#define tbl_any TABLE_OF(t_any, t_any)
 
 bool register_native_method(VM *vm, Table *method_table, const char *method_name, const CruxCallable method_function,
 							const int arity, ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
@@ -127,14 +152,14 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 									 const CruxCallable function, const int arity, ObjectTypeRecord **arg_types,
 									 ObjectTypeRecord *return_type)
 {
-	ObjectModuleRecord *mod = vm->current_module_record;
+	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectString *name = copy_string(vm, function_name, (int)strlen(function_name));
-	push(mod, OBJECT_VAL(name));
+	push(module_record, OBJECT_VAL(name));
 	const Value func = OBJECT_VAL(new_native_callable(vm, function, arity, name, arg_types, return_type));
-	push(mod, func);
+	push(module_record, func);
 	const bool ok = table_set(vm, function_table, name, func);
-	pop(mod);
-	pop(mod);
+	pop(module_record);
+	pop(module_record);
 	return ok;
 }
 
@@ -195,15 +220,15 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {{"len", length_function, 1, ARGS(t_any), t_int},
 								{"error", error_function, 1, ARGS(t_any), t_err},
 								{"assert", assert_function, 2, ARGS(t_bool, t_str), t_nil},
-								{"err", err_function, 1, ARGS(t_str), RES(t_any)},
-								{"ok", ok_function, 1, ARGS(t_any), RES(t_any)},
 								{"int", int_function, 1, ARGS(t_any), RES(t_int)},
 								{"float", float_function, 1, ARGS(t_any), RES(t_flt)},
 								{"string", string_function, 1, ARGS(t_any), t_str},
 								{"table", table_function, 1, ARGS(t_any), RES(tbl_any)},
 								{"array", array_function, 1, ARGS(t_any), RES(arr_any)},
 								{"format", format_function, 2, ARGS(t_str, TBL(t_str, t_any)), res_nil},
-								{"println", io_println_function, 1, ARGS(t_any), t_nil}};
+								{"println", io_println_function, 1, ARGS(t_any), t_nil},
+								{"iter", iter_function, 1, ARGS(t_any), res_any},
+								{"next", next_function, 1, ARGS(t_any), opt_any}};
 
 		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;
@@ -302,9 +327,23 @@ bool initialize_std_lib(VM *vm)
 	// Result methods
 	{
 		const Callable methods[] = {
-			{"unwrap", unwrap_function, 1, ARGS(res_any), t_any},
+			{"unwrap", result_unwrap_method, 1, ARGS(res_any), t_any},
+			{"unwrap_or", result_unwrap_or_method, 2, ARGS(res_any, t_any), t_any},
+			{"is_ok", result_is_ok_method, 1, ARGS(res_any), t_bool},
+			{"is_err", result_is_err_method, 1, ARGS(res_any), t_bool},
 		};
 		init_type_method_table(vm, &vm->result_type, methods, ARRAY_COUNT(methods));
+	}
+
+	// Option methods
+	{
+		const Callable methods[] = {
+			{"unwrap", option_unwrap_method, 1, ARGS(new_option_type_rec(SA, t_any)), t_any},
+			{"unwrap_or", option_unwrap_or_method, 2, ARGS(new_option_type_rec(SA, t_any), t_any), t_any},
+			{"is_some", option_is_some_method, 1, ARGS(new_option_type_rec(SA, t_any)), t_bool},
+			{"is_none", option_is_none_method, 1, ARGS(new_option_type_rec(SA, t_any)), t_bool},
+		};
+		init_type_method_table(vm, &vm->option_type, methods, ARRAY_COUNT(methods));
 	}
 
 	// File methods
@@ -341,6 +380,23 @@ bool initialize_std_lib(VM *vm)
 			{"Random", random_init_function, 0, ARGS0, t_rnd},
 		};
 		if (!init_module(vm, "random", fns, ARRAY_COUNT(fns))) {
+			vm->gc_status = prev_status;
+			return false;
+		}
+	}
+
+	// GC module
+	{
+		const Callable fns[] = {
+			{"off", gc_off_function, 0, ARGS0, t_nil},
+			{"on", gc_on_function, 0, ARGS0, t_nil},
+			{"set_heap_growth", gc_set_heap_growth_function, 1, ARGS(numeric), res_nil},
+			{"collect", gc_collect_function, 0, ARGS0, t_nil},
+			{"heap_used", gc_heap_used_function, 0, ARGS0, t_flt},
+			{"heap_capacity", gc_heap_capacity_function, 0, ARGS0, t_flt},
+			{"is_on", gc_is_on_function, 0, ARGS0, t_bool},
+		};
+		if (!init_module(vm, "gc", fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;
 			return false;
 		}

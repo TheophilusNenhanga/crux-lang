@@ -1,4 +1,5 @@
 #include "stdlib/tuple.h"
+#include <stdint.h>
 #include "object.h"
 #include "panic.h"
 
@@ -144,9 +145,9 @@ Value get_tuple_method(VM *vm, const Value *args)
 Value slice_tuple_method(VM *vm, const Value *args)
 {
 	ObjectTuple *tuple = AS_CRUX_TUPLE(args[0]);
-	uint32_t start = AS_INT(args[1]);
-	uint32_t end = AS_INT(args[2]);
-	if (start < 0 || end > tuple->size || start > end) {
+	uint32_t start = (uint32_t)AS_INT(args[1]);
+	uint32_t end = (uint32_t)AS_INT(args[2]);
+	if (end > tuple->size || start > end) {
 		return MAKE_GC_SAFE_ERROR(vm, "Invalid slice range", BOUNDS);
 	}
 	ObjectArray *array = new_array(vm, end - start);

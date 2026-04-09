@@ -15,3 +15,4 @@ src/CMakeSettings.json
 *.ppm
 # for perf data
 *.data
+/.zed

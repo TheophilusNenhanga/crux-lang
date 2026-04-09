@@ -30,7 +30,7 @@ void mark_object(VM *vm, CruxObject *object)
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
-		CruxObject** new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
+		CruxObject **new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
 		if (new_objects == NULL) {
 			exit(1);
 		}
@@ -123,12 +123,14 @@ static void blacken_vector(VM *vm, CruxObject *object);
 static void blacken_complex(VM *vm, CruxObject *object);
 static void blacken_string(VM *vm, CruxObject *object);
 static void blacken_range(VM *vm, CruxObject *object);
+static void blacken_iterator(VM *vm, CruxObject *object);
 static void blacken_set(VM *vm, CruxObject *object);
 static void blacken_buffer(VM *vm, CruxObject *object);
 static void blacken_tuple(VM *vm, CruxObject *object);
 static void blacken_matrix(VM *vm, CruxObject *object);
 static void blacken_type_record(VM *vm, CruxObject *object);
 static void blacken_type_table(VM *vm, CruxObject *object);
+static void blacken_option(VM *vm, CruxObject *object);
 
 static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_STRING] = blacken_string,
@@ -140,6 +142,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_TABLE] = blacken_table,
 	[OBJECT_ERROR] = blacken_error,
 	[OBJECT_RESULT] = blacken_result,
+	[OBJECT_OPTION] = blacken_option,
 	[OBJECT_RANDOM] = blacken_random,
 	[OBJECT_FILE] = blacken_file,
 	[OBJECT_MODULE_RECORD] = blacken_module_record,
@@ -148,6 +151,7 @@ static const BlackenFunction blacken_dispatch[] = {
 	[OBJECT_VECTOR] = blacken_vector,
 	[OBJECT_COMPLEX] = blacken_complex,
 	[OBJECT_RANGE] = blacken_range,
+	[OBJECT_ITERATOR] = blacken_iterator,
 	[OBJECT_SET] = blacken_set,
 	[OBJECT_BUFFER] = blacken_buffer,
 	[OBJECT_TUPLE] = blacken_tuple,
@@ -222,6 +226,12 @@ static void blacken_native_callable(VM *vm, CruxObject *object)
 	mark_type_record(vm, native->return_type);
 }
 
+static void blacken_iterator(VM *vm, CruxObject *object)
+{
+	const ObjectIterator *iterator = (ObjectIterator *)object;
+	mark_value(vm, iterator->iterable);
+}
+
 static void blacken_result(VM *vm, CruxObject *object)
 {
 	const ObjectResult *result = (ObjectResult *)object;
@@ -230,6 +240,12 @@ static void blacken_result(VM *vm, CruxObject *object)
 	} else {
 		mark_object(vm, (CruxObject *)result->as.error);
 	}
+}
+
+static void blacken_option(VM *vm, CruxObject *object)
+{
+	const ObjectOption *option = (ObjectOption *)object;
+	mark_value(vm, option->value);
 }
 
 static void blacken_random(VM *vm, CruxObject *object)
@@ -347,12 +363,18 @@ static void blacken_type_record(VM *vm, CruxObject *object)
 	case ARRAY_TYPE:
 		mark_type_record(vm, rec->as.array_type.element_type);
 		break;
+	case ITERATOR_TYPE:
+		mark_type_record(vm, rec->as.iterator_type.element_type);
+		break;
 	case TABLE_TYPE:
 		mark_type_record(vm, rec->as.table_type.key_type);
 		mark_type_record(vm, rec->as.table_type.value_type);
 		break;
 	case RESULT_TYPE:
 		mark_type_record(vm, rec->as.result_type.ok_type);
+		break;
+	case OPTION_TYPE:
+		mark_type_record(vm, rec->as.option_type.some_type);
 		break;
 	case STRUCT_TYPE:
 		if (rec->as.struct_type.definition) {
@@ -406,6 +428,7 @@ static void free_object_array(VM *vm, CruxObject *object);
 static void free_object_table_wrapper(VM *vm, CruxObject *object);
 static void free_object_error(VM *vm, CruxObject *object);
 static void free_object_result(VM *vm, CruxObject *object);
+static void free_object_option(VM *vm, CruxObject *object);
 static void free_object_random(VM *vm, CruxObject *object);
 static void free_object_file(VM *vm, CruxObject *object);
 static void free_object_module_record_wrapper(VM *vm, CruxObject *object);
@@ -415,6 +438,7 @@ static void free_object_vector(VM *vm, CruxObject *object);
 static void free_object_complex(VM *vm, CruxObject *object);
 static void free_object_set(VM *vm, CruxObject *object);
 static void free_object_range(VM *vm, CruxObject *object);
+static void free_object_iterator(VM *vm, CruxObject *object);
 static void free_object_buffer(VM *vm, CruxObject *object);
 static void free_object_tuple(VM *vm, CruxObject *object);
 static void free_object_matrix(VM *vm, CruxObject *object);
@@ -431,6 +455,7 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_TABLE] = free_object_table_wrapper,
 	[OBJECT_ERROR] = free_object_error,
 	[OBJECT_RESULT] = free_object_result,
+	[OBJECT_OPTION] = free_object_option,
 	[OBJECT_RANDOM] = free_object_random,
 	[OBJECT_FILE] = free_object_file,
 	[OBJECT_MODULE_RECORD] = free_object_module_record_wrapper,
@@ -440,6 +465,7 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_COMPLEX] = free_object_complex,
 	[OBJECT_SET] = free_object_set,
 	[OBJECT_RANGE] = free_object_range,
+	[OBJECT_ITERATOR] = free_object_iterator,
 	[OBJECT_BUFFER] = free_object_buffer,
 	[OBJECT_TUPLE] = free_object_tuple,
 	[OBJECT_MATRIX] = free_object_matrix,
@@ -537,6 +563,11 @@ static void free_object_result(VM *vm, CruxObject *object)
 	FREE_OBJECT(vm, ObjectResult, object);
 }
 
+static void free_object_option(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectOption, object);
+}
+
 static void free_object_random(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectRandom, object);
@@ -597,6 +628,11 @@ static void free_object_set(VM *vm, CruxObject *object)
 static void free_object_range(VM *vm, CruxObject *object)
 {
 	FREE_OBJECT(vm, ObjectRange, object);
+}
+
+static void free_object_iterator(VM *vm, CruxObject *object)
+{
+	FREE_OBJECT(vm, ObjectIterator, object);
 }
 
 static void free_object_buffer(VM *vm, CruxObject *object)
@@ -718,6 +754,7 @@ void mark_roots(VM *vm)
 	mark_table(vm, &vm->error_type);
 	mark_table(vm, &vm->file_type);
 	mark_table(vm, &vm->result_type);
+	mark_table(vm, &vm->option_type);
 	mark_table(vm, &vm->vector_type);
 	mark_table(vm, &vm->complex_type);
 	mark_table(vm, &vm->matrix_type);
@@ -732,8 +769,10 @@ void mark_roots(VM *vm)
 		mark_compiler_roots(vm, vm->main_compiler);
 	}
 
-	mark_value(vm, vm->match_handler.match_bind);
-	mark_value(vm, vm->match_handler.match_target);
+	for (uint32_t i = 0; i < vm->match_handler_stack.count; i++) {
+		mark_value(vm, vm->match_handler_stack.handlers[i].match_bind);
+		mark_value(vm, vm->match_handler_stack.handlers[i].match_target);
+	}
 }
 
 static void trace_references(VM *vm)
@@ -775,7 +814,7 @@ void collect_garbage(VM *vm)
 	trace_references(vm);
 	table_remove_white(vm, &vm->strings); // Clean up string table
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * INIT_GC_HEAP_GROW_FACTOR;
+	vm->next_gc = vm->bytes_allocated * vm->heap_growth_factor;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");

@@ -273,6 +273,10 @@ int sprint_type_to(char *buffer, size_t size, const Value value)
 		APPEND("Range");
 		break;
 	}
+	case OBJECT_ITERATOR: {
+		APPEND("Iterator");
+		break;
+	}
 	case OBJECT_TUPLE: {
 		APPEND("Tuple");
 		break;
@@ -283,6 +287,25 @@ int sprint_type_to(char *buffer, size_t size, const Value value)
 	}
 	case OBJECT_SET: {
 		APPEND("Set");
+		break;
+	}
+	case OBJECT_OPTION: {
+		const ObjectOption *option = AS_CRUX_OPTION(value);
+		if (option->is_some) {
+			APPEND("Option[");
+			written += sprint_type_to(buffer + written, size - written, option->value);
+			APPEND("]");
+		} else {
+			APPEND("Option[None]");
+		}
+		break;
+	}
+	case OBJECT_ENUM: {
+		APPEND("Enum");
+		break;
+	}
+	case OBJECT_COROUTINE: {
+		APPEND("Coroutine");
 		break;
 	}
 	default:
@@ -363,7 +386,7 @@ static ObjectString *allocate_string(VM *vm, utf8_int8_t *chars, const uint32_t 
  *
  * @return A 32-bit hash code for the string.
  */
-static uint32_t hash_string(const char *key, const size_t length)
+uint32_t hash_string(const char *key, const size_t length)
 {
 	static const uint32_t FNV_OFFSET_BIAS = 2166136261u;
 	static const uint32_t FNV_PRIME = 16777619u;
@@ -502,14 +525,23 @@ static void print_array_to(FILE *stream, const Value *values, const uint32_t siz
 	fprintf(stream, "]");
 }
 
-static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size)
+static void print_table_to(FILE *stream, const ObjectTableEntry *entries, const uint32_t capacity, const uint32_t size,
+						   bool is_set)
 {
 	uint32_t printed = 0;
 	if (entries == NULL) {
-		fprintf(stream, "{}");
+		if (is_set) {
+			fprintf(stream, "${}");
+		} else {
+			fprintf(stream, "{}");
+		}
 		return;
 	}
-	fprintf(stream, "{");
+	if (is_set) {
+		fprintf(stream, "${");
+	} else {
+		fprintf(stream, "{");
+	}
 	for (uint32_t i = 0; i < capacity; i++) {
 		if (entries[i].is_occupied) {
 			print_value_to(stream, entries[i].key, true);
@@ -600,7 +632,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TABLE: {
 		const ObjectTable *table = AS_CRUX_TABLE(value);
-		print_table_to(stream, table->entries, table->capacity, table->size);
+		print_table_to(stream, table->entries, table->capacity, table->size, false);
 		break;
 	}
 	case OBJECT_ERROR: {
@@ -679,7 +711,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_SET: {
 		const ObjectSet *set = AS_CRUX_SET(value);
-		print_table_to(stream, set->entries->entries, set->entries->capacity, set->entries->size);
+		print_table_to(stream, set->entries->entries, set->entries->capacity, set->entries->size, true);
 		break;
 	}
 
@@ -689,7 +721,7 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TUPLE: {
 		const ObjectTuple *tuple = AS_CRUX_TUPLE(value);
-		fprintf(stream, "Tuple(%u)[", tuple->size);
+		fprintf(stream, "$[");
 		for (uint32_t i = 0; i < tuple->size; i++) {
 			if (i != 0) {
 				fprintf(stream, ", ");
@@ -701,7 +733,11 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_RANGE: {
 		const ObjectRange *range = AS_CRUX_RANGE(value);
-		fprintf(stream, "Range(%d..%d..%d)", range->start, range->step, range->end);
+		fprintf(stream, "<Range(%d..%d..%d)>", range->start, range->step, range->end);
+		break;
+	}
+	case OBJECT_ITERATOR: {
+		fprintf(stream, "<iterator>");
 		break;
 	}
 	case OBJECT_TYPE_RECORD: {
@@ -711,6 +747,19 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 	}
 	case OBJECT_TYPE_TABLE: {
 		fprintf(stream, "<TypeTable>");
+		break;
+	}
+	case OBJECT_OPTION: {
+		fprintf(stream, "<Option>");
+		break;
+	}
+	case OBJECT_ENUM: {
+		fprintf(stream, "<Enum>");
+		break;
+	}
+	case OBJECT_COROUTINE: {
+		fprintf(stream, "<Coroutine>");
+		break;
 	}
 	}
 }
@@ -942,6 +991,18 @@ ObjectString *to_string(VM *vm, const Value value)
 	}
 	case OBJECT_RANGE: {
 		return copy_string(vm, "<Range>", 7);
+	}
+	case OBJECT_ITERATOR: {
+		return copy_string(vm, "<Iterator>", 10);
+	}
+	case OBJECT_OPTION: {
+		return copy_string(vm, "<Option>", 8);
+	}
+	case OBJECT_ENUM: {
+		return copy_string(vm, "<Enum>", 6);
+	}
+	case OBJECT_COROUTINE: {
+		return copy_string(vm, "<Coroutine>", 11);
 	}
 
 	default:
@@ -1433,6 +1494,14 @@ ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step)
 	return range;
 }
 
+ObjectIterator *new_iterator(VM *vm, Value iterable)
+{
+	ObjectIterator *iterator = ALLOCATE_OBJECT(vm, ObjectIterator, OBJECT_ITERATOR);
+	iterator->iterable = iterable;
+	iterator->index = 0;
+	return iterator;
+}
+
 ObjectSet *new_set(VM *vm, uint32_t element_count)
 {
 	ObjectSet *set = ALLOCATE_OBJECT(vm, ObjectSet, OBJECT_SET);
@@ -1495,4 +1564,164 @@ void mark_object_type_table(VM *vm, ObjectTypeTable *table)
 		mark_object(vm, (CruxObject *)table->entries[i].key);
 		mark_object(vm, (CruxObject *)table->entries[i].value);
 	}
+}
+
+/**
+ * Adds a value to a set, validating hashability and deduplicating by key.
+ */
+bool set_add_value(VM *vm, ObjectSet *set, Value value)
+{
+	if (!IS_CRUX_HASHABLE(value)) {
+		return false;
+	}
+	object_table_set(vm, set->entries, value, NIL_VAL);
+	return true;
+}
+
+bool validate_range_values(int32_t start, int32_t step, int32_t end, const char **error_message)
+{
+	if (step == 0) {
+		if (error_message)
+			*error_message = "<step> cannot be zero.";
+		return false;
+	}
+	if (step > 0 && start > end) {
+		if (error_message)
+			*error_message = "<start> cannot be greater than <end> when <step> is positive.";
+		return false;
+	}
+	if (step < 0 && start < end) {
+		if (error_message)
+			*error_message = "<start> cannot be less than <end> when <step> is negative.";
+		return false;
+	}
+	return true;
+}
+
+uint32_t range_len(const ObjectRange *range)
+{
+	if (range->step > 0)
+		return (range->end - range->start + range->step - 1) / range->step;
+	else
+		return (range->start - range->end - range->step - 1) / (-range->step);
+}
+
+bool range_contains(const ObjectRange *range, int32_t value)
+{
+	if (range->step > 0)
+		return value >= range->start && value < range->end && (value - range->start) % range->step == 0;
+	else
+		return value <= range->start && value > range->end && (range->start - value) % (-range->step) == 0;
+}
+
+/**
+ * Check if there is a next value in the current iterator
+ * Returns true if there is a next value, false otherwise.
+ * result is set to the next value if there is one.
+ */
+bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result)
+{
+	const Value iterable = iterator->iterable;
+
+	if (!IS_CRUX_OBJECT(iterable)) {
+		runtime_panic(module_record, TYPE, "Cannot iterate over a non-iterable value");
+		return false;
+	}
+
+	switch (OBJECT_TYPE(iterable)) {
+	case OBJECT_ARRAY: {
+		const ObjectArray *array = AS_CRUX_ARRAY(iterable);
+		if (iterator->index >= array->size) {
+			return false;
+		}
+		*result = array->values[iterator->index++];
+		return true;
+	}
+	case OBJECT_TUPLE: {
+		const ObjectTuple *tuple = AS_CRUX_TUPLE(iterable);
+		if (iterator->index >= tuple->size) {
+			return false;
+		}
+		*result = tuple->elements[iterator->index++];
+		return true;
+	}
+	case OBJECT_RANGE: {
+		const ObjectRange *range = AS_CRUX_RANGE(iterable);
+		const uint32_t len = range_len(range);
+		if (iterator->index >= len) {
+			return false;
+		}
+		*result = INT_VAL(range->start + (int32_t)iterator->index * range->step);
+		iterator->index++;
+		return true;
+	}
+	case OBJECT_STRING: {
+		const ObjectString *string = AS_CRUX_STRING(iterable);
+		if (iterator->index >= string->code_point_length) {
+			return false;
+		}
+		const utf8_int8_t **starts = NULL;
+		if (!collect_string_codepoint_starts(module_record->owner, string, &starts)) {
+			runtime_panic(module_record, MEMORY, "Failed to iterate string.");
+			return false;
+		}
+
+		const utf8_int8_t *start = starts[iterator->index];
+		const utf8_int8_t *end = starts[iterator->index + 1];
+		const int length = (int)(end - start);
+		ObjectString *element = copy_string(module_record->owner, (const char *)start, length);
+		FREE(module_record->owner, const utf8_int8_t *, starts);
+		*result = OBJECT_VAL(element);
+		iterator->index++;
+		return true;
+	}
+	case OBJECT_BUFFER: {
+		const ObjectBuffer *buffer = AS_CRUX_BUFFER(iterable);
+		if (iterator->index >= buffer->write_pos) {
+			return false;
+		}
+		*result = INT_VAL(buffer->data[iterator->index++]);
+		return true;
+	}
+	case OBJECT_VECTOR: {
+		const ObjectVector *vector = AS_CRUX_VECTOR(iterable);
+		if (iterator->index >= vector->dimensions) {
+			return false;
+		}
+		*result = FLOAT_VAL(VECTOR_COMPONENTS(vector)[iterator->index++]);
+		return true;
+	}
+	case OBJECT_MATRIX: {
+		const ObjectMatrix *matrix = AS_CRUX_MATRIX(iterable);
+		if (iterator->index >= matrix->row_dim * matrix->col_dim) {
+			return false;
+		}
+		*result = FLOAT_VAL(matrix->data[iterator->index++]);
+		return true;
+	}
+	case OBJECT_SET: {
+		const ObjectSet *set = AS_CRUX_SET(iterable);
+		while (iterator->index < set->entries->capacity) {
+			const ObjectTableEntry *entry = &set->entries->entries[iterator->index++];
+			if (entry->is_occupied) {
+				*result = entry->key;
+				return true;
+			}
+		}
+		return false;
+	}
+	default:
+		runtime_panic(module_record, TYPE,
+					  "Cannot iterate over this value. Supported iterables are Array | Set | Tuple | String | Buffer | "
+					  "Range | Vector | Matrix | Iterator.");
+		return false;
+	}
+}
+
+ObjectOption *new_option(VM *vm, Value value, bool is_some)
+{
+	ObjectOption *option = ALLOCATE_OBJECT(vm, ObjectOption, OBJECT_OPTION);
+	option->value = value;
+	option->is_some = is_some;
+	return option;
 }

@@ -1,0 +1,32 @@
+println("=== Testing set literals ===");
+let s = ${1, 2, 2, 3};
+assert(typeof s == "Set", "Set literal should create a Set");
+assert(len(s) == 3, "Set literal should deduplicate at runtime");
+assert(s.contains(1) == true, "Set literal should contain 1");
+assert(s.contains(2) == true, "Set literal should contain 2");
+assert(s.contains(3) == true, "Set literal should contain 3");
+
+println("=== Testing empty set literal ===");
+let empty_set = ${};
+assert(typeof empty_set == "Set", "Empty set literal should create a Set");
+assert(len(empty_set) == 0, "Empty set literal should have length 0");
+
+println("=== Testing tuple literals ===");
+let t = $["a", 1, 1.2];
+assert(typeof t == "Tuple", "Tuple literal should create a Tuple");
+assert(len(t) == 3, "Tuple literal should have length 3");
+assert(t.first().unwrap() == "a", "Tuple literal first() should return first element");
+assert(t.last().unwrap() == 1.2, "Tuple literal last() should return last element");
+assert(t.get(1).unwrap() == 1, "Tuple literal get(1) should return second element");
+
+println("=== Testing empty tuple literal ===");
+let empty_tuple = $[];
+assert(typeof empty_tuple == "Tuple", "Empty tuple literal should create a Tuple");
+assert(len(empty_tuple) == 0, "Empty tuple literal should have length 0");
+assert(empty_tuple.is_empty() == true, "Empty tuple literal should be empty");
+
+println("=== Testing tuple equality ===");
+let t2 = $["a", 1, 1.2];
+assert(t.equals(t2) == true, "Equivalent tuple literals should be equal");
+
+println("=== All collection literal tests passed ===");

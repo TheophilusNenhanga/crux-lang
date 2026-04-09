@@ -60,8 +60,13 @@
 #define IS_CRUX_SET(value) is_object_type(value, OBJECT_SET)
 #define IS_CRUX_TUPLE(value) is_object_type(value, OBJECT_TUPLE)
 #define IS_CRUX_RANGE(value) is_object_type(value, OBJECT_RANGE)
+#define IS_CRUX_ITERATOR(value) is_object_type(value, OBJECT_ITERATOR)
 #define IS_CRUX_TYPE_RECORD(value) is_object_type(value, OBJECT_TYPE_RECORD)
 #define IS_CRUX_TYPE_TABLE(value) is_object_type(value, OBJECT_TYPE_TABLE)
+#define IS_CRUX_OPTION(value) is_object_type(value, OBJECT_OPTION)
+#define IS_CRUX_ENUM(value) is_object_type(value, OBJECT_ENUM)
+#define IS_CRUX_COROUTINE(value) is_object_type(value, OBJECT_COROUTINE)
+
 
 #define AS_CRUX_STRING(value) ((ObjectString *)AS_CRUX_OBJECT(value))
 #define AS_C_STRING(value) (((ObjectString *)AS_CRUX_OBJECT(value))->chars)
@@ -86,8 +91,14 @@
 #define AS_CRUX_SET(value) ((ObjectSet *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TUPLE(value) ((ObjectTuple *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_RANGE(value) ((ObjectRange *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_ITERATOR(value) ((ObjectIterator *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_RECORD(value) ((ObjectTypeRecord *)AS_CRUX_OBJECT(value))
 #define AS_CRUX_TYPE_TABLE(value) ((ObjectTypeTable *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_OPTION(value) ((ObjectOption *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_ENUM(value) ((ObjectEnum *)AS_CRUX_OBJECT(value))
+#define AS_CRUX_COROUTINE(value) ((ObjectCoroutine *)AS_CRUX_OBJECT(value))
+
+
 
 #define IS_CRUX_HASHABLE(value)                                                                                        \
 	(IS_INT(value) || IS_FLOAT(value) || IS_CRUX_STRING(value) || IS_NIL(value) || IS_BOOL(value))
@@ -114,8 +125,12 @@ typedef enum {
 	OBJECT_SET,
 	OBJECT_TUPLE,
 	OBJECT_RANGE,
+	OBJECT_ITERATOR,
 	OBJECT_TYPE_RECORD,
 	OBJECT_TYPE_TABLE,
+	OBJECT_OPTION,
+	OBJECT_ENUM,
+	OBJECT_COROUTINE,
 } ObjectType;
 
 struct CruxObject { // 8
@@ -226,12 +241,28 @@ struct ObjectResult { // 24
 	} as;
 };
 
+typedef struct { // 24
+	CruxObject object;
+	Value value;
+	bool is_some;
+} ObjectOption;
+
 typedef struct { // 32
 	CruxObject object;
 	ObjectString *name;
 	Table fields;
 	Table methods;
 } ObjectStruct;
+
+// Not implemented yet
+typedef struct { // 24
+	CruxObject object;
+} ObjectEnum;
+
+// Not implemented yet
+typedef struct { // 24
+	CruxObject object;
+} ObjectCoroutine;
 
 typedef struct ObjectTypeTable ObjectTypeTable;
 
@@ -261,6 +292,9 @@ struct ObjectTypeRecord { // 40
 		struct {
 			ObjectTypeRecord *ok_type;
 		} result_type;
+		struct {
+			ObjectTypeRecord *some_type;
+		} option_type;
 		struct {
 			ObjectTypeTable *field_types;
 			int field_count;
@@ -294,6 +328,9 @@ struct ObjectTypeRecord { // 40
 			ObjectTypeTable *element_types;
 			int element_count;
 		} shape_type;
+		struct {
+			ObjectTypeRecord *element_type;
+		} iterator_type;
 	} as;
 };
 
@@ -365,14 +402,18 @@ typedef struct {
 	double *data;
 } ObjectMatrix;
 
-typedef struct TypeArena TypeArena;
-
 typedef enum {
 	STATE_LOADING,
 	STATE_LOADED,
 	STATE_ERROR,
 	STATE_EXECUTED,
 } ModuleState;
+
+struct ObjectIterator {
+	CruxObject object;
+	Value iterable;
+	uint32_t index;
+};
 
 struct ObjectModuleRecord { // 120
 	CruxObject object;
@@ -395,12 +436,12 @@ struct ObjectModuleRecord { // 120
 	VM* owner;
 };
 
-typedef struct { // 40
+struct ObjectRange { // 40
 	CruxObject object;
 	int32_t start;
 	int32_t end;
 	int32_t step;
-} ObjectRange;
+};
 
 typedef struct { // 24
 	CruxObject object;
@@ -465,10 +506,20 @@ void free_module_record(VM *vm, ObjectModuleRecord *module_record);
 ObjectComplex *new_complex_number(VM *vm, double real, double imaginary);
 ObjectMatrix *new_matrix(VM *vm, uint16_t row_dim, uint16_t col_dim);
 ObjectRange *new_range(VM *vm, uint64_t start, uint64_t end, uint64_t step);
+ObjectIterator *new_iterator(VM *vm, Value iterable);
 ObjectSet *new_set(VM *vm, uint32_t element_count);
 ObjectBuffer *new_buffer(VM *vm, uint32_t buffer_size);
 ObjectTuple *new_tuple(VM *vm, uint32_t size);
 void mark_object_type_table(VM *vm, ObjectTypeTable *table);
 ObjectTypeTable *new_type_table(VM *vm, int capacity);
+bool set_add_value(VM *vm, ObjectSet *set, Value value);
+bool validate_range_values(int32_t start, int32_t step, int32_t end, const char **error_message);
 
+uint32_t range_len(const ObjectRange *range);
+bool range_contains(const ObjectRange *range, int32_t value);
+bool iterate_next(ObjectModuleRecord *module_record, ObjectIterator *iterator, Value *result);
+
+ObjectOption *new_option(VM *vm, Value value, bool is_some);
+
+uint32_t hash_string(const char *key, const size_t length);
 #endif

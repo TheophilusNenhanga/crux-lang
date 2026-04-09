@@ -3,26 +3,6 @@
 #include "panic.h"
 #include "vm.h"
 
-int32_t range_len(const ObjectRange *range)
-{
-	if (range->step > 0)
-		return (range->end - range->start + range->step - 1) /
-		       range->step;
-	else
-		return (range->start - range->end - range->step - 1) /
-		       (-range->step);
-}
-
-static bool range_contains(const ObjectRange *range, int32_t value)
-{
-	if (range->step > 0)
-		return value >= range->start && value < range->end &&
-		       (value - range->start) % range->step == 0;
-	else
-		return value <= range->start && value > range->end &&
-		       (range->start - value) % (-range->step) == 0;
-}
-
 static bool range_is_empty(const ObjectRange *range)
 {
 	return range_len(range) <= 0;
@@ -31,31 +11,21 @@ static bool range_is_empty(const ObjectRange *range)
 /**
  * Creates a new range object.
  * arg0 -> start of the range
- * arg1 -> end of the range
- * arg2 -> step of the range
+ * arg1 -> step of the range
+ * arg2 -> end of the range
  * Return: Result<Range>
  */
 Value new_range_function(VM *vm, const Value *args)
 {
 	int32_t start = AS_INT(args[0]);
-	int32_t end = AS_INT(args[1]);
-	int32_t step = AS_INT(args[2]);
+	int32_t step = AS_INT(args[1]);
+	int32_t end = AS_INT(args[2]);
 
-	if (step == 0) {
-		return MAKE_GC_SAFE_ERROR(vm, "<step> cannot be zero.", VALUE);
+	const char *error_message = NULL;
+	if (!validate_range_values(start, step, end, &error_message)) {
+		return MAKE_GC_SAFE_ERROR(vm, error_message, VALUE);
 	}
-	if (step > 0 && start > end) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<start> cannot be greater than "
-					  "<end> when <step> is positive.",
-					  VALUE);
-	}
-	if (step < 0 && start < end) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "<start> cannot be less than <end> "
-					  "when <step> is negative.",
-					  VALUE);
-	}
+
 	ObjectRange *range = new_range(vm, start, end, step);
 	push(vm->current_module_record, OBJECT_VAL(range));
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(range));
@@ -94,8 +64,7 @@ Value to_array_range_method(VM *vm, const Value *args)
 	for (int32_t n = 0; n < len; n++, i += range->step) {
 		if (!array_add_back(vm, array, INT_VAL(i))) {
 			pop(vm->current_module_record);
-			return MAKE_GC_SAFE_ERROR(
-				vm, "Failed to add element to array.", VALUE);
+			return MAKE_GC_SAFE_ERROR(vm, "Failed to add element to array.", VALUE);
 		}
 	}
 	ObjectResult *result = new_ok_result(vm, OBJECT_VAL(array));
@@ -160,6 +129,5 @@ Value reversed_range_method(VM *vm, const Value *args)
 {
 	(void)vm;
 	const ObjectRange *range = AS_CRUX_RANGE(args[0]);
-	return OBJECT_VAL(new_range(vm, range->end - range->step,
-				    range->start - range->step, -range->step));
+	return OBJECT_VAL(new_range(vm, range->end - range->step, range->start - range->step, -range->step));
 }

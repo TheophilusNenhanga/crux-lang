@@ -4,6 +4,8 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
+#include "scanner.h"
+#include "value.h"
 
 Chunk *current_chunk(const Compiler *compiler)
 {
@@ -41,6 +43,102 @@ bool match(const Compiler *compiler, const CruxTokenType type)
 		return false;
 	advance(compiler);
 	return true;
+}
+
+bool match_type_name(const Compiler *compiler)
+{
+	CruxTokenType type_tokens[] = {
+		CRUX_TOKEN_NIL_TYPE,	CRUX_TOKEN_BOOL_TYPE,	  CRUX_TOKEN_INT_TYPE,	  CRUX_TOKEN_FLOAT_TYPE,
+		CRUX_TOKEN_STRING_TYPE, CRUX_TOKEN_ARRAY_TYPE,	  CRUX_TOKEN_TABLE_TYPE,  CRUX_TOKEN_ERROR_TYPE,
+		CRUX_TOKEN_RESULT_TYPE, CRUX_TOKEN_RANDOM_TYPE,	  CRUX_TOKEN_FILE_TYPE,	  CRUX_TOKEN_STRUCT_TYPE,
+		CRUX_TOKEN_VECTOR_TYPE, CRUX_TOKEN_COMPLEX_TYPE,  CRUX_TOKEN_MATRIX_TYPE, CRUX_TOKEN_SET_TYPE,
+		CRUX_TOKEN_TUPLE_TYPE,	CRUX_TOKEN_BUFFER_TYPE,	  CRUX_TOKEN_RANGE_TYPE,  CRUX_TOKEN_ANY_TYPE,
+		CRUX_TOKEN_NEVER_TYPE,	CRUX_TOKEN_ITERATOR_TYPE, CRUX_TOKEN_OPTION_TYPE,
+	};
+	int len = (int)(sizeof(type_tokens) / sizeof(type_tokens[0]));
+	for (int i = 0; i < len; i++) {
+		if (match(compiler, type_tokens[i]))
+			return true;
+	}
+	return false;
+}
+
+TypeMask type_token_type_to_mask(CruxTokenType token_type)
+{
+	switch (token_type) {
+	case CRUX_TOKEN_NIL_TYPE: {
+		return NIL_TYPE;
+	}
+	case CRUX_TOKEN_BOOL_TYPE: {
+		return BOOL_TYPE;
+	}
+	case CRUX_TOKEN_INT_TYPE: {
+		return INT_TYPE;
+	}
+	case CRUX_TOKEN_FLOAT_TYPE: {
+		return FLOAT_TYPE;
+	}
+	case CRUX_TOKEN_STRING_TYPE: {
+		return STRING_TYPE;
+	}
+	case CRUX_TOKEN_ARRAY_TYPE: {
+		return ARRAY_TYPE;
+	}
+	case CRUX_TOKEN_TABLE_TYPE: {
+		return TABLE_TYPE;
+	}
+	case CRUX_TOKEN_ERROR_TYPE: {
+		return ERROR_TYPE;
+	}
+	case CRUX_TOKEN_RESULT_TYPE: {
+		return RESULT_TYPE;
+	}
+	case CRUX_TOKEN_RANDOM_TYPE: {
+		return RANDOM_TYPE;
+	}
+	case CRUX_TOKEN_FILE_TYPE: {
+		return FILE_TYPE;
+	}
+	case CRUX_TOKEN_STRUCT_TYPE: {
+		return STRUCT_TYPE;
+	}
+	case CRUX_TOKEN_VECTOR_TYPE: {
+		return VECTOR_TYPE;
+	}
+	case CRUX_TOKEN_COMPLEX_TYPE: {
+		return COMPLEX_TYPE;
+	}
+	case CRUX_TOKEN_MATRIX_TYPE: {
+		return MATRIX_TYPE;
+	}
+	case CRUX_TOKEN_SET_TYPE: {
+		return SET_TYPE;
+	}
+	case CRUX_TOKEN_TUPLE_TYPE: {
+		return TUPLE_TYPE;
+	}
+	case CRUX_TOKEN_BUFFER_TYPE: {
+		return BUFFER_TYPE;
+	}
+	case CRUX_TOKEN_RANGE_TYPE: {
+		return RANGE_TYPE;
+	}
+	case CRUX_TOKEN_ANY_TYPE: {
+		return ANY_TYPE;
+	}
+	case CRUX_TOKEN_NEVER_TYPE: {
+		return NEVER_TYPE;
+	}
+	case CRUX_TOKEN_ITERATOR_TYPE: {
+		return ITERATOR_TYPE;
+	}
+	case CRUX_TOKEN_OPTION_TYPE: {
+		return OPTION_TYPE;
+	}
+	default: {
+		return ANY_TYPE;
+	}
+	}
 }
 
 bool is_identifier_like(const CruxTokenType type)
@@ -360,24 +458,35 @@ void add_local(Compiler *compiler, const Token name, ObjectTypeRecord *type)
 	local->type = type; // NULL until the initializer is complete
 }
 
-void declare_variable(Compiler *compiler)
+/**
+ * Ensures that the given local name is available in the current scope.
+ */
+void ensure_local_name_available(const Compiler *compiler, const Token name)
 {
-	if (compiler->scope_depth == 0)
-		return;
-
-	const Token *name = &compiler->parser->previous;
-
 	for (int i = compiler->local_count - 1; i >= 0; i--) {
 		const Local *local = &compiler->locals[i];
 		if (local->depth != -1 && local->depth < compiler->scope_depth) {
 			break;
 		}
-		if (identifiers_equal(name, &local->name)) {
+		if (identifiers_equal(&name, &local->name)) {
 			compiler_panic(compiler->parser, "Cannot redefine variable in the same scope", NAME);
+			return;
 		}
 	}
+}
 
-	add_local(compiler, *name, NULL);
+void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *type)
+{
+	ensure_local_name_available(compiler, name);
+	add_local(compiler, name, type);
+}
+
+void declare_variable(Compiler *compiler)
+{
+	if (compiler->scope_depth == 0)
+		return;
+	const Token *name = &compiler->parser->previous;
+	declare_named_variable(compiler, *name, NULL);
 }
 
 void mark_initialized(Compiler *compiler)
@@ -412,7 +521,6 @@ int match_compound_op(const Compiler *compiler)
 		return COMPOUND_OP_PERCENT;
 	return -1;
 }
-
 
 void check_compound_type_math(const Compiler *compiler, ObjectTypeRecord *lhs_type, ObjectTypeRecord *rhs_type,
 							  const int op)

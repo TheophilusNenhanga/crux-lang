@@ -9,11 +9,17 @@
 
 #define TYPE_GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity) * 2)
 
-static bool compare_strings(const ObjectString *a, const ObjectString *b)
+/**
+ * A lightweight version of copy_string that does not heap allocate
+ */
+static ObjectString make_lookup_string(const char *chars, const uint32_t length)
 {
-	if (a->byte_length != b->byte_length)
-		return false;
-	return memcmp(a->chars, b->chars, a->byte_length) == 0;
+	ObjectString key = {0};
+	key.chars = (utf8_int8_t *)chars;
+	key.byte_length = length;
+	key.code_point_length = length;
+	key.hash = hash_string(chars, length);
+	return key;
 }
 
 static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const ObjectString *key)
@@ -40,10 +46,6 @@ static TypeEntry *type_find_entry(TypeEntry *entries, const int capacity, const 
 static void type_adjust_capacity(ObjectTypeTable *table, const int capacity)
 {
 	TypeEntry *entries = calloc(capacity, sizeof(TypeEntry));
-	for (int i = 0; i < capacity; i++) {
-		entries[i].key = NULL;
-		entries[i].value = NULL;
-	}
 	table->count = 0;
 	for (int i = 0; i < table->capacity; i++) {
 		const TypeEntry *entry = &table->entries[i];
@@ -181,6 +183,14 @@ TypeMask get_type_mask(Value value)
 			return BUFFER_TYPE;
 		case OBJECT_RANGE:
 			return RANGE_TYPE;
+		case OBJECT_ITERATOR:
+			return ITERATOR_TYPE;
+		case OBJECT_OPTION:
+			return OPTION_TYPE;
+		case OBJECT_COROUTINE:
+			return COROUTINE_TYPE;
+		case OBJECT_ENUM:
+			return ENUM_TYPE;
 		default:
 			return ANY_TYPE;
 		}
@@ -198,14 +208,15 @@ void type_mask_name(const TypeMask mask, char *buf, const int buf_size)
 	static const struct {
 		TypeMask bit;
 		const char *name;
-	} entries[] = {{NIL_TYPE, "Nil"},		{BOOL_TYPE, "Bool"},	   {INT_TYPE, "Int"},
-				   {FLOAT_TYPE, "Float"},	{SHAPE_TYPE, "Shape"},	   {STRING_TYPE, "String"},
-				   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},	   {FUNCTION_TYPE, "Function"},
-				   {ERROR_TYPE, "Error"},	{RESULT_TYPE, "Result"},   {FILE_TYPE, "File"},
-				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"}, {MATRIX_TYPE, "Matrix"},
-				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},   {SET_TYPE, "Set"},
-				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},   {RANGE_TYPE, "Range"},
-				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"}};
+	} entries[] = {{NIL_TYPE, "Nil"},		{BOOL_TYPE, "Bool"},		   {INT_TYPE, "Int"},
+				   {FLOAT_TYPE, "Float"},	{SHAPE_TYPE, "Shape"},		   {STRING_TYPE, "String"},
+				   {ARRAY_TYPE, "Array"},	{TABLE_TYPE, "Table"},		   {FUNCTION_TYPE, "Function"},
+				   {ERROR_TYPE, "Error"},	{RESULT_TYPE, "Result"},	   {FILE_TYPE, "File"},
+				   {VECTOR_TYPE, "Vector"}, {COMPLEX_TYPE, "Complex"},	   {MATRIX_TYPE, "Matrix"},
+				   {STRUCT_TYPE, "Struct"}, {MODULE_TYPE, "Module"},	   {SET_TYPE, "Set"},
+				   {TUPLE_TYPE, "Tuple"},	{BUFFER_TYPE, "Buffer"},	   {RANGE_TYPE, "Range"},
+				   {UNION_TYPE, "Union"},	{NEVER_TYPE, "Never"},		   {ITERATOR_TYPE, "Iterator"},
+				   {OPTION_TYPE, "Option"}, {COROUTINE_TYPE, "Coroutine"}, {ENUM_TYPE, "Enum"}};
 
 	int offset = 0;
 	bool first = true;
@@ -240,6 +251,15 @@ ObjectTypeRecord *new_array_type_rec(VM *vm, ObjectTypeRecord *element_type)
 	return rec;
 }
 
+ObjectTypeRecord *new_iterator_type_rec(VM *vm, ObjectTypeRecord *element_type)
+{
+	push(vm->current_module_record, OBJECT_VAL(element_type));
+	ObjectTypeRecord *rec = new_type_rec(vm, ITERATOR_TYPE);
+	pop(vm->current_module_record);
+	rec->as.iterator_type.element_type = element_type;
+	return rec;
+}
+
 /**
  * Creates a new table type record with the given key and value types.
  * Roots the key and value types
@@ -266,6 +286,15 @@ ObjectTypeRecord *new_result_type_rec(VM *vm, ObjectTypeRecord *ok_type)
 	ObjectTypeRecord *rec = new_type_rec(vm, RESULT_TYPE);
 	pop(vm->current_module_record);
 	rec->as.result_type.ok_type = ok_type;
+	return rec;
+}
+
+ObjectTypeRecord *new_option_type_rec(VM *vm, ObjectTypeRecord *some_type)
+{
+	push(vm->current_module_record, OBJECT_VAL(some_type));
+	ObjectTypeRecord *rec = new_type_rec(vm, OPTION_TYPE);
+	pop(vm->current_module_record);
+	rec->as.option_type.some_type = some_type;
 	return rec;
 }
 
@@ -431,6 +460,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 			   types_equal(a->as.table_type.value_type, b->as.table_type.value_type);
 	case RESULT_TYPE:
 		return types_equal(a->as.result_type.ok_type, b->as.result_type.ok_type);
+	case OPTION_TYPE:
+		return types_equal(a->as.option_type.some_type, b->as.option_type.some_type);
 	case SET_TYPE:
 		return types_equal(a->as.set_type.element_type, b->as.set_type.element_type);
 	case TUPLE_TYPE: {
@@ -444,6 +475,8 @@ bool types_equal(ObjectTypeRecord *a, ObjectTypeRecord *b)
 		}
 		return true;
 	}
+	case ITERATOR_TYPE:
+		return types_equal(a->as.iterator_type.element_type, b->as.iterator_type.element_type);
 	case VECTOR_TYPE:
 		return a->as.vector_type.dimensions == b->as.vector_type.dimensions;
 	case MATRIX_TYPE:
@@ -573,11 +606,15 @@ bool types_compatible(ObjectTypeRecord *expected, ObjectTypeRecord *got)
 		switch (got->base_type) {
 		case ARRAY_TYPE:
 			return types_compatible(expected->as.array_type.element_type, got->as.array_type.element_type);
+		case ITERATOR_TYPE:
+			return types_compatible(expected->as.iterator_type.element_type, got->as.iterator_type.element_type);
 		case TABLE_TYPE:
 			return types_compatible(expected->as.table_type.key_type, got->as.table_type.key_type) &&
 				   types_compatible(expected->as.table_type.value_type, got->as.table_type.value_type);
 		case RESULT_TYPE:
 			return types_compatible(expected->as.result_type.ok_type, got->as.result_type.ok_type);
+		case OPTION_TYPE:
+			return types_compatible(expected->as.option_type.some_type, got->as.option_type.some_type);
 		case TUPLE_TYPE: {
 			if (expected->as.tuple_type.element_count == -1 || got->as.tuple_type.element_count == -1)
 				return true;
@@ -694,6 +731,12 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		snprintf(buf, buf_size, "Array[%s]", inner);
 		break;
 	}
+	case ITERATOR_TYPE: {
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.iterator_type.element_type, inner, sizeof(inner), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Iterator[%s]", inner);
+		break;
+	}
 	case TABLE_TYPE: {
 		char key[256] = {0}, val[256] = {0};
 		type_record_name_impl(rec->as.table_type.key_type, key, sizeof(key), next_seen, next_seen_count);
@@ -705,6 +748,12 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		char ok[256] = {0};
 		type_record_name_impl(rec->as.result_type.ok_type, ok, sizeof(ok), next_seen, next_seen_count);
 		snprintf(buf, buf_size, "Result[%s]", ok);
+		break;
+	}
+	case OPTION_TYPE: {
+		char inner[256] = {0};
+		type_record_name_impl(rec->as.option_type.some_type, inner, sizeof(inner), next_seen, next_seen_count);
+		snprintf(buf, buf_size, "Option[%s]", inner);
 		break;
 	}
 	case SET_TYPE: {
@@ -733,8 +782,7 @@ static void type_record_name_impl(const ObjectTypeRecord *rec, char *buf, const 
 		if (rec->as.matrix_type.rows == -1 || rec->as.matrix_type.cols == -1) {
 			snprintf(buf, buf_size, "Matrix[]");
 		} else {
-			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows,
-					 rec->as.matrix_type.cols);
+			snprintf(buf, buf_size, "Matrix[%d, %d]", rec->as.matrix_type.rows, rec->as.matrix_type.cols);
 		}
 		break;
 	}
@@ -852,6 +900,15 @@ ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, co
 		pop(vm->current_module_record);
 		return res;
 	}
+
+	if (strncmp(str, "Iterator", 8) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_iterator_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+
 	if (strncmp(str, "Table", 5) == 0) {
 		ObjectTypeRecord *any_k = new_type_rec(vm, ANY_TYPE);
 		push(vm->current_module_record, OBJECT_VAL(any_k));
@@ -869,6 +926,14 @@ ObjectTypeRecord *type_from_string(VM *vm, const ObjectTypeTable *type_table, co
 		pop(vm->current_module_record);
 		return res;
 	}
+	if (strncmp(str, "Option", 6) == 0) {
+		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
+		push(vm->current_module_record, OBJECT_VAL(any_type));
+		ObjectTypeRecord *res = new_option_type_rec(vm, any_type);
+		pop(vm->current_module_record);
+		return res;
+	}
+
 	if (strncmp(str, "Function", 8) == 0) {
 		ObjectTypeRecord *any_type = new_type_rec(vm, ANY_TYPE);
 		push(vm->current_module_record, OBJECT_VAL(any_type));
@@ -949,7 +1014,7 @@ ObjectTypeRecord *strip_type(VM *vm, ObjectTypeRecord *union_type, ObjectTypeRec
 	return res;
 }
 
-bool is_numeric_type(ObjectTypeRecord *type)
+bool is_numeric_type(const ObjectTypeRecord *type)
 {
 	if (!type)
 		return false;
@@ -962,6 +1027,157 @@ bool is_numeric_type(ObjectTypeRecord *type)
 			}
 		}
 		return true;
+	}
+	return false;
+}
+
+bool is_collection_type(const ObjectTypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (type->base_type == ARRAY_TYPE || type->base_type == TABLE_TYPE || type->base_type == SET_TYPE ||
+		type->base_type == TUPLE_TYPE || type->base_type == STRING_TYPE || type->base_type == BUFFER_TYPE ||
+		type->base_type == RANGE_TYPE || type->base_type == VECTOR_TYPE || type->base_type == MATRIX_TYPE)
+		return true;
+	if (type->base_type == UNION_TYPE) {
+		for (int i = 0; i < type->as.union_type.element_count; i++) {
+			if (!is_collection_type(type->as.union_type.element_types[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+bool is_iterable_type(const ObjectTypeRecord *type)
+{
+	if (!type)
+		return false;
+	if (is_collection_type(type))
+		return true;
+	if (type->base_type == ITERATOR_TYPE)
+		return true;
+	if (type->base_type == STRUCT_TYPE) {
+		const ObjectTypeTable *field_types = type->as.struct_type.field_types;
+		if (field_types && field_types->entries) {
+			ObjectString iter_key = make_lookup_string("__iter", sizeof("__iter") - 1);
+			ObjectString next_key = make_lookup_string("__next", sizeof("__next") - 1);
+			ObjectTypeRecord *iter_method = NULL;
+			ObjectTypeRecord *next_method = NULL;
+			type_table_get(field_types, &iter_key, &iter_method);
+			type_table_get(field_types, &next_key, &next_method);
+
+			if (next_method && next_method->base_type == FUNCTION_TYPE &&
+				next_method->as.function_type.arg_count == 0 && next_method->as.function_type.return_type &&
+				next_method->as.function_type.return_type->base_type == OPTION_TYPE) {
+				return true;
+			}
+
+			if (iter_method && iter_method->base_type == FUNCTION_TYPE &&
+				iter_method->as.function_type.arg_count == 0) {
+				ObjectTypeRecord *ret = iter_method->as.function_type.return_type;
+				if (!ret || ret->base_type == ANY_TYPE || ret->base_type == ITERATOR_TYPE) {
+					return true;
+				}
+				if (ret->base_type == STRUCT_TYPE) {
+					ObjectString inner_next_key = make_lookup_string("__next", sizeof("__next") - 1);
+					ObjectTypeRecord *inner_next = NULL;
+					const ObjectTypeTable *inner_fields = ret->as.struct_type.field_types;
+					if (inner_fields && inner_fields->entries) {
+						type_table_get(inner_fields, &inner_next_key, &inner_next);
+					}
+					if (inner_next && inner_next->base_type == FUNCTION_TYPE &&
+						inner_next->as.function_type.arg_count == 0 && inner_next->as.function_type.return_type &&
+						inner_next->as.function_type.return_type->base_type == OPTION_TYPE) {
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const ObjectTypeRecord *iterable_type)
+{
+	if (iterable_type == NULL || iterable_type->base_type == ANY_TYPE) {
+		return T_ANY;
+	}
+	switch (iterable_type->base_type) {
+	case ITERATOR_TYPE:
+		return iterable_type->as.iterator_type.element_type;
+	case ARRAY_TYPE:
+		return iterable_type->as.array_type.element_type;
+	case SET_TYPE:
+		return iterable_type->as.set_type.element_type;
+	case RANGE_TYPE:
+	case BUFFER_TYPE:
+		return T_INT;
+	case STRING_TYPE:
+		return T_STRING;
+	case VECTOR_TYPE:
+		return T_FLOAT;
+	case MATRIX_TYPE:
+		return T_FLOAT;
+	case TUPLE_TYPE:
+		return T_ANY;
+	case STRUCT_TYPE: {
+		const ObjectTypeTable *field_types = iterable_type->as.struct_type.field_types;
+		ObjectString iter_key = make_lookup_string("__iter", sizeof("__iter") - 1);
+		ObjectString next_key = make_lookup_string("__next", sizeof("__next") - 1);
+		ObjectTypeRecord *iter_method = NULL;
+		ObjectTypeRecord *next_method = NULL;
+
+		if (field_types && field_types->entries) {
+			type_table_get(field_types, &iter_key, &iter_method);
+			type_table_get(field_types, &next_key, &next_method);
+		}
+
+		if (next_method && next_method->base_type == FUNCTION_TYPE && next_method->as.function_type.arg_count == 0 &&
+			next_method->as.function_type.return_type &&
+			next_method->as.function_type.return_type->base_type == OPTION_TYPE) {
+			ObjectTypeRecord *some_type = next_method->as.function_type.return_type->as.option_type.some_type;
+			return some_type ? some_type : T_ANY;
+		}
+
+		if (iter_method && iter_method->base_type == FUNCTION_TYPE && iter_method->as.function_type.arg_count == 0) {
+			ObjectTypeRecord *ret = iter_method->as.function_type.return_type;
+			if (!ret || ret->base_type == ANY_TYPE) {
+				return T_ANY;
+			}
+			if (ret->base_type == ITERATOR_TYPE) {
+				return ret->as.iterator_type.element_type ? ret->as.iterator_type.element_type : T_ANY;
+			}
+			if (ret->base_type == STRUCT_TYPE) {
+				return get_iterable_element_type(compiler, ret);
+			}
+		}
+		break;
+	}
+	default: {
+		char got[128];
+		type_record_name(iterable_type, got, sizeof(got));
+		compiler_panicf(compiler->parser, TYPE,
+						"Iterable must be 'Iterator | Array | Set | Tuple | String | Buffer | Range | Vector | Matrix "
+						"| Struct with __iter/__next methods', got '%s'.",
+						got);
+		return T_ANY;
+	}
+	}
+
+	return T_ANY;
+}
+
+bool mask_in_type(ObjectTypeRecord *type, TypeMask mask)
+{
+	if (type->base_type == mask)
+		return true;
+	if (type->base_type == UNION_TYPE) {
+		for (int i = 0; i < type->as.union_type.element_count; i++) {
+			if (mask_in_type(type->as.union_type.element_types[i], mask))
+				return true;
+		}
 	}
 	return false;
 }

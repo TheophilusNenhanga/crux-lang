@@ -3,8 +3,10 @@
 
 #include "chunk.h"
 #include "file_handler.h"
+#include "garbage_collector.h"
 #include "stdlib/stdlib.h"
 #include "type_system.h"
+#include "utf8.h"
 #include "value.h"
 #include "vm.h"
 
@@ -13,6 +15,8 @@
 #include "debug.h"
 #include "object.h"
 #include "panic.h"
+#include "stdlib/range.h"
+#include "stdlib/set.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH()                                                                                                     \
@@ -96,6 +100,9 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_GLOBAL_PLUS,
 									&&OP_SET_GLOBAL_MINUS,
 									&&OP_TABLE,
+									&&OP_SET,
+									&&OP_TUPLE,
+									&&OP_RANGE,
 									&&OP_ANON_FUNCTION,
 									&&OP_PUB,
 									&&OP_MATCH,
@@ -136,6 +143,17 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_PROPERTY_MODULUS,
 									&&OP_BITWISE_NOT,
 									&&OP_TYPE_COERCE,
+									&&OP_GET_SLICE,
+									&&OP_IN,
+									&&OP_ITER_INIT,
+									&&OP_ITER_NEXT,
+									&&OP_OK,
+									&&OP_ERR,
+									&&OP_SOME,
+									&&OP_NONE,
+									&&OP_OPTION_MATCH_SOME,
+									&&OP_OPTION_MATCH_NONE,
+									&&OP_TYPE_MATCH,
 									&&end};
 
 	uint16_t instruction;
@@ -343,6 +361,34 @@ OP_SET_LOCAL: {
 	DISPATCH();
 }
 
+OP_ITER_INIT: {
+	const Value iterable = PEEK(currentModuleRecord, 0);
+	Value iterator;
+	if (!get_iterator_from_value(vm, iterable, &iterator)) {
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top[-1] = iterator;
+	DISPATCH();
+}
+
+OP_ITER_NEXT: {
+	uint16_t offset = READ_SHORT();
+	Value option;
+	if (!get_next_option_from_iterator(vm, PEEK(currentModuleRecord, 0), &option)) {
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectOption *next_option = AS_CRUX_OPTION(option);
+	if (!next_option->is_some) {
+		pop(currentModuleRecord);
+		frame->ip += offset; // jump to after the loop
+		DISPATCH();
+	}
+
+	currentModuleRecord->stack_top[-1] = next_option->value; // set the value to the next item
+	DISPATCH();
+}
+
 OP_JUMP_IF_FALSE: {
 	uint16_t offset = READ_SHORT();
 	if (is_falsy(PEEK(currentModuleRecord, 0))) {
@@ -542,7 +588,38 @@ OP_GET_COLLECTION: {
 		}
 		// Only single character indexing
 		ch = copy_string(vm, string->chars + index, 1);
-		pop_push(currentModuleRecord, OBJECT_VAL(ch));
+		pop_push(currentModuleRecord,
+				 OBJECT_VAL(ch)); // pop the string off the stack, push the character onto the stack
+		DISPATCH();
+	}
+	case OBJECT_TUPLE: {
+		if (!IS_INT(indexValue)) {
+			runtime_panic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		uint32_t index = (uint32_t)AS_INT(indexValue);
+		ObjectTuple *tuple = AS_CRUX_TUPLE(PEEK(currentModuleRecord, 0));
+		if (index >= tuple->size) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		Value value = tuple->elements[index];
+		pop_push(currentModuleRecord, value); // pop the tuple off the stack, push the value onto the stack
+		DISPATCH();
+	}
+	case OBJECT_BUFFER: {
+		if (!IS_INT(indexValue)) {
+			runtime_panic(currentModuleRecord, TYPE, "Index must be of type 'int'.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		uint32_t index = (uint32_t)AS_INT(indexValue);
+		ObjectBuffer *buffer = AS_CRUX_BUFFER(PEEK(currentModuleRecord, 0));
+		if (index >= (buffer->write_pos - buffer->read_pos)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		Value value = AS_INT(buffer->data[index + buffer->read_pos]);
+		pop_push(currentModuleRecord, value); // pop the buffer off the stack, push the value onto the stack
 		DISPATCH();
 	}
 
@@ -787,6 +864,58 @@ OP_TABLE: {
 	DISPATCH();
 }
 
+OP_SET: {
+	uint16_t elementCount = READ_SHORT();
+	ObjectSet *set = new_set(vm, elementCount);
+	push(currentModuleRecord, OBJECT_VAL(set));
+	for (int i = elementCount - 1; i >= 0; i--) {
+		(void)i;
+		Value value = currentModuleRecord->stack_top[-2];
+		currentModuleRecord->stack_top[-2] = currentModuleRecord->stack_top[-1];
+		currentModuleRecord->stack_top--;
+		if (!set_add_value(vm, set, value)) {
+			pop(currentModuleRecord); // set
+			runtime_panic(currentModuleRecord, TYPE, "All set elements must be hashable.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+	}
+	DISPATCH();
+}
+
+OP_TUPLE: {
+	uint16_t elementCount = READ_SHORT();
+	ObjectTuple *tuple = new_tuple(vm, elementCount);
+	for (int i = elementCount - 1; i >= 0; i--) {
+		tuple->elements[i] = pop(currentModuleRecord);
+	}
+	push(currentModuleRecord, OBJECT_VAL(tuple));
+	DISPATCH();
+}
+
+OP_RANGE: {
+	Value end_value = pop(currentModuleRecord);
+	Value step_value = pop(currentModuleRecord);
+	Value start_value = pop(currentModuleRecord);
+
+	if (!IS_INT(start_value) || !IS_INT(step_value) || !IS_INT(end_value)) {
+		runtime_panic(currentModuleRecord, TYPE, "Range literal operands must be Int values.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	int32_t start = AS_INT(start_value);
+	int32_t step = AS_INT(step_value);
+	int32_t end = AS_INT(end_value);
+	const char *error_message = NULL;
+	if (!validate_range_values(start, step, end, &error_message)) {
+		runtime_panic(currentModuleRecord, VALUE, "%s", error_message);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectRange *range = new_range(vm, start, end, step);
+	push(currentModuleRecord, OBJECT_VAL(range));
+	DISPATCH();
+}
+
 OP_ANON_FUNCTION: {
 	ObjectFunction *function = AS_CRUX_FUNCTION(READ_CONSTANT());
 	ObjectClosure *closure = new_closure(vm, function);
@@ -810,8 +939,15 @@ OP_PUB: {
 
 OP_MATCH: {
 	Value target = PEEK(currentModuleRecord, 0);
-	vm->match_handler.match_target = target;
-	vm->match_handler.is_match_target = true;
+	if (vm->match_handler_stack.count >= vm->match_handler_stack.capacity) {
+		runtime_panic(currentModuleRecord, RUNTIME, "Match nesting depth exceeded.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	vm->match_handler_stack.count++;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_target = target;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_target = true;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = false;
 	DISPATCH();
 }
 
@@ -826,13 +962,11 @@ OP_MATCH_JUMP: {
 }
 
 OP_MATCH_END: {
-	if (vm->match_handler.is_match_bind) {
-		push(currentModuleRecord, vm->match_handler.match_bind);
-	}
-	vm->match_handler.match_target = NIL_VAL;
-	vm->match_handler.match_bind = NIL_VAL;
-	vm->match_handler.is_match_bind = false;
-	vm->match_handler.is_match_target = false;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_target = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = false;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_target = false;
+	vm->match_handler_stack.count--;
 	DISPATCH();
 }
 
@@ -863,9 +997,40 @@ OP_RESULT_MATCH_ERR: {
 OP_RESULT_BIND: {
 	uint16_t slot = READ_SHORT();
 	Value bind = PEEK(currentModuleRecord, 0);
-	vm->match_handler.match_bind = bind;
-	vm->match_handler.is_match_bind = true;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = bind;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = true;
 	frame->slots[slot] = bind;
+	DISPATCH();
+}
+
+OP_OPTION_MATCH_SOME: {
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!IS_CRUX_OPTION(target) || !AS_CRUX_OPTION(target)->is_some) {
+		frame->ip += offset;
+	} else {
+		Value value = AS_CRUX_OPTION(target)->value;
+		pop_push(currentModuleRecord, value);
+	}
+	DISPATCH();
+}
+
+OP_OPTION_MATCH_NONE: {
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!IS_CRUX_OPTION(target) || AS_CRUX_OPTION(target)->is_some) {
+		frame->ip += offset;
+	}
+	DISPATCH();
+}
+
+OP_TYPE_MATCH: {
+	TypeMask expected = (TypeMask)READ_SHORT();
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!runtime_types_compatible(expected, target)) {
+		frame->ip += offset;
+	}
 	DISPATCH();
 }
 
@@ -1352,12 +1517,295 @@ OP_TYPE_COERCE: {
 	ObjectTypeRecord *type_record = AS_CRUX_TYPE_RECORD(value);
 	Value query = PEEK(currentModuleRecord, 0);
 	if (!runtime_types_compatible(type_record->base_type, query)) {
-		char type_name[100];
-		type_record_name(type_record, type_name, 100);
+		char type_name[128];
+		type_record_name(type_record, type_name, 128);
 		runtime_panic(currentModuleRecord, TYPE, "Failed to perform type coercion. Expected type: '%s'.", type_name);
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	// if the type matched then continue on like nothing happend
+	// if the type matched then continue on like nothing happened
+	DISPATCH();
+}
+
+OP_GET_SLICE: {
+	Value range_value = pop(currentModuleRecord);
+	ObjectRange *range = AS_CRUX_RANGE(range_value);
+	if (!IS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))) {
+		runtime_panic(currentModuleRecord, TYPE, "Cannot get from a non-collection type.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	switch (AS_CRUX_OBJECT(PEEK(currentModuleRecord, 0))->type) {
+	case OBJECT_ARRAY: {
+		ObjectArray *array = AS_CRUX_ARRAY(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, array->size)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectArray *slice = new_array(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			// okay to not check return, we allocated enough capacity
+			Value to_add = array->values[range->start + i * range->step];
+			array_add_back(vm, slice, to_add);
+		}
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_STRING: {
+		ObjectString *string = AS_CRUX_STRING(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, string->code_point_length)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		const utf8_int8_t **codepoint_starts = NULL;
+		if (!collect_string_codepoint_starts(vm, string, &codepoint_starts)) {
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		char *buffer = ALLOCATE(vm, char, string->byte_length + 1);
+		if (buffer == NULL) {
+			FREE_ARRAY(vm, const utf8_int8_t *, codepoint_starts, string->code_point_length + 1);
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		uint32_t buffer_write_index = 0;
+		int32_t index = range->start;
+		for (uint32_t i = 0; i < len; i++, index += range->step) {
+			const uint32_t current_index = (uint32_t)index;
+			const uint32_t codepoint_size = (uint32_t)(codepoint_starts[current_index + 1] -
+													   codepoint_starts[current_index]);
+			memcpy(buffer + buffer_write_index, codepoint_starts[current_index], codepoint_size);
+			buffer_write_index += codepoint_size;
+		}
+		buffer[buffer_write_index] = '\0';
+		FREE_ARRAY(vm, const utf8_int8_t *, codepoint_starts, string->code_point_length + 1);
+
+		char *resized = GROW_ARRAY(vm, char, buffer, string->byte_length + 1, buffer_write_index + 1);
+		if (resized == NULL) {
+			FREE_ARRAY(vm, char, buffer, string->byte_length + 1);
+			runtime_panic(currentModuleRecord, MEMORY, "Out of memory.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		buffer = resized;
+
+		ObjectString *slice = take_string(vm, buffer, buffer_write_index);
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_TUPLE: {
+		ObjectTuple *tuple = AS_CRUX_TUPLE(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, tuple->size)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectTuple *slice = new_tuple(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			slice->elements[i] = tuple->elements[range->start + i * range->step];
+		}
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+	case OBJECT_BUFFER: {
+		ObjectBuffer *buffer = AS_CRUX_BUFFER(PEEK(currentModuleRecord, 0));
+		uint32_t len = range_len(range);
+
+		if (!range_indices_in_bounds(range, buffer->write_pos - buffer->read_pos)) {
+			runtime_panic(currentModuleRecord, BOUNDS, "Index out of bounds.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+
+		ObjectArray *slice = new_array(vm, len);
+		for (uint32_t i = 0; i < len; i++) {
+			const uint32_t index = (uint32_t)(range->start + i * range->step);
+			slice->values[i] = INT_VAL(buffer->data[buffer->read_pos + index]);
+		}
+		slice->size = len;
+		pop_push(currentModuleRecord, OBJECT_VAL(slice));
+		DISPATCH();
+	}
+
+	default: {
+		runtime_panic(currentModuleRecord, TYPE, "Can only slice 'Array | String | Tuple | Buffer'");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	}
+	DISPATCH();
+}
+
+// value in collection
+OP_IN: {
+	Value right = pop(currentModuleRecord);
+	Value left = pop(currentModuleRecord);
+
+	ObjectType right_type = AS_CRUX_OBJECT(right)->type;
+	ObjectType left_type = AS_CRUX_OBJECT(left)->type;
+
+	if (IS_CRUX_OBJECT(right)) {
+		switch (right_type) {
+		case OBJECT_ARRAY: {
+			ObjectArray *array = AS_CRUX_ARRAY(right);
+			bool found = false;
+			for (uint32_t i = 0; i < array->size; i++) {
+				if (values_equal(left, array->values[i])) {
+					found = true;
+					break;
+				}
+			}
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_STRING: {
+			ObjectString *str = AS_CRUX_STRING(right);
+			if (!IS_CRUX_STRING(left)) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			ObjectString *goal = AS_CRUX_STRING(left);
+			if (goal->byte_length == 0) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+
+			bool found = utf8str(str->chars, goal->chars) != NULL;
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_TUPLE: {
+			ObjectTuple *tuple = AS_CRUX_TUPLE(right);
+			bool found = false;
+			for (uint32_t i = 0; i < tuple->size; i++) {
+				if (values_equal(left, tuple->elements[i])) {
+					found = true;
+					break;
+				}
+			}
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_BUFFER: {
+			ObjectBuffer *buffer = AS_CRUX_BUFFER(right);
+			if (!IS_INT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			bool found = false;
+			uint8_t int_val = (uint8_t)AS_INT(left);
+			for (uint32_t i = buffer->read_pos; i < buffer->write_pos; i++) {
+				if (buffer->data[i] == int_val) {
+					found = true;
+					break;
+				}
+			}
+
+			push(currentModuleRecord, found ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_SET: {
+			ObjectSet *set = AS_CRUX_SET(right);
+			if (object_table_contains_key(set->entries, left)) {
+				push(currentModuleRecord, TRUE_VAL);
+			} else {
+				push(currentModuleRecord, FALSE_VAL);
+			}
+			break;
+		}
+		case OBJECT_RANGE: {
+			ObjectRange *range = AS_CRUX_RANGE(right);
+			if (!IS_INT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			int32_t int_val = AS_INT(left);
+			push(currentModuleRecord, range_contains(range, int_val) ? TRUE_VAL : FALSE_VAL);
+			break;
+		}
+		case OBJECT_TABLE: {
+			ObjectTable *table = AS_CRUX_TABLE(right);
+			if (object_table_contains_key(table, left)) {
+				push(currentModuleRecord, TRUE_VAL);
+			} else {
+				push(currentModuleRecord, FALSE_VAL);
+			}
+			break;
+		}
+		case OBJECT_VECTOR: {
+			ObjectVector *vector = AS_CRUX_VECTOR(right);
+			if (vector->dimensions == 0) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			if (!IS_INT(left) && !IS_FLOAT(left)) {
+				push(currentModuleRecord, FALSE_VAL);
+				break;
+			}
+			double double_val = TO_DOUBLE(left);
+			if (vector->dimensions > STATIC_VECTOR_SIZE) {
+				for (uint32_t i = 0; i < vector->dimensions; i++) {
+					if (vector->as.h_components[i] != double_val) {
+						push(currentModuleRecord, FALSE_VAL);
+						break;
+					}
+				}
+			} else {
+				for (uint32_t i = 0; i < vector->dimensions; i++) {
+					if (vector->as.s_components[i] != double_val) {
+						push(currentModuleRecord, FALSE_VAL);
+						break;
+					}
+				}
+			}
+			break;
+		}
+		default: {
+			runtime_panic(currentModuleRecord, TYPE,
+						  "Can only check 'in' for 'Array | String | Tuple | Buffer | Set | Range | Table'");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		}
+	}
+
+	DISPATCH();
+}
+
+OP_OK: {
+	Value value = PEEK(currentModuleRecord, 0);
+	ObjectResult *result = new_ok_result(vm, value);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(result));
+	DISPATCH();
+}
+
+OP_ERR: {
+	Value err = PEEK(currentModuleRecord, 0);
+	ObjectError *error = new_error(vm, to_string(vm, err), RUNTIME, false);
+	push(currentModuleRecord, OBJECT_VAL(error));
+	ObjectResult *result = new_error_result(vm, error);
+	pop(currentModuleRecord);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(result));
+	DISPATCH();
+}
+
+OP_SOME: {
+	Value value = PEEK(currentModuleRecord, 0);
+	ObjectOption *some = new_option(vm, value, true);
+	pop(currentModuleRecord);
+	push(currentModuleRecord, OBJECT_VAL(some));
+	DISPATCH();
+}
+
+OP_NONE: {
+	ObjectOption *none = new_option(vm, NIL_VAL, false);
+	push(currentModuleRecord, OBJECT_VAL(none));
 	DISPATCH();
 }
 

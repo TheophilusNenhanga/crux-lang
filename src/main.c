@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "file_handler.h"
@@ -98,7 +99,17 @@ int main(const int argc, const char *argv[])
 	if (argc == 1) {
 		exit_code = repl(vm);
 	} else if (argc == 2) {
-		exit_code = runFile(vm, argv[1]);
+		if (strcmp(argv[1], "-V") == 0) {
+#ifdef CRUX_VERSION
+			printf("Crux %s\n", CRUX_VERSION);
+			exit_code = 0;
+#else
+			printf("Crux Unknown Version\n");
+			exit_code = 0;
+#endif
+		} else {
+			exit_code = runFile(vm, argv[1]);
+		}
 	} else {
 #ifdef _WIN32
 		fprintf(stderr, "Usage: & .\\[crux.exe] [path]\n");

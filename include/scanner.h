@@ -15,8 +15,11 @@ typedef enum {
 	CRUX_TOKEN_RIGHT_BRACE, // }
 	CRUX_TOKEN_LEFT_SQUARE, // [
 	CRUX_TOKEN_RIGHT_SQUARE, // ]
+	CRUX_TOKEN_DOLLAR_LEFT_BRACE, // ${
+	CRUX_TOKEN_DOLLAR_LEFT_SQUARE, // $[
 	CRUX_TOKEN_COMMA, // ,
 	CRUX_TOKEN_DOT, // .
+	CRUX_TOKEN_DOT_DOT, // ..
 	CRUX_TOKEN_MINUS, // -
 	CRUX_TOKEN_PLUS, // +
 	CRUX_TOKEN_SEMICOLON, // ;
@@ -55,6 +58,8 @@ typedef enum {
 	CRUX_TOKEN_STRING, //
 	CRUX_TOKEN_INT, //
 	CRUX_TOKEN_FLOAT, //
+	CRUX_TOKEN_BINARY_INT, // 0b
+	CRUX_TOKEN_HEX_INT, // 0x
 	// Keywords.
 	CRUX_TOKEN_AND, // and
 	CRUX_TOKEN_NOT, // not
@@ -81,6 +86,8 @@ typedef enum {
 	CRUX_TOKEN_EQUAL_ARROW, // =>
 	CRUX_TOKEN_OK, // Ok
 	CRUX_TOKEN_ERR, // Err
+	CRUX_TOKEN_NONE, // None
+	CRUX_TOKEN_SOME, // Some
 	CRUX_TOKEN_DEFAULT, // default
 	CRUX_TOKEN_GIVE, // give
 	CRUX_TOKEN_TYPEOF, // typeof
@@ -91,6 +98,7 @@ typedef enum {
 	CRUX_TOKEN_DYN_USE, // dynuse
 	CRUX_TOKEN_IMPL, // impl
 	CRUX_TOKEN_TYPE, // type
+	CRUX_TOKEN_IN, // in
 
 	CRUX_TOKEN_NIL_TYPE, // Nil
 	CRUX_TOKEN_BOOL_TYPE, // Bool
@@ -113,6 +121,8 @@ typedef enum {
 	CRUX_TOKEN_RANGE_TYPE, // Range
 	CRUX_TOKEN_ANY_TYPE, // Any
 	CRUX_TOKEN_NEVER_TYPE, // Never
+	CRUX_TOKEN_ITERATOR_TYPE, // Iterator
+	CRUX_TOKEN_OPTION_TYPE, // Option
 } CruxTokenType;
 
 typedef struct {

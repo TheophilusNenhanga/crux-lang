@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 0.2.1)'
+        description: "Version number (e.g., 0.2.1)"
         required: true
         type: string
 
@@ -22,33 +22,33 @@ jobs:
             arch: amd64
             artifact_name: crux
             binary_path: build/crux
-            cmake_flags: ""
-            
+            cmake_flags: "-DCRUX_STACK_SAFETY=OFF -DCRUX_VERSION=${{ github.event.inputs.version }}"
+
           - os: windows-latest
             platform: windows
             arch: amd64
             artifact_name: crux.exe
             binary_path: build/crux.exe
             cmake_generator: "MSYS Makefiles"
-            cmake_flags: ""
-            
+            cmake_flags: "-DCRUX_STACK_SAFETY=OFF -DCRUX_VERSION=${{ github.event.inputs.version }}"
+
           - os: macos-latest
             platform: macos
             arch: amd64
             artifact_name: crux
             binary_path: build/crux
-            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
-            
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DCRUX_STACK_SAFETY=OFF -DCRUX_VERSION=${{ github.event.inputs.version }}"
+
           - os: macos-latest
             platform: macos
             arch: arm64
             artifact_name: crux
             binary_path: build/crux
-            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64 -DCRUX_STACK_SAFETY=OFF -DCRUX_VERSION=${{ github.event.inputs.version }}"
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up CMake
         uses: lukka/get-cmake@latest
 
@@ -65,7 +65,7 @@ jobs:
         run: |
           brew install gcc
           echo "CC=gcc" >> $GITHUB_ENV
-          echo "CXX=g++" >> $GITHUB_ENV    
+          echo "CXX=g++" >> $GITHUB_ENV
 
       - name: Install MinGW (Windows)
         if: matrix.os == 'windows-latest'
@@ -89,8 +89,8 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../
-          cmake --build . --config Release
+          cmake -DCMAKE_BUILD_TYPE=Release -S .. ${{ matrix.cmake_flags }}
+          cmake --build .
 
       - name: Build Windows
         if: matrix.os == 'windows-latest'
@@ -98,8 +98,8 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ../
-          cmake --build . --config Release
+          cmake -G "MSYS Makefiles" -S .. -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }}
+          cmake --build .
 
       - name: Rename binary
         run: |
@@ -133,20 +133,20 @@ jobs:
         run: |
           # Get the latest tag (previous release)
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
+
           # If no previous tag exists, get all commits
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMITS=$(git log --pretty=format:"%h %s" --no-merges)
           else
             COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"%h %s" --no-merges)
           fi
-          
+
           # Initialize changelog sections
           FEATURES=""
           FIXES=""
           BREAKING=""
           OTHER=""
-          
+
           # Parse commits and categorize them
           while IFS= read -r commit; do
             if [[ $commit =~ ^[a-f0-9]+\ feat(\(.+\))?!: ]]; then
@@ -166,26 +166,26 @@ jobs:
               OTHER="${OTHER}- ${commit#* }\n"
             fi
           done <<< "$COMMITS"
-          
+
           # Build the changelog
           CHANGELOG="## What's Changed\n\n"
-          
+
           if [ -n "$BREAKING" ]; then
-            CHANGELOG="${CHANGELOG}### ⚠️ Breaking Changes\n${BREAKING}\n"
+            CHANGELOG="${CHANGELOG}### Breaking Changes\n${BREAKING}\n"
           fi
-          
+
           if [ -n "$FEATURES" ]; then
-            CHANGELOG="${CHANGELOG}### ✨ New Features\n${FEATURES}\n"
+            CHANGELOG="${CHANGELOG}### New Features\n${FEATURES}\n"
           fi
-          
+
           if [ -n "$FIXES" ]; then
-            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n${FIXES}\n"
+            CHANGELOG="${CHANGELOG}### Bug Fixes\n${FIXES}\n"
           fi
-          
+
           if [ -n "$OTHER" ]; then
-            CHANGELOG="${CHANGELOG}### 🔧 Other Changes\n${OTHER}\n"
+            CHANGELOG="${CHANGELOG}### Other Changes\n${OTHER}\n"
           fi
-          
+
           # Add download information
           CHANGELOG="${CHANGELOG}## 📦 Downloads\n\n"
           CHANGELOG="${CHANGELOG}Choose the appropriate binary for your system:\n\n"
@@ -194,12 +194,12 @@ jobs:
           CHANGELOG="${CHANGELOG}- **macOS (Intel)**: \`crux-macos-amd64\`\n"
           CHANGELOG="${CHANGELOG}- **macOS (Apple Silicon)**: \`crux-macos-arm64\`\n\n"
           CHANGELOG="${CHANGELOG}Make the binary executable on Unix systems: \`chmod +x crux-*\`"
-          
+
           # Save to file and output
           echo -e "$CHANGELOG" > release_notes.md
           echo "Generated release notes:"
           cat release_notes.md
-          
+
           # Set output for GitHub Actions (escape newlines)
           {
             echo 'RELEASE_NOTES<<EOF'

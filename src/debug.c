@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "chunk.h"
+#include "type_system.h"
 #include "value.h"
 
 #include <stdio.h>
@@ -189,6 +190,10 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return jump_instruction("OP_JUMP", 1, chunk, offset);
 	case OP_JUMP_IF_FALSE:
 		return jump_instruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+	case OP_ITER_INIT:
+		return simple_instruction("OP_ITER_INIT", offset);
+	case OP_ITER_NEXT:
+		return jump_instruction("OP_ITER_NEXT", 1, chunk, offset);
 	case OP_LOOP:
 		return jump_instruction("OP_LOOP", -1, chunk, offset);
 	case OP_CALL:
@@ -222,6 +227,12 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return inline_arg_instruction("OP_ARRAY", chunk, offset);
 	case OP_TABLE:
 		return inline_arg_instruction("OP_TABLE", chunk, offset);
+	case OP_SET:
+		return inline_arg_instruction("OP_SET", chunk, offset);
+	case OP_TUPLE:
+		return inline_arg_instruction("OP_TUPLE", chunk, offset);
+	case OP_RANGE:
+		return simple_instruction("OP_RANGE", offset);
 	case OP_GET_COLLECTION:
 		return simple_instruction("OP_GET_COLLECTION", offset);
 	case OP_SET_COLLECTION:
@@ -309,6 +320,20 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_RESULT_BIND: {
 		return byte_instruction("OP_RESULT_BIND", chunk, offset);
 	}
+	case OP_OPTION_MATCH_SOME: {
+		return jump_instruction("OP_OPTION_MATCH_SOME", 1, chunk, offset);
+	}
+	case OP_OPTION_MATCH_NONE: {
+		return jump_instruction("OP_OPTION_MATCH_NONE", 1, chunk, offset);
+	}
+	case OP_TYPE_MATCH: {
+		const uint16_t match_type = chunk->code[offset + 1];
+		const uint16_t jump = chunk->code[offset + 2];
+		char type_name[64];
+		type_mask_name((TypeMask)match_type, type_name, sizeof(type_name));
+		printf("%-16s %-10s %4d -> %d\n", "OP_TYPE_MATCH", type_name, offset, offset + 3 + jump);
+		return offset + 3;
+	}
 	case OP_GIVE: {
 		return simple_instruction("OP_GIVE", offset);
 	}
@@ -390,6 +415,24 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_TYPE_COERCE: {
 		return constant_instruction("OP_TYPE_COERCE", chunk, offset);
+	}
+	case OP_GET_SLICE: {
+		return simple_instruction("OP_GET_SLICE", offset);
+	}
+	case OP_IN: {
+		return simple_instruction("OP_IN", offset);
+	}
+	case OP_OK: {
+		return simple_instruction("OP_OK", offset);
+	}
+	case OP_ERR: {
+		return simple_instruction("OP_ERROR", offset);
+	}
+	case OP_SOME: {
+		return simple_instruction("OP_SOME", offset);
+	}
+	case OP_NONE: {
+		return simple_instruction("OP_NONE", offset);
 	}
 	default:
 		printf("Unknown opcode %d\n", instruction);

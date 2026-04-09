@@ -2,16 +2,20 @@
 #define VM_H
 
 #include "chunk.h"
+#include "common.h"
 #include "table.h"
 #include "value.h"
+#include "utf8.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
 typedef struct ObjectModuleRecord ObjectModuleRecord;
+typedef struct ObjectIterator ObjectIterator;
 typedef struct ObjectResult ObjectResult;
 typedef struct ObjectStructInstance ObjectStructInstance;
 typedef struct ObjectTypeRecord ObjectTypeRecord;
 typedef struct ObjectTypeTable ObjectTypeTable;
+typedef struct ObjectRange ObjectRange;
 typedef struct SlabAllocator SlabAllocator;
 typedef struct Compiler Compiler;
 
@@ -61,6 +65,12 @@ typedef struct {
 	uint32_t capacity;
 } StructInstanceStack;
 
+typedef struct {
+	MatchHandler handlers[MATCH_NEST_DEPTH];
+	uint32_t count;
+	uint32_t capacity;
+} MatchHandlerStack;
+
 typedef enum {
 	PAUSED,
 	RUNNING,
@@ -85,6 +95,7 @@ struct VM {
 
 	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
+	MatchHandlerStack match_handler_stack;
 
 	Table module_cache;
 	Table strings;
@@ -96,6 +107,7 @@ struct VM {
 	Table error_type;
 	Table file_type;
 	Table result_type;
+	Table option_type;
 	Table vector_type;
 	Table complex_type;
 	Table matrix_type;
@@ -107,7 +119,6 @@ struct VM {
 	StructInstanceStack struct_instance_stack;
 
 	NativeModules native_modules;
-	MatchHandler match_handler;
 	Args args;
 
 	double heap_growth_factor;
@@ -216,6 +227,9 @@ ObjectUpvalue *capture_upvalue(VM *vm, Value *local);
 
 bool handle_invoke(VM *vm, int arg_count, Value receiver, Value original, Value value);
 
+bool get_iterator_from_value(VM *vm, Value value, Value *iterator_out);
+bool get_next_option_from_iterator(VM *vm, Value iterator, Value *option_out);
+
 /**
  * Invokes a method on an object with the given arguments.
  * @param vm The virtual machine
@@ -250,5 +264,7 @@ bool pushStructStack(VM *vm, ObjectStructInstance *struct_instance);
 ObjectStructInstance *peek_struct_stack(const VM *vm);
 
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *target, Value operand, OpCode op);
+bool range_indices_in_bounds(const ObjectRange *range, const uint32_t collection_size);
+bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const utf8_int8_t ***starts_out);
 
 #endif // VM_H

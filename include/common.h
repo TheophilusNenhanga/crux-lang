@@ -11,11 +11,6 @@
 #define RED "\x1b[31m"
 #define MAGENTA "\x1b[35m"
 
-// #define DEBUG_TRACE_EXECUTION
-// #define DEBUG_PRINT_CODE
-// #define DEBUG_LOG_GC
-// #define DEBUG_STRESS_GC
-
 #define UINT8_COUNT (UINT8_MAX + 1)
 #define MAX_ARRAY_SIZE (UINT16_MAX - 1)
 #define FRAMES_MAX 128
@@ -29,9 +24,11 @@
 #define OBJECT_POOL_GROWTH_FACTOR (1.5)
 #define INITIAL_BUFFER_CAPACITY (64)
 #define INITIAL_SET_CAPACITY (8)
+#define MATCH_NEST_DEPTH (16)
+#define TYPE_NAME_BUF_SIZE (256)
 
-#define INIT_GC_HEAP_GROW_FACTOR (1.75)
-#define SLAB_CAPACITY (8192)
+#define INIT_GC_HEAP_GROW_FACTOR (2)
+#define SLAB_CAPACITY (4096)
 #define INITIAL_TYPE_TABLE_SIZE 16
 
 #endif

@@ -11,4 +11,7 @@ Value array_function(VM *vm, const Value *args);
 Value table_function(VM *vm, const Value *args);
 Value format_function(VM *vm, const Value *args);
 
+Value iter_function(VM *vm, const Value *args);
+Value next_function(VM *vm, const Value *args);
+
 #endif // CORE_H
