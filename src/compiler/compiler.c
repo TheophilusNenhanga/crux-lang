@@ -9,6 +9,7 @@
 #include "compiler.h"
 #include "debug.h"
 #include "file_handler.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
@@ -3004,11 +3005,15 @@ static void synchronize(const Compiler *compiler)
 	}
 }
 
+static MatchCompiler *current_match_compiler(Compiler *compiler)
+{
+	return &compiler->match_compiler[compiler->match_depth - 1];
+}
+
 static void begin_match_scope(Compiler *compiler)
 {
-	if (compiler->match_depth > 0) {
-		compiler_panic(compiler->parser, "Nesting match statements is not allowed.", SYNTAX);
-	}
+	if (compiler->match_depth + 1 == MATCH_NEST_DEPTH)
+		compiler_panic(compiler->parser, "Match statement nesting depth exceeded.", SYNTAX);
 	compiler->match_depth++;
 }
 
@@ -3036,112 +3041,265 @@ static void give_statement(Compiler *compiler)
 	emit_word(compiler, OP_GIVE);
 }
 
-static void match_expression(Compiler *compiler, const bool can_assign)
+static void init_match_compiler(Compiler *compiler, MatchCompiler *match_compiler)
+{
+	match_compiler->patterns = ALLOCATE(compiler->owner, MatchPattern, 8);
+	match_compiler->pattern_count = 0;
+	match_compiler->pattern_capacity = 8;
+	match_compiler->exhaustiveness.resultant_type = NULL;
+	match_compiler->exhaustiveness.has_literal = false;
+	match_compiler->exhaustiveness.has_type = false;
+	match_compiler->exhaustiveness.has_default = false;
+	match_compiler->exhaustiveness.has_err = false;
+	match_compiler->exhaustiveness.has_ok = false;
+	match_compiler->exhaustiveness.has_some = false;
+	match_compiler->exhaustiveness.has_none = false;
+	match_compiler->exhaustiveness.matched_types = NULL;
+	match_compiler->exhaustiveness.matched_types_count = 0;
+	match_compiler->exhaustiveness.matched_types_capacity = 0;
+	match_compiler->exhaustiveness.target_type = NULL;
+}
+
+static void add_exhaustive_match_type(Compiler *compiler, MatchExhaustiveness *exhaustiveness, ObjectTypeRecord *type)
+{
+	if (type == NULL)
+		return;
+
+	for (int i = 0; i < exhaustiveness->matched_types_count; i++) {
+		if (types_equal(exhaustiveness->matched_types[i], type)) {
+			return;
+		}
+	}
+
+	if (exhaustiveness->matched_types_count + 1 > exhaustiveness->matched_types_capacity) {
+		const int old_capacity = exhaustiveness->matched_types_capacity;
+		exhaustiveness->matched_types_capacity = GROW_CAPACITY(old_capacity);
+		exhaustiveness->matched_types =
+			GROW_ARRAY(compiler->owner, ObjectTypeRecord *, exhaustiveness->matched_types, old_capacity,
+					   exhaustiveness->matched_types_capacity);
+	}
+
+	exhaustiveness->matched_types[exhaustiveness->matched_types_count++] = type;
+}
+
+static void record_type_pattern_coverage(Compiler *compiler, MatchExhaustiveness *exhaustiveness, TypeMask matched_type_mask)
+{
+	ObjectTypeRecord *target_type = exhaustiveness->target_type;
+	if (target_type == NULL)
+		return;
+
+	if (target_type->base_type == UNION_TYPE) {
+		for (int i = 0; i < target_type->as.union_type.element_count; i++) {
+			ObjectTypeRecord *element = target_type->as.union_type.element_types[i];
+			if (mask_in_type(element, matched_type_mask)) {
+				add_exhaustive_match_type(compiler, exhaustiveness, element);
+			}
+		}
+		return;
+	}
+
+	if (mask_in_type(target_type, matched_type_mask)) {
+		add_exhaustive_match_type(compiler, exhaustiveness, target_type);
+	}
+}
+
+static bool is_type_match_exhaustive(const MatchExhaustiveness *exhaustiveness)
+{
+	if (exhaustiveness->target_type == NULL)
+		return false;
+
+	if (exhaustiveness->target_type->base_type == UNION_TYPE) {
+		return exhaustiveness->matched_types_count >= exhaustiveness->target_type->as.union_type.element_count;
+	}
+
+	return exhaustiveness->matched_types_count > 0;
+}
+
+static void end_match_binding_scope(Compiler *compiler)
+{
+	compiler->scope_depth--;
+	while (compiler->local_count > 0 && compiler->locals[compiler->local_count - 1].depth > compiler->scope_depth) {
+		if (compiler->locals[compiler->local_count - 1].is_captured) {
+			compiler_panic(compiler->parser, "Match binding variables cannot be captured.", SYNTAX);
+			break;
+		}
+		compiler->local_count--;
+	}
+}
+
+static void new_match_expression(Compiler *compiler, const bool can_assign)
 {
 	(void)can_assign;
 	begin_match_scope(compiler);
 
-	expression(compiler);
+	expression(compiler); // compile the target
 
-	// The target's type tells us what patterns are valid.
 	ObjectTypeRecord *target_type = pop_type_record(compiler);
+	MatchCompiler *match_compiler = current_match_compiler(compiler);
+	init_match_compiler(compiler, match_compiler);
 	if (!target_type)
 		target_type = T_ANY;
 
-	push(compiler->owner->current_module_record, OBJECT_VAL(target_type));
+	MatchExhaustiveness *exhaustiveness = &match_compiler->exhaustiveness;
+	exhaustiveness->target_type = target_type;
+	exhaustiveness->resultant_type = NULL;
 
 	consume(compiler, CRUX_TOKEN_LEFT_BRACE, "Expected '{' after match target.");
-
-	int *endJumps = ALLOCATE(compiler->owner, int, 8);
-	int jumpCount = 0;
-	int jumpCapacity = 8;
-
 	emit_word(compiler, OP_MATCH);
 
-	bool hasDefault = false;
-	bool hasOkPattern = false;
-	bool hasErrPattern = false;
-
-	// type that the arm produces
-	ObjectTypeRecord *arm_type = NULL;
-
-	push(compiler->owner->current_module_record, NIL_VAL);
-	const int arm_idx = (int)(compiler->owner->current_module_record->stack_top -
-							  compiler->owner->current_module_record->stack - 1);
+	match_compiler->end_jumps = ALLOCATE(compiler->owner, int, 8);
+	match_compiler->jump_count = 0;
+	match_compiler->jump_capacity = 8;
 
 	while (!check(compiler, CRUX_TOKEN_RIGHT_BRACE) && !check(compiler, CRUX_TOKEN_EOF)) {
-		int jumpIfNotMatch = -1;
-		uint16_t bindingSlot = UINT16_MAX;
-		bool hasBinding = false;
+		MatchPattern pattern = {.jump_if_not_match = -1,
+								.binding_slot = UINT16_MAX,
+								.is_binding = false,
+								.type = MATCH_PATTERN_DEFAULT,
+								.type_produced = NULL};
 		compiler->last_give_type = NULL;
 
 		if (match(compiler, CRUX_TOKEN_DEFAULT)) {
-			if (hasDefault) {
-				compiler_panic(compiler->parser, "Cannot have multiple default patterns.", SYNTAX);
+			pattern.type = MATCH_PATTERN_DEFAULT;
+			if (exhaustiveness->has_default) {
+				compiler_panic(compiler->parser, "Match expression cannot have multiple 'default' arms.", SYNTAX);
 			}
-			hasDefault = true;
-
+			exhaustiveness->has_default = true;
 		} else if (match(compiler, CRUX_TOKEN_OK)) {
-			// Ok/Err patterns require a Result target.
+			pattern.type = MATCH_PATTERN_OK;
+
+			if (exhaustiveness->has_ok) {
+				compiler_panic(compiler->parser, "Match expression cannot have multiple 'Ok' arms.", SYNTAX);
+			}
+			exhaustiveness->has_ok = true;
+
 			if (target_type->base_type != RESULT_TYPE && target_type->base_type != ANY_TYPE) {
-				compiler_panic(compiler->parser,
-							   "'Ok' pattern requires a 'Result' "
-							   "match target.",
-							   TYPE);
+				char buf[256];
+				type_record_name(target_type, buf, sizeof(buf));
+				compiler_panicf(compiler->parser, TYPE,
+								"'Ok' pattern require a match target of type 'Result' got '%s'.", buf);
 			}
-			if (hasOkPattern) {
-				compiler_panic(compiler->parser, "Cannot have multiple 'Ok' patterns.", SYNTAX);
-			}
-			hasOkPattern = true;
-			jumpIfNotMatch = emit_jump(compiler, OP_RESULT_MATCH_OK);
+
+			pattern.jump_if_not_match = emit_jump(compiler, OP_RESULT_MATCH_OK);
 
 			if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
-				begin_scope(compiler);
-				hasBinding = true;
-				consume(compiler, CRUX_TOKEN_IDENTIFIER,
-						"Expected identifier after 'Ok' "
-						"pattern.");
-				declare_variable(compiler);
-				bindingSlot = compiler->local_count - 1;
-
-				ObjectTypeRecord *ok_type = (target_type->base_type == RESULT_TYPE)
-												? target_type->as.result_type.ok_type
-												: NULL;
-				compiler->locals[bindingSlot].type = ok_type ? ok_type : T_ANY;
-
-				mark_initialized(compiler);
-				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected binding variable name.");
+				if (!(compiler->parser->previous.length == 1 && compiler->parser->previous.start[0] == '_')) {
+					begin_scope(compiler);
+					pattern.is_binding = true;
+					declare_variable(compiler);
+					pattern.binding_slot = compiler->local_count - 1;
+					ObjectTypeRecord *ok_type =
+						target_type->base_type == RESULT_TYPE ? target_type->as.result_type.ok_type : T_ANY;
+					compiler->locals[pattern.binding_slot].type = ok_type;
+					mark_initialized(compiler);
+				}
+				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' to end pattern binding.");
 			}
 
 		} else if (match(compiler, CRUX_TOKEN_ERR)) {
+			pattern.type = MATCH_PATTERN_ERR;
+			if (exhaustiveness->has_err) {
+				compiler_panic(compiler->parser, "'match' expression cannot have multiple 'Err' arms.", SYNTAX);
+			}
+			exhaustiveness->has_err = true;
+
 			if (target_type->base_type != RESULT_TYPE && target_type->base_type != ANY_TYPE) {
-				compiler_panic(compiler->parser,
-							   "'Err' pattern requires a 'Result' "
-							   "match target.",
-							   TYPE);
+				char buf[256];
+				type_record_name(target_type, buf, sizeof(buf));
+				compiler_panicf(compiler->parser, TYPE,
+								"'Err' pattern requires a match target of type 'Result' got '%s'.", buf);
 			}
-			if (hasErrPattern) {
-				compiler_panic(compiler->parser, "Cannot have multiple 'Err' patterns.", SYNTAX);
-			}
-			hasErrPattern = true;
-			jumpIfNotMatch = emit_jump(compiler, OP_RESULT_MATCH_ERR);
+
+			pattern.jump_if_not_match = emit_jump(compiler, OP_RESULT_MATCH_ERR);
 
 			if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
-				begin_scope(compiler);
-				hasBinding = true;
-				consume(compiler, CRUX_TOKEN_IDENTIFIER,
-						"Expected identifier after 'Err' "
-						"pattern.");
-				declare_variable(compiler);
-				bindingSlot = compiler->local_count - 1;
-
-				compiler->locals[bindingSlot].type = new_type_rec(compiler->owner, ERROR_TYPE);
-
-				mark_initialized(compiler);
-				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' after identifier.");
+				consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected binding variable name");
+				if (!(compiler->parser->previous.length == 1 && compiler->parser->previous.start[0] == '_')) {
+					begin_scope(compiler);
+					pattern.is_binding = true;
+					declare_variable(compiler);
+					pattern.binding_slot = compiler->local_count - 1;
+					compiler->locals[pattern.binding_slot].type = T_ERROR;
+					mark_initialized(compiler);
+				}
+				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' to end pattern binding.");
 			}
 
+		} else if (match(compiler, CRUX_TOKEN_SOME)) {
+			pattern.type = MATCH_PATTERN_SOME;
+			if (exhaustiveness->has_some) {
+				compiler_panic(compiler->parser, "'match' expression cannot have multiple 'Some' arms.", TYPE);
+			}
+			exhaustiveness->has_some = true;
+
+			if (target_type->base_type != OPTION_TYPE && target_type->base_type != ANY_TYPE) {
+				char buf[256];
+				type_record_name(target_type, buf, sizeof(buf));
+				compiler_panicf(compiler->parser, TYPE,
+								"'Some' pattern requires a match target of type 'Option' got '%s'.", buf);
+			}
+
+			pattern.jump_if_not_match = emit_jump(compiler, OP_OPTION_MATCH_SOME);
+
+			if (match(compiler, CRUX_TOKEN_LEFT_PAREN)) {
+				consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected binding variable name");
+				if (!(compiler->parser->previous.length == 1 && compiler->parser->previous.start[0] == '_')) {
+					begin_scope(compiler);
+					pattern.is_binding = true;
+					declare_variable(compiler);
+					pattern.binding_slot = compiler->local_count - 1;
+
+					compiler->locals[pattern.binding_slot].type = target_type->base_type == OPTION_TYPE
+																	  ? target_type->as.option_type.some_type
+																	  : T_ANY;
+
+					mark_initialized(compiler);
+				}
+				consume(compiler, CRUX_TOKEN_RIGHT_PAREN, "Expected ')' to end pattern binding.");
+			}
+
+		} else if (match(compiler, CRUX_TOKEN_NONE)) {
+			pattern.type = MATCH_PATTERN_NONE;
+			if (exhaustiveness->has_none) {
+				compiler_panic(compiler->parser, "'match' expression cannot have multiple 'None' arms.", SYNTAX);
+			}
+			exhaustiveness->has_none = true;
+
+			if (target_type->base_type != OPTION_TYPE && target_type->base_type != ANY_TYPE) {
+				char buf[256];
+				type_record_name(target_type, buf, sizeof(buf));
+				compiler_panicf(compiler->parser, TYPE,
+								"'None' pattern requires a match target of type 'Option' got '%s'.", buf);
+			}
+
+			pattern.jump_if_not_match = emit_jump(compiler, OP_OPTION_MATCH_NONE);
+
+		} else if (match_type_name(compiler)) {
+			pattern.type = MATCH_PATTERN_TYPE;
+			exhaustiveness->has_type = true;
+			Token type_token = compiler->parser->previous;
+			TypeMask matched_type_mask = type_token_type_to_mask(type_token.type);
+
+			bool target_has_type = mask_in_type(target_type, matched_type_mask);
+			if (!target_has_type) {
+				char buf[TYPE_NAME_BUF_SIZE];
+				type_mask_name(matched_type_mask, buf, sizeof(buf));
+				char target_buf[TYPE_NAME_BUF_SIZE];
+				type_record_name(target_type, target_buf, sizeof(target_buf));
+				compiler_panicf(compiler->parser, TYPE, "Cannot match '%s' because it is not included in '%s'", buf,
+								target_buf);
+			}
+
+			emit_word(compiler, OP_TYPE_MATCH);
+			emit_word(compiler, (uint16_t)matched_type_mask);
+			pattern.jump_if_not_match = current_chunk(compiler)->count;
+			emit_word(compiler, 0xffff);
+			record_type_pattern_coverage(compiler, exhaustiveness, matched_type_mask);
+
 		} else {
+			pattern.type = MATCH_PATTERN_EXPRESSION;
+			exhaustiveness->has_literal = true;
 			expression(compiler);
 			ObjectTypeRecord *pattern_type = pop_type_record(compiler);
 
@@ -3156,103 +3314,127 @@ static void match_expression(Compiler *compiler, const bool can_assign)
 				}
 			}
 
-			jumpIfNotMatch = emit_jump(compiler, OP_MATCH_JUMP);
+			pattern.jump_if_not_match = emit_jump(compiler, OP_MATCH_JUMP);
 		}
 
 		consume(compiler, CRUX_TOKEN_EQUAL_ARROW, "Expected '=>' after pattern.");
 
-		if (bindingSlot != UINT16_MAX) {
-			emit_words(compiler, OP_RESULT_BIND, bindingSlot);
+		if ((pattern.type == MATCH_PATTERN_ERR || pattern.type == MATCH_PATTERN_OK ||
+			 pattern.type == MATCH_PATTERN_SOME) &&
+			pattern.binding_slot != UINT16_MAX) {
+			emit_words(compiler, OP_RESULT_BIND, pattern.binding_slot);
 		}
-
-		ObjectTypeRecord *this_arm_type = NULL;
 
 		if (match(compiler, CRUX_TOKEN_LEFT_BRACE)) {
 			block(compiler);
-			// Blocks produce values with give and statements (usually the never type e.g. return, break)
-			this_arm_type = compiler->last_give_type ? compiler->last_give_type : T_NIL;
+			// blocks produce values with `give VALUE` and statement (e.g. return, break ...)
+			pattern.type_produced = compiler->last_give_type ? compiler->last_give_type : T_NIL;
 		} else if (match(compiler, CRUX_TOKEN_GIVE)) {
-			if (match(compiler, CRUX_TOKEN_SEMICOLON)) {
+			if (match(compiler, CRUX_TOKEN_NIL)) {
 				emit_word(compiler, OP_NIL);
-				this_arm_type = T_NIL;
+				pattern.type_produced = T_NIL;
+				consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after give expression");
 			} else {
 				expression(compiler);
-				this_arm_type = pop_type_record(compiler);
-				consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after give expression.");
+				pattern.type_produced = pop_type_record(compiler);
+				consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after give expression");
 			}
 			emit_word(compiler, OP_GIVE);
 		} else {
 			expression(compiler);
-			this_arm_type = pop_type_record(compiler);
+			pattern.type_produced = pop_type_record(compiler);
 			consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after expression.");
 		}
 
-		// Check arm type consistency.
-		if (!this_arm_type)
-			this_arm_type = T_ANY;
-
-		if (arm_type == NULL || arm_type->base_type == NEVER_TYPE) {
-			arm_type = this_arm_type;
-		} else if (this_arm_type->base_type == NEVER_TYPE) {
-			// This arm produces never, so it doesn't affect the overall type.
-		} else if (arm_type->base_type != ANY_TYPE && this_arm_type->base_type != ANY_TYPE) {
-			if (!types_compatible(arm_type, this_arm_type)) {
-				char expected[128], got[128];
-				type_record_name(arm_type, expected, sizeof(expected));
-				type_record_name(this_arm_type, got, sizeof(got));
+		if (exhaustiveness->resultant_type == NULL || exhaustiveness->resultant_type->base_type == NEVER_TYPE) {
+			exhaustiveness->resultant_type = pattern.type_produced;
+		} else if (pattern.type_produced->base_type == NEVER_TYPE) {
+			// This arm produces never, so it does affect the resultant type
+		} else if (exhaustiveness->resultant_type->base_type != ANY_TYPE &&
+				   pattern.type_produced->base_type != ANY_TYPE) {
+			if (!types_compatible(pattern.type_produced, exhaustiveness->resultant_type)) {
+				char expected[TYPE_NAME_BUF_SIZE], got[TYPE_NAME_BUF_SIZE];
+				type_record_name(exhaustiveness->resultant_type, expected, sizeof(expected));
+				type_record_name(pattern.type_produced, got, sizeof(got));
 				compiler_panicf(compiler->parser, TYPE,
-								"Match arms produce inconsistent "
-								"types: expected '%s', got '%s'.",
-								expected, got);
+								"Match arms produce inconsistent types: expected '%s', got '%s'.", expected, got);
 			}
 		}
 
-		compiler->owner->current_module_record->stack[arm_idx] = arm_type ? OBJECT_VAL(arm_type) : NIL_VAL;
-
-		if (hasBinding) {
-			end_scope(compiler);
+		if (pattern.is_binding) {
+			end_match_binding_scope(compiler);
 		}
 
-		if (jumpCount + 1 > jumpCapacity) {
-			const int oldCapacity = jumpCapacity;
-			jumpCapacity = GROW_CAPACITY(oldCapacity);
-			endJumps = GROW_ARRAY(compiler->owner, int, endJumps, oldCapacity, jumpCapacity);
+		if (match_compiler->jump_count + 1 > match_compiler->jump_capacity) {
+			const int old_cap = match_compiler->jump_capacity;
+			match_compiler->jump_capacity = GROW_CAPACITY(match_compiler->jump_capacity);
+			match_compiler->end_jumps = GROW_ARRAY(compiler->owner, int, match_compiler->end_jumps, old_cap,
+												   match_compiler->jump_capacity);
 		}
 
-		endJumps[jumpCount++] = emit_jump(compiler, OP_JUMP);
+		match_compiler->end_jumps[match_compiler->jump_count++] = emit_jump(compiler, OP_JUMP);
 
-		if (jumpIfNotMatch != -1) {
-			patch_jump(compiler, jumpIfNotMatch);
+		if (pattern.jump_if_not_match != -1) {
+			patch_jump(compiler, pattern.jump_if_not_match);
 		}
+
+		if (match_compiler->pattern_count + 1 > match_compiler->pattern_capacity) {
+			const int old_cap = match_compiler->pattern_capacity;
+			match_compiler->pattern_capacity = GROW_CAPACITY(match_compiler->pattern_capacity);
+			match_compiler->patterns = GROW_ARRAY(compiler->owner, MatchPattern, match_compiler->patterns, old_cap,
+												  match_compiler->pattern_capacity);
+		}
+
+		match_compiler->patterns[match_compiler->pattern_count++] = pattern;
 	}
 
-	if (jumpCount == 0) {
+	if (match_compiler->jump_count == 0) {
 		compiler_panic(compiler->parser, "'match' expression must have at least one arm.", SYNTAX);
 	}
 
-	if (hasOkPattern || hasErrPattern) {
-		if (!hasDefault && !(hasOkPattern && hasErrPattern)) {
-			compiler_panic(compiler->parser,
-						   "Result 'match' must have both 'Ok' and 'Err' patterns, or a default case.", SYNTAX);
-		}
-	} else if (!hasDefault) {
+	// Exhaustiveness checks
+
+	const bool has_ok_err = exhaustiveness->has_ok && exhaustiveness->has_err;
+	const bool has_some_none = exhaustiveness->has_some && exhaustiveness->has_none;
+
+	if ((exhaustiveness->has_ok || exhaustiveness->has_err) && !has_ok_err && !exhaustiveness->has_default) {
+		compiler_panic(compiler->parser,
+					   "Result match expression must have both 'Ok' and 'Err' arms or a 'default' arm.", SYNTAX);
+	}
+	if ((exhaustiveness->has_some || exhaustiveness->has_none) && !has_some_none && !exhaustiveness->has_default) {
+		compiler_panic(compiler->parser,
+					   "Option match expression must have both 'Some' and 'None' arms or a 'default' arm.", SYNTAX);
+	}
+	if (exhaustiveness->has_type && !exhaustiveness->has_default && !is_type_match_exhaustive(exhaustiveness)) {
+		char target_buf[TYPE_NAME_BUF_SIZE];
+		type_record_name(target_type, target_buf, sizeof(target_buf));
+		compiler_panicf(compiler->parser, SYNTAX,
+						"Type match expression over '%s' must cover every target type or include a 'default' arm.",
+						target_buf);
+	}
+	if (!exhaustiveness->has_default && !has_ok_err && !has_some_none && !exhaustiveness->has_type) {
 		compiler_panic(compiler->parser, "'match' expression must have a 'default' case.", SYNTAX);
 	}
 
-	for (int i = 0; i < jumpCount; i++) {
-		patch_jump(compiler, endJumps[i]);
+	for (int i = 0; i < match_compiler->jump_count; i++) {
+		patch_jump(compiler, match_compiler->end_jumps[i]);
 	}
 
 	emit_word(compiler, OP_MATCH_END);
-
-	FREE_ARRAY(compiler->owner, int, endJumps, jumpCapacity);
-	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after match expression.");
+	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' to end match expression.");
+	push_type_record(compiler, match_compiler->exhaustiveness.resultant_type
+								   ? match_compiler->exhaustiveness.resultant_type
+								   : T_ANY);
 	end_match_scope(compiler);
+	FREE_ARRAY(compiler->owner, MatchPattern, match_compiler->patterns, match_compiler->pattern_capacity);
+	FREE_ARRAY(compiler->owner, int, match_compiler->end_jumps, match_compiler->jump_capacity);
+	FREE_ARRAY(compiler->owner, ObjectTypeRecord *, exhaustiveness->matched_types,
+			   exhaustiveness->matched_types_capacity);
+}
 
-	push_type_record(compiler, arm_type ? arm_type : T_ANY);
-
-	pop(compiler->owner->current_module_record); // arm_type
-	pop(compiler->owner->current_module_record); // target_type
+static void match_expression(Compiler *compiler, const bool can_assign)
+{
+	new_match_expression(compiler, can_assign);
 }
 
 static void continue_statement(Compiler *compiler)
@@ -4472,6 +4654,18 @@ void mark_compiler_roots(VM *vm, const Compiler *compiler)
 		for (int i = 0; i < current->local_count; i++) {
 			mark_object(vm, (CruxObject *)current->locals[i].type);
 		}
+
+		for (int i = 0; i < current->match_depth; i++) {
+			for (int j = 0; j < current->match_compiler[i].exhaustiveness.matched_types_count; j++) {
+				mark_object(vm, (CruxObject *)current->match_compiler[i].exhaustiveness.matched_types[j]);
+			}
+			for (int j = 0; j < current->match_compiler[i].pattern_count; j++) {
+				mark_object(vm, (CruxObject *)current->match_compiler[i].patterns[j].type_produced);
+			}
+			mark_object(vm, (CruxObject *)current->match_compiler[i].exhaustiveness.resultant_type);
+			mark_object(vm, (CruxObject *)current->match_compiler[i].exhaustiveness.target_type);
+		}
+
 		current = (Compiler *)current->enclosed;
 	}
 }

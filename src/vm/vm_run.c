@@ -151,6 +151,9 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_ERR,
 									&&OP_SOME,
 									&&OP_NONE,
+									&&OP_OPTION_MATCH_SOME,
+									&&OP_OPTION_MATCH_NONE,
+									&&OP_TYPE_MATCH,
 									&&end};
 
 	uint16_t instruction;
@@ -936,8 +939,15 @@ OP_PUB: {
 
 OP_MATCH: {
 	Value target = PEEK(currentModuleRecord, 0);
-	vm->match_handler.match_target = target;
-	vm->match_handler.is_match_target = true;
+	if (vm->match_handler_stack.count >= vm->match_handler_stack.capacity) {
+		runtime_panic(currentModuleRecord, RUNTIME, "Match nesting depth exceeded.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	vm->match_handler_stack.count++;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_target = target;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_target = true;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = false;
 	DISPATCH();
 }
 
@@ -952,13 +962,11 @@ OP_MATCH_JUMP: {
 }
 
 OP_MATCH_END: {
-	if (vm->match_handler.is_match_bind) {
-		push(currentModuleRecord, vm->match_handler.match_bind);
-	}
-	vm->match_handler.match_target = NIL_VAL;
-	vm->match_handler.match_bind = NIL_VAL;
-	vm->match_handler.is_match_bind = false;
-	vm->match_handler.is_match_target = false;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_target = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = NIL_VAL;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = false;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_target = false;
+	vm->match_handler_stack.count--;
 	DISPATCH();
 }
 
@@ -989,9 +997,40 @@ OP_RESULT_MATCH_ERR: {
 OP_RESULT_BIND: {
 	uint16_t slot = READ_SHORT();
 	Value bind = PEEK(currentModuleRecord, 0);
-	vm->match_handler.match_bind = bind;
-	vm->match_handler.is_match_bind = true;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].match_bind = bind;
+	vm->match_handler_stack.handlers[vm->match_handler_stack.count - 1].is_match_bind = true;
 	frame->slots[slot] = bind;
+	DISPATCH();
+}
+
+OP_OPTION_MATCH_SOME: {
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!IS_CRUX_OPTION(target) || !AS_CRUX_OPTION(target)->is_some) {
+		frame->ip += offset;
+	} else {
+		Value value = AS_CRUX_OPTION(target)->value;
+		pop_push(currentModuleRecord, value);
+	}
+	DISPATCH();
+}
+
+OP_OPTION_MATCH_NONE: {
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!IS_CRUX_OPTION(target) || AS_CRUX_OPTION(target)->is_some) {
+		frame->ip += offset;
+	}
+	DISPATCH();
+}
+
+OP_TYPE_MATCH: {
+	TypeMask expected = (TypeMask)READ_SHORT();
+	uint16_t offset = READ_SHORT();
+	Value target = PEEK(currentModuleRecord, 0);
+	if (!runtime_types_compatible(expected, target)) {
+		frame->ip += offset;
+	}
 	DISPATCH();
 }
 

@@ -108,6 +108,9 @@ typedef enum {
 	OP_ERR,
 	OP_SOME,
 	OP_NONE,
+	OP_OPTION_MATCH_SOME,
+	OP_OPTION_MATCH_NONE,
+	OP_TYPE_MATCH,
 } OpCode;
 
 typedef struct {

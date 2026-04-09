@@ -94,4 +94,40 @@ let m8 = match Err("test") {
 
 assert(typeof m8 == "Error", "match failed to bind value from result matching.");
 
+let maybe_value: Option[Int] = Some(41);
+let nested = match maybe_value {
+    Some(value) => give match value + 1 {
+        42 => give "forty-two";
+        default => give "other";
+    };
+    None => give "none";
+};
+
+assert(nested == "forty-two", "nested match should produce the inner result");
+
+let empty_value: Option[Int] = None;
+let option_match = match empty_value {
+    Some(value) => give value;
+    None => give 0;
+};
+
+assert(option_match == 0, "Option match should handle None arms");
+
+let union_value: Int | String = "hello";
+let type_match = match union_value {
+    Int => give "int";
+    String => give "string";
+};
+
+assert(type_match == "string", "type match should select the matching union member");
+
+let union_int: Int | String = 99;
+let second_type_match = match union_int {
+    Int => give "number";
+    String => give "text";
+};
+
+assert(second_type_match == "number", "type match should match Int union members");
+
+
 println("=== Completed match keyword test ===");

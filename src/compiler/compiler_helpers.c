@@ -4,6 +4,8 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
+#include "scanner.h"
+#include "value.h"
 
 Chunk *current_chunk(const Compiler *compiler)
 {
@@ -41,6 +43,102 @@ bool match(const Compiler *compiler, const CruxTokenType type)
 		return false;
 	advance(compiler);
 	return true;
+}
+
+bool match_type_name(const Compiler *compiler)
+{
+	CruxTokenType type_tokens[] = {
+		CRUX_TOKEN_NIL_TYPE,	CRUX_TOKEN_BOOL_TYPE,	  CRUX_TOKEN_INT_TYPE,	  CRUX_TOKEN_FLOAT_TYPE,
+		CRUX_TOKEN_STRING_TYPE, CRUX_TOKEN_ARRAY_TYPE,	  CRUX_TOKEN_TABLE_TYPE,  CRUX_TOKEN_ERROR_TYPE,
+		CRUX_TOKEN_RESULT_TYPE, CRUX_TOKEN_RANDOM_TYPE,	  CRUX_TOKEN_FILE_TYPE,	  CRUX_TOKEN_STRUCT_TYPE,
+		CRUX_TOKEN_VECTOR_TYPE, CRUX_TOKEN_COMPLEX_TYPE,  CRUX_TOKEN_MATRIX_TYPE, CRUX_TOKEN_SET_TYPE,
+		CRUX_TOKEN_TUPLE_TYPE,	CRUX_TOKEN_BUFFER_TYPE,	  CRUX_TOKEN_RANGE_TYPE,  CRUX_TOKEN_ANY_TYPE,
+		CRUX_TOKEN_NEVER_TYPE,	CRUX_TOKEN_ITERATOR_TYPE, CRUX_TOKEN_OPTION_TYPE,
+	};
+	int len = (int)(sizeof(type_tokens) / sizeof(type_tokens[0]));
+	for (int i = 0; i < len; i++) {
+		if (match(compiler, type_tokens[i]))
+			return true;
+	}
+	return false;
+}
+
+TypeMask type_token_type_to_mask(CruxTokenType token_type)
+{
+	switch (token_type) {
+	case CRUX_TOKEN_NIL_TYPE: {
+		return NIL_TYPE;
+	}
+	case CRUX_TOKEN_BOOL_TYPE: {
+		return BOOL_TYPE;
+	}
+	case CRUX_TOKEN_INT_TYPE: {
+		return INT_TYPE;
+	}
+	case CRUX_TOKEN_FLOAT_TYPE: {
+		return FLOAT_TYPE;
+	}
+	case CRUX_TOKEN_STRING_TYPE: {
+		return STRING_TYPE;
+	}
+	case CRUX_TOKEN_ARRAY_TYPE: {
+		return ARRAY_TYPE;
+	}
+	case CRUX_TOKEN_TABLE_TYPE: {
+		return TABLE_TYPE;
+	}
+	case CRUX_TOKEN_ERROR_TYPE: {
+		return ERROR_TYPE;
+	}
+	case CRUX_TOKEN_RESULT_TYPE: {
+		return RESULT_TYPE;
+	}
+	case CRUX_TOKEN_RANDOM_TYPE: {
+		return RANDOM_TYPE;
+	}
+	case CRUX_TOKEN_FILE_TYPE: {
+		return FILE_TYPE;
+	}
+	case CRUX_TOKEN_STRUCT_TYPE: {
+		return STRUCT_TYPE;
+	}
+	case CRUX_TOKEN_VECTOR_TYPE: {
+		return VECTOR_TYPE;
+	}
+	case CRUX_TOKEN_COMPLEX_TYPE: {
+		return COMPLEX_TYPE;
+	}
+	case CRUX_TOKEN_MATRIX_TYPE: {
+		return MATRIX_TYPE;
+	}
+	case CRUX_TOKEN_SET_TYPE: {
+		return SET_TYPE;
+	}
+	case CRUX_TOKEN_TUPLE_TYPE: {
+		return TUPLE_TYPE;
+	}
+	case CRUX_TOKEN_BUFFER_TYPE: {
+		return BUFFER_TYPE;
+	}
+	case CRUX_TOKEN_RANGE_TYPE: {
+		return RANGE_TYPE;
+	}
+	case CRUX_TOKEN_ANY_TYPE: {
+		return ANY_TYPE;
+	}
+	case CRUX_TOKEN_NEVER_TYPE: {
+		return NEVER_TYPE;
+	}
+	case CRUX_TOKEN_ITERATOR_TYPE: {
+		return ITERATOR_TYPE;
+	}
+	case CRUX_TOKEN_OPTION_TYPE: {
+		return OPTION_TYPE;
+	}
+	default: {
+		return ANY_TYPE;
+	}
+	}
 }
 
 bool is_identifier_like(const CruxTokenType type)

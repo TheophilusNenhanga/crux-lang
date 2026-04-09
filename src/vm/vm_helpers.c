@@ -737,6 +737,15 @@ void initMatchHandler(MatchHandler *matchHandler)
 	matchHandler->match_target = NIL_VAL;
 }
 
+static void initMatchHandlerStack(MatchHandlerStack *stack)
+{
+	stack->count = 0;
+	stack->capacity = MATCH_NEST_DEPTH;
+	for (uint32_t i = 0; i < MATCH_NEST_DEPTH; i++) {
+		initMatchHandler(&stack->handlers[i]);
+	}
+}
+
 void initNativeModules(NativeModules *nativeModules)
 {
 	nativeModules->modules = NULL;
@@ -850,7 +859,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 		exit(1);
 	}
 
-	initMatchHandler(&vm->match_handler);
+	initMatchHandlerStack(&vm->match_handler_stack);
 
 	if (!initialize_std_lib(vm)) {
 		runtime_panic(vm->current_module_record, RUNTIME, "Failed to initialize standard library.");

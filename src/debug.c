@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "chunk.h"
+#include "type_system.h"
 #include "value.h"
 
 #include <stdio.h>
@@ -318,6 +319,20 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_RESULT_BIND: {
 		return byte_instruction("OP_RESULT_BIND", chunk, offset);
+	}
+	case OP_OPTION_MATCH_SOME: {
+		return jump_instruction("OP_OPTION_MATCH_SOME", 1, chunk, offset);
+	}
+	case OP_OPTION_MATCH_NONE: {
+		return jump_instruction("OP_OPTION_MATCH_NONE", 1, chunk, offset);
+	}
+	case OP_TYPE_MATCH: {
+		const uint16_t match_type = chunk->code[offset + 1];
+		const uint16_t jump = chunk->code[offset + 2];
+		char type_name[64];
+		type_mask_name((TypeMask)match_type, type_name, sizeof(type_name));
+		printf("%-16s %-10s %4d -> %d\n", "OP_TYPE_MATCH", type_name, offset, offset + 3 + jump);
+		return offset + 3;
 	}
 	case OP_GIVE: {
 		return simple_instruction("OP_GIVE", offset);

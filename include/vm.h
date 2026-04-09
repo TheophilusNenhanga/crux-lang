@@ -2,6 +2,7 @@
 #define VM_H
 
 #include "chunk.h"
+#include "common.h"
 #include "table.h"
 #include "value.h"
 #include "utf8.h"
@@ -64,6 +65,12 @@ typedef struct {
 	uint32_t capacity;
 } StructInstanceStack;
 
+typedef struct {
+	MatchHandler handlers[MATCH_NEST_DEPTH];
+	uint32_t count;
+	uint32_t capacity;
+} MatchHandlerStack;
+
 typedef enum {
 	PAUSED,
 	RUNNING,
@@ -88,6 +95,7 @@ struct VM {
 
 	ObjectModuleRecord *current_module_record;
 	ImportStack import_stack;
+	MatchHandlerStack match_handler_stack;
 
 	Table module_cache;
 	Table strings;
@@ -111,7 +119,6 @@ struct VM {
 	StructInstanceStack struct_instance_stack;
 
 	NativeModules native_modules;
-	MatchHandler match_handler;
 	Args args;
 
 	double heap_growth_factor;

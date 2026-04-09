@@ -42,5 +42,6 @@ bool is_numeric_type(const ObjectTypeRecord *type);
 bool is_collection_type(const ObjectTypeRecord *type);
 bool is_iterable_type(const ObjectTypeRecord *type);
 ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const ObjectTypeRecord *iterable_type);
+bool mask_in_type(ObjectTypeRecord* type, TypeMask mask);
 
 #endif // CRUX_LANG_TYPE_SYSTEM_H

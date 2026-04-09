@@ -769,8 +769,10 @@ void mark_roots(VM *vm)
 		mark_compiler_roots(vm, vm->main_compiler);
 	}
 
-	mark_value(vm, vm->match_handler.match_bind);
-	mark_value(vm, vm->match_handler.match_target);
+	for (uint32_t i = 0; i < vm->match_handler_stack.count; i++) {
+		mark_value(vm, vm->match_handler_stack.handlers[i].match_bind);
+		mark_value(vm, vm->match_handler_stack.handlers[i].match_target);
+	}
 }
 
 static void trace_references(VM *vm)

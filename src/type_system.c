@@ -1168,3 +1168,16 @@ ObjectTypeRecord *get_iterable_element_type(const Compiler *compiler, const Obje
 
 	return T_ANY;
 }
+
+bool mask_in_type(ObjectTypeRecord *type, TypeMask mask)
+{
+	if (type->base_type == mask)
+		return true;
+	if (type->base_type == UNION_TYPE) {
+		for (int i = 0; i < type->as.union_type.element_count; i++) {
+			if (mask_in_type(type->as.union_type.element_types[i], mask))
+				return true;
+		}
+	}
+	return false;
+}
