@@ -2,6 +2,7 @@ use Random from "crux:random";
 use Vector from "crux:vector";
 use sqrt, min from "crux:math";
 use open from "crux:fs";
+use stats from "crux:gc";
 
 println("=== START OF RAY TRACER ===");
 
@@ -307,3 +308,5 @@ fn main() -> Nil {
 }
 
 main();
+
+println(stats());

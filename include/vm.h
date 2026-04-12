@@ -122,11 +122,40 @@ struct VM {
 	Args args;
 
 	double heap_growth_factor;
+	size_t min_gc_heap_size;
+	size_t min_gc_growth_delta;
 	size_t bytes_allocated;
 	size_t next_gc;
 	CruxObject **gray_stack;
 	int gray_capacity;
 	int gray_count;
+	uint64_t gc_collections;
+	uint64_t gc_total_ns;
+	uint64_t gc_mark_roots_ns;
+	uint64_t gc_trace_ns;
+	uint64_t gc_remove_white_ns;
+	uint64_t gc_sweep_ns;
+	uint64_t gc_last_total_ns;
+	uint64_t gc_last_mark_roots_ns;
+	uint64_t gc_last_trace_ns;
+	uint64_t gc_last_remove_white_ns;
+	uint64_t gc_last_sweep_ns;
+	uint32_t gc_last_gray_peak;
+	uint32_t gc_max_gray_peak;
+	size_t gc_last_live_objects;
+	size_t gc_last_pool_capacity;
+	size_t gc_last_bytes_before;
+	size_t gc_last_bytes_after;
+	size_t gc_last_bytes_freed;
+	size_t gc_last_next_gc;
+	size_t gc_last_objects_before_sweep;
+	size_t gc_last_objects_after_sweep;
+	size_t gc_last_objects_freed;
+	size_t gc_last_strings_count;
+	size_t gc_last_strings_capacity;
+	size_t gc_last_strings_tombstones;
+	size_t gc_last_sweep_slots_scanned;
+	size_t gc_sweep_slots_scanned;
 
 	GC_STATUS gc_status;
 

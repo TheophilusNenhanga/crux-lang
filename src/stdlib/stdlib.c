@@ -109,6 +109,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define t_cmpl REC(COMPLEX_TYPE)
 #define t_rang REC(RANGE_TYPE)
 #define t_buf REC(BUFFER_TYPE)
+#define t_tbl REC(TABLE_TYPE)
 #define t_never REC(NEVER_TYPE)
 
 #define arr_str ARR(t_str)
@@ -391,10 +392,13 @@ bool initialize_std_lib(VM *vm)
 			{"off", gc_off_function, 0, ARGS0, t_nil},
 			{"on", gc_on_function, 0, ARGS0, t_nil},
 			{"set_heap_growth", gc_set_heap_growth_function, 1, ARGS(numeric), res_nil},
+			{"set_min_heap", gc_set_min_heap_function, 1, ARGS(numeric), res_nil},
+			{"set_min_growth", gc_set_min_growth_function, 1, ARGS(numeric), res_nil},
 			{"collect", gc_collect_function, 0, ARGS0, t_nil},
 			{"heap_used", gc_heap_used_function, 0, ARGS0, t_flt},
 			{"heap_capacity", gc_heap_capacity_function, 0, ARGS0, t_flt},
 			{"is_on", gc_is_on_function, 0, ARGS0, t_bool},
+			{"stats", gc_stats_function, 0, ARGS0, t_tbl},
 		};
 		if (!init_module(vm, "gc", fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;

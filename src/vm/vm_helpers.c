@@ -818,8 +818,10 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->gc_status = PAUSED;
 	vm->is_exiting = false;
 	vm->exit_code = 0;
+	vm->min_gc_heap_size = MIN_GC_HEAP_SIZE;
+	vm->min_gc_growth_delta = MIN_GC_GROWTH_DELTA;
 	vm->bytes_allocated = 0;
-	vm->next_gc = 1024 * 1024;
+	vm->next_gc = vm->min_gc_heap_size;
 	vm->gray_count = 0;
 	vm->gray_capacity = 0;
 	vm->gray_stack = NULL;
@@ -1498,32 +1500,33 @@ bool specialized_binary_operation(VM *vm, const OpCode operation)
 		return push_unwrapped_binary_result(vm, vector_cross_value(vm, AS_CRUX_VECTOR(left), AS_CRUX_VECTOR(right)));
 	}
 	case OP_DIVIDE_VECTOR_VECTOR:
-		return push_unwrapped_binary_result(
-			vm, vector_component_divide_value(vm, AS_CRUX_VECTOR(left), AS_CRUX_VECTOR(right)));
+		return push_unwrapped_binary_result(vm, vector_component_divide_value(vm, AS_CRUX_VECTOR(left),
+																			  AS_CRUX_VECTOR(right)));
 	case OP_MULTIPLY_VECTOR_SCALAR:
-		return push_unwrapped_binary_result(
-			vm, vector_scalar_multiply_value(vm, AS_CRUX_VECTOR(left), TO_DOUBLE(right)));
+		return push_unwrapped_binary_result(vm,
+											vector_scalar_multiply_value(vm, AS_CRUX_VECTOR(left), TO_DOUBLE(right)));
 	case OP_MULTIPLY_SCALAR_VECTOR:
-		return push_unwrapped_binary_result(
-			vm, vector_scalar_multiply_value(vm, AS_CRUX_VECTOR(right), TO_DOUBLE(left)));
+		return push_unwrapped_binary_result(vm,
+											vector_scalar_multiply_value(vm, AS_CRUX_VECTOR(right), TO_DOUBLE(left)));
 	case OP_DIVIDE_VECTOR_SCALAR:
 		return push_unwrapped_binary_result(vm, vector_scalar_divide_value(vm, AS_CRUX_VECTOR(left), TO_DOUBLE(right)));
 	case OP_ADD_COMPLEX_COMPLEX:
 		return push_direct_binary_result(vm, complex_add_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
 	case OP_SUBTRACT_COMPLEX_COMPLEX:
-		return push_direct_binary_result(vm,
-										 complex_subtract_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
+		return push_direct_binary_result(vm, complex_subtract_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
 	case OP_MULTIPLY_COMPLEX_COMPLEX:
-		return push_direct_binary_result(vm,
-										 complex_multiply_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
+		return push_direct_binary_result(vm, complex_multiply_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
 	case OP_DIVIDE_COMPLEX_COMPLEX:
 		return push_direct_binary_result(vm, complex_divide_value(vm, AS_CRUX_COMPLEX(left), AS_CRUX_COMPLEX(right)));
 	case OP_MULTIPLY_COMPLEX_SCALAR:
-		return push_direct_binary_result(vm, complex_scalar_multiply_value(vm, AS_CRUX_COMPLEX(left), TO_DOUBLE(right)));
+		return push_direct_binary_result(vm,
+										 complex_scalar_multiply_value(vm, AS_CRUX_COMPLEX(left), TO_DOUBLE(right)));
 	case OP_MULTIPLY_SCALAR_COMPLEX:
-		return push_direct_binary_result(vm, complex_scalar_multiply_value(vm, AS_CRUX_COMPLEX(right), TO_DOUBLE(left)));
+		return push_direct_binary_result(vm,
+										 complex_scalar_multiply_value(vm, AS_CRUX_COMPLEX(right), TO_DOUBLE(left)));
 	case OP_DIVIDE_COMPLEX_SCALAR:
-		return push_unwrapped_binary_result(vm, complex_scalar_divide_value(vm, AS_CRUX_COMPLEX(left), TO_DOUBLE(right)));
+		return push_unwrapped_binary_result(vm,
+											complex_scalar_divide_value(vm, AS_CRUX_COMPLEX(left), TO_DOUBLE(right)));
 	case OP_ADD_MATRIX_MATRIX: {
 		return push_unwrapped_binary_result(vm, matrix_add_value(vm, AS_CRUX_MATRIX(left), AS_CRUX_MATRIX(right)));
 	}

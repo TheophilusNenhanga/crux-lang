@@ -1,5 +1,7 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "alloc.h"
 #include "common.h"
@@ -14,6 +16,53 @@
 #include <stdio.h>
 #include "debug.h"
 #endif
+
+static uint64_t gc_now_ns(void)
+{
+#ifdef _WIN32
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER counter;
+
+	// Get the number of ticks per second
+	QueryPerformanceFrequency(&frequency);
+	// Get the current tick count
+	QueryPerformanceCounter(&counter);
+
+	// Convert to nanoseconds: (ticks * 1,000,000,000) / frequency
+	return (counter.QuadPart * 1000000000LL) / frequency.QuadPart;
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+#endif
+}
+
+static size_t table_tombstone_count(const Table *table)
+{
+	size_t tombstones = 0;
+	if (!table || !table->entries)
+		return 0;
+
+	for (int i = 0; i < table->capacity; i++) {
+		const Entry *entry = &table->entries[i];
+		if (entry->key == NULL && !IS_NIL(entry->value)) {
+			tombstones++;
+		}
+	}
+	return tombstones;
+}
+
+static size_t compute_next_gc_threshold(const VM *vm)
+{
+	const size_t growth_target = (size_t)((double)vm->bytes_allocated * vm->heap_growth_factor);
+	const size_t delta_target = vm->bytes_allocated + vm->min_gc_growth_delta;
+
+	size_t next_gc = growth_target > delta_target ? growth_target : delta_target;
+	if (next_gc < vm->min_gc_heap_size) {
+		next_gc = vm->min_gc_heap_size;
+	}
+	return next_gc;
+}
 
 void mark_object(VM *vm, CruxObject *object)
 {
@@ -37,6 +86,12 @@ void mark_object(VM *vm, CruxObject *object)
 		vm->gray_stack = new_objects;
 	}
 	vm->gray_stack[vm->gray_count++] = object;
+	if ((uint32_t)vm->gray_count > vm->gc_last_gray_peak) {
+		vm->gc_last_gray_peak = (uint32_t)vm->gray_count;
+	}
+	if ((uint32_t)vm->gray_count > vm->gc_max_gray_peak) {
+		vm->gc_max_gray_peak = (uint32_t)vm->gray_count;
+	}
 }
 
 void mark_value(VM *vm, const Value value)
@@ -786,18 +841,21 @@ static void trace_references(VM *vm)
 static void sweep(VM *vm)
 {
 	const ObjectPool *pool = vm->object_pool;
+	size_t slots_scanned = 0;
 	for (size_t i = 0; i < pool->capacity; i++) {
 		PoolObject *pool_object = &pool->objects[i];
 
 		if (GET_DATA(pool_object) == NULL)
 			continue;
-
+		slots_scanned++;
 		if (IS_MARKED(pool_object)) {
 			SET_MARKED(pool_object, false);
 		} else {
 			free_object(vm, GET_DATA(pool_object));
 		}
 	}
+	vm->gc_last_sweep_slots_scanned = slots_scanned;
+	vm->gc_sweep_slots_scanned += slots_scanned;
 }
 
 void collect_garbage(VM *vm)
@@ -805,16 +863,47 @@ void collect_garbage(VM *vm)
 	if (vm->gc_status == PAUSED)
 		return;
 
+	const uint64_t gc_start_ns = gc_now_ns();
+	uint64_t phase_start_ns = gc_start_ns;
+	vm->gc_last_gray_peak = 0;
+	vm->gc_last_bytes_before = vm->bytes_allocated;
+	vm->gc_last_objects_before_sweep = vm->object_pool->count;
+
 #ifdef DEBUG_LOG_GC
 	printf("--- gc begin ---\n");
 	const size_t before = vm->bytes_allocated;
 #endif
 
 	mark_roots(vm);
+	const uint64_t mark_roots_end_ns = gc_now_ns();
 	trace_references(vm);
+	const uint64_t trace_end_ns = gc_now_ns();
 	table_remove_white(vm, &vm->strings); // Clean up string table
+	const uint64_t remove_white_end_ns = gc_now_ns();
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * vm->heap_growth_factor;
+	const uint64_t sweep_end_ns = gc_now_ns();
+	vm->next_gc = compute_next_gc_threshold(vm);
+	vm->gc_last_bytes_after = vm->bytes_allocated;
+	vm->gc_last_bytes_freed = vm->gc_last_bytes_before - vm->gc_last_bytes_after;
+	vm->gc_last_next_gc = vm->next_gc;
+	vm->gc_last_objects_after_sweep = vm->object_pool->count;
+	vm->gc_last_objects_freed = vm->gc_last_objects_before_sweep - vm->gc_last_objects_after_sweep;
+	vm->gc_last_live_objects = vm->object_pool->count;
+	vm->gc_last_pool_capacity = vm->object_pool->capacity;
+	vm->gc_last_strings_count = vm->strings.count;
+	vm->gc_last_strings_capacity = vm->strings.capacity;
+	vm->gc_last_strings_tombstones = table_tombstone_count(&vm->strings);
+	vm->gc_last_mark_roots_ns = mark_roots_end_ns - phase_start_ns;
+	vm->gc_last_trace_ns = trace_end_ns - mark_roots_end_ns;
+	vm->gc_last_remove_white_ns = remove_white_end_ns - trace_end_ns;
+	vm->gc_last_sweep_ns = sweep_end_ns - remove_white_end_ns;
+	vm->gc_last_total_ns = sweep_end_ns - gc_start_ns;
+	vm->gc_collections++;
+	vm->gc_mark_roots_ns += vm->gc_last_mark_roots_ns;
+	vm->gc_trace_ns += vm->gc_last_trace_ns;
+	vm->gc_remove_white_ns += vm->gc_last_remove_white_ns;
+	vm->gc_sweep_ns += vm->gc_last_sweep_ns;
+	vm->gc_total_ns += vm->gc_last_total_ns;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");
