@@ -1569,6 +1569,16 @@ static void dot(Compiler *compiler, const bool can_assign)
 	}
 	push(compiler->owner->current_module_record, OBJECT_VAL(object_type));
 
+	// Determine if we can use indexed access
+	int field_index = -1;
+	if (object_type->base_type == STRUCT_TYPE) {
+		ObjectString *field_name = AS_CRUX_STRING(current_chunk(compiler)->constants.values[name_constant]);
+		Value index_val;
+		if (table_get(&object_type->as.struct_type.definition->fields, field_name, &index_val)) {
+			field_index = AS_INT(index_val);
+		}
+	}
+
 	// OP_SET_PROPERTY - this only works for structs
 	if (can_assign) {
 		const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
@@ -1599,7 +1609,11 @@ static void dot(Compiler *compiler, const bool can_assign)
 				}
 			}
 
-			emit_words(compiler, OP_SET_PROPERTY, name_constant);
+			if (field_index != -1) {
+				emit_words(compiler, OP_SET_PROPERTY_INDEX, (uint16_t)field_index);
+			} else {
+				emit_words(compiler, OP_SET_PROPERTY, name_constant);
+			}
 			push_type_record(compiler, T_NIL);
 			pop_type_record(compiler);
 
@@ -1620,7 +1634,11 @@ static void dot(Compiler *compiler, const bool can_assign)
 			ObjectTypeRecord *rhs_type = pop_type_record(compiler);
 			check_compound_type_math(compiler, field_type ? field_type : T_ANY, rhs_type, op);
 
-			emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY, op), name_constant);
+			if (field_index != -1) {
+				emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY_INDEX, op), (uint16_t)field_index);
+			} else {
+				emit_words(compiler, get_compound_opcode(compiler, OP_SET_PROPERTY, op), name_constant);
+			}
 			pop_type_record(compiler);
 			push_type_record(compiler, rhs_type); // assignment leaves the value on the stack
 
@@ -1790,14 +1808,17 @@ static void dot(Compiler *compiler, const bool can_assign)
 	}
 
 	// OP_GET_PROPERTY - only works on structs
-	emit_words(compiler, OP_GET_PROPERTY, name_constant);
+	if (field_index != -1) {
+		emit_words(compiler, OP_GET_PROPERTY_INDEX, (uint16_t)field_index);
+	} else {
+		emit_words(compiler, OP_GET_PROPERTY, name_constant);
+	}
 
 	ObjectTypeRecord *result_type = NULL;
 
 	if (object_type->base_type == STRUCT_TYPE) {
 		const ObjectTypeTable *field_types = object_type->as.struct_type.field_types;
-		const ObjectString *field_name = copy_string(compiler->owner, method_name_token.start,
-													 method_name_token.length);
+		ObjectString *field_name = AS_CRUX_STRING(current_chunk(compiler)->constants.values[name_constant]);
 		ObjectTypeRecord *field_type = NULL;
 		if (type_table_get(field_types, field_name, &field_type)) {
 			result_type = field_type;

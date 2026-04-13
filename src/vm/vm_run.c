@@ -141,6 +141,14 @@ InterpretResult run(VM *vm, const bool is_anonymous_frame)
 									&&OP_SET_PROPERTY_SLASH,
 									&&OP_SET_PROPERTY_INT_DIVIDE,
 									&&OP_SET_PROPERTY_MODULUS,
+									&&OP_GET_PROPERTY_INDEX,
+									&&OP_SET_PROPERTY_INDEX,
+									&&OP_SET_PROPERTY_PLUS_INDEX,
+									&&OP_SET_PROPERTY_MINUS_INDEX,
+									&&OP_SET_PROPERTY_STAR_INDEX,
+									&&OP_SET_PROPERTY_SLASH_INDEX,
+									&&OP_SET_PROPERTY_INT_DIVIDE_INDEX,
+									&&OP_SET_PROPERTY_MODULUS_INDEX,
 									&&OP_BITWISE_NOT,
 									&&OP_TYPE_COERCE,
 									&&OP_GET_SLICE,
@@ -1530,6 +1538,62 @@ OP_SET_PROPERTY_MODULUS: {
 
 	runtime_panic(currentModuleRecord, NAME, "Undefined property '%s'.", name->chars);
 	return INTERPRET_RUNTIME_ERROR;
+}
+
+OP_GET_PROPERTY_INDEX: {
+	Value receiver = pop(currentModuleRecord);
+	uint16_t index = READ_SHORT();
+	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+	push(currentModuleRecord, instance->fields[index]);
+	DISPATCH();
+}
+
+OP_SET_PROPERTY_INDEX: {
+	Value valueToSet = pop(currentModuleRecord);
+	Value receiver = pop(currentModuleRecord);
+	uint16_t index = READ_SHORT();
+	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(receiver);
+	instance->fields[index] = valueToSet;
+	push(currentModuleRecord, valueToSet);
+	DISPATCH();
+}
+
+OP_SET_PROPERTY_PLUS_INDEX:
+OP_SET_PROPERTY_MINUS_INDEX:
+OP_SET_PROPERTY_STAR_INDEX:
+OP_SET_PROPERTY_SLASH_INDEX:
+OP_SET_PROPERTY_INT_DIVIDE_INDEX:
+OP_SET_PROPERTY_MODULUS_INDEX: {
+	uint16_t index = READ_SHORT();
+	Value operand = pop(currentModuleRecord);
+	Value instance_val = PEEK(currentModuleRecord, 0);
+
+	ObjectStructInstance *instance = AS_CRUX_STRUCT_INSTANCE(instance_val);
+	Value current_val = instance->fields[index];
+
+	OpCode math_op;
+	if (instruction == OP_SET_PROPERTY_PLUS_INDEX)
+		math_op = OP_SET_LOCAL_PLUS;
+	else if (instruction == OP_SET_PROPERTY_MINUS_INDEX)
+		math_op = OP_SET_LOCAL_MINUS;
+	else if (instruction == OP_SET_PROPERTY_STAR_INDEX)
+		math_op = OP_SET_LOCAL_STAR;
+	else if (instruction == OP_SET_PROPERTY_SLASH_INDEX)
+		math_op = OP_SET_LOCAL_SLASH;
+	else if (instruction == OP_SET_PROPERTY_INT_DIVIDE_INDEX)
+		math_op = OP_SET_LOCAL_INT_DIVIDE;
+	else
+		math_op = OP_SET_LOCAL_MODULUS;
+
+	if (!handle_compound_assignment(currentModuleRecord, &current_val, operand, math_op)) {
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	instance->fields[index] = current_val;
+
+	pop(currentModuleRecord);
+	push(currentModuleRecord, current_val);
+	DISPATCH();
 }
 
 OP_BITWISE_NOT: {

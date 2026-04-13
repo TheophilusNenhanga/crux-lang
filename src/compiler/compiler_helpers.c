@@ -623,6 +623,9 @@ OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const i
 								 OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
 	const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,  OP_SET_PROPERTY_MINUS,	  OP_SET_PROPERTY_STAR,
 								   OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
+	const OpCode property_index_ops[] = {OP_SET_PROPERTY_PLUS_INDEX,	OP_SET_PROPERTY_MINUS_INDEX,
+										 OP_SET_PROPERTY_STAR_INDEX,	OP_SET_PROPERTY_SLASH_INDEX,
+										 OP_SET_PROPERTY_INT_DIVIDE_INDEX, OP_SET_PROPERTY_MODULUS_INDEX};
 
 	if (setOp == OP_SET_LOCAL)
 		return local_ops[op];
@@ -632,6 +635,8 @@ OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const i
 		return global_ops[op];
 	if (setOp == OP_SET_PROPERTY)
 		return property_ops[op];
+	if (setOp == OP_SET_PROPERTY_INDEX)
+		return property_index_ops[op];
 
 	compiler_panic(compiler->parser, "Compiler Error: Failed to create bytecode for compound operation.", RUNTIME);
 	return setOp;
