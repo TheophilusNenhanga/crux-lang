@@ -410,6 +410,30 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_SET_PROPERTY_MODULUS: {
 		return constant_instruction("OP_SET_PROPERTY_MODULUS", chunk, offset);
 	}
+	case OP_GET_PROPERTY_INDEX: {
+		return inline_arg_instruction("OP_GET_PROPERTY_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_PLUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_PLUS_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_MINUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_MINUS_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_STAR_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_STAR_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_SLASH_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_SLASH_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_INT_DIVIDE_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_INT_DIVIDE_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_MODULUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_MODULUS_INDEX", chunk, offset);
+	}
 	case OP_BITWISE_NOT: {
 		return simple_instruction("OP_BITWISE_NOT", offset);
 	}

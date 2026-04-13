@@ -18,46 +18,6 @@
 #include "object.h"
 #include "panic.h"
 
-static uint32_t get_new_pool_object(ObjectPool *pool)
-{
-	if (pool->free_top == 0) {
-		const uint32_t new_capacity = pool->capacity * OBJECT_POOL_GROWTH_FACTOR;
-		if (new_capacity < pool->capacity) { // overflow
-			fprintf(stderr, "Fatal Error: Cannot index memory. "
-							"Shutting Down!");
-			exit(1);
-		}
-		PoolObject *new_objects = realloc(pool->objects, new_capacity * sizeof(PoolObject));
-		if (new_objects == NULL) {
-			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-							"to reallocate space for object pool. "
-							"Shutting down!");
-			exit(1);
-		}
-		pool->objects = new_objects;
-
-		uint32_t *new_free_list = realloc(pool->free_list, new_capacity * sizeof(uint32_t));
-		if (new_free_list == NULL) {
-			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-							"to reallocate space for object pool. "
-							"Shutting down!");
-			exit(1);
-		}
-		pool->free_list = new_free_list;
-
-		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
-			pool->free_list[pool->free_top++] = i;
-			PoolObject *pool_object = &pool->objects[i];
-			SET_DATA(pool_object, NULL);
-			SET_MARKED(pool_object, false);
-		}
-		pool->capacity = new_capacity;
-	}
-	const uint32_t index = pool->free_list[--pool->free_top];
-	pool->count++;
-	return index;
-}
-
 /**
  * @brief Allocates a new object of the specified type.
  *
@@ -72,40 +32,18 @@ CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType t
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 
-	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
-
 	object->type = type;
-	object->pool_index = pool_index;
+	object->is_marked = false;
 
-	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
-
-	SET_DATA(pool_object, object);
-	SET_MARKED(pool_object, false);
+	// Insert at head of global object list
+	object->next = vm->objects;
+	vm->objects = object;
+	vm->object_count++;
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
 #endif
 
-	return object;
-}
-
-CruxObject *allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
-{
-	CruxObject *object = allocate_object_without_gc(vm, size);
-
-	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
-
-	object->pool_index = pool_index;
-	object->type = type;
-
-	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
-
-	SET_DATA(pool_object, object);
-	SET_MARKED(pool_object, false);
-
-#ifdef DEBUG_LOG_GC
-	printf("%p allocate %zu for %d\n", (void *)object, size, type);
-#endif
 	return object;
 }
 
@@ -1381,7 +1319,7 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 	GC_STATUS previous = vm->gc_status;
 	vm->gc_status = PAUSED;
 
-	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
 	moduleRecord->path = path;
 	init_table(&moduleRecord->globals);
 	init_table(&moduleRecord->publics);

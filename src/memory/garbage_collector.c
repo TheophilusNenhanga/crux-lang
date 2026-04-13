@@ -66,32 +66,25 @@ static size_t compute_next_gc_threshold(const VM *vm)
 
 void mark_object(VM *vm, CruxObject *object)
 {
-	if (object == NULL)
+	if (object == NULL || object->is_marked)
 		return;
 
-	PoolObject *pool_object = &vm->object_pool->objects[object->pool_index];
-
-	if (pool_object == NULL)
-		return;
-	if (IS_MARKED(pool_object))
-		return;
-	SET_MARKED(pool_object, true);
+	object->is_marked = true;
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
 		CruxObject **new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
-		if (new_objects == NULL) {
+		if (new_objects == NULL)
 			exit(1);
-		}
 		vm->gray_stack = new_objects;
 	}
+
 	vm->gray_stack[vm->gray_count++] = object;
-	if ((uint32_t)vm->gray_count > vm->gc_last_gray_peak) {
+
+	if ((uint32_t)vm->gray_count > vm->gc_last_gray_peak)
 		vm->gc_last_gray_peak = (uint32_t)vm->gray_count;
-	}
-	if ((uint32_t)vm->gray_count > vm->gc_max_gray_peak) {
+	if ((uint32_t)vm->gray_count > vm->gc_max_gray_peak)
 		vm->gc_max_gray_peak = (uint32_t)vm->gray_count;
-	}
 }
 
 void mark_value(VM *vm, const Value value)
@@ -528,37 +521,6 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_TYPE_TABLE] = free_object_type_table,
 };
 
-static void free_object(VM *vm, CruxObject *object)
-{
-#ifdef DEBUG_LOG_GC
-	printf("%p free type %d\n", (void *)object, object->type);
-#endif
-	if (object == NULL) {
-		return;
-	}
-
-	const uint32_t index = object->pool_index;
-	ObjectPool *pool = vm->object_pool;
-
-	if (index >= pool->capacity) {
-		fprintf(stderr, "Error: Invalid pool index in free_object\n");
-		return;
-	}
-
-	const ObjectType type = object->type;
-	if (type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
-		free_dispatch[type](vm, object);
-	}
-
-	PoolObject *pool_object = &pool->objects[index];
-
-	SET_DATA(pool_object, NULL);
-	SET_MARKED(pool_object, false);
-
-	pool->free_list[pool->free_top++] = index;
-	pool->count--;
-}
-
 static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
@@ -838,24 +800,55 @@ static void trace_references(VM *vm)
 	}
 }
 
+static void free_object(VM *vm, CruxObject *object)
+{
+#ifdef DEBUG_LOG_GC
+	printf("%p free type %d\n", (void *)object, object->type);
+#endif
+	if (object == NULL)
+		return;
+
+	if (object->type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
+		free_dispatch[object->type](vm, object);
+	}
+}
+
 static void sweep(VM *vm)
 {
-	const ObjectPool *pool = vm->object_pool;
+	CruxObject **object = &vm->objects;
 	size_t slots_scanned = 0;
-	for (size_t i = 0; i < pool->capacity; i++) {
-		PoolObject *pool_object = &pool->objects[i];
 
-		if (GET_DATA(pool_object) == NULL)
-			continue;
+	while (*object != NULL) {
 		slots_scanned++;
-		if (IS_MARKED(pool_object)) {
-			SET_MARKED(pool_object, false);
+		if (!(*object)->is_marked) {
+			// Unlink dead object
+			CruxObject *unreached = *object;
+			*object = unreached->next;
+
+			free_object(vm, unreached);
+			vm->object_count--;
 		} else {
-			free_object(vm, GET_DATA(pool_object));
+			// Unmark and move to next
+			(*object)->is_marked = false;
+			object = &(*object)->next;
 		}
 	}
+
 	vm->gc_last_sweep_slots_scanned = slots_scanned;
 	vm->gc_sweep_slots_scanned += slots_scanned;
+}
+
+void free_objects(VM *vm)
+{
+	CruxObject *object = vm->objects;
+	while (object != NULL) {
+		CruxObject *next = object->next;
+		free_object(vm, object);
+		object = next;
+	}
+	free(vm->gray_stack);
+	vm->objects = NULL;
+	vm->object_count = 0;
 }
 
 void collect_garbage(VM *vm)
@@ -867,7 +860,6 @@ void collect_garbage(VM *vm)
 	uint64_t phase_start_ns = gc_start_ns;
 	vm->gc_last_gray_peak = 0;
 	vm->gc_last_bytes_before = vm->bytes_allocated;
-	vm->gc_last_objects_before_sweep = vm->object_pool->count;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc begin ---\n");
@@ -886,10 +878,8 @@ void collect_garbage(VM *vm)
 	vm->gc_last_bytes_after = vm->bytes_allocated;
 	vm->gc_last_bytes_freed = vm->gc_last_bytes_before - vm->gc_last_bytes_after;
 	vm->gc_last_next_gc = vm->next_gc;
-	vm->gc_last_objects_after_sweep = vm->object_pool->count;
 	vm->gc_last_objects_freed = vm->gc_last_objects_before_sweep - vm->gc_last_objects_after_sweep;
-	vm->gc_last_live_objects = vm->object_pool->count;
-	vm->gc_last_pool_capacity = vm->object_pool->capacity;
+	vm->gc_last_live_objects = vm->object_count;
 	vm->gc_last_strings_count = vm->strings.count;
 	vm->gc_last_strings_capacity = vm->strings.capacity;
 	vm->gc_last_strings_tombstones = table_tombstone_count(&vm->strings);
@@ -910,16 +900,4 @@ void collect_garbage(VM *vm)
 	printf("    collected %zu bytes (from %zu to %zu) next at %zu\n", before - vm->bytes_allocated, before,
 		   vm->bytes_allocated, vm->next_gc);
 #endif
-}
-
-void free_objects(VM *vm)
-{
-	const ObjectPool *pool = vm->object_pool;
-	for (uint32_t i = 0; i < pool->capacity; i++) {
-		const PoolObject *pool_object = &pool->objects[i];
-		if (GET_DATA(pool_object) != NULL) {
-			free_object(vm, GET_DATA(pool_object));
-		}
-	}
-	free(vm->gray_stack);
 }

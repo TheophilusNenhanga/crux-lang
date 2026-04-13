@@ -76,16 +76,9 @@ typedef enum {
 	RUNNING,
 } GC_STATUS;
 
-typedef struct {
-	PoolObject *objects;
-	uint32_t count;
-	uint32_t capacity;
-	uint32_t *free_list;
-	uint32_t free_top;
-} ObjectPool;
-
 struct VM {
-	ObjectPool *object_pool; // Global object pool
+    CruxObject *objects; // Head of global object linked list
+    size_t object_count; // Replaces pool->count
 
 	SlabAllocator *slab_16;
 	SlabAllocator *slab_24;

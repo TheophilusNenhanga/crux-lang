@@ -1,106 +1,96 @@
 #include "slab_allocator.h"
-#include <stdio.h>
 #include <stdlib.h>
 
-SlabAllocator *init_slab_allocator(const uint16_t slot_size, const uint16_t capacity)
+// Helper to allocate a new underlying chunk of memory
+static bool append_new_slab(SlabAllocator *allocator)
 {
-	SlabAllocator *slab = (SlabAllocator *)calloc(1, sizeof(SlabAllocator));
-	if (!slab)
+	// Allocate node + memory in one contiguous block
+	size_t header_size = sizeof(SlabNode);
+	size_t memory_size = (size_t)allocator->slot_size * allocator->capacity;
+
+	SlabNode *new_slab = (SlabNode *)malloc(header_size + memory_size);
+	if (!new_slab)
+		return false;
+
+	// Prepend to slab tracking list (for destruction)
+	new_slab->next = allocator->slab_head;
+	allocator->slab_head = new_slab;
+
+	// Format new memory block into a linked free list
+	uint8_t *memory = (uint8_t *)(new_slab + 1);
+	for (uint16_t i = 0; i < allocator->capacity - 1; i++) {
+		void **current_slot = (void **)(memory + (i * allocator->slot_size));
+		void *next_slot = memory + ((i + 1) * allocator->slot_size);
+		*current_slot = next_slot;
+	}
+
+	// Last slot points to previous global free list
+	void **last_slot = (void **)(memory + ((allocator->capacity - 1) * allocator->slot_size));
+	*last_slot = allocator->free_list;
+
+	// Update global free list head to start of new slab
+	allocator->free_list = memory;
+	return true;
+}
+
+SlabAllocator *init_slab_allocator(uint16_t slot_size, uint16_t capacity)
+{
+	// Ensure slot is big enough to hold a pointer
+	if (slot_size < sizeof(void *)) {
+		slot_size = sizeof(void *);
+	}
+
+	SlabAllocator *allocator = (SlabAllocator *)malloc(sizeof(SlabAllocator));
+	if (!allocator)
 		return NULL;
 
-	slab->slot_size = slot_size;
-	slab->capacity = capacity;
-	slab->used_count = 0;
-	slab->next = NULL;
+	allocator->slot_size = slot_size;
+	allocator->capacity = capacity;
+	allocator->free_list = NULL;
+	allocator->slab_head = NULL;
 
-	slab->memory = malloc((size_t)slot_size * capacity);
-	slab->next_indexes = malloc(sizeof(int16_t) * capacity);
-
-	if (!slab->memory || !slab->next_indexes) {
-		if (slab->memory)
-			free(slab->memory);
-		if (slab->next_indexes)
-			free(slab->next_indexes);
-		free(slab);
-		return NULL;
-	}
-
-	for (int16_t i = 0; i < capacity - 1; i++) {
-		slab->next_indexes[i] = i + 1;
-	}
-	slab->next_indexes[capacity - 1] = -1;
-	slab->free_head = 0;
-
-	return slab;
+	return allocator;
 }
 
-bool is_slab_full(const SlabAllocator *slab_allocator)
+void destroy_slab_allocator(SlabAllocator *allocator)
 {
-	return slab_allocator->free_head == -1;
-}
-
-void destroy_slab_allocator(SlabAllocator *slab_allocator)
-{
-	while (slab_allocator) {
-		SlabAllocator *next = slab_allocator->next;
-		free(slab_allocator->memory);
-		free(slab_allocator->next_indexes);
-		free(slab_allocator);
-		slab_allocator = next;
-	}
-}
-
-void *allocate_from_slab(SlabAllocator *slab_allocator)
-{
-	if (!slab_allocator)
-		return NULL;
-
-	SlabAllocator *curr = slab_allocator;
-
-	while (curr && is_slab_full(curr)) {
-		if (!curr->next) {
-			// create new slab
-			curr->next = init_slab_allocator(curr->slot_size, curr->capacity);
-			if (!curr->next)
-				return NULL;
-		}
-		curr = curr->next;
-	}
-
-	const int16_t slot_index = curr->free_head;
-	// move free head to next slot
-	curr->free_head = curr->next_indexes[slot_index];
-	curr->used_count++;
-
-	return curr->memory + ((size_t)slot_index * curr->slot_size);
-}
-
-void free_from_slab(SlabAllocator *slab_allocator, void *ptr)
-{
-	if (!slab_allocator || !ptr)
+	if (!allocator)
 		return;
 
-	SlabAllocator *curr = slab_allocator;
+	SlabNode *curr = allocator->slab_head;
 	while (curr) {
-		const uint8_t *start = curr->memory;
-		const uint8_t *end = curr->memory + ((size_t)curr->capacity * curr->slot_size);
+		SlabNode *next = curr->next;
+		free(curr); // Frees node and slot memory at once
+		curr = next;
+	}
+	free(allocator);
+}
 
-		if ((uint8_t *)ptr >= start && (uint8_t *)ptr < end) {
-			// page found
+void *allocate_from_slab(SlabAllocator *allocator)
+{
+	if (!allocator)
+		return NULL;
 
-			const size_t offset = (uint8_t *)ptr - start;
-			const int16_t index = (int16_t)(offset / curr->slot_size);
-
-			// add this slot to free list
-			curr->next_indexes[index] = curr->free_head;
-			curr->free_head = index;
-
-			curr->used_count--;
-
-			return;
+	// If out of free slots, allocate a new slab
+	if (!allocator->free_list) {
+		if (!append_new_slab(allocator)) {
+			return NULL;
 		}
-		curr = curr->next;
 	}
 
-	fprintf(stderr, "Error: Pointer not found in any slab page.\n");
+	// Pop head of free list
+	void *ptr = allocator->free_list;
+	allocator->free_list = *(void **)ptr;
+
+	return ptr;
+}
+
+void free_from_slab(SlabAllocator *allocator, void *ptr)
+{
+	if (!allocator || !ptr)
+		return;
+
+	// Push freed pointer to head of free list
+	*(void **)ptr = allocator->free_list;
+	allocator->free_list = ptr;
 }

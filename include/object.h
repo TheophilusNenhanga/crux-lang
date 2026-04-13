@@ -133,13 +133,10 @@ typedef enum {
 	OBJECT_COROUTINE,
 } ObjectType;
 
-struct CruxObject { // 8
-	uint32_t pool_index;
+struct CruxObject { // 16
+    CruxObject* next;
 	ObjectType type;
-};
-
-struct PoolObject { // 8
-	void *data;
+	bool is_marked;
 };
 
 #define MARK_BIT ((uintptr_t)1 << 63)
@@ -315,6 +312,7 @@ struct ObjectTypeRecord { // 40
 			ObjectTypeRecord **arg_types;
 			int arg_count;
 			ObjectTypeRecord *return_type;
+			// TODO: add is_native flag
 		} function_type;
 		struct {
 			ObjectTypeRecord *element_type;

@@ -764,51 +764,13 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-void free_object_pool(ObjectPool *pool)
-{
-	if (pool->objects) {
-		free(pool->objects);
-	}
-	if (pool->free_list) {
-		free(pool->free_list);
-	}
-	pool->objects = NULL;
-	pool->free_list = NULL;
-}
-
-ObjectPool *init_object_pool(const uint32_t initial_capacity)
-{
-	ObjectPool *pool = calloc(1, sizeof(ObjectPool));
-	if (!pool)
-		return NULL;
-
-	pool->objects = calloc(initial_capacity, sizeof(PoolObject));
-	pool->free_list = malloc(initial_capacity * sizeof(uint32_t));
-
-	if (!pool->objects || !pool->free_list) {
-		free(pool->objects);
-		free(pool->free_list);
-		free(pool);
-		return NULL;
-	}
-
-	pool->capacity = initial_capacity;
-	pool->count = 0;
-	pool->free_top = 0;
-
-	for (uint32_t i = 0; i < initial_capacity; i++) {
-		pool->free_list[i] = i;
-	}
-	pool->free_top = initial_capacity;
-
-	return pool;
-}
-
 void init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool is_repl = argc == 1 ? true : false;
 
-	vm->object_pool = init_object_pool(INITIAL_OBJECT_POOL_CAPACITY);
+	vm->object_count = 0;
+	vm->objects = NULL;
+
 	vm->slab_16 = init_slab_allocator(16, SLAB_CAPACITY);
 	vm->slab_24 = init_slab_allocator(24, SLAB_CAPACITY);
 	vm->slab_32 = init_slab_allocator(32, SLAB_CAPACITY);
@@ -939,8 +901,6 @@ void free_vm(VM *vm)
 	destroy_slab_allocator(vm->slab_32);
 	destroy_slab_allocator(vm->slab_48);
 	destroy_slab_allocator(vm->slab_64);
-	free_object_pool(vm->object_pool);
-	free(vm->object_pool);
 
 	free(vm);
 }
