@@ -137,6 +137,8 @@ struct CruxObject { // 16
     CruxObject* next;
 	ObjectType type;
 	bool is_marked;
+	bool is_immortal;
+	bool use_for_some_other_flag_in_the_future;
 };
 
 #define MARK_BIT ((uintptr_t)1 << 63)

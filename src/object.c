@@ -34,6 +34,7 @@ CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType t
 
 	object->type = type;
 	object->is_marked = false;
+	object->is_immortal = false;
 
 	// Insert at head of global object list
 	object->next = vm->objects;

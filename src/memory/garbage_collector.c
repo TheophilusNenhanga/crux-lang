@@ -64,11 +64,8 @@ static size_t compute_next_gc_threshold(const VM *vm)
 	return next_gc;
 }
 
-void mark_object(VM *vm, CruxObject *object)
+void mark_object_internal(VM *vm, CruxObject *object)
 {
-	if (object == NULL || object->is_marked)
-		return;
-
 	object->is_marked = true;
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
@@ -754,31 +751,34 @@ void mark_roots(VM *vm)
 		mark_object(vm, (CruxObject *)vm->import_stack.paths[i]);
 	}
 
-	if (vm->native_modules.modules != NULL) {
-		for (int i = 0; i < vm->native_modules.count; i++) {
-			mark_table(vm, vm->native_modules.modules[i].names);
-			mark_object(vm, (CruxObject *)vm->native_modules.modules[i].name);
-		}
-	}
+	// No need to mark because they only contain immortal objects
+	// if (vm->native_modules.modules != NULL) {
+	// 	for (int i = 0; i < vm->native_modules.count; i++) {
+	// 		mark_table(vm, vm->native_modules.modules[i].names);
+	// 		mark_object(vm, (CruxObject *)vm->native_modules.modules[i].name);
+	// 	}
+	// }
 
 	mark_table(vm, &vm->module_cache);
 	mark_table(vm, &vm->strings);
-	mark_table(vm, &vm->core_fns);
-	mark_table(vm, &vm->random_type);
-	mark_table(vm, &vm->string_type);
-	mark_table(vm, &vm->array_type);
-	mark_table(vm, &vm->table_type);
-	mark_table(vm, &vm->error_type);
-	mark_table(vm, &vm->file_type);
-	mark_table(vm, &vm->result_type);
-	mark_table(vm, &vm->option_type);
-	mark_table(vm, &vm->vector_type);
-	mark_table(vm, &vm->complex_type);
-	mark_table(vm, &vm->matrix_type);
-	mark_table(vm, &vm->range_type);
-	mark_table(vm, &vm->set_type);
-	mark_table(vm, &vm->tuple_type);
-	mark_table(vm, &vm->buffer_type);
+
+	// No need to mark because they only contain immortal objects
+	// mark_table(vm, &vm->core_fns);
+	// mark_table(vm, &vm->random_type);
+	// mark_table(vm, &vm->string_type);
+	// mark_table(vm, &vm->array_type);
+	// mark_table(vm, &vm->table_type);
+	// mark_table(vm, &vm->error_type);
+	// mark_table(vm, &vm->file_type);
+	// mark_table(vm, &vm->result_type);
+	// mark_table(vm, &vm->option_type);
+	// mark_table(vm, &vm->vector_type);
+	// mark_table(vm, &vm->complex_type);
+	// mark_table(vm, &vm->matrix_type);
+	// mark_table(vm, &vm->range_type);
+	// mark_table(vm, &vm->set_type);
+	// mark_table(vm, &vm->tuple_type);
+	// mark_table(vm, &vm->buffer_type);
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 
@@ -800,12 +800,12 @@ static void trace_references(VM *vm)
 	}
 }
 
-static void free_object(VM *vm, CruxObject *object)
+static void free_object(VM *vm, CruxObject *object, bool free_all)
 {
 #ifdef DEBUG_LOG_GC
 	printf("%p free type %d\n", (void *)object, object->type);
 #endif
-	if (object == NULL)
+	if (object == NULL || (object->is_immortal && !free_all))
 		return;
 
 	if (object->type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
@@ -825,7 +825,7 @@ static void sweep(VM *vm)
 			CruxObject *unreached = *object;
 			*object = unreached->next;
 
-			free_object(vm, unreached);
+			free_object(vm, unreached, false);
 			vm->object_count--;
 		} else {
 			// Unmark and move to next
@@ -838,12 +838,12 @@ static void sweep(VM *vm)
 	vm->gc_sweep_slots_scanned += slots_scanned;
 }
 
-void free_objects(VM *vm)
+void free_objects(VM *vm, bool free_all)
 {
 	CruxObject *object = vm->objects;
 	while (object != NULL) {
 		CruxObject *next = object->next;
-		free_object(vm, object);
+		free_object(vm, object, free_all);
 		object = next;
 	}
 	free(vm->gray_stack);

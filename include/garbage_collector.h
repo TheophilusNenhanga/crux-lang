@@ -46,19 +46,6 @@ CruxObject *allocate_pooled_object(VM *vm, size_t size, ObjectType type);
 void *reallocate(VM *vm, void *pointer, size_t oldSize, size_t newSize);
 
 /**
- * @brief Marks an object as reachable during garbage collection.
- *
- * This function marks the given `object` as reachable, preventing it from being
- * freed by the garbage collector. If the object is not already marked, it is
- * marked and added to the gray stack for further processing in the mark phase.
- *
- * @param vm The virtual machine.
- * @param object The object to mark. If `NULL`, the function returns
- * immediately.
- */
-void mark_object(VM *vm, CruxObject *object);
-
-/**
  * @brief Marks a Value as reachable during garbage collection.
  * @param vm The virtual machine.
  * @param value The Value to mark.
@@ -88,6 +75,30 @@ void collect_garbage(VM *vm);
  *
  * @param vm The virtual machine.
  */
-void free_objects(VM *vm);
+void free_objects(VM *vm, bool free_all);
+
+void mark_object_internal(VM* vm, CruxObject* object);
+
+
+/**
+ * @brief Marks an object as reachable during garbage collection.
+ *
+ * This function marks the given `object` as reachable, preventing it from being
+ * freed by the garbage collector. If the object is not already marked, it is
+ * marked and added to the gray stack for further processing in the mark phase.
+ *
+ * @param vm The virtual machine.
+ * @param object The object to mark. If `NULL`, the function returns
+ * immediately.
+ */
+static inline void mark_object(VM *vm, CruxObject *object)
+{
+	if (object == NULL || object->is_marked || object->is_immortal)
+		return;
+
+	mark_object_internal(vm, object);
+}
+
+
 
 #endif // MEMORY_H

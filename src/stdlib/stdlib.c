@@ -144,8 +144,17 @@ bool register_native_method(VM *vm, Table *method_table, const char *method_name
 							const int arity, ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
 {
 	ObjectString *name = copy_string(vm, method_name, (int)strlen(method_name));
-	table_set(vm, method_table, name,
-			  OBJECT_VAL(new_native_callable(vm, method_function, arity, name, arg_types, return_type)));
+	name->object.is_immortal = true; // method names are immortal
+	ObjectNativeCallable *callable = new_native_callable(vm, method_function, arity, name, arg_types, return_type);
+	callable->object.is_immortal = true; // method callables are immortal
+
+	for (int i = 0; i < arity; i++) {
+		ObjectTypeRecord *arg_type = arg_types[i];
+		arg_type->object.is_immortal = true; // argument types are immortal
+	}
+	return_type->object.is_immortal = true; // return type is immortal
+
+	table_set(vm, method_table, name, OBJECT_VAL(callable));
 	return true;
 }
 
@@ -155,8 +164,18 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 {
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectString *name = copy_string(vm, function_name, (int)strlen(function_name));
+	name->object.is_immortal = true; // function names are immortal
 	push(module_record, OBJECT_VAL(name));
-	const Value func = OBJECT_VAL(new_native_callable(vm, function, arity, name, arg_types, return_type));
+	ObjectNativeCallable *callable = new_native_callable(vm, function, arity, name, arg_types, return_type);
+	callable->object.is_immortal = true; // function callables are immortal
+
+	for (int i = 0; i < arity; i++) {
+		ObjectTypeRecord *arg_type = arg_types[i];
+		arg_type->object.is_immortal = true; // argument types are immortal
+	}
+	return_type->object.is_immortal = true; // return type is immortal
+
+	const Value func = OBJECT_VAL(callable);
 	push(module_record, func);
 	const bool ok = table_set(vm, function_table, name, func);
 	pop(module_record);
@@ -202,6 +221,7 @@ static bool init_module(VM *vm, const char *module_name, const Callable *functio
 	}
 
 	ObjectString *name_copy = copy_string(vm, module_name, (int)strlen(module_name));
+	name_copy->object.is_immortal = true; // module names are immortal
 	vm->native_modules.modules[vm->native_modules.count++] = (NativeModule){.name = name_copy, .names = module_table};
 	return true;
 }
