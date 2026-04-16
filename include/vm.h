@@ -4,8 +4,8 @@
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
-#include "value.h"
 #include "utf8.h"
+#include "value.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -77,8 +77,8 @@ typedef enum {
 } GC_STATUS;
 
 struct VM {
-    CruxObject *objects; // Head of global object linked list
-    size_t object_count; // Replaces pool->count
+	CruxObject *objects; // Head of global object linked list
+	size_t object_count; // Replaces pool->count
 
 	SlabAllocator *slab_16;
 	SlabAllocator *slab_24;
@@ -162,20 +162,20 @@ struct VM {
 
 #ifdef STACK_SAFETY
 #define push(module_record, value)                                                                                     \
-do {                                                                                                               \
-if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
-runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                                    \
-}                                                                                                              \
-*(module_record)->stack_top++ = (value);                                                                       \
-} while (0)
+	do {                                                                                                               \
+		if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
+			runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                                    \
+		}                                                                                                              \
+		*(module_record)->stack_top++ = (value);                                                                       \
+	} while (0)
 
 #define pop(module_record)                                                                                             \
-({                                                                                                                 \
-if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
-runtime_panic((module_record), RUNTIME, "Stack underflow error");                                          \
-}                                                                                                              \
-*--(module_record)->stack_top;                                                                                 \
-})
+	({                                                                                                                 \
+		if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
+			runtime_panic((module_record), RUNTIME, "Stack underflow error");                                          \
+		}                                                                                                              \
+		*--(module_record)->stack_top;                                                                                 \
+	})
 #else
 #define push(module_record, value) *(module_record)->stack_top++ = (value)
 #define pop(module_record) *--(module_record)->stack_top
@@ -223,7 +223,6 @@ void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 	push((module_record), (value))
 
 bool binary_operation(VM *vm, OpCode operation);
-bool specialized_binary_operation(VM *vm, OpCode operation);
 
 bool concatenate(VM *vm);
 

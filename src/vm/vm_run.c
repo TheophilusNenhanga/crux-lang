@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -15,8 +16,11 @@
 #include "debug.h"
 #include "object.h"
 #include "panic.h"
+#include "stdlib/complex.h"
+#include "stdlib/matrix.h"
 #include "stdlib/range.h"
 #include "stdlib/set.h"
+#include "stdlib/vectors.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH()                                                                                                     \
@@ -1904,44 +1908,452 @@ OP_NONE: {
 	DISPATCH();
 }
 
-OP_ADD_INT:
-OP_ADD_NUM:
-OP_SUBTRACT_INT:
-OP_SUBTRACT_NUM:
-OP_MULTIPLY_INT:
-OP_MULTIPLY_NUM:
-OP_DIVIDE_NUM:
-OP_INT_DIVIDE_INT:
-OP_MODULUS_INT:
-OP_POWER_INT:
-OP_POWER_NUM:
-OP_ADD_VECTOR_VECTOR:
-OP_SUBTRACT_VECTOR_VECTOR:
-OP_MULTIPLY_VECTOR_VECTOR:
-OP_DIVIDE_VECTOR_VECTOR:
-OP_MULTIPLY_VECTOR_SCALAR:
-OP_MULTIPLY_SCALAR_VECTOR:
-OP_DIVIDE_VECTOR_SCALAR:
-OP_ADD_COMPLEX_COMPLEX:
-OP_SUBTRACT_COMPLEX_COMPLEX:
-OP_MULTIPLY_COMPLEX_COMPLEX:
-OP_DIVIDE_COMPLEX_COMPLEX:
-OP_MULTIPLY_COMPLEX_SCALAR:
-OP_MULTIPLY_SCALAR_COMPLEX:
-OP_DIVIDE_COMPLEX_SCALAR:
-OP_ADD_MATRIX_MATRIX:
-OP_SUBTRACT_MATRIX_MATRIX:
-OP_ADD_MATRIX_SCALAR:
-OP_ADD_SCALAR_MATRIX:
-OP_SUBTRACT_MATRIX_SCALAR:
-OP_SUBTRACT_SCALAR_MATRIX:
-OP_MULTIPLY_MATRIX_MATRIX:
-OP_MULTIPLY_MATRIX_SCALAR:
-OP_MULTIPLY_SCALAR_MATRIX:
-OP_DIVIDE_MATRIX_SCALAR: {
-	if (!specialized_binary_operation(vm, (OpCode)instruction)) {
+OP_ADD_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	const int64_t result = (int64_t)a + (int64_t)b;
+	currentModuleRecord->stack_top--;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		currentModuleRecord->stack_top[-1] = INT_VAL((int32_t)result);
+	} else {
+		currentModuleRecord->stack_top[-1] = FLOAT_VAL((double)result);
+	}
+	DISPATCH();
+}
+
+OP_ADD_NUM: {
+	double b = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	double a = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(a + b);
+	DISPATCH();
+}
+
+OP_SUBTRACT_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	const int64_t result = (int64_t)a - (int64_t)b;
+	currentModuleRecord->stack_top--;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		currentModuleRecord->stack_top[-1] = INT_VAL((int32_t)result);
+	} else {
+		currentModuleRecord->stack_top[-1] = FLOAT_VAL((double)result);
+	}
+	DISPATCH();
+}
+
+OP_SUBTRACT_NUM: {
+	double b = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	double a = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(a - b);
+	DISPATCH();
+}
+
+OP_MULTIPLY_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	const int64_t result = (int64_t)a * (int64_t)b;
+	currentModuleRecord->stack_top--;
+	if (result >= INT32_MIN && result <= INT32_MAX) {
+		currentModuleRecord->stack_top[-1] = INT_VAL((int32_t)result);
+	} else {
+		currentModuleRecord->stack_top[-1] = FLOAT_VAL((double)result);
+	}
+	DISPATCH();
+}
+
+OP_MULTIPLY_NUM: {
+	double b = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	double a = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(a * b);
+	DISPATCH();
+}
+
+OP_DIVIDE_NUM: {
+	double b = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	if (b == 0.0) {
+		runtime_panic(currentModuleRecord, MATH, "Division by zero.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
+	double a = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(a / b);
+	DISPATCH();
+}
+
+OP_INT_DIVIDE_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	if (b == 0) {
+		runtime_panic(currentModuleRecord, MATH, "Integer division by zero.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+
+	if (a == INT32_MIN && b == -1) {
+		currentModuleRecord->stack_top[-1] = FLOAT_VAL(-(double)INT32_MIN);
+	} else {
+		currentModuleRecord->stack_top[-1] = INT_VAL(a / b);
+	}
+	DISPATCH();
+}
+
+OP_MODULUS_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	if (b == 0) {
+		runtime_panic(currentModuleRecord, MATH, "Modulo by zero.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+
+	if (a == INT32_MIN && b == -1) {
+		currentModuleRecord->stack_top[-1] = INT_VAL(0);
+	} else {
+		currentModuleRecord->stack_top[-1] = INT_VAL(a % b);
+	}
+	DISPATCH();
+}
+
+OP_POWER_INT: {
+	int32_t b = AS_INT(currentModuleRecord->stack_top[-1]);
+	int32_t a = AS_INT(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(pow((double)a, (double)b));
+	DISPATCH();
+}
+
+OP_POWER_NUM: {
+	double b = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	double a = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = FLOAT_VAL(pow(a, b));
+	DISPATCH();
+}
+
+OP_ADD_VECTOR_VECTOR: {
+	ObjectVector *right = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-1]);
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+
+	if (left->dimensions != right->dimensions) {
+		runtime_panic(currentModuleRecord, MATH, "Vectors must have same dimensions to add.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectVector *res_vec = new_vector(vm, left->dimensions);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *r_data = VECTOR_COMPONENTS(right);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < left->dimensions; i++) {
+		out_data[i] = l_data[i] + r_data[i];
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_SUBTRACT_VECTOR_VECTOR: {
+	ObjectVector *right = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-1]);
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+
+	if (left->dimensions != right->dimensions) {
+		runtime_panic(currentModuleRecord, MATH, "Vectors must have same dimensions to subtract.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectVector *res_vec = new_vector(vm, left->dimensions);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *r_data = VECTOR_COMPONENTS(right);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < left->dimensions; i++) {
+		out_data[i] = l_data[i] - r_data[i];
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_MULTIPLY_VECTOR_VECTOR: { // Cross Product
+	ObjectVector *right = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-1]);
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+
+	if (left->dimensions != 3 || right->dimensions != 3) {
+		runtime_panic(currentModuleRecord, MATH, "Cross product requires 3D vectors.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectVector *res_vec = new_vector(vm, 3);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *r_data = VECTOR_COMPONENTS(right);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	out_data[0] = l_data[1] * r_data[2] - l_data[2] * r_data[1];
+	out_data[1] = l_data[2] * r_data[0] - l_data[0] * r_data[2];
+	out_data[2] = l_data[0] * r_data[1] - l_data[1] * r_data[0];
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_DIVIDE_VECTOR_VECTOR: { // Component-wise division
+	ObjectVector *right = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-1]);
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+
+	if (left->dimensions != right->dimensions) {
+		runtime_panic(currentModuleRecord, MATH, "Vectors must have same dimensions to divide.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectVector *res_vec = new_vector(vm, left->dimensions);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *r_data = VECTOR_COMPONENTS(right);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < left->dimensions; i++) {
+		if (r_data[i] == 0.0) {
+			runtime_panic(currentModuleRecord, MATH, "Vector component division by zero.");
+			return INTERPRET_RUNTIME_ERROR;
+		}
+		out_data[i] = l_data[i] / r_data[i];
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_MULTIPLY_VECTOR_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+
+	ObjectVector *res_vec = new_vector(vm, left->dimensions);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < left->dimensions; i++) {
+		out_data[i] = l_data[i] * scalar;
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_MULTIPLY_SCALAR_VECTOR: {
+	ObjectVector *right = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-1]);
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+
+	ObjectVector *res_vec = new_vector(vm, right->dimensions);
+	double *r_data = VECTOR_COMPONENTS(right);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < right->dimensions; i++) {
+		out_data[i] = scalar * r_data[i];
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_DIVIDE_VECTOR_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	if (scalar == 0.0) {
+		runtime_panic(currentModuleRecord, MATH, "Vector division by zero scalar.");
+		return INTERPRET_RUNTIME_ERROR;
+	}
+
+	ObjectVector *left = AS_CRUX_VECTOR(currentModuleRecord->stack_top[-2]);
+	ObjectVector *res_vec = new_vector(vm, left->dimensions);
+	double *l_data = VECTOR_COMPONENTS(left);
+	double *out_data = VECTOR_COMPONENTS(res_vec);
+
+	for (uint32_t i = 0; i < left->dimensions; i++) {
+		out_data[i] = l_data[i] / scalar;
+	}
+
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = OBJECT_VAL(res_vec);
+	DISPATCH();
+}
+
+OP_ADD_COMPLEX_COMPLEX: {
+	ObjectComplex *right = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	Value result = complex_add_value(vm, left, right);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_SUBTRACT_COMPLEX_COMPLEX: {
+	ObjectComplex *right = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	Value result = complex_subtract_value(vm, left, right);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_MULTIPLY_COMPLEX_COMPLEX: {
+	ObjectComplex *right = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	Value result = complex_multiply_value(vm, left, right);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_DIVIDE_COMPLEX_COMPLEX: {
+	ObjectComplex *right = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	Value result = complex_divide_value(vm, left, right);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_MULTIPLY_COMPLEX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	Value result = complex_scalar_multiply_value(vm, left, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_MULTIPLY_SCALAR_COMPLEX: {
+	ObjectComplex *right = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-1]);
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	Value result = complex_scalar_multiply_value(vm, right, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_DIVIDE_COMPLEX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectComplex *left = AS_CRUX_COMPLEX(currentModuleRecord->stack_top[-2]);
+	ObjectResult *res = AS_CRUX_RESULT(complex_scalar_divide_value(vm, left, scalar));
+	if (!res->is_ok) {
+		runtime_panic(currentModuleRecord, res->as.error->type, "%s", res->as.error->message->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = res->as.value;
+	DISPATCH();
+}
+
+OP_ADD_MATRIX_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	ObjectResult *res = AS_CRUX_RESULT(matrix_add_value(vm, left, right));
+	if (!res->is_ok) {
+		runtime_panic(currentModuleRecord, res->as.error->type, "%s", res->as.error->message->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = res->as.value;
+	DISPATCH();
+}
+
+OP_SUBTRACT_MATRIX_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	ObjectResult *res = AS_CRUX_RESULT(matrix_subtract_value(vm, left, right));
+	if (!res->is_ok) {
+		runtime_panic(currentModuleRecord, res->as.error->type, "%s", res->as.error->message->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = res->as.value;
+	DISPATCH();
+}
+
+OP_ADD_MATRIX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	Value result = matrix_scalar_add_value(vm, left, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_ADD_SCALAR_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	Value result = matrix_scalar_add_value(vm, right, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_SUBTRACT_MATRIX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	Value result = matrix_scalar_subtract_value(vm, left, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_SUBTRACT_SCALAR_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	Value result = scalar_matrix_subtract_value(vm, scalar, right);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_MULTIPLY_MATRIX_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	ObjectResult *res = AS_CRUX_RESULT(matrix_multiply_value(vm, left, right));
+	if (!res->is_ok) {
+		runtime_panic(currentModuleRecord, res->as.error->type, "%s", res->as.error->message->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = res->as.value;
+	DISPATCH();
+}
+
+OP_MULTIPLY_MATRIX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	Value result = matrix_scale_value(vm, left, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_MULTIPLY_SCALAR_MATRIX: {
+	ObjectMatrix *right = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-1]);
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-2]);
+	Value result = matrix_scale_value(vm, right, scalar);
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = result;
+	DISPATCH();
+}
+
+OP_DIVIDE_MATRIX_SCALAR: {
+	double scalar = TO_DOUBLE(currentModuleRecord->stack_top[-1]);
+	ObjectMatrix *left = AS_CRUX_MATRIX(currentModuleRecord->stack_top[-2]);
+	ObjectResult *res = AS_CRUX_RESULT(matrix_scalar_divide_value(vm, left, scalar));
+	if (!res->is_ok) {
+		runtime_panic(currentModuleRecord, res->as.error->type, "%s", res->as.error->message->chars);
+		return INTERPRET_RUNTIME_ERROR;
+	}
+	currentModuleRecord->stack_top--;
+	currentModuleRecord->stack_top[-1] = res->as.value;
 	DISPATCH();
 }
 

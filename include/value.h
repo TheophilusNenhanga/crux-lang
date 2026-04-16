@@ -55,7 +55,7 @@ static Value num_to_value(const double num)
 #define FALSE_VAL ((Value)(uint64_t)(QNAN | TAG_FALSE))
 #define TRUE_VAL ((Value)(uint64_t)(QNAN | TAG_TRUE))
 #define NIL_VAL ((Value)(uint64_t)(QNAN | TAG_NIL))
-#define FLOAT_VAL(num) num_to_value(num)
+#define FLOAT_VAL(num) num_to_value((num))
 #define INT_VAL(integer) ((Value)(QNAN | TAG_INT32_BIT | ((uint64_t)(integer) & 0xFFFFFFFF)))
 
 typedef struct {
