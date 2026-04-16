@@ -20,7 +20,6 @@
 #include "stdlib/matrix.h"
 #include "stdlib/range.h"
 #include "stdlib/set.h"
-#include "stdlib/vectors.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
 #define DISPATCH()                                                                                                     \

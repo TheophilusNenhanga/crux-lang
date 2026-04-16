@@ -771,7 +771,6 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->object_count = 0;
 	vm->objects = NULL;
 
-	vm->slab_16 = init_slab_allocator(16, SLAB_CAPACITY);
 	vm->slab_24 = init_slab_allocator(24, SLAB_CAPACITY);
 	vm->slab_32 = init_slab_allocator(32, SLAB_CAPACITY);
 	vm->slab_48 = init_slab_allocator(48, SLAB_CAPACITY);
@@ -896,7 +895,6 @@ void free_vm(VM *vm)
 	free_module_record(vm, vm->current_module_record);
 
 	free_objects(vm, true);
-	destroy_slab_allocator(vm->slab_16);
 	destroy_slab_allocator(vm->slab_24);
 	destroy_slab_allocator(vm->slab_32);
 	destroy_slab_allocator(vm->slab_48);

@@ -78,9 +78,8 @@ typedef enum {
 
 struct VM {
 	CruxObject *objects; // Head of global object linked list
-	size_t object_count; // Replaces pool->count
+	size_t object_count;
 
-	SlabAllocator *slab_16;
 	SlabAllocator *slab_24;
 	SlabAllocator *slab_32;
 	SlabAllocator *slab_48;

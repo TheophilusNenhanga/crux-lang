@@ -13,8 +13,6 @@ void *alloc_memory(VM *vm, size_t size)
 	if (size == 0)
 		return NULL;
 
-	if (size <= 16)
-		return allocate_from_slab(vm->slab_16);
 	if (size <= 24)
 		return allocate_from_slab(vm->slab_24);
 	if (size <= 32)
@@ -36,9 +34,7 @@ void free_memory(VM *vm, void *ptr, const size_t size)
 
 	vm->bytes_allocated -= size;
 
-	if (size <= 16) {
-		free_from_slab(vm->slab_16, ptr);
-	} else if (size <= 24) {
+	if (size <= 24) {
 		free_from_slab(vm->slab_24, ptr);
 	} else if (size <= 32) {
 		free_from_slab(vm->slab_32, ptr);
