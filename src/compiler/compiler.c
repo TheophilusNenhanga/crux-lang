@@ -1,6 +1,6 @@
 #include <errno.h>
+#include <setjmp.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1999,8 +1999,8 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 {
 	Compiler function_compiler = {0};
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, type)) {
-		fprintf(stderr, "Fatal error: Memory allocation failed. Shutting down!\n");
-		exit(EXIT_FAILURE);
+		compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+		return;
 	}
 	if (type == TYPE_METHOD && self_type) {
 		function_compiler.locals[0].type = self_type;
@@ -2143,8 +2143,8 @@ static void anonymous_function(Compiler *compiler, const bool can_assign)
 	(void)can_assign;
 	Compiler function_compiler = {0};
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, TYPE_ANONYMOUS)) {
-		fprintf(stderr, "Fatal error: Memory allocation failed. Shutting down!\n");
-		exit(EXIT_FAILURE);
+		compiler_panic(compiler->parser, "Memory allocation failed.", MEMORY);
+		return;
 	}
 
 	int param_capacity = 4;
@@ -4823,6 +4823,18 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 	if (!init_compiler(vm, compiler, enclosing, TYPE_SCRIPT)) {
 		return NULL;
 	}
+
+	// store previous jump buffer
+	jmp_buf previous_jump_buffer;
+	memcpy(previous_jump_buffer, compiler->parser->jump_buffer, sizeof(jmp_buf));
+
+	if (setjmp(compiler->parser->jump_buffer) != 0) {
+		free(compiler->parser->scanner);
+		free(compiler->parser);
+		memcpy(compiler->parser->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
+		return NULL;
+	}
+
 	init_scanner(compiler->parser->scanner, source);
 
 	compiler->parser->had_error = false;
@@ -4861,9 +4873,9 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 
 	bool had_error = compiler->parser->had_error;
 
+	memcpy(compiler->parser->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
 	free(compiler->parser->scanner);
 	free(compiler->parser);
-
 	return had_error ? NULL : function;
 }
 

@@ -10,10 +10,7 @@
 #include "object.h"
 #include "panic.h"
 #include "slab_allocator.h"
-#include "stdlib/complex.h"
-#include "stdlib/matrix.h"
 #include "stdlib/stdlib.h"
-#include "stdlib/vectors.h"
 #include "table.h"
 #include "type_system.h"
 #include "value.h"
@@ -112,10 +109,15 @@ VM *new_vm(const int argc, const char **argv)
 	VM *vm = calloc(1, sizeof(VM));
 	if (vm == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for VM\n");
-		exit(1);
+		return NULL;
 	}
-	init_vm(vm, argc, argv);
-	return vm;
+
+	if (setjmp(vm->jump_buffer) != 0) {
+		// Initialization failed
+		return NULL;
+	}
+
+	return init_vm(vm, argc, argv) ? vm : NULL;
 }
 
 void reset_stack(ObjectModuleRecord *moduleRecord)
@@ -199,10 +201,6 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 		}
 
 		const Value result_value = native->function(vm, args);
-
-		if (vm->is_exiting) {
-			return false;
-		}
 
 		current_module_record->stack_top -= arg_count + 1;
 
@@ -764,7 +762,7 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-void init_vm(VM *vm, const int argc, const char **argv)
+bool init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool is_repl = argc == 1 ? true : false;
 
@@ -777,7 +775,6 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->slab_64 = init_slab_allocator(64, SLAB_CAPACITY);
 
 	vm->gc_status = PAUSED;
-	vm->is_exiting = false;
 	vm->exit_code = 0;
 	vm->min_gc_heap_size = MIN_GC_HEAP_SIZE;
 	vm->min_gc_growth_delta = MIN_GC_GROWTH_DELTA;
@@ -822,7 +819,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	if (vm->native_modules.modules == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for "
 						"native modules.\nShutting Down!\n");
-		exit(1);
+		return false;
 	}
 
 	initMatchHandlerStack(&vm->match_handler_stack);
@@ -838,7 +835,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	if (vm->struct_instance_stack.structs == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for "
 						"stack struct.\nShutting Down!\n");
-		exit(1);
+		return false;
 	}
 
 	vm->args.argc = argc;
@@ -858,6 +855,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->current_module_record->path = path;
 	table_set(vm, &vm->module_cache, vm->current_module_record->path, OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
+	return true;
 }
 
 void free_vm(VM *vm)
@@ -1453,6 +1451,26 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 
 InterpretResult interpret(VM *vm, char *source)
 {
+	jmp_buf previous_jump_buffer;
+	memcpy(previous_jump_buffer, vm->jump_buffer, sizeof(jmp_buf));
+
+	int jump_code = setjmp(vm->jump_buffer);
+	if (jump_code != INTERPRET_OK) {
+		// Panic cleanup
+		if (vm->main_compiler != NULL) {
+			free(vm->main_compiler);
+			vm->main_compiler = NULL;
+		}
+		if (vm->current_module_record != NULL) {
+			vm->current_module_record->state = STATE_ERROR;
+		}
+
+		// restore previous jump buffer
+
+		memcpy(vm->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
+		return jump_code;
+	}
+
 	Compiler *compiler = malloc(sizeof(Compiler));
 	if (compiler == NULL) {
 		return INTERPRET_COMPILE_ERROR;
@@ -1463,12 +1481,14 @@ InterpretResult interpret(VM *vm, char *source)
 	free(compiler);
 	vm->main_compiler = NULL;
 
-	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	if (function == NULL) {
-		current_module_record->state = STATE_ERROR;
+		if (vm->current_module_record != NULL) {
+			vm->current_module_record->state = STATE_ERROR;
+		}
 		return INTERPRET_COMPILE_ERROR;
 	}
 
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	push(current_module_record, OBJECT_VAL(function));
 	ObjectClosure *closure = new_closure(vm, function);
 	vm->current_module_record->module_closure = closure;
@@ -1476,7 +1496,10 @@ InterpretResult interpret(VM *vm, char *source)
 	push(current_module_record, OBJECT_VAL(closure));
 	call(current_module_record, closure, 0);
 
-	const InterpretResult result = run(vm, false);
+	InterpretResult result = run(vm, false);
+
+	// Restore previous jump buffer
+	memcpy(vm->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
 
 	return result;
 }

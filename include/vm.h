@@ -19,7 +19,7 @@ typedef struct ObjectRange ObjectRange;
 typedef struct SlabAllocator SlabAllocator;
 typedef struct Compiler Compiler;
 
-typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR, INTERPRET_EXIT } InterpretResult;
+typedef enum { INTERPRET_OK = 0, INTERPRET_COMPILE_ERROR = 1, INTERPRET_RUNTIME_ERROR = 2, INTERPRET_EXIT = 3 } InterpretResult;
 
 /**
  * An ongoing function call
@@ -151,12 +151,12 @@ struct VM {
 
 	GC_STATUS gc_status;
 
-	bool is_exiting;
-	int exit_code;
-
 	int import_count;
 	ObjectTypeTable *type_table;
 	Compiler *main_compiler;
+
+	int exit_code;
+	jmp_buf jump_buffer;
 };
 
 #ifdef STACK_SAFETY
@@ -184,7 +184,7 @@ struct VM {
 
 VM *new_vm(int argc, const char **argv);
 
-void init_vm(VM *vm, int argc, const char **argv);
+bool init_vm(VM *vm, int argc, const char **argv);
 
 void free_vm(VM *vm);
 

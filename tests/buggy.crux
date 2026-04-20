@@ -1,0 +1,29 @@
+struct Point2D {
+    x: Int,
+    y: Int
+}
+
+struct Point3D {
+    x: Int,
+    y: Int,
+    z: Int
+}
+
+type BasicPoint = shape { x: Int, y: Int };
+
+let a: BasicPoint = new Point2D { x = 12, y = 42 };
+let b: BasicPoint = new Point3D { x = 54, y = 12, z = 64 };
+
+
+for let i in 0..1 {
+    println(a.x + b.y * a.y + b.z * b.x);
+    a.x += i;
+    b.z += i;
+}
+// TODO: when a shape is used if the given struct matches the shape, the struct type must replace the shape type
+
+fn apply_twice(x: Int, f: (Int) -> Int) -> Int {
+    return f(f(x));
+}
+println(apply_twice(3, fn (n) {return n + 1;})); // 5
+println(apply_twice(2, fn (n) {return n * 10;})); // 200

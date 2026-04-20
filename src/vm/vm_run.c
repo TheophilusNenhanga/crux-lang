@@ -22,14 +22,9 @@
 #include "stdlib/set.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
-#define DISPATCH()                                                                                                     \
-	if (vm->is_exiting)                                                                                                \
-		return INTERPRET_EXIT;                                                                                         \
-	goto *dispatchTable[endIndex]
+#define DISPATCH() goto *dispatchTable[endIndex]
 #else
 #define DISPATCH()                                                                                                     \
-	if (vm->is_exiting)                                                                                                \
-		return INTERPRET_EXIT;                                                                                         \
 	instruction = READ_SHORT();                                                                                        \
 	goto *dispatchTable[instruction]
 #endif

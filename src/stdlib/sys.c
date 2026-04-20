@@ -1,20 +1,20 @@
-#include "stdlib/sys.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "panic.h"
-
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 
+#include "panic.h"
+#include "stdlib/sys.h"
+#include "vm.h"
+
 /**
  * Returns the command line arguments as an array
- * TODO:CHNANGE TYPE TO {} (no arguments)
+ * TODO:CHANGE TYPE TO {} (no arguments)
  * Returns Result<Array>
  */
 Value args_function(VM *vm, const Value *args)
@@ -29,9 +29,7 @@ Value args_function(VM *vm, const Value *args)
 	for (int i = 0; i < vm->args.argc; i++) {
 		char *arg = strdup(vm->args.argv[i]);
 		if (arg == NULL) {
-			Value error_result = MAKE_GC_SAFE_ERROR(
-				vm, "Failed to allocate memory for argument.",
-				MEMORY);
+			Value error_result = MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for argument.", MEMORY);
 			pop(module_record);
 			pop(module_record);
 			return error_result;
@@ -131,16 +129,12 @@ Value get_env_function(VM *vm, const Value *args)
 {
 	const char *value = getenv(AS_C_STRING(args[0]));
 	if (value == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.",
-					  RUNTIME);
+		return MAKE_GC_SAFE_ERROR(vm, "Environment variable not found.", RUNTIME);
 	}
 
 	char *newValue = strdup(value);
 	if (newValue == NULL) {
-		return MAKE_GC_SAFE_ERROR(vm,
-					  "Failed to allocate memory for "
-					  "environment variable value.",
-					  MEMORY);
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to allocate memory for environment variable value.", MEMORY);
 	}
 
 	ObjectString *valueString = take_string(vm, newValue, strlen(value));
@@ -179,6 +173,6 @@ Value exit_function(VM *vm, const Value *args)
 	} else {
 		vm->exit_code = AS_INT(args[0]);
 	}
-	vm->is_exiting = true;
+	longjmp(vm->jump_buffer, INTERPRET_EXIT);
 	return NIL_VAL;
 }

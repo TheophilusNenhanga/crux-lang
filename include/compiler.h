@@ -21,6 +21,7 @@ typedef struct {
 	bool had_error;
 	bool panic_mode;
 	Scanner *scanner;
+	jmp_buf jump_buffer;
 } Parser;
 
 // Precedence in order from lowest to highest

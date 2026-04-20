@@ -8,6 +8,7 @@
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
+#include "panic.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
@@ -71,8 +72,12 @@ void mark_object_internal(VM *vm, CruxObject *object)
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
 		CruxObject **new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
-		if (new_objects == NULL)
-			exit(1);
+		if (new_objects == NULL) {
+			if (vm->current_module_record)
+				runtime_panic(vm->current_module_record, MEMORY, "Failed to grow gray stack.");
+			else
+				longjmp(vm->jump_buffer, 1);
+		}
 		vm->gray_stack = new_objects;
 	}
 

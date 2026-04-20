@@ -37,6 +37,8 @@ static ObjectTypeRecord **make_args(VM *vm, ObjectTypeRecord **src, int count)
 	if (count == 0)
 		return NULL;
 	ObjectTypeRecord **dst = ALLOCATE(vm, ObjectTypeRecord *, count);
+	if (!dst)
+		return NULL;
 	memcpy(dst, src, sizeof(ObjectTypeRecord *) * count);
 	return dst;
 }
@@ -144,8 +146,18 @@ bool register_native_method(VM *vm, Table *method_table, const char *method_name
 							const int arity, ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
 {
 	ObjectString *name = copy_string(vm, method_name, (int)strlen(method_name));
+	if (!name) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
 	name->object.is_immortal = true; // method names are immortal
 	ObjectNativeCallable *callable = new_native_callable(vm, method_function, arity, name, arg_types, return_type);
+	if (!callable) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
 	callable->object.is_immortal = true; // method callables are immortal
 
 	for (int i = 0; i < arity; i++) {
@@ -164,9 +176,19 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 {
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectString *name = copy_string(vm, function_name, (int)strlen(function_name));
+	if (!name) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
 	name->object.is_immortal = true; // function names are immortal
 	push(module_record, OBJECT_VAL(name));
 	ObjectNativeCallable *callable = new_native_callable(vm, function, arity, name, arg_types, return_type);
+	if (!callable) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
 	callable->object.is_immortal = true; // function callables are immortal
 
 	for (int i = 0; i < arity; i++) {

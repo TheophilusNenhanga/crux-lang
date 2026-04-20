@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <setjmp.h>
 
 #define RESET "\033[0m"
 #define GREEN "\033[32m"
