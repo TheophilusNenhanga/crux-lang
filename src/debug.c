@@ -575,6 +575,24 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_DEFINE_PUB_GLOBAL: {
 		return constant_instruction("OP_DEFINE_PUB_GLOBAL", chunk, offset);
 	}
+	case OP_0_INT: {
+		return simple_instruction("OP_0_INT", offset);
+	}
+	case OP_1_INT: {
+		return simple_instruction("OP_1_INT", offset);
+	}
+	case OP_2_INT: {
+		return simple_instruction("OP_2_INT", offset);
+	}
+	case OP_0_FLOAT: {
+		return simple_instruction("OP_0_FLOAT", offset);
+	}
+	case OP_1_FLOAT: {
+		return simple_instruction("OP_1_FLOAT", offset);
+	}
+	case OP_2_FLOAT: {
+		return simple_instruction("OP_2_FLOAT", offset);
+	}
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;

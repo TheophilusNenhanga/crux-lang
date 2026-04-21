@@ -158,6 +158,12 @@ typedef enum {
 	OP_INVOKE_STDLIB_UNWRAP,
 	OP_POP_N,
 	OP_DEFINE_PUB_GLOBAL,
+	OP_0_INT,
+	OP_1_INT,
+	OP_2_INT,
+	OP_0_FLOAT,
+	OP_1_FLOAT,
+	OP_2_FLOAT,
 } OpCode;
 
 typedef struct {

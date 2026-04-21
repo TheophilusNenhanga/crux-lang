@@ -3953,12 +3953,28 @@ static void number(Compiler *compiler, bool can_assign)
 		}
 	}
 	if (hasDecimalNotation) {
-		emit_constant(compiler, FLOAT_VAL(number));
+		if (number == 0.0) {
+			emit_word(compiler, OP_0_FLOAT);
+		} else if (number == 1.0) {
+			emit_word(compiler, OP_1_FLOAT);
+		} else if (number == 2.0) {
+			emit_word(compiler, OP_2_FLOAT);
+		} else {
+			emit_constant(compiler, FLOAT_VAL(number));
+		}
 		push_type_record(compiler, T_FLOAT);
 	} else {
 		const int32_t integer = (int32_t)number;
 		if ((double)integer == number) {
-			emit_constant(compiler, INT_VAL(integer));
+			if (number == 0.0) {
+				emit_word(compiler, OP_0_INT);
+			} else if (number == 1.0) {
+				emit_word(compiler, OP_1_INT);
+			} else if (number == 2.0) {
+				emit_word(compiler, OP_2_INT);
+			} else {
+				emit_constant(compiler, INT_VAL(integer));
+			}
 			push_type_record(compiler, T_INT);
 		} else {
 			emit_constant(compiler, FLOAT_VAL(number));
