@@ -1740,7 +1740,6 @@ OP_IN: {
 	Value left = pop(currentModuleRecord);
 
 	ObjectType right_type = AS_CRUX_OBJECT(right)->type;
-	ObjectType left_type = AS_CRUX_OBJECT(left)->type;
 
 	if (IS_CRUX_OBJECT(right)) {
 		switch (right_type) {

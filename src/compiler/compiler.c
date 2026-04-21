@@ -2663,6 +2663,15 @@ static void var_declaration(Compiler *compiler, const bool is_public)
 	}
 
 	ObjectTypeRecord *resolved_type = annotated_type ? annotated_type : value_type;
+
+	if (annotated_type && annotated_type->base_type == SHAPE_TYPE && value_type &&
+		value_type->base_type == STRUCT_TYPE) {
+		// If the struct perfectly satisfies the shape upgrade to concrete struct
+		if (types_compatible(annotated_type, value_type)) {
+			resolved_type = value_type;
+		}
+	}
+
 	if (!resolved_type)
 		resolved_type = T_ANY;
 
