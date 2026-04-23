@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -17,6 +16,10 @@
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
 #include "debug.h"
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
 #endif
 
 static uint64_t gc_now_ns(void)
