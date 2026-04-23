@@ -13,6 +13,9 @@ src/CMakeSettings.json
 # for benchmarks
 *.ppm
 
+# for crux_test_file
+crux_test_file.txt
+
 # for perf data
 *.data
 *.data.old

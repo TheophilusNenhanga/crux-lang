@@ -748,6 +748,7 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"open", fs_open_function, 2, ARGS(t_str, t_str), res_file},
 			{"remove", fs_remove_function, 1, ARGS(t_str), res_nil},
+			{"remove_dir", fs_remove_dir_function, 1, ARGS(t_str), res_nil},
 			{"size", fs_file_size_function, 1, ARGS(t_str), res_int},
 			{"copy_file", fs_copy_file_function, 2, ARGS(t_str, t_str), res_nil},
 			{"mkdir", fs_mkdir_function, 1, ARGS(t_str), res_nil},

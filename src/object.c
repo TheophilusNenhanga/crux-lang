@@ -1026,7 +1026,17 @@ ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
 	pop(vm->current_module_record);
 	file->path = path;
 	file->mode = mode;
+
+	/* On Windows, always open in binary mode to avoid CRLF translation
+	   issues with ftell/fseek when determining file size. */
+#ifdef _WIN32
+	char bin_mode[8];
+	snprintf(bin_mode, sizeof(bin_mode), "%sb", mode->chars);
+	file->file = fopen(path->chars, bin_mode);
+#else
 	file->file = fopen(path->chars, mode->chars);
+#endif
+
 	file->is_open = file->file != NULL;
 	file->position = 0;
 	return file;
