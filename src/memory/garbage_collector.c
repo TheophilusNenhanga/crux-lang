@@ -145,6 +145,11 @@ void mark_type_table(VM *vm, ObjectTypeTable *table)
 	if (!table)
 		return;
 	mark_object(vm, (CruxObject *)table);
+	for (int i = 0; i < table->capacity; i++) {
+		if (table->entries[i].key != NULL) {
+			mark_object(vm, (CruxObject *)table->entries[i].value);
+		}
+	}
 }
 
 void mark_type_record(VM *vm, ObjectTypeRecord *rec)

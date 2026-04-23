@@ -2885,7 +2885,9 @@ static void if_statement(Compiler *compiler)
 			compiler->locals[narrow_state.local_index].type = narrow_state.narrowed_to;
 		} else if (narrow_state.global_name) {
 			type_table_get(compiler->type_table, narrow_state.global_name, &original_type);
-			type_table_set(compiler->type_table, narrow_state.global_name, narrow_state.narrowed_to);
+			if (original_type != NULL) {
+				type_table_set(compiler->type_table, narrow_state.global_name, narrow_state.narrowed_to);
+			}
 		}
 	}
 
@@ -2907,7 +2909,7 @@ static void if_statement(Compiler *compiler)
 	} else {
 		if (narrow_state.local_index != -1) {
 			compiler->locals[narrow_state.local_index].type = original_type;
-		} else if (narrow_state.global_name) {
+		} else if (narrow_state.global_name && original_type != NULL) {
 			type_table_set(compiler->type_table, narrow_state.global_name, original_type);
 		}
 	}
@@ -2923,7 +2925,7 @@ static void if_statement(Compiler *compiler)
 	// restore original type
 	if (narrow_state.local_index != -1) {
 		compiler->locals[narrow_state.local_index].type = original_type;
-	} else if (narrow_state.global_name) {
+	} else if (narrow_state.global_name && original_type != NULL) {
 		type_table_set(compiler->type_table, narrow_state.global_name, original_type);
 	}
 }

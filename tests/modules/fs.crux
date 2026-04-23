@@ -1,6 +1,6 @@
-
 use open, remove, size, copy_file, mkdir from "crux:fs";
 use read_file, write_file, append_file, exists, is_file, is_dir from "crux:fs";
+use platform from "crux:sys";
 
 println("=== Testing FS Module ===");
 
@@ -17,14 +17,24 @@ let test_dir = "/tmp/crux_test_dir";
 
 // Test exists
 println("--- Testing exists ---");
-assert(exists("/tmp") == true, "/tmp should exist");
-assert(exists("/nonexistent/path/xyz") == false, "nonexistent path should not exist");
+if (platform() == "windows") {
+    assert(exists("C:\\") == true, "C:\\ should exist");
+    assert(exists("C:\\nonexistent") == false, "C:\\nonexistent should not exist");
+} else {
+    assert(exists("/tmp") == true, "/tmp should exist");
+    assert(exists("/nonexistent/path/xyz") == false, "nonexistent path should not exist");
+}
 println("exists() test passed");
 
 // Test is_file and is_dir
 println("--- Testing is_file and is_dir ---");
-assert(is_file("/tmp") == false, "/tmp is not a file");
-assert(is_dir("/tmp") == true, "/tmp is a directory");
+if (platform() == "windows") {
+    assert(is_file("C:\\") == false, "C:\\ should not be a file");
+    assert(is_dir("C:\\") == true, "C:\\ is a directory");
+}else {
+    assert(is_file("/tmp") == false, "/tmp is not a file");
+    assert(is_dir("/tmp") == true, "/tmp is a directory");
+}
 println("is_file() and is_dir() test passed");
 
 // Test write_file
