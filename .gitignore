@@ -1,9 +1,7 @@
-/.idea
+# for build
 /build
-/.vscode
 /.cache
 /out
-/.vs
 /src/out
 src/CMakeSettings.json
 *.exe
@@ -11,8 +9,16 @@ src/CMakeSettings.json
 /src/cmake-build-*
 /cmake-build-*
 /build-wsl
-# for ray tracing benchmark
+
+# for benchmarks
 *.ppm
+
 # for perf data
 *.data
+*.data.old
+
+# IDE
 /.zed
+/.idea
+/.vscode
+/.vs
