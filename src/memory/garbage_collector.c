@@ -9,6 +9,7 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
+#include "slab_allocator.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
@@ -36,6 +37,20 @@ static uint64_t gc_now_ns(void)
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 #endif
+}
+
+static size_t slab_pool_capacity(const SlabAllocator *allocator)
+{
+	if (allocator == NULL) {
+		return 0;
+	}
+
+	size_t slab_count = 0;
+	for (const SlabNode *node = allocator->slab_head; node != NULL; node = node->next) {
+		slab_count++;
+	}
+
+	return slab_count * allocator->capacity;
 }
 
 static size_t table_tombstone_count(const Table *table)
@@ -315,11 +330,14 @@ static void blacken_module_record(VM *vm, CruxObject *object)
 {
 	const ObjectModuleRecord *module = (ObjectModuleRecord *)object;
 	mark_object(vm, (CruxObject *)module->path);
-	mark_table(vm, &module->globals);
+	mark_table(vm, &module->global_names);
 	mark_table(vm, &module->publics);
 	mark_type_table(vm, module->types);
 	mark_object(vm, (CruxObject *)module->module_closure);
 	mark_object(vm, (CruxObject *)module->enclosing_module);
+	for (uint32_t i = 0; i < module->global_count; i++) {
+		mark_value(vm, module->globals[i]);
+	}
 
 	for (const Value *slot = module->stack; slot < module->stack_top; slot++) {
 		mark_value(vm, *slot);
@@ -716,11 +734,14 @@ void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
 	}
 
 	mark_object(vm, (CruxObject *)moduleRecord->path);
-	mark_table(vm, &moduleRecord->globals);
+	mark_table(vm, &moduleRecord->global_names);
 	mark_table(vm, &moduleRecord->publics);
 	mark_type_table(vm, moduleRecord->types);
 	mark_object(vm, (CruxObject *)moduleRecord->module_closure);
 	mark_object(vm, (CruxObject *)moduleRecord->enclosing_module);
+	for (uint32_t i = 0; i < moduleRecord->global_count; i++) {
+		mark_value(vm, moduleRecord->globals[i]);
+	}
 
 	for (const Value *slot = moduleRecord->stack; slot < moduleRecord->stack_top; slot++) {
 		mark_value(vm, *slot);
@@ -756,34 +777,11 @@ void mark_roots(VM *vm)
 		mark_object(vm, (CruxObject *)vm->import_stack.paths[i]);
 	}
 
-	// No need to mark because they only contain immortal objects
-	// if (vm->native_modules.modules != NULL) {
-	// 	for (int i = 0; i < vm->native_modules.count; i++) {
-	// 		mark_table(vm, vm->native_modules.modules[i].names);
-	// 		mark_object(vm, (CruxObject *)vm->native_modules.modules[i].name);
-	// 	}
-	// }
-
 	mark_table(vm, &vm->module_cache);
 	mark_table(vm, &vm->strings);
 
-	// No need to mark because they only contain immortal objects
-	// mark_table(vm, &vm->core_fns);
-	// mark_table(vm, &vm->random_type);
-	// mark_table(vm, &vm->string_type);
-	// mark_table(vm, &vm->array_type);
-	// mark_table(vm, &vm->table_type);
-	// mark_table(vm, &vm->error_type);
-	// mark_table(vm, &vm->file_type);
-	// mark_table(vm, &vm->result_type);
-	// mark_table(vm, &vm->option_type);
-	// mark_table(vm, &vm->vector_type);
-	// mark_table(vm, &vm->complex_type);
-	// mark_table(vm, &vm->matrix_type);
-	// mark_table(vm, &vm->range_type);
-	// mark_table(vm, &vm->set_type);
-	// mark_table(vm, &vm->tuple_type);
-	// mark_table(vm, &vm->buffer_type);
+	// No need to mark type method / function tables or native modules because they only contain immortal objects that
+	// will not be collected
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 
@@ -840,6 +838,9 @@ static void sweep(VM *vm)
 	}
 
 	vm->gc_last_sweep_slots_scanned = slots_scanned;
+	if (vm->gc_last_sweep_slots_scanned > vm->gc_last_objects_before_sweep) {
+		vm->gc_last_sweep_slots_scanned = vm->gc_last_objects_before_sweep;
+	}
 	vm->gc_sweep_slots_scanned += slots_scanned;
 }
 
@@ -877,14 +878,21 @@ void collect_garbage(VM *vm)
 	const uint64_t trace_end_ns = gc_now_ns();
 	table_remove_white(vm, &vm->strings); // Clean up string table
 	const uint64_t remove_white_end_ns = gc_now_ns();
+	vm->gc_last_objects_before_sweep = vm->object_count;
 	sweep(vm);
 	const uint64_t sweep_end_ns = gc_now_ns();
+	vm->gc_last_objects_after_sweep = vm->object_count;
 	vm->next_gc = compute_next_gc_threshold(vm);
 	vm->gc_last_bytes_after = vm->bytes_allocated;
 	vm->gc_last_bytes_freed = vm->gc_last_bytes_before - vm->gc_last_bytes_after;
 	vm->gc_last_next_gc = vm->next_gc;
 	vm->gc_last_objects_freed = vm->gc_last_objects_before_sweep - vm->gc_last_objects_after_sweep;
 	vm->gc_last_live_objects = vm->object_count;
+	vm->gc_last_pool_capacity = slab_pool_capacity(vm->slab_24) + slab_pool_capacity(vm->slab_32) +
+								slab_pool_capacity(vm->slab_48) + slab_pool_capacity(vm->slab_64);
+	if (vm->gc_last_pool_capacity < vm->gc_last_live_objects) {
+		vm->gc_last_pool_capacity = vm->gc_last_live_objects;
+	}
 	vm->gc_last_strings_count = vm->strings.count;
 	vm->gc_last_strings_capacity = vm->strings.capacity;
 	vm->gc_last_strings_tombstones = table_tombstone_count(&vm->strings);

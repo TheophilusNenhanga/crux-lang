@@ -277,13 +277,6 @@ bool initialize_std_lib(VM *vm)
 			vm->gc_status = prev_status;
 			return false;
 		}
-
-		for (int i = 0; i < vm->core_fns.capacity; i++) {
-			if (vm->core_fns.entries[i].key != NULL) {
-				table_set(vm, &vm->current_module_record->globals, vm->core_fns.entries[i].key,
-						  vm->core_fns.entries[i].value);
-			}
-		}
 	}
 
 	// string methods

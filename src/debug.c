@@ -177,11 +177,11 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_POP:
 		return simple_instruction("OP_POP", offset);
 	case OP_DEFINE_GLOBAL:
-		return constant_instruction("OP_DEFINE_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_DEFINE_GLOBAL", chunk, offset);
 	case OP_GET_GLOBAL:
-		return constant_instruction("OP_GET_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_GET_GLOBAL", chunk, offset);
 	case OP_SET_GLOBAL:
-		return constant_instruction("OP_SET_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL", chunk, offset);
 	case OP_GET_LOCAL:
 		return byte_instruction("OP_GET_LOCAL", chunk, offset);
 	case OP_SET_LOCAL:
@@ -264,22 +264,22 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return inline_arg_instruction("OP_SET_UPVALUE_MINUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_SLASH: {
-		return constant_instruction("OP_SET_GLOBAL_SLASH", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_SLASH", chunk, offset);
 	}
 	case OP_SET_GLOBAL_STAR: {
-		return constant_instruction("OP_SET_GLOBAL_STAR", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_STAR", chunk, offset);
 	}
 	case OP_SET_GLOBAL_PLUS: {
-		return constant_instruction("OP_SET_GLOBAL_PLUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_PLUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_MINUS: {
-		return constant_instruction("OP_SET_GLOBAL_MINUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_MINUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_INT_DIVIDE: {
-		return constant_instruction("OP_SET_GLOBAL_INT_DIVIDE", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_INT_DIVIDE", chunk, offset);
 	}
 	case OP_SET_GLOBAL_MODULUS: {
-		return constant_instruction("OP_SET_GLOBAL_MODULUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_MODULUS", chunk, offset);
 	}
 	case OP_SET_LOCAL_INT_DIVIDE: {
 		return inline_arg_instruction("OP_SET_LOCAL_INT_DIVIDE", chunk, offset);
@@ -342,13 +342,6 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_POWER: {
 		return simple_instruction("OP_POWER", offset);
-	}
-	case OP_USE_NATIVE: {
-		const uint16_t nameCount = chunk->code[offset + 1];
-		printf("%-16s %4d name(s) from '", "OP_USE_NATIVE", nameCount);
-		print_value(chunk->constants.values[chunk->code[offset + 2 + 2 * nameCount]], false);
-		printf("'\n");
-		return offset + 3 + 2 * nameCount;
 	}
 	case OP_FINISH_USE: {
 		const uint16_t nameCount = chunk->code[offset + 1];
@@ -573,7 +566,12 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return inline_arg_instruction("OP_POP_N", chunk, offset);
 	}
 	case OP_DEFINE_PUB_GLOBAL: {
-		return constant_instruction("OP_DEFINE_PUB_GLOBAL", chunk, offset);
+		const uint16_t index = chunk->code[offset + 1];
+		const uint16_t name = chunk->code[offset + 2];
+		printf("%-16s %4d '", "OP_DEFINE_PUB_GLOBAL", index);
+		print_value(chunk->constants.values[name], false);
+		printf("'\n");
+		return offset + 3;
 	}
 	case OP_0_INT: {
 		return simple_instruction("OP_0_INT", offset);

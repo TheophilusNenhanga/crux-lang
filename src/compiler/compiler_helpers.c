@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 
 #include "chunk.h"
@@ -608,9 +609,24 @@ void define_variable(Compiler *compiler, const uint16_t global, bool is_public)
 		return;
 	}
 	if (global >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many variables.", SYNTAX);
+		compiler_panic(compiler->parser, "Too many global variables.", SYNTAX);
 	}
-	is_public ? emit_words(compiler, OP_DEFINE_PUB_GLOBAL, global) : emit_words(compiler, OP_DEFINE_GLOBAL, global);
+
+	ObjectString *global_var_name = AS_CRUX_STRING(current_chunk(compiler)->constants.values[global]);
+	const int global_index = compiler->global_count;
+	if (!table_set(compiler->owner, &compiler->globals, global_var_name, INT_VAL(global_index))) {
+		compiler_panicf(compiler->parser, NAME,
+						"Failed to add global variable '%s'. Are you trying to redefine an existing variable?",
+						global_var_name->chars);
+	}
+	compiler->global_count++;
+
+	if (is_public) {
+		emit_words(compiler, OP_DEFINE_PUB_GLOBAL, global_index);
+		emit_word(compiler, global);
+	} else {
+		emit_words(compiler, OP_DEFINE_GLOBAL, global_index);
+	}
 }
 
 OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const int op)
@@ -623,8 +639,8 @@ OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const i
 								 OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
 	const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,  OP_SET_PROPERTY_MINUS,	  OP_SET_PROPERTY_STAR,
 								   OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
-	const OpCode property_index_ops[] = {OP_SET_PROPERTY_PLUS_INDEX,	OP_SET_PROPERTY_MINUS_INDEX,
-										 OP_SET_PROPERTY_STAR_INDEX,	OP_SET_PROPERTY_SLASH_INDEX,
+	const OpCode property_index_ops[] = {OP_SET_PROPERTY_PLUS_INDEX,	   OP_SET_PROPERTY_MINUS_INDEX,
+										 OP_SET_PROPERTY_STAR_INDEX,	   OP_SET_PROPERTY_SLASH_INDEX,
 										 OP_SET_PROPERTY_INT_DIVIDE_INDEX, OP_SET_PROPERTY_MODULUS_INDEX};
 
 	if (setOp == OP_SET_LOCAL)

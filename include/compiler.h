@@ -145,23 +145,25 @@ struct Compiler {
 	Compiler *enclosing;
 	Compiler *enclosed;
 	ObjectFunction *function;
-	FunctionType type;
-	ObjectTypeRecord *return_type;
-	int local_count;
-	int scope_depth; // 0 is global scope
-	int loop_depth; // 0 is no loop
-	LoopContext loop_stack[UINT8_COUNT];
-	Local locals[UINT8_COUNT];
-	Upvalue upvalues[UINT8_COUNT];
-	ObjectTypeRecord *type_stack[UINT8_COUNT];
-	int type_stack_count;
 	ObjectTypeTable *type_table;
+	ObjectTypeRecord *return_type;
 	ObjectTypeRecord *last_give_type;
 	Parser *parser;
-	bool has_return;
-	NarrowingInfo current_narrowing;
+	ObjectTypeRecord *type_stack[UINT8_COUNT];
+	LoopContext loop_stack[UINT8_COUNT];
+	Local locals[UINT8_COUNT];
     MatchCompiler match_compiler[MATCH_NEST_DEPTH];
+	Upvalue upvalues[UINT8_COUNT];
+	NarrowingInfo current_narrowing;
+	Table globals;
+	int scope_depth; // 0 is global scope
+	int loop_depth; // 0 is no loop
+	int global_count;
+	int local_count;
+	FunctionType type;
+	int type_stack_count;
     int match_depth;
+	bool has_return;
 };
 typedef void (*ParseFn)(Compiler *compiler, const bool can_assign);
 

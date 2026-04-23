@@ -417,23 +417,25 @@ struct ObjectIterator {
 
 struct ObjectModuleRecord { // 120
 	CruxObject object;
+	VM* owner;
 	ObjectString *path;
-	Table globals;
+	Table global_names;
 	Table publics;
 	ObjectTypeTable *types;
 	ObjectClosure *module_closure;
 	ObjectModuleRecord *enclosing_module;
 	ObjectUpvalue *open_upvalues;
+	Value *globals;
 	Value *stack;
 	Value *stack_top;
 	Value *stack_limit;
 	CallFrame *frames;
+	uint32_t global_count;
+	ModuleState state;
 	uint8_t frame_count;
 	uint8_t frame_capacity;
 	bool is_repl;
 	bool is_main;
-	ModuleState state;
-	VM* owner;
 };
 
 struct ObjectRange { // 40

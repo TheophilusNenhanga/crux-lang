@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "common.h"
 #include "table.h"
 #include "utf8.h"
 #include "value.h"
@@ -1320,33 +1321,36 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 	GC_STATUS previous = vm->gc_status;
 	vm->gc_status = PAUSED;
 
-	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
-	moduleRecord->path = path;
-	init_table(&moduleRecord->globals);
-	init_table(&moduleRecord->publics);
+	ObjectModuleRecord *module_record = ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	module_record->path = path;
+	init_table(&module_record->global_names);
+	init_table(&module_record->publics);
 
-	moduleRecord->types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
-	moduleRecord->state = STATE_LOADING;
-	moduleRecord->module_closure = NULL;
-	moduleRecord->enclosing_module = NULL;
+	module_record->types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	module_record->state = STATE_LOADING;
+	module_record->module_closure = NULL;
+	module_record->enclosing_module = NULL;
 
-	moduleRecord->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
-	moduleRecord->stack_top = moduleRecord->stack;
-	moduleRecord->stack_limit = moduleRecord->stack + STACK_MAX;
-	moduleRecord->open_upvalues = NULL;
+	module_record->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
+	module_record->stack_top = module_record->stack;
+	module_record->stack_limit = module_record->stack + STACK_MAX;
+	module_record->open_upvalues = NULL;
 
-	moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
-	moduleRecord->frame_count = 0;
-	moduleRecord->frame_capacity = FRAMES_MAX;
+	module_record->globals = NULL;
+	module_record->global_count = 0;
 
-	moduleRecord->is_main = is_main;
-	moduleRecord->is_repl = is_repl;
+	module_record->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
+	module_record->frame_count = 0;
+	module_record->frame_capacity = FRAMES_MAX;
 
-	moduleRecord->owner = vm;
+	module_record->is_main = is_main;
+	module_record->is_repl = is_repl;
+
+	module_record->owner = vm;
 
 	vm->gc_status = previous;
 
-	return moduleRecord;
+	return module_record;
 }
 
 /**
@@ -1360,7 +1364,11 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record)
 	record->frames = NULL;
 	free(record->stack);
 	record->stack = NULL;
-	free_table(vm, &record->globals);
+	free(record->globals);
+	record->globals = NULL;
+	record->global_count = 0;
+
+	free_table(vm, &record->global_names);
 	free_table(vm, &record->publics);
 }
 

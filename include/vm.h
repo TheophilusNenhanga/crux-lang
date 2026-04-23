@@ -209,6 +209,8 @@ bool is_in_import_stack(const VM *vm, const ObjectString *path);
 
 ObjectResult *execute_callable(VM *vm, Value callable, int arg_count, InterpretResult *result);
 
+bool get_module_global_index(const ObjectModuleRecord *module_record, const ObjectString *name, uint32_t *index_out);
+
 bool is_falsy(Value value);
 
 void pop_push(ObjectModuleRecord *moduleRecord, Value value);
@@ -263,7 +265,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count);
  */
 void define_method(VM *vm, ObjectString *name);
 
-InterpretResult global_compound_operation(VM *vm, ObjectString *name, OpCode opcode, char *operation);
+InterpretResult global_compound_operation(VM *vm, uint16_t index, OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.
@@ -283,5 +285,7 @@ ObjectStructInstance *peek_struct_stack(const VM *vm);
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *target, Value operand, OpCode op);
 bool range_indices_in_bounds(const ObjectRange *range, const uint32_t collection_size);
 bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const utf8_int8_t ***starts_out);
+
+bool bind_core_globals(VM *vm, ObjectModuleRecord *module_record);
 
 #endif // VM_H

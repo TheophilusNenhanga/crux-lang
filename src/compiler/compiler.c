@@ -13,8 +13,10 @@
 #include "object.h"
 #include "panic.h"
 #include "scanner.h"
+#include "table.h"
 #include "type_system.h"
 #include "value.h"
+#include "vm.h"
 
 static void expression(Compiler *compiler);
 
@@ -113,12 +115,21 @@ static bool resolve_assignment_target(Compiler *compiler, const Token name, uint
 	}
 
 	// Otherwise it's a global variable
-	*arg = identifier_constant(compiler, &name);
 	*set_op = OP_SET_GLOBAL;
 	*target_type = NULL;
+	int global_index = -1;
 
 	for (const Compiler *comp = compiler; comp != NULL; comp = comp->enclosing) {
-		if (type_table_get(comp->type_table, name_str, target_type)) {
+		if (*target_type == NULL) {
+			type_table_get(comp->type_table, name_str, target_type);
+		}
+		if (global_index == -1) {
+			Value index_value;
+			if (table_get(&comp->globals, name_str, &index_value)) {
+				global_index = AS_INT(index_value);
+			}
+		}
+		if (*target_type != NULL && global_index != -1) {
 			break;
 		}
 	}
@@ -129,6 +140,13 @@ static bool resolve_assignment_target(Compiler *compiler, const Token name, uint
 		pop(compiler->owner->current_module_record);
 		return false;
 	}
+	if (global_index == -1) {
+		compiler_panicf(compiler->parser, TYPE, "Failed to get index for global variable '%.*s'.", name.length,
+						name.start);
+		pop(compiler->owner->current_module_record);
+		return false;
+	}
+	*arg = global_index;
 
 	pop(compiler->owner->current_module_record);
 	return true;
@@ -654,7 +672,6 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	memset(compiler->loop_stack, 0, sizeof(compiler->loop_stack));
 
 	compiler->type_stack_count = 0;
-	compiler->function = NULL;
 	compiler->type = type;
 	compiler->local_count = 0;
 	compiler->scope_depth = 0;
@@ -664,35 +681,15 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	compiler->has_return = false;
 	compiler->return_type = NULL;
 	compiler->last_give_type = NULL;
-	compiler->type_table = NULL;
+
 	compiler->type_table = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	init_table(&compiler->globals);
+	compiler->global_count = 0;
 
-	// add core fn types for top-level scripts
-	if (enclosing == NULL) {
-		for (int i = 0; i < vm->core_fns.capacity; i++) {
-			if (vm->core_fns.entries[i].key != NULL) {
-				const Value val = vm->core_fns.entries[i].value;
-				if (IS_CRUX_NATIVE_CALLABLE(val)) {
-					const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(val);
-
-					ObjectTypeRecord **args_copy = NULL;
-					if (callable->arity > 0) {
-						args_copy = ALLOCATE(vm, ObjectTypeRecord *, callable->arity);
-						for (int j = 0; j < callable->arity; j++) {
-							args_copy[j] = callable->arg_types[j];
-						}
-					}
-
-					ObjectTypeRecord *fn_type = new_function_type_rec(vm, args_copy, callable->arity,
-																	  callable->return_type);
-					type_table_set(compiler->type_table, vm->core_fns.entries[i].key, fn_type);
-				}
-			}
-		}
-	}
-
-	// Load existing types from the module record
-	if (type == TYPE_SCRIPT && vm->current_module_record) {
+	// Copy indexes and types from previous module
+	if (vm->current_module_record != NULL) {
+		table_add_all(vm, &vm->current_module_record->global_names, &compiler->globals);
+		compiler->global_count = (int)vm->current_module_record->global_count;
 		type_table_add_all(vm->current_module_record->types, compiler->type_table);
 	}
 
@@ -703,6 +700,64 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
 	} else if (type != TYPE_SCRIPT) {
 		compiler->function->name = copy_string(compiler->owner, compiler->parser->previous.start,
 											   compiler->parser->previous.length);
+	}
+
+	// global initialization
+	if (type == TYPE_SCRIPT) {
+		if (vm->current_module_record != NULL) {
+			table_add_all(vm, &vm->current_module_record->global_names, &compiler->globals);
+			compiler->global_count = (int)vm->current_module_record->global_count;
+			type_table_add_all(vm->current_module_record->types, compiler->type_table);
+		}
+
+		// set up core functions
+		for (int i = 0; i < vm->core_fns.capacity; i++) {
+			if (vm->core_fns.entries[i].key == NULL) {
+				continue;
+			}
+
+			ObjectString *name = vm->core_fns.entries[i].key;
+			Value val = vm->core_fns.entries[i].value;
+
+			// Generate types for the type_table
+			if (IS_CRUX_NATIVE_CALLABLE(val)) {
+				ObjectTypeRecord *existing_type;
+				if (!type_table_get(compiler->type_table, name, &existing_type)) {
+					const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(val);
+					ObjectTypeRecord **args_copy = NULL;
+					if (callable->arity > 0) {
+						args_copy = ALLOCATE(vm, ObjectTypeRecord *, callable->arity);
+						for (int j = 0; j < callable->arity; j++) {
+							args_copy[j] = callable->arg_types[j];
+						}
+					}
+					ObjectTypeRecord *fn_type = new_function_type_rec(vm, args_copy, callable->arity,
+																	  callable->return_type);
+					type_table_set(compiler->type_table, name, fn_type);
+
+					if (vm->current_module_record) {
+						type_table_set(vm->current_module_record->types, name, fn_type);
+					}
+				}
+			}
+
+			// Check if it already has an index
+			Value existing_index;
+			if (table_get(&compiler->globals, name, &existing_index)) {
+				continue;
+			}
+
+			// Assign a new global index
+			int global_index = compiler->global_count++;
+			table_set(vm, &compiler->globals, name, INT_VAL(global_index));
+			if (vm->current_module_record) {
+				table_set(vm, &vm->current_module_record->global_names, name, INT_VAL(global_index));
+			}
+
+			uint16_t const_index = make_constant(compiler, val);
+			emit_words(compiler, OP_CONSTANT, const_index);
+			emit_words(compiler, OP_DEFINE_GLOBAL, global_index);
+		}
 	}
 
 	Local *local = &compiler->locals[compiler->local_count++];
@@ -733,6 +788,7 @@ bool init_compiler(VM *vm, Compiler *compiler, Compiler *enclosing, const Functi
  * Parses a named variable (local, upvalue, or global).
  * pushes the type of the variable onto the type stack.
  *
+ * @param compiler The current compiler
  * @param name The token representing the variable name.
  * @param can_assign Whether the variable expression can be the target of an
  * assignment.
@@ -745,6 +801,7 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 	uint16_t getOp, setOp;
 	int arg = resolve_local(compiler, &name);
 	ObjectTypeRecord *var_type = NULL;
+	int global_index = -1;
 
 	if (arg != -1) {
 		getOp = OP_GET_LOCAL;
@@ -760,16 +817,30 @@ static void named_variable(Compiler *compiler, Token name, const bool can_assign
 		setOp = OP_SET_GLOBAL;
 		const Compiler *comp = compiler;
 		while (comp != NULL) {
-			if (type_table_get(comp->type_table, name_str, &var_type))
+			if (var_type == NULL) {
+				type_table_get(comp->type_table, name_str, &var_type);
+			}
+			if (global_index == -1) {
+				Value index_val;
+				if (table_get(&comp->globals, name_str, &index_val)) {
+					global_index = AS_INT(index_val);
+					arg = global_index;
+				}
+			}
+			if (var_type != NULL && global_index != -1) {
 				break;
+			}
 			comp = comp->enclosing;
 		}
 
 		if (!var_type) {
-			compiler_panicf(compiler->parser, TYPE,
-							"Undeclared variable '%.*s'. Did you forget to declare or import it?", name.length,
-							name.start);
-			var_type = T_ANY; // This allocates!
+			compiler_panicf(compiler->parser, TYPE, "Undeclared variable '%s'. Did you forget to declare or import it?",
+							name_str->chars);
+			var_type = T_ANY;
+		}
+
+		if (global_index == -1) {
+			compiler_panicf(compiler->parser, TYPE, "Failed to get index for global variable '%s'.", name_str->chars);
 		}
 	}
 	push(compiler->owner->current_module_record, OBJECT_VAL(var_type));
@@ -1995,7 +2066,8 @@ static void block(Compiler *compiler)
 	consume(compiler, CRUX_TOKEN_RIGHT_BRACE, "Expected '}' after block");
 }
 
-static void function(Compiler *compiler, const FunctionType type, ObjectTypeRecord *self_type)
+static void function(Compiler *compiler, const FunctionType type, ObjectTypeRecord *self_type,
+					 ObjectString *recursive_name, int recursive_global_index)
 {
 	Compiler function_compiler = {0};
 	if (!init_compiler(compiler->owner, &function_compiler, compiler, type)) {
@@ -2004,6 +2076,9 @@ static void function(Compiler *compiler, const FunctionType type, ObjectTypeReco
 	}
 	if (type == TYPE_METHOD && self_type) {
 		function_compiler.locals[0].type = self_type;
+	}
+	if (recursive_name != NULL && recursive_global_index != -1) {
+		table_set(compiler->owner, &function_compiler.globals, recursive_name, INT_VAL(recursive_global_index));
 	}
 	begin_scope(&function_compiler);
 
@@ -2112,9 +2187,19 @@ static void fn_declaration(Compiler *compiler, const bool is_public)
 	push(compiler->owner->current_module_record, OBJECT_VAL(name_str));
 
 	const int local_index = (compiler->scope_depth > 0) ? compiler->local_count - 1 : -1;
+	int reserved_global_index = -1;
+
+	if (compiler->scope_depth == 0) {
+		reserved_global_index = compiler->global_count;
+		if (!table_set(compiler->owner, &compiler->globals, name_str, INT_VAL(reserved_global_index))) {
+			compiler_panicf(compiler->parser, NAME, "Cannot redefine global function '%s'.", name_str->chars);
+		} else {
+			compiler->global_count++;
+		}
+	}
 
 	mark_initialized(compiler);
-	function(compiler, TYPE_FUNCTION, NULL);
+	function(compiler, TYPE_FUNCTION, NULL, name_str, reserved_global_index);
 
 	ObjectTypeRecord *fn_type = pop_type_record(compiler);
 
@@ -2132,7 +2217,16 @@ static void fn_declaration(Compiler *compiler, const bool is_public)
 		}
 	}
 
-	define_variable(compiler, global, is_public);
+	if (reserved_global_index != -1) {
+		if (is_public) {
+			emit_words(compiler, OP_DEFINE_PUB_GLOBAL, reserved_global_index);
+			emit_word(compiler, global);
+		} else {
+			emit_words(compiler, OP_DEFINE_GLOBAL, reserved_global_index);
+		}
+	} else {
+		define_variable(compiler, global, is_public);
+	}
 
 	pop(compiler->owner->current_module_record); // fn_type
 	pop(compiler->owner->current_module_record); // name_str
@@ -2872,7 +2966,7 @@ static void return_statement(Compiler *compiler)
 	compiler->last_give_type = new_type_rec(compiler->owner, NEVER_TYPE);
 }
 
-static void import_statement(Compiler *compiler, bool is_dynamic)
+static void use_statement(Compiler *compiler)
 {
 	bool hasParen = false;
 	if (compiler->parser->current.type == CRUX_TOKEN_LEFT_PAREN) {
@@ -2881,27 +2975,22 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 	}
 
 	uint16_t nameCount = 0;
-	uint16_t names[UINT8_MAX] = {0};
-	uint16_t aliases[UINT8_MAX] = {0};
 	bool aliasPresence[UINT8_MAX] = {0};
-
 	Token nameTokens[UINT8_MAX] = {0};
 	Token aliasTokens[UINT8_MAX] = {0};
 
 	do {
 		if (nameCount >= UINT8_MAX) {
-			compiler_panic(compiler->parser, "Cannot import more than 255 names.", IMPORT_EXTENT);
+			compiler_panicf(compiler->parser, IMPORT, "Cannot import more than %d names.", UINT8_MAX);
 		}
 		consume_identifier_like(compiler, "Expected name to import from module.");
 
 		nameTokens[nameCount] = compiler->parser->previous;
-		names[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
 
 		if (compiler->parser->current.type == CRUX_TOKEN_AS) {
 			consume(compiler, CRUX_TOKEN_AS, "Expected 'as' keyword.");
 			consume(compiler, CRUX_TOKEN_IDENTIFIER, "Expected alias name after 'as'.");
 			aliasTokens[nameCount] = compiler->parser->previous;
-			aliases[nameCount] = identifier_constant(compiler, &compiler->parser->previous);
 			aliasPresence[nameCount] = true;
 		}
 
@@ -2915,33 +3004,77 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 	consume(compiler, CRUX_TOKEN_FROM, "Expected 'from' after import statement.");
 	consume(compiler, CRUX_TOKEN_STRING, "Expected string literal for module name.");
 
-	const bool isNative = memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0;
+	const bool is_native = memcmp(compiler->parser->previous.start, "\"crux:", 6) == 0;
+	const bool is_stdlib = false; // TODO: Implement when package system is added
+	const bool is_file = !is_native;
 
-	if (is_dynamic && isNative) {
-		compiler_panic(compiler->parser, "Cannot use dynamic import for native modules. Use 'use'.", SYNTAX);
-		return;
+	if (is_native) {
+		ObjectString *native_module_name = copy_string(compiler->owner, compiler->parser->previous.start + 6,
+													   compiler->parser->previous.length - 7);
+
+		NativeModule *module = NULL;
+		for (int i = 0; i < compiler->owner->native_modules.capacity; i++) {
+			if (native_module_name == compiler->owner->native_modules.modules[i].name) {
+				module = &compiler->owner->native_modules.modules[i];
+				break;
+			}
+		}
+
+		if (module == NULL) {
+			compiler_panicf(compiler->parser, NAME, "Failed to find native module '%s'.", native_module_name->chars);
+			return;
+		}
+
+		for (int i = 0; i < nameCount; i++) {
+			Token name_tok = nameTokens[i];
+			Token alias_tok = aliasPresence[i] ? aliasTokens[i] : name_tok;
+
+			ObjectString *real_name = copy_string(compiler->owner, name_tok.start, name_tok.length);
+			ObjectString *alias_name = copy_string(compiler->owner, alias_tok.start, alias_tok.length);
+
+			Value callable_value;
+			if (!table_get(module->names, real_name, &callable_value)) {
+				compiler_panicf(compiler->parser, NAME, "Failed to find name '%s' in module '%s'.", real_name->chars,
+								native_module_name->chars);
+				return;
+			}
+
+			uint16_t const_index = make_constant(compiler, callable_value);
+
+			ObjectNativeCallable *native_callable = AS_CRUX_NATIVE_CALLABLE(callable_value);
+			ObjectTypeRecord **args_copy = NULL;
+			if (native_callable->arity > 0) {
+				args_copy = ALLOCATE(compiler->owner, ObjectTypeRecord *, native_callable->arity);
+				for (int k = 0; k < native_callable->arity; k++)
+					args_copy[k] = native_callable->arg_types[k];
+			}
+			ObjectTypeRecord *resolved_type = new_function_type_rec(compiler->owner, args_copy, native_callable->arity,
+																	native_callable->return_type);
+
+			if (compiler->scope_depth > 0) {
+				add_local(compiler, alias_tok, resolved_type);
+				mark_initialized(compiler);
+				emit_words(compiler, OP_CONSTANT, const_index);
+			} else {
+				int global_index = compiler->global_count++;
+				table_set(compiler->owner, &compiler->globals, alias_name, INT_VAL(global_index));
+				type_table_set(compiler->type_table, alias_name, resolved_type);
+
+				emit_words(compiler, OP_CONSTANT, const_index);
+				emit_words(compiler, OP_DEFINE_GLOBAL, global_index);
+			}
+		}
 	}
 
-	uint16_t module_const;
-	ObjectModuleRecord *statically_imported_mod = NULL;
-
-	if (isNative) {
-		module_const = make_constant(compiler,
-									 OBJECT_VAL(copy_string(compiler->owner, compiler->parser->previous.start + 6,
-															compiler->parser->previous.length - 7)));
-		emit_words(compiler, OP_USE_NATIVE, nameCount);
-	} else {
+	if (is_file) {
 		ObjectString *raw_path_str = copy_string(compiler->owner, compiler->parser->previous.start + 1,
 												 compiler->parser->previous.length - 2);
 
-		push(compiler->owner->current_module_record, OBJECT_VAL(raw_path_str)); // raw_path_str
+		push(compiler->owner->current_module_record, OBJECT_VAL(raw_path_str));
 
-		const char *base_path = NULL;
-		if (compiler->owner->current_module_record && compiler->owner->current_module_record->path) {
-			base_path = compiler->owner->current_module_record->path->chars;
-		} else {
-			base_path = ".";
-		}
+		const char *base_path = compiler->owner->current_module_record && compiler->owner->current_module_record->path
+									? compiler->owner->current_module_record->path->chars
+									: ".";
 
 		char *resolved_chars = resolve_path(base_path, raw_path_str->chars);
 		if (resolved_chars == NULL) {
@@ -2953,102 +3086,62 @@ static void import_statement(Compiler *compiler, bool is_dynamic)
 		ObjectString *path_str = copy_string(compiler->owner, resolved_chars, strlen(resolved_chars));
 		free(resolved_chars);
 
-		// FIXED: Swap roots
 		pop(compiler->owner->current_module_record); // raw_path_str
-		push(compiler->owner->current_module_record, OBJECT_VAL(path_str)); // path_str
+		push(compiler->owner->current_module_record, OBJECT_VAL(path_str));
 
-		module_const = make_constant(compiler, OBJECT_VAL(path_str));
+		ObjectModuleRecord *statically_imported_mod = NULL;
 
-		if (!is_dynamic) {
-			statically_imported_mod = compile_module_statically(compiler, path_str);
-			if (!statically_imported_mod || statically_imported_mod->state == STATE_ERROR) {
-				compiler_panicf(compiler->parser, IMPORT, "Failed to compile module '%s'.", path_str->chars);
-				pop(compiler->owner->current_module_record); // path_str
-				return;
-			}
+		statically_imported_mod = compile_module_statically(compiler, path_str);
+		if (!statically_imported_mod || statically_imported_mod->state == STATE_ERROR) {
+			compiler_panicf(compiler->parser, IMPORT, "Failed to compile module '%s'.", path_str->chars);
+			pop(compiler->owner->current_module_record); // path_str
+			return;
 		}
 
+		// these opcodes execute the module
+		uint16_t module_const = make_constant(compiler, OBJECT_VAL(path_str));
 		emit_words(compiler, OP_USE_MODULE, module_const);
 		emit_words(compiler, OP_FINISH_USE, nameCount);
+
+		// resolve types and emit indexes
+		for (uint16_t i = 0; i < nameCount; i++) {
+			Token name_tok = nameTokens[i];
+			Token alias_tok = aliasPresence[i] ? aliasTokens[i] : name_tok;
+
+			ObjectString *real_name = copy_string(compiler->owner, name_tok.start, name_tok.length);
+			ObjectString *alias_name = copy_string(compiler->owner, alias_tok.start, alias_tok.length);
+
+			ObjectTypeRecord *resolved_type = NULL;
+			if (statically_imported_mod && !type_table_get(statically_imported_mod->types, real_name, &resolved_type)) {
+				compiler_panicf(compiler->parser, NAME, "Module does not export '%s'", real_name->chars);
+				resolved_type = T_ANY; // Fallback
+			} else if (!statically_imported_mod) {
+				resolved_type = T_ANY; // Dynamic imports don't know the type
+			}
+
+			// Emit the original name so the VM can look it up in the module's `publics`
+			uint16_t original_name_const = make_constant(compiler, OBJECT_VAL(real_name));
+			emit_word(compiler, original_name_const);
+
+			if (compiler->scope_depth > 0) {
+				add_local(compiler, alias_tok, resolved_type);
+				mark_initialized(compiler);
+
+				// 0xFFFF sentinel - leaves value on stack
+				emit_word(compiler, 0xFFFF);
+			} else {
+				int global_index = compiler->global_count++;
+				table_set(compiler->owner, &compiler->globals, alias_name, INT_VAL(global_index));
+				type_table_set(compiler->type_table, alias_name, resolved_type);
+
+				emit_word(compiler, global_index);
+			}
+		}
 
 		pop(compiler->owner->current_module_record); // path_str
 	}
 
-	// vm will bind names/aliases at runtime
-	for (uint16_t i = 0; i < nameCount; i++)
-		emit_word(compiler, names[i]);
-	for (uint16_t i = 0; i < nameCount; i++)
-		emit_word(compiler, aliasPresence[i] ? aliases[i] : names[i]);
-
-	if (isNative) {
-		emit_word(compiler, module_const);
-	}
-
 	consume(compiler, CRUX_TOKEN_SEMICOLON, "Expected ';' after import statement.");
-
-	// type resolution
-	for (uint16_t i = 0; i < nameCount; i++) {
-		const Token visible = aliasPresence[i] ? aliasTokens[i] : nameTokens[i];
-		ObjectString *name_str = copy_string(compiler->owner, visible.start, visible.length);
-
-		push(compiler->owner->current_module_record, OBJECT_VAL(name_str)); // name_str
-
-		ObjectTypeRecord *resolved_type = NULL;
-
-		if (compiler->scope_depth == 0) {
-			if (isNative) {
-				// Native Stdlib Module
-				for (int j = 0; j < compiler->owner->native_modules.count; j++) {
-					const Table *current_table = compiler->owner->native_modules.modules[j].names;
-					Value value;
-					if (table_get(current_table, name_str, &value) && IS_CRUX_NATIVE_CALLABLE(value)) {
-						const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(value);
-						ObjectTypeRecord **args_copy = NULL;
-						if (callable->arity > 0) {
-							args_copy = ALLOCATE(compiler->owner, ObjectTypeRecord *, callable->arity);
-							for (int k = 0; k < callable->arity; k++)
-								args_copy[k] = callable->arg_types[k];
-						}
-						resolved_type = new_function_type_rec(compiler->owner, args_copy, callable->arity,
-															  callable->return_type);
-						break;
-					}
-				}
-			} else if (!is_dynamic && statically_imported_mod) {
-				// Static User Module
-				if (!type_table_get(statically_imported_mod->types, name_str, &resolved_type)) {
-					compiler_panicf(compiler->parser, NAME, "Module does not export '%s'", name_str->chars);
-					resolved_type = T_ANY; // Fallback to prevent crashes during panic
-				}
-			}
-		}
-
-		// Dynamic fallback
-		if (!resolved_type) {
-			resolved_type = T_ANY;
-		}
-
-		push(compiler->owner->current_module_record, OBJECT_VAL(resolved_type)); // resolved_type
-
-		if (compiler->scope_depth == 0 && compiler->owner->current_module_record &&
-			compiler->owner->current_module_record->is_repl) {
-			type_table_set(compiler->owner->current_module_record->types, name_str, resolved_type);
-		}
-
-		type_table_set(compiler->type_table, name_str, resolved_type);
-
-		pop(compiler->owner->current_module_record); // resolved_type
-		pop(compiler->owner->current_module_record); // name_str
-	}
-}
-
-static void use_statement(Compiler *compiler)
-{
-	import_statement(compiler, false);
-}
-static void dynuse_statement(Compiler *compiler)
-{
-	import_statement(compiler, true);
 }
 
 static void struct_declaration(Compiler *compiler, bool is_public)
@@ -3177,7 +3270,7 @@ static void impl_declaration(Compiler *compiler)
 		const uint16_t method_name_const = make_constant(compiler, OBJECT_VAL(method_name_str));
 
 		// slot 0 is preserved for self
-		function(compiler, TYPE_METHOD, struct_type);
+		function(compiler, TYPE_METHOD, struct_type, NULL, -1);
 
 		ObjectTypeRecord *method_type = pop_type_record(compiler);
 		push(compiler->owner->current_module_record, OBJECT_VAL(method_type));
@@ -3813,8 +3906,6 @@ static void statement(Compiler *compiler)
 		for_statement(compiler);
 	} else if (match(compiler, CRUX_TOKEN_RETURN)) {
 		return_statement(compiler);
-	} else if (match(compiler, CRUX_TOKEN_DYN_USE)) {
-		dynuse_statement(compiler);
 	} else if (match(compiler, CRUX_TOKEN_USE)) {
 		use_statement(compiler);
 	} else if (match(compiler, CRUX_TOKEN_GIVE)) {
@@ -4894,6 +4985,13 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 	ObjectFunction *function = end_compiler(compiler);
 	if (function != NULL) {
 		function->module_record = vm->current_module_record;
+		function->module_record->global_count = compiler->global_count;
+
+		// Persist the names and indexes
+		table_add_all(vm, &compiler->globals, &vm->current_module_record->global_names);
+
+		// Persist the Types so the next REPL line knows what they are!
+		type_table_add_all(compiler->type_table, vm->current_module_record->types);
 	}
 
 	bool had_error = compiler->parser->had_error;
@@ -4901,6 +4999,7 @@ ObjectFunction *compile(VM *vm, Compiler *compiler, Compiler *enclosing, char *s
 	memcpy(compiler->parser->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
 	free(compiler->parser->scanner);
 	free(compiler->parser);
+	free_table(vm, &compiler->globals);
 	return had_error ? NULL : function;
 }
 
