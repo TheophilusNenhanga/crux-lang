@@ -1154,6 +1154,11 @@ OP_USE_MODULE: {
 			ObjectModuleRecord *previousModuleRecord = vm->current_module_record;
 			vm->current_module_record = module;
 
+			// Allocate globals for the module
+			if (module->global_count > 0 && module->globals == NULL) {
+				module->globals = malloc(sizeof(Value) * module->global_count);
+			}
+
 			// Execute the module code
 			push(module, OBJECT_VAL(module->module_closure));
 			call(module, module->module_closure, 0);

@@ -1482,7 +1482,6 @@ InterpretResult interpret(VM *vm, char *source)
 	vm->main_compiler = compiler;
 
 	ObjectFunction *function = compile(vm, compiler, NULL, source);
-	const int global_count = compiler->global_count;
 
 	free(compiler);
 	vm->main_compiler = NULL;
@@ -1496,9 +1495,10 @@ InterpretResult interpret(VM *vm, char *source)
 
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
 
-	// module globals sized to exact count
-	if (global_count > 0) {
-		current_module_record->globals = realloc(current_module_record->globals, sizeof(Value) * global_count);
+	// allocate module globals array
+	if (current_module_record->global_count > 0 && current_module_record->globals == NULL) {
+		current_module_record->globals = realloc(current_module_record->globals,
+												 sizeof(Value) * current_module_record->global_count);
 	}
 
 	push(current_module_record, OBJECT_VAL(function));
