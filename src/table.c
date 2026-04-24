@@ -171,7 +171,7 @@ void table_remove_white(const VM *vm, const Table *table)
 		if (entry->key == NULL)
 			continue;
 
-		if (!entry->key->object.is_marked) {
+		if (!object_is_marked(&entry->key->object)) {
 			table_delete(table, entry->key);
 		}
 	}

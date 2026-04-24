@@ -32,15 +32,9 @@
 CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType type)
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
-
-	object->type = type;
-	object->is_marked = false;
-	object->is_immortal = false;
-
-	// Insert at head of global object list
-	object->next = vm->objects;
-	vm->objects = object;
+	object_init(object, vm->objects, type, false, false);
 	vm->object_count++;
+	vm->objects = object;
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
@@ -701,6 +695,9 @@ void print_object_to(FILE *stream, const Value value, const bool in_collection)
 		fprintf(stream, "<Coroutine>");
 		break;
 	}
+	case SENTINEL_OBJECT_COUNT:
+		fprintf(stream, "<SENTINEL_OBJECT_COUNT>");
+		break;
 	}
 }
 

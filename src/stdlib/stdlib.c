@@ -151,20 +151,20 @@ bool register_native_method(VM *vm, Table *method_table, const char *method_name
 			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
 		return false;
 	}
-	name->object.is_immortal = true; // method names are immortal
+	object_set_immortal(&name->object, true); // method names are immortal
 	ObjectNativeCallable *callable = new_native_callable(vm, method_function, arity, name, arg_types, return_type);
 	if (!callable) {
 		if (arg_types && arity > 0)
 			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
 		return false;
 	}
-	callable->object.is_immortal = true; // method callables are immortal
+	object_set_immortal(&callable->object, true); // method callables are immortal
 
 	for (int i = 0; i < arity; i++) {
 		ObjectTypeRecord *arg_type = arg_types[i];
-		arg_type->object.is_immortal = true; // argument types are immortal
+		object_set_immortal(&arg_type->object, true); // argument types are immortal
 	}
-	return_type->object.is_immortal = true; // return type is immortal
+	object_set_immortal(&return_type->object, true); // return type is immortal
 
 	table_set(vm, method_table, name, OBJECT_VAL(callable));
 	return true;
@@ -181,7 +181,7 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
 		return false;
 	}
-	name->object.is_immortal = true; // function names are immortal
+	object_set_immortal(&name->object, true); // function names are immortal
 	push(module_record, OBJECT_VAL(name));
 	ObjectNativeCallable *callable = new_native_callable(vm, function, arity, name, arg_types, return_type);
 	if (!callable) {
@@ -189,13 +189,13 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
 		return false;
 	}
-	callable->object.is_immortal = true; // function callables are immortal
+	object_set_immortal(&callable->object, true); // function callables are immortal
 
 	for (int i = 0; i < arity; i++) {
 		ObjectTypeRecord *arg_type = arg_types[i];
-		arg_type->object.is_immortal = true; // argument types are immortal
+		object_set_immortal(&arg_type->object, true); // argument types are immortal
 	}
-	return_type->object.is_immortal = true; // return type is immortal
+	object_set_immortal(&return_type->object, true); // return type is immortal
 
 	const Value func = OBJECT_VAL(callable);
 	push(module_record, func);
@@ -243,7 +243,7 @@ static bool init_module(VM *vm, const char *module_name, const Callable *functio
 	}
 
 	ObjectString *name_copy = copy_string(vm, module_name, (int)strlen(module_name));
-	name_copy->object.is_immortal = true; // module names are immortal
+	object_set_immortal(&name_copy->object, true); // module names are immortal
 	vm->native_modules.modules[vm->native_modules.count++] = (NativeModule){.name = name_copy, .names = module_table};
 	return true;
 }

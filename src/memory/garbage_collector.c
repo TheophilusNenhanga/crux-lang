@@ -85,7 +85,7 @@ static size_t compute_next_gc_threshold(const VM *vm)
 
 void mark_object_internal(VM *vm, CruxObject *object)
 {
-	object->is_marked = true;
+	object_set_marked(object, true);
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
@@ -241,7 +241,7 @@ static void blacken_object(VM *vm, CruxObject *object)
 	printf("\n");
 #endif
 
-	const ObjectType type = object->type;
+	const ObjectType type = object_get_type(object);
 	if (type < (ObjectType)(sizeof(blacken_dispatch) / sizeof(blacken_dispatch[0]))) {
 		blacken_dispatch[type](vm, object);
 	}
@@ -814,35 +814,41 @@ static void trace_references(VM *vm)
 static void free_object(VM *vm, CruxObject *object, bool free_all)
 {
 #ifdef DEBUG_LOG_GC
-	printf("%p free type %d\n", (void *)object, object->type);
+	printf("%p free type %d\n", (void *)object, object_get_type(object));
 #endif
-	if (object == NULL || (object->is_immortal && !free_all))
+	if (object == NULL || (object_is_immortal(object) && !free_all))
 		return;
 
-	if (object->type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
-		free_dispatch[object->type](vm, object);
+	if (object_get_type(object) < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
+		free_dispatch[object_get_type(object)](vm, object);
 	}
 }
 
 static void sweep(VM *vm)
 {
-	CruxObject **object = &vm->objects;
 	size_t slots_scanned = 0;
+	CruxObject *prev = NULL;
+	CruxObject *current = vm->objects;
 
-	while (*object != NULL) {
+	while (current != NULL) {
 		slots_scanned++;
-		if (!(*object)->is_marked) {
-			// Unlink dead object
-			CruxObject *unreached = *object;
-			*object = unreached->next;
+		CruxObject *next = object_get_next(current);
 
-			free_object(vm, unreached, false);
+		if (!object_is_marked(current)) {
+			// Unlink dead object
+			if (prev == NULL)
+				vm->objects = next;
+			else
+				object_set_next(prev, next);
+
+			free_object(vm, current, false);
 			vm->object_count--;
 		} else {
-			// Unmark and move to next
-			(*object)->is_marked = false;
-			object = &(*object)->next;
+			// Unmark and advance
+			object_set_marked(current, false);
+			prev = current;
 		}
+		current = next;
 	}
 
 	vm->gc_last_sweep_slots_scanned = slots_scanned;
@@ -856,7 +862,7 @@ void free_objects(VM *vm, bool free_all)
 {
 	CruxObject *object = vm->objects;
 	while (object != NULL) {
-		CruxObject *next = object->next;
+		CruxObject *next = object_get_next(object);
 		free_object(vm, object, free_all);
 		object = next;
 	}

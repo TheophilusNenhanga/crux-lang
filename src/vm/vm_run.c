@@ -562,7 +562,7 @@ OP_GET_COLLECTION: {
 		runtime_panic(current_module_record, TYPE, "Cannot get from a non-collection type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	switch (AS_CRUX_OBJECT(PEEK(current_module_record, 0))->type) {
+	switch (object_get_type(AS_CRUX_OBJECT(PEEK(current_module_record, 0)))) {
 	case OBJECT_TABLE: {
 		if (IS_CRUX_HASHABLE(indexValue)) {
 			ObjectTable *table = AS_CRUX_TABLE(PEEK(current_module_record, 0));
@@ -665,7 +665,7 @@ OP_SET_COLLECTION: {
 	Value indexValue = PEEK(current_module_record, 0);
 	Value collection = PEEK(current_module_record, 1);
 
-	switch (AS_CRUX_OBJECT(collection)->type) {
+	switch (object_get_type(AS_CRUX_OBJECT(collection))) {
 	case OBJECT_TABLE: {
 		ObjectTable *table = AS_CRUX_TABLE(collection);
 		if (IS_INT(indexValue) || IS_CRUX_STRING(indexValue)) {
@@ -1504,7 +1504,7 @@ OP_GET_SLICE: {
 		runtime_panic(current_module_record, TYPE, "Cannot get from a non-collection type.");
 		return INTERPRET_RUNTIME_ERROR;
 	}
-	switch (AS_CRUX_OBJECT(PEEK(current_module_record, 0))->type) {
+	switch (object_get_type(AS_CRUX_OBJECT(PEEK(current_module_record, 0)))) {
 	case OBJECT_ARRAY: {
 		ObjectArray *array = AS_CRUX_ARRAY(PEEK(current_module_record, 0));
 		uint32_t len = range_len(range);
@@ -1617,7 +1617,7 @@ OP_IN: {
 	Value right = pop(current_module_record);
 	Value left = pop(current_module_record);
 
-	ObjectType right_type = AS_CRUX_OBJECT(right)->type;
+	ObjectType right_type = object_get_type(AS_CRUX_OBJECT(right));
 
 	if (IS_CRUX_OBJECT(right)) {
 		switch (right_type) {

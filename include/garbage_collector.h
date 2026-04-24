@@ -93,7 +93,7 @@ void mark_object_internal(VM* vm, CruxObject* object);
  */
 static inline void mark_object(VM *vm, CruxObject *object)
 {
-	if (object == NULL || object->is_marked || object->is_immortal)
+	if (object == NULL || object_is_marked(object) || object_is_immortal(object))
 		return;
 
 	mark_object_internal(vm, object);
