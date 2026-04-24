@@ -161,7 +161,7 @@ struct CruxObject {
 #define CRUX_TAGGED_IMMORTAL_SHIFT 54
 
 #else
-struct CruxObject { // 16
+struct CruxObject {
     CruxObject* next;
 	ObjectType type;
 	bool is_marked;
@@ -247,7 +247,7 @@ static inline void object_init(CruxObject* object, CruxObject* next,  ObjectType
 
 #define TO_DOUBLE(value) (IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
-struct ObjectString { // 24
+struct ObjectString {
 	CruxObject object;
 	utf8_int8_t* chars;
 	uint32_t byte_length; // this is the length without the null terminator
@@ -257,7 +257,7 @@ struct ObjectString { // 24
 
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 
-typedef struct { // 72
+typedef struct {
 	CruxObject object;
 	int arity;
 	int upvalue_count;
@@ -266,28 +266,28 @@ typedef struct { // 72
 	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
-typedef struct ObjectUpvalue { // 32
+typedef struct ObjectUpvalue {
 	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct ObjectClosure { // 32
+typedef struct ObjectClosure {
 	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
-typedef struct { // 16
+typedef struct {
 	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
@@ -320,14 +320,14 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
-struct ObjectResult { // 24
+struct ObjectResult {
 	CruxObject object;
 	bool is_ok;
 	union {
@@ -336,28 +336,19 @@ struct ObjectResult { // 24
 	} as;
 };
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	Value value;
 	bool is_some;
 } ObjectOption;
 
-typedef struct { // 32
+typedef struct {
 	CruxObject object;
 	ObjectString *name;
 	Table fields;
 	Table methods;
 } ObjectStruct;
 
-// Not implemented yet
-typedef struct { // 24
-	CruxObject object;
-} ObjectEnum;
-
-// Not implemented yet
-typedef struct { // 24
-	CruxObject object;
-} ObjectCoroutine;
 
 typedef struct ObjectTypeTable ObjectTypeTable;
 
@@ -366,14 +357,14 @@ typedef struct {
 	ObjectTypeRecord *value;
 } TypeEntry;
 
-struct ObjectTypeTable { // 24
+struct ObjectTypeTable {
 	CruxObject object;
 	TypeEntry *entries;
 	int count;
 	int capacity;
 };
 
-struct ObjectTypeRecord { // 40
+struct ObjectTypeRecord {
 	CruxObject object;
 	TypeMask base_type;
 	union {
@@ -432,7 +423,7 @@ struct ObjectTypeRecord { // 40
 
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
@@ -441,20 +432,20 @@ typedef struct { // 48
 	ObjectTypeRecord *return_type;
 } ObjectNativeCallable;
 
-typedef struct { // 24
+typedef struct {
 	Value key;
 	Value value;
 	bool is_occupied;
 } ObjectTableEntry;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
@@ -463,7 +454,7 @@ typedef struct { // 48
 	bool is_open;
 } ObjectFile;
 
-struct ObjectStructInstance { // 32
+struct ObjectStructInstance {
 	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
@@ -474,7 +465,7 @@ struct ObjectStructInstance { // 32
 #define VECTOR_COMPONENTS(vec)                                                                                         \
 	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	uint32_t dimensions;
 	union {
@@ -483,8 +474,7 @@ typedef struct { // 48
 	} as;
 } ObjectVector;
 
-typedef struct // 32
-{
+typedef struct {
 	CruxObject object;
 	double real;
 	double imag;
@@ -511,7 +501,7 @@ struct ObjectIterator {
 	uint32_t index;
 };
 
-struct ObjectModuleRecord { // 120
+struct ObjectModuleRecord {
 	CruxObject object;
 	VM* owner;
 	ObjectString *path;
@@ -534,19 +524,19 @@ struct ObjectModuleRecord { // 120
 	bool is_main;
 };
 
-struct ObjectRange { // 40
+struct ObjectRange {
 	CruxObject object;
 	int32_t start;
 	int32_t end;
 	int32_t step;
 };
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectTable *entries;
 } ObjectSet;
 
-typedef struct { // 32
+typedef struct {
 	CruxObject object;
 	uint32_t read_pos;
 	uint32_t write_pos;
@@ -554,7 +544,7 @@ typedef struct { // 32
 	uint8_t *data;
 } ObjectBuffer;
 
-typedef struct { // 20
+typedef struct {
 	CruxObject object;
 	uint32_t size;
 	Value *elements;
