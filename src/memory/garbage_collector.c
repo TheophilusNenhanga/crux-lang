@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "alloc.h"
 #include "common.h"
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
+#include "panic.h"
+#include "slab_allocator.h"
 #include "table.h"
 #include "value.h"
 #include "vm.h"
@@ -15,28 +18,93 @@
 #include "debug.h"
 #endif
 
-void mark_object(VM *vm, CruxObject *object)
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+static uint64_t gc_now_ns(void)
 {
-	if (object == NULL)
-		return;
+#ifdef _WIN32
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER counter;
 
-	PoolObject *pool_object = &vm->object_pool->objects[object->pool_index];
+	// Get the number of ticks per second
+	QueryPerformanceFrequency(&frequency);
+	// Get the current tick count
+	QueryPerformanceCounter(&counter);
 
-	if (pool_object == NULL)
-		return;
-	if (IS_MARKED(pool_object))
-		return;
-	SET_MARKED(pool_object, true);
+	// Convert to nanoseconds: (ticks * 1,000,000,000) / frequency
+	return (counter.QuadPart * 1000000000LL) / frequency.QuadPart;
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+#endif
+}
+
+static size_t slab_pool_capacity(const SlabAllocator *allocator)
+{
+	if (allocator == NULL) {
+		return 0;
+	}
+
+	size_t slab_count = 0;
+	for (const SlabNode *node = allocator->slab_head; node != NULL; node = node->next) {
+		slab_count++;
+	}
+
+	return slab_count * allocator->capacity;
+}
+
+static size_t table_tombstone_count(const Table *table)
+{
+	size_t tombstones = 0;
+	if (!table || !table->entries)
+		return 0;
+
+	for (int i = 0; i < table->capacity; i++) {
+		const Entry *entry = &table->entries[i];
+		if (entry->key == NULL && !IS_NIL(entry->value)) {
+			tombstones++;
+		}
+	}
+	return tombstones;
+}
+
+static size_t compute_next_gc_threshold(const VM *vm)
+{
+	const size_t growth_target = (size_t)((double)vm->bytes_allocated * vm->heap_growth_factor);
+	const size_t delta_target = vm->bytes_allocated + vm->min_gc_growth_delta;
+
+	size_t next_gc = growth_target > delta_target ? growth_target : delta_target;
+	if (next_gc < vm->min_gc_heap_size) {
+		next_gc = vm->min_gc_heap_size;
+	}
+	return next_gc;
+}
+
+void mark_object_internal(VM *vm, CruxObject *object)
+{
+	object->is_marked = true;
 
 	if (vm->gray_capacity < vm->gray_count + 1) {
 		vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
 		CruxObject **new_objects = realloc(vm->gray_stack, vm->gray_capacity * sizeof(CruxObject *));
 		if (new_objects == NULL) {
-			exit(1);
+			if (vm->current_module_record)
+				runtime_panic(vm->current_module_record, MEMORY, "Failed to grow gray stack.");
+			else
+				longjmp(vm->jump_buffer, 1);
 		}
 		vm->gray_stack = new_objects;
 	}
+
 	vm->gray_stack[vm->gray_count++] = object;
+
+	if ((uint32_t)vm->gray_count > vm->gc_last_gray_peak)
+		vm->gc_last_gray_peak = (uint32_t)vm->gray_count;
+	if ((uint32_t)vm->gray_count > vm->gc_max_gray_peak)
+		vm->gc_max_gray_peak = (uint32_t)vm->gray_count;
 }
 
 void mark_value(VM *vm, const Value value)
@@ -77,6 +145,11 @@ void mark_type_table(VM *vm, ObjectTypeTable *table)
 	if (!table)
 		return;
 	mark_object(vm, (CruxObject *)table);
+	for (int i = 0; i < table->capacity; i++) {
+		if (table->entries[i].key != NULL) {
+			mark_object(vm, (CruxObject *)table->entries[i].value);
+		}
+	}
 }
 
 void mark_type_record(VM *vm, ObjectTypeRecord *rec)
@@ -265,11 +338,14 @@ static void blacken_module_record(VM *vm, CruxObject *object)
 {
 	const ObjectModuleRecord *module = (ObjectModuleRecord *)object;
 	mark_object(vm, (CruxObject *)module->path);
-	mark_table(vm, &module->globals);
+	mark_table(vm, &module->global_names);
 	mark_table(vm, &module->publics);
 	mark_type_table(vm, module->types);
 	mark_object(vm, (CruxObject *)module->module_closure);
 	mark_object(vm, (CruxObject *)module->enclosing_module);
+	for (uint32_t i = 0; i < module->global_count; i++) {
+		mark_value(vm, module->globals[i]);
+	}
 
 	for (const Value *slot = module->stack; slot < module->stack_top; slot++) {
 		mark_value(vm, *slot);
@@ -473,37 +549,6 @@ static const FreeFunction free_dispatch[] = {
 	[OBJECT_TYPE_TABLE] = free_object_type_table,
 };
 
-static void free_object(VM *vm, CruxObject *object)
-{
-#ifdef DEBUG_LOG_GC
-	printf("%p free type %d\n", (void *)object, object->type);
-#endif
-	if (object == NULL) {
-		return;
-	}
-
-	const uint32_t index = object->pool_index;
-	ObjectPool *pool = vm->object_pool;
-
-	if (index >= pool->capacity) {
-		fprintf(stderr, "Error: Invalid pool index in free_object\n");
-		return;
-	}
-
-	const ObjectType type = object->type;
-	if (type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
-		free_dispatch[type](vm, object);
-	}
-
-	PoolObject *pool_object = &pool->objects[index];
-
-	SET_DATA(pool_object, NULL);
-	SET_MARKED(pool_object, false);
-
-	pool->free_list[pool->free_top++] = index;
-	pool->count--;
-}
-
 static void free_object_string(VM *vm, CruxObject *object)
 {
 	const ObjectString *string = (ObjectString *)object;
@@ -697,11 +742,14 @@ void mark_module_roots(VM *vm, ObjectModuleRecord *moduleRecord)
 	}
 
 	mark_object(vm, (CruxObject *)moduleRecord->path);
-	mark_table(vm, &moduleRecord->globals);
+	mark_table(vm, &moduleRecord->global_names);
 	mark_table(vm, &moduleRecord->publics);
 	mark_type_table(vm, moduleRecord->types);
 	mark_object(vm, (CruxObject *)moduleRecord->module_closure);
 	mark_object(vm, (CruxObject *)moduleRecord->enclosing_module);
+	for (uint32_t i = 0; i < moduleRecord->global_count; i++) {
+		mark_value(vm, moduleRecord->globals[i]);
+	}
 
 	for (const Value *slot = moduleRecord->stack; slot < moduleRecord->stack_top; slot++) {
 		mark_value(vm, *slot);
@@ -737,31 +785,11 @@ void mark_roots(VM *vm)
 		mark_object(vm, (CruxObject *)vm->import_stack.paths[i]);
 	}
 
-	if (vm->native_modules.modules != NULL) {
-		for (int i = 0; i < vm->native_modules.count; i++) {
-			mark_table(vm, vm->native_modules.modules[i].names);
-			mark_object(vm, (CruxObject *)vm->native_modules.modules[i].name);
-		}
-	}
-
 	mark_table(vm, &vm->module_cache);
 	mark_table(vm, &vm->strings);
-	mark_table(vm, &vm->core_fns);
-	mark_table(vm, &vm->random_type);
-	mark_table(vm, &vm->string_type);
-	mark_table(vm, &vm->array_type);
-	mark_table(vm, &vm->table_type);
-	mark_table(vm, &vm->error_type);
-	mark_table(vm, &vm->file_type);
-	mark_table(vm, &vm->result_type);
-	mark_table(vm, &vm->option_type);
-	mark_table(vm, &vm->vector_type);
-	mark_table(vm, &vm->complex_type);
-	mark_table(vm, &vm->matrix_type);
-	mark_table(vm, &vm->range_type);
-	mark_table(vm, &vm->set_type);
-	mark_table(vm, &vm->tuple_type);
-	mark_table(vm, &vm->buffer_type);
+
+	// No need to mark type method / function tables or native modules because they only contain immortal objects that
+	// will not be collected
 
 	mark_struct_instance_stack(vm, &vm->struct_instance_stack);
 
@@ -783,21 +811,58 @@ static void trace_references(VM *vm)
 	}
 }
 
+static void free_object(VM *vm, CruxObject *object, bool free_all)
+{
+#ifdef DEBUG_LOG_GC
+	printf("%p free type %d\n", (void *)object, object->type);
+#endif
+	if (object == NULL || (object->is_immortal && !free_all))
+		return;
+
+	if (object->type < (ObjectType)(sizeof(free_dispatch) / sizeof(free_dispatch[0]))) {
+		free_dispatch[object->type](vm, object);
+	}
+}
+
 static void sweep(VM *vm)
 {
-	const ObjectPool *pool = vm->object_pool;
-	for (size_t i = 0; i < pool->capacity; i++) {
-		PoolObject *pool_object = &pool->objects[i];
+	CruxObject **object = &vm->objects;
+	size_t slots_scanned = 0;
 
-		if (GET_DATA(pool_object) == NULL)
-			continue;
+	while (*object != NULL) {
+		slots_scanned++;
+		if (!(*object)->is_marked) {
+			// Unlink dead object
+			CruxObject *unreached = *object;
+			*object = unreached->next;
 
-		if (IS_MARKED(pool_object)) {
-			SET_MARKED(pool_object, false);
+			free_object(vm, unreached, false);
+			vm->object_count--;
 		} else {
-			free_object(vm, GET_DATA(pool_object));
+			// Unmark and move to next
+			(*object)->is_marked = false;
+			object = &(*object)->next;
 		}
 	}
+
+	vm->gc_last_sweep_slots_scanned = slots_scanned;
+	if (vm->gc_last_sweep_slots_scanned > vm->gc_last_objects_before_sweep) {
+		vm->gc_last_sweep_slots_scanned = vm->gc_last_objects_before_sweep;
+	}
+	vm->gc_sweep_slots_scanned += slots_scanned;
+}
+
+void free_objects(VM *vm, bool free_all)
+{
+	CruxObject *object = vm->objects;
+	while (object != NULL) {
+		CruxObject *next = object->next;
+		free_object(vm, object, free_all);
+		object = next;
+	}
+	free(vm->gray_stack);
+	vm->objects = NULL;
+	vm->object_count = 0;
 }
 
 void collect_garbage(VM *vm)
@@ -805,32 +870,55 @@ void collect_garbage(VM *vm)
 	if (vm->gc_status == PAUSED)
 		return;
 
+	const uint64_t gc_start_ns = gc_now_ns();
+	uint64_t phase_start_ns = gc_start_ns;
+	vm->gc_last_gray_peak = 0;
+	vm->gc_last_bytes_before = vm->bytes_allocated;
+
 #ifdef DEBUG_LOG_GC
 	printf("--- gc begin ---\n");
 	const size_t before = vm->bytes_allocated;
 #endif
 
 	mark_roots(vm);
+	const uint64_t mark_roots_end_ns = gc_now_ns();
 	trace_references(vm);
+	const uint64_t trace_end_ns = gc_now_ns();
 	table_remove_white(vm, &vm->strings); // Clean up string table
+	const uint64_t remove_white_end_ns = gc_now_ns();
+	vm->gc_last_objects_before_sweep = vm->object_count;
 	sweep(vm);
-	vm->next_gc = vm->bytes_allocated * vm->heap_growth_factor;
+	const uint64_t sweep_end_ns = gc_now_ns();
+	vm->gc_last_objects_after_sweep = vm->object_count;
+	vm->next_gc = compute_next_gc_threshold(vm);
+	vm->gc_last_bytes_after = vm->bytes_allocated;
+	vm->gc_last_bytes_freed = vm->gc_last_bytes_before - vm->gc_last_bytes_after;
+	vm->gc_last_next_gc = vm->next_gc;
+	vm->gc_last_objects_freed = vm->gc_last_objects_before_sweep - vm->gc_last_objects_after_sweep;
+	vm->gc_last_live_objects = vm->object_count;
+	vm->gc_last_pool_capacity = slab_pool_capacity(vm->slab_24) + slab_pool_capacity(vm->slab_32) +
+								slab_pool_capacity(vm->slab_48) + slab_pool_capacity(vm->slab_64);
+	if (vm->gc_last_pool_capacity < vm->gc_last_live_objects) {
+		vm->gc_last_pool_capacity = vm->gc_last_live_objects;
+	}
+	vm->gc_last_strings_count = vm->strings.count;
+	vm->gc_last_strings_capacity = vm->strings.capacity;
+	vm->gc_last_strings_tombstones = table_tombstone_count(&vm->strings);
+	vm->gc_last_mark_roots_ns = mark_roots_end_ns - phase_start_ns;
+	vm->gc_last_trace_ns = trace_end_ns - mark_roots_end_ns;
+	vm->gc_last_remove_white_ns = remove_white_end_ns - trace_end_ns;
+	vm->gc_last_sweep_ns = sweep_end_ns - remove_white_end_ns;
+	vm->gc_last_total_ns = sweep_end_ns - gc_start_ns;
+	vm->gc_collections++;
+	vm->gc_mark_roots_ns += vm->gc_last_mark_roots_ns;
+	vm->gc_trace_ns += vm->gc_last_trace_ns;
+	vm->gc_remove_white_ns += vm->gc_last_remove_white_ns;
+	vm->gc_sweep_ns += vm->gc_last_sweep_ns;
+	vm->gc_total_ns += vm->gc_last_total_ns;
 
 #ifdef DEBUG_LOG_GC
 	printf("--- gc end ---\n");
 	printf("    collected %zu bytes (from %zu to %zu) next at %zu\n", before - vm->bytes_allocated, before,
 		   vm->bytes_allocated, vm->next_gc);
 #endif
-}
-
-void free_objects(VM *vm)
-{
-	const ObjectPool *pool = vm->object_pool;
-	for (uint32_t i = 0; i < pool->capacity; i++) {
-		const PoolObject *pool_object = &pool->objects[i];
-		if (GET_DATA(pool_object) != NULL) {
-			free_object(vm, GET_DATA(pool_object));
-		}
-	}
-	free(vm->gray_stack);
 }

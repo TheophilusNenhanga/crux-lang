@@ -94,6 +94,9 @@ static int runFile(VM *vm, const char *path)
 int main(const int argc, const char *argv[])
 {
 	VM *vm = new_vm(argc, argv);
+	if (vm == NULL) {
+		return 1;
+	}
 	int exit_code = 0;
 
 	if (argc == 1) {

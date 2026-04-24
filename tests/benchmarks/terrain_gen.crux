@@ -2,6 +2,7 @@ use time_ms from "crux:time";
 use open from "crux:fs";
 use floor, abs from "crux:math";
 use Random from "crux:random";
+use stats from "crux:gc";
 
 println("=== START OF TERRAIN GENERATOR ===");
 let IMAGE_WIDTH: Int = 1024;
@@ -202,3 +203,4 @@ fn main() -> Nil {
 
 main();
 println("=== END OF TERRAIN GENERATOR ===");
+println(stats());

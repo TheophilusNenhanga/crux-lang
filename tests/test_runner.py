@@ -19,7 +19,7 @@ def run_scripts() -> List[int]:
     for file in files:
         print(f"=== RUNNING {file} ===")
         result = subprocess.run([EXE_PATH, file])
-        print(f"=== END OF {file} ===\n\n")
+        print(f"=== END OF {file} --- CODE {result.returncode} ===\n\n")
         return_codes.append(result.returncode)
     return return_codes
 

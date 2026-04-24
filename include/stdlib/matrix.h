@@ -27,6 +27,15 @@ Value matrix_cols_method(VM *vm, const Value *args);
 
 /* ── Arithmetic ────────────────────────────────────────────────────────────── */
 
+Value matrix_add_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b);
+Value matrix_subtract_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b);
+Value matrix_multiply_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b);
+Value matrix_scale_value(VM *vm, const ObjectMatrix *mat, double scalar);
+Value matrix_scalar_add_value(VM *vm, const ObjectMatrix *mat, double scalar);
+Value matrix_scalar_subtract_value(VM *vm, const ObjectMatrix *mat, double scalar);
+Value scalar_matrix_subtract_value(VM *vm, double scalar, const ObjectMatrix *mat);
+Value matrix_scalar_divide_value(VM *vm, const ObjectMatrix *mat, double scalar);
+
 Value matrix_add_method(VM *vm, const Value *args);
 Value matrix_subtract_method(VM *vm, const Value *args);
 Value matrix_multiply_method(VM *vm, const Value *args);   /* mat×mat or mat×scalar */

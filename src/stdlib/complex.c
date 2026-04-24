@@ -43,6 +43,47 @@ Value new_complex_function(VM *vm, const Value *args)
 	return OBJECT_VAL(comp);
 }
 
+Value complex_add_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs)
+{
+	(void)vm;
+	return OBJECT_VAL(new_complex_number(vm, lhs->real + rhs->real, lhs->imag + rhs->imag));
+}
+
+Value complex_subtract_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs)
+{
+	(void)vm;
+	return OBJECT_VAL(new_complex_number(vm, lhs->real - rhs->real, lhs->imag - rhs->imag));
+}
+
+Value complex_multiply_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs)
+{
+	const double real = lhs->real * rhs->real - lhs->imag * rhs->imag;
+	const double imag = lhs->real * rhs->imag + lhs->imag * rhs->real;
+	return OBJECT_VAL(new_complex_number(vm, real, imag));
+}
+
+Value complex_divide_value(VM *vm, const ObjectComplex *lhs, const ObjectComplex *rhs)
+{
+	const double c = rhs->real;
+	const double d = rhs->imag;
+	const double denom = c * c + d * d;
+	return OBJECT_VAL(new_complex_number(vm, (lhs->real * c + lhs->imag * d) / denom,
+										 (lhs->imag * c - lhs->real * d) / denom));
+}
+
+Value complex_scalar_multiply_value(VM *vm, const ObjectComplex *value, const double scalar)
+{
+	return OBJECT_VAL(new_complex_number(vm, value->real * scalar, value->imag * scalar));
+}
+
+Value complex_scalar_divide_value(VM *vm, const ObjectComplex *value, const double scalar)
+{
+	if (fabs(scalar) < 1e-10) {
+		return MAKE_GC_SAFE_ERROR(vm, "Division by zero.", MATH);
+	}
+	return OBJECT_VAL(new_complex_number(vm, value->real / scalar, value->imag / scalar));
+}
+
 /**
  * Adds two complex numbers together
  * arg0 -> complex: Complex
@@ -51,13 +92,7 @@ Value new_complex_function(VM *vm, const Value *args)
  */
 Value add_complex_number_method(VM *vm, const Value *args)
 {
-	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
-	const ObjectComplex *other = AS_CRUX_COMPLEX(args[1]);
-
-	ObjectComplex *result_complex =
-		new_complex_number(vm, other->real + complex_number->real,
-				   other->imag + complex_number->imag);
-	return OBJECT_VAL(result_complex);
+	return complex_add_value(vm, AS_CRUX_COMPLEX(args[0]), AS_CRUX_COMPLEX(args[1]));
 }
 
 /**
@@ -68,12 +103,7 @@ Value add_complex_number_method(VM *vm, const Value *args)
  */
 Value sub_complex_number_method(VM *vm, const Value *args)
 {
-	const ObjectComplex *self = AS_CRUX_COMPLEX(args[0]);
-	const ObjectComplex *other = AS_CRUX_COMPLEX(args[1]);
-
-	ObjectComplex *result_complex = new_complex_number(
-		vm, self->real - other->real, self->imag - other->imag);
-	return OBJECT_VAL(result_complex);
+	return complex_subtract_value(vm, AS_CRUX_COMPLEX(args[0]), AS_CRUX_COMPLEX(args[1]));
 }
 
 /**
@@ -84,14 +114,7 @@ Value sub_complex_number_method(VM *vm, const Value *args)
  */
 Value mul_complex_number_method(VM *vm, const Value *args)
 {
-	const ObjectComplex *self = AS_CRUX_COMPLEX(args[0]);
-	const ObjectComplex *other = AS_CRUX_COMPLEX(args[1]);
-
-	const double real = self->real * other->real - self->imag * other->imag;
-	const double imag = self->real * other->imag + self->imag * other->real;
-
-	ObjectComplex *result_complex = new_complex_number(vm, real, imag);
-	return OBJECT_VAL(result_complex);
+	return complex_multiply_value(vm, AS_CRUX_COMPLEX(args[0]), AS_CRUX_COMPLEX(args[1]));
 }
 
 /**
@@ -102,20 +125,7 @@ Value mul_complex_number_method(VM *vm, const Value *args)
  */
 Value div_complex_number_method(VM *vm, const Value *args)
 {
-	const ObjectComplex *self = AS_CRUX_COMPLEX(args[0]);
-	const ObjectComplex *other = AS_CRUX_COMPLEX(args[1]);
-
-	const double a = self->real;
-	const double b = self->imag;
-	const double c = other->real;
-	const double d = other->imag;
-
-	const double real_part = (a * c + b * d) / (c * c + d * d);
-	const double imag_part = (b * c - a * d) / (c * c + d * d);
-
-	ObjectComplex *result_complex = new_complex_number(vm, real_part,
-							   imag_part);
-	return OBJECT_VAL(result_complex);
+	return complex_divide_value(vm, AS_CRUX_COMPLEX(args[0]), AS_CRUX_COMPLEX(args[1]));
 }
 
 /**
@@ -126,15 +136,7 @@ Value div_complex_number_method(VM *vm, const Value *args)
  */
 Value scale_complex_number_method(VM *vm, const Value *args)
 {
-	const ObjectComplex *complex_number = AS_CRUX_COMPLEX(args[0]);
-	const double scale_factor = TO_DOUBLE(args[1]);
-
-	const double a = complex_number->real;
-	const double b = complex_number->imag;
-
-	ObjectComplex *result_complex = new_complex_number(vm, a * scale_factor,
-							   b * scale_factor);
-	return OBJECT_VAL(result_complex);
+	return complex_scalar_multiply_value(vm, AS_CRUX_COMPLEX(args[0]), TO_DOUBLE(args[1]));
 }
 
 /**

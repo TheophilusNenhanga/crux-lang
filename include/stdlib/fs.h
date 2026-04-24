@@ -120,8 +120,12 @@ Value fs_read_file_function(VM *vm, const Value *args);
  * Creates or truncates the file and writes <content> to it. */
 Value fs_write_file_function(VM *vm, const Value *args);
 
-/* append_file(path: string, content: string)  -> Result<nil>
+/* append_file(path: string, content: string) -> Result<nil>
  * Opens the file in append mode and writes <content> to it. */
 Value fs_append_file_function(VM *vm, const Value *args);
+
+/* remove_dir(path: string) -> Result<nil>
+ * Removes an empty directory. */
+Value fs_remove_dir_function(VM *vm, const Value *args);
 
 #endif // FS_H

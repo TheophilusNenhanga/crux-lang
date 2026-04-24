@@ -95,7 +95,6 @@ typedef enum {
 	CRUX_TOKEN_PANIC, // panic
 	CRUX_TOKEN_STRUCT, // struct
 	CRUX_TOKEN_SHAPE, // shape
-	CRUX_TOKEN_DYN_USE, // dynuse
 	CRUX_TOKEN_IMPL, // impl
 	CRUX_TOKEN_TYPE, // type
 	CRUX_TOKEN_IN, // in

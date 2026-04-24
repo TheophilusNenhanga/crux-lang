@@ -56,6 +56,17 @@ void free_import_stack(VM *vm)
 	init_import_stack(vm);
 }
 
+bool get_module_global_index(const ObjectModuleRecord *module_record, const ObjectString *name, uint32_t *index_out)
+{
+	Value index_value;
+	if (!table_get(&module_record->global_names, name, &index_value)) {
+		return false;
+	}
+
+	*index_out = (uint32_t)AS_INT(index_value);
+	return true;
+}
+
 bool push_import_stack(VM *vm, ObjectString *path)
 {
 	ImportStack *stack = &vm->import_stack;
@@ -109,10 +120,15 @@ VM *new_vm(const int argc, const char **argv)
 	VM *vm = calloc(1, sizeof(VM));
 	if (vm == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for VM\n");
-		exit(1);
+		return NULL;
 	}
-	init_vm(vm, argc, argv);
-	return vm;
+
+	if (setjmp(vm->jump_buffer) != 0) {
+		// Initialization failed
+		return NULL;
+	}
+
+	return init_vm(vm, argc, argv) ? vm : NULL;
 }
 
 void reset_stack(ObjectModuleRecord *moduleRecord)
@@ -185,7 +201,7 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 				char expected_name[128];
 				char actual_name[128];
 				type_mask_name(native->arg_types[i]->base_type, expected_name, sizeof(expected_name));
-				TypeMask actual_mask = get_type_mask(args[i]);
+				const TypeMask actual_mask = get_type_mask(args[i]);
 				type_mask_name(actual_mask, actual_name, sizeof(actual_name));
 				runtime_panic(current_module_record, TYPE,
 							  "In %s() --- arg %d: expected "
@@ -196,10 +212,6 @@ bool call_value(VM *vm, const Value callee, const int arg_count)
 		}
 
 		const Value result_value = native->function(vm, args);
-
-		if (vm->is_exiting) {
-			return false;
-		}
 
 		current_module_record->stack_top -= arg_count + 1;
 
@@ -265,7 +277,7 @@ static bool is_builtin_iterable_value(const Value value)
 	}
 }
 
-static bool find_named_method_on_struct_instance(VM *vm, const Value receiver, ObjectString *name, Value *method_out)
+static bool find_named_method_on_struct_instance(const Value receiver, ObjectString *name, Value *method_out)
 {
 	if (!IS_CRUX_STRUCT_INSTANCE(receiver)) {
 		return false;
@@ -279,7 +291,7 @@ static bool invoke_zero_arg_struct_method(VM *vm, const Value receiver, const ch
 {
 	ObjectString *method_name_obj = copy_string(vm, method_name, (int)strlen(method_name));
 	Value method_val;
-	if (!find_named_method_on_struct_instance(vm, receiver, method_name_obj, &method_val)) {
+	if (!find_named_method_on_struct_instance(receiver, method_name_obj, &method_val)) {
 		return false;
 	}
 
@@ -346,7 +358,7 @@ bool get_iterator_from_value(VM *vm, const Value value, Value *iterator_out)
 		}
 
 		ObjectString *next_name = copy_string(vm, "__next", sizeof("__next") - 1);
-		if (find_named_method_on_struct_instance(vm, value, next_name, &iter_result)) {
+		if (find_named_method_on_struct_instance(value, next_name, &iter_result)) {
 			*iterator_out = value;
 			return true;
 		}
@@ -761,62 +773,24 @@ void freeNativeModules(NativeModules *nativeModules)
 	nativeModules->count = 0;
 }
 
-void free_object_pool(ObjectPool *pool)
-{
-	if (pool->objects) {
-		free(pool->objects);
-	}
-	if (pool->free_list) {
-		free(pool->free_list);
-	}
-	pool->objects = NULL;
-	pool->free_list = NULL;
-}
-
-ObjectPool *init_object_pool(const uint32_t initial_capacity)
-{
-	ObjectPool *pool = calloc(1, sizeof(ObjectPool));
-	if (!pool)
-		return NULL;
-
-	pool->objects = calloc(initial_capacity, sizeof(PoolObject));
-	pool->free_list = malloc(initial_capacity * sizeof(uint32_t));
-
-	if (!pool->objects || !pool->free_list) {
-		free(pool->objects);
-		free(pool->free_list);
-		free(pool);
-		return NULL;
-	}
-
-	pool->capacity = initial_capacity;
-	pool->count = 0;
-	pool->free_top = 0;
-
-	for (uint32_t i = 0; i < initial_capacity; i++) {
-		pool->free_list[i] = i;
-	}
-	pool->free_top = initial_capacity;
-
-	return pool;
-}
-
-void init_vm(VM *vm, const int argc, const char **argv)
+bool init_vm(VM *vm, const int argc, const char **argv)
 {
 	const bool is_repl = argc == 1 ? true : false;
 
-	vm->object_pool = init_object_pool(INITIAL_OBJECT_POOL_CAPACITY);
-	vm->slab_16 = init_slab_allocator(16, SLAB_CAPACITY);
+	vm->object_count = 0;
+	vm->objects = NULL;
+
 	vm->slab_24 = init_slab_allocator(24, SLAB_CAPACITY);
 	vm->slab_32 = init_slab_allocator(32, SLAB_CAPACITY);
 	vm->slab_48 = init_slab_allocator(48, SLAB_CAPACITY);
 	vm->slab_64 = init_slab_allocator(64, SLAB_CAPACITY);
 
 	vm->gc_status = PAUSED;
-	vm->is_exiting = false;
 	vm->exit_code = 0;
+	vm->min_gc_heap_size = MIN_GC_HEAP_SIZE;
+	vm->min_gc_growth_delta = MIN_GC_GROWTH_DELTA;
 	vm->bytes_allocated = 0;
-	vm->next_gc = 1024 * 1024;
+	vm->next_gc = vm->min_gc_heap_size;
 	vm->gray_count = 0;
 	vm->gray_capacity = 0;
 	vm->gray_stack = NULL;
@@ -856,7 +830,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	if (vm->native_modules.modules == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for "
 						"native modules.\nShutting Down!\n");
-		exit(1);
+		return false;
 	}
 
 	initMatchHandlerStack(&vm->match_handler_stack);
@@ -872,7 +846,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	if (vm->struct_instance_stack.structs == NULL) {
 		fprintf(stderr, "Fatal Error: Could not allocate memory for "
 						"stack struct.\nShutting Down!\n");
-		exit(1);
+		return false;
 	}
 
 	vm->args.argc = argc;
@@ -892,6 +866,7 @@ void init_vm(VM *vm, const int argc, const char **argv)
 	vm->current_module_record->path = path;
 	table_set(vm, &vm->module_cache, vm->current_module_record->path, OBJECT_VAL(vm->current_module_record));
 	vm->gc_status = RUNNING;
+	return true;
 }
 
 void free_vm(VM *vm)
@@ -928,14 +903,11 @@ void free_vm(VM *vm)
 
 	free_module_record(vm, vm->current_module_record);
 
-	free_objects(vm);
-	destroy_slab_allocator(vm->slab_16);
+	free_objects(vm, true);
 	destroy_slab_allocator(vm->slab_24);
 	destroy_slab_allocator(vm->slab_32);
 	destroy_slab_allocator(vm->slab_48);
 	destroy_slab_allocator(vm->slab_64);
-	free_object_pool(vm->object_pool);
-	free(vm->object_pool);
 
 	free(vm);
 }
@@ -1194,18 +1166,18 @@ static const FloatBinaryOp float_binary_ops[] = {
 };
 
 // Function pointer types for compound operations
-typedef InterpretResult (*IntCompoundOp)(ObjectModuleRecord *current_module_record, const ObjectString *name,
+typedef InterpretResult (*IntCompoundOp)(ObjectModuleRecord *current_module_record, const char *target_name,
 										 char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue);
-typedef InterpretResult (*FloatCompoundOp)(ObjectModuleRecord *current_module_record, const ObjectString *name,
+typedef InterpretResult (*FloatCompoundOp)(ObjectModuleRecord *current_module_record, const char *target_name,
 										   char *operation, double dcurrent, double doperand, Value *resultValue);
 
 // Integer compound operation handlers
-static InterpretResult int_compound_plus(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_plus(ObjectModuleRecord *current_module_record, const char *target_name,
 										 char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	(void)current_module_record;
 	(void)operation;
-	(void)name;
+	(void)target_name;
 	const int64_t result = (int64_t)icurrent + (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
 		*resultValue = INT_VAL((int32_t)result);
@@ -1215,11 +1187,11 @@ static InterpretResult int_compound_plus(ObjectModuleRecord *current_module_reco
 	return INTERPRET_OK;
 }
 
-static InterpretResult int_compound_minus(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_minus(ObjectModuleRecord *current_module_record, const char *target_name,
 										  char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)operation;
 	const int64_t result = (int64_t)icurrent - (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
@@ -1230,11 +1202,11 @@ static InterpretResult int_compound_minus(ObjectModuleRecord *current_module_rec
 	return INTERPRET_OK;
 }
 
-static InterpretResult int_compound_star(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_star(ObjectModuleRecord *current_module_record, const char *target_name,
 										 char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)operation;
 	const int64_t result = (int64_t)icurrent * (int64_t)ioperand;
 	if (result >= INT32_MIN && result <= INT32_MAX) {
@@ -1245,22 +1217,22 @@ static InterpretResult int_compound_star(ObjectModuleRecord *current_module_reco
 	return INTERPRET_OK;
 }
 
-static InterpretResult int_compound_slash(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_slash(ObjectModuleRecord *current_module_record, const char *target_name,
 										  char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", target_name, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	*resultValue = FLOAT_VAL((double)icurrent / (double)ioperand);
 	return INTERPRET_OK;
 }
 
-static InterpretResult int_compound_int_divide(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_int_divide(ObjectModuleRecord *current_module_record, const char *target_name,
 											   char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", target_name, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	if (icurrent == INT32_MIN && ioperand == -1) {
@@ -1271,11 +1243,11 @@ static InterpretResult int_compound_int_divide(ObjectModuleRecord *current_modul
 	return INTERPRET_OK;
 }
 
-static InterpretResult int_compound_modulus(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult int_compound_modulus(ObjectModuleRecord *current_module_record, const char *target_name,
 											char *operation, int32_t icurrent, int32_t ioperand, Value *resultValue)
 {
 	if (ioperand == 0) {
-		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, RUNTIME, "Division by zero in '%s %s'.", target_name, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	if (icurrent == INT32_MIN && ioperand == -1) {
@@ -1287,53 +1259,53 @@ static InterpretResult int_compound_modulus(ObjectModuleRecord *current_module_r
 }
 
 // Float compound operation handlers
-static InterpretResult float_compound_plus(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult float_compound_plus(ObjectModuleRecord *current_module_record, const char *target_name,
 										   char *operation, double dcurrent, double doperand, Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent + doperand);
 	return INTERPRET_OK;
 }
 
-static InterpretResult float_compound_minus(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult float_compound_minus(ObjectModuleRecord *current_module_record, const char *target_name,
 											char *operation, double dcurrent, double doperand, Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent - doperand);
 	return INTERPRET_OK;
 }
 
-static InterpretResult float_compound_star(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult float_compound_star(ObjectModuleRecord *current_module_record, const char *target_name,
 										   char *operation, double dcurrent, double doperand, Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)operation;
 	*resultValue = FLOAT_VAL(dcurrent * doperand);
 	return INTERPRET_OK;
 }
 
-static InterpretResult float_compound_slash(ObjectModuleRecord *current_module_record, const ObjectString *name,
+static InterpretResult float_compound_slash(ObjectModuleRecord *current_module_record, const char *target_name,
 											char *operation, double dcurrent, double doperand, Value *resultValue)
 {
 	if (doperand == 0.0) {
-		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", name->chars, operation);
+		runtime_panic(current_module_record, MATH, "Division by zero in '%s %s'.", target_name, operation);
 		return INTERPRET_RUNTIME_ERROR;
 	}
 	*resultValue = FLOAT_VAL(dcurrent / doperand);
 	return INTERPRET_OK;
 }
 
-static InterpretResult float_compound_invalid_int_op(ObjectModuleRecord *current_module_record,
-													 const ObjectString *name, char *operation, double dcurrent,
-													 double doperand, Value *resultValue)
+static InterpretResult float_compound_invalid_int_op(ObjectModuleRecord *current_module_record, const char *target_name,
+													 char *operation, double dcurrent, double doperand,
+													 Value *resultValue)
 {
 	(void)current_module_record;
-	(void)name;
+	(void)target_name;
 	(void)dcurrent;
 	(void)doperand;
 	(void)resultValue;
@@ -1414,14 +1386,10 @@ bool binary_operation(VM *vm, const OpCode operation)
 	return true;
 }
 
-InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCode opcode, char *operation)
+InterpretResult global_compound_operation(VM *vm, const uint16_t index, const OpCode opcode, char *operation)
 {
 	ObjectModuleRecord *current_module_record = vm->current_module_record;
-	Value currentValue;
-	if (!table_get(&current_module_record->globals, name, &currentValue)) {
-		runtime_panic(current_module_record, NAME, "Undefined variable '%s' for compound assignment.", name->chars);
-		return INTERPRET_RUNTIME_ERROR;
-	}
+	Value currentValue = current_module_record->globals[index];
 
 	const Value operandValue = PEEK(current_module_record, 0);
 
@@ -1432,10 +1400,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 
 	if (!((currentIsInt || currentIsFloat) && (operandIsInt || operandIsFloat))) {
 		if (!(currentIsInt || currentIsFloat)) {
-			runtime_panic(current_module_record, TYPE,
-						  "Variable '%s' is not a number for '%s' "
-						  "operator.",
-						  name->chars, operation);
+			runtime_panic(current_module_record, TYPE, "Global is not a number for '%s' operator.", operation);
 		} else {
 			runtime_panic(current_module_record, TYPE,
 						  "Right-hand operand for '%s' must be an "
@@ -1460,7 +1425,7 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		const InterpretResult result = int_compound_ops[opcode](current_module_record, name, operation, icurrent,
+		const InterpretResult result = int_compound_ops[opcode](current_module_record, "global", operation, icurrent,
 																ioperand, &resultValue);
 		if (result != INTERPRET_OK) {
 			return result;
@@ -1478,31 +1443,38 @@ InterpretResult global_compound_operation(VM *vm, ObjectString *name, const OpCo
 			return INTERPRET_RUNTIME_ERROR;
 		}
 
-		const InterpretResult result = float_compound_ops[opcode](current_module_record, name, operation, dcurrent,
+		const InterpretResult result = float_compound_ops[opcode](current_module_record, "global", operation, dcurrent,
 																  doperand, &resultValue);
 		if (result != INTERPRET_OK) {
 			return result;
 		}
 	}
-	table_set(vm, &current_module_record->globals, name, resultValue);
+	current_module_record->globals[index] = resultValue;
 	return INTERPRET_OK;
-}
-
-bool check_previous_instruction(const CallFrame *frame, const int instructions_ago, const OpCode instruction)
-{
-	const uint16_t *current = frame->ip;
-	const uint16_t *codeStart = frame->closure->function->chunk.code;
-
-	// Check if we have enough bytes before current position,
-	if (current - (instructions_ago + 2) < codeStart) {
-		return false;
-	}
-
-	return *(current - (instructions_ago + 2)) == instruction;
 }
 
 InterpretResult interpret(VM *vm, char *source)
 {
+	jmp_buf previous_jump_buffer;
+	memcpy(previous_jump_buffer, vm->jump_buffer, sizeof(jmp_buf));
+
+	int jump_code = setjmp(vm->jump_buffer);
+	if (jump_code != INTERPRET_OK) {
+		// Panic cleanup
+		if (vm->main_compiler != NULL) {
+			free(vm->main_compiler);
+			vm->main_compiler = NULL;
+		}
+		if (vm->current_module_record != NULL) {
+			vm->current_module_record->state = STATE_ERROR;
+		}
+
+		// restore previous jump buffer
+
+		memcpy(vm->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
+		return jump_code;
+	}
+
 	Compiler *compiler = malloc(sizeof(Compiler));
 	if (compiler == NULL) {
 		return INTERPRET_COMPILE_ERROR;
@@ -1510,13 +1482,23 @@ InterpretResult interpret(VM *vm, char *source)
 	vm->main_compiler = compiler;
 
 	ObjectFunction *function = compile(vm, compiler, NULL, source);
+
 	free(compiler);
 	vm->main_compiler = NULL;
 
-	ObjectModuleRecord *current_module_record = vm->current_module_record;
 	if (function == NULL) {
-		current_module_record->state = STATE_ERROR;
+		if (vm->current_module_record != NULL) {
+			vm->current_module_record->state = STATE_ERROR;
+		}
 		return INTERPRET_COMPILE_ERROR;
+	}
+
+	ObjectModuleRecord *current_module_record = vm->current_module_record;
+
+	// allocate module globals array
+	if (current_module_record->global_count > 0 && current_module_record->globals == NULL) {
+		current_module_record->globals = realloc(current_module_record->globals,
+												 sizeof(Value) * current_module_record->global_count);
 	}
 
 	push(current_module_record, OBJECT_VAL(function));
@@ -1527,6 +1509,9 @@ InterpretResult interpret(VM *vm, char *source)
 	call(current_module_record, closure, 0);
 
 	const InterpretResult result = run(vm, false);
+
+	// Restore previous jump buffer
+	memcpy(vm->jump_buffer, previous_jump_buffer, sizeof(jmp_buf));
 
 	return result;
 }
@@ -1720,5 +1705,45 @@ bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const u
 	starts[code_point_count] = cursor;
 
 	*starts_out = starts;
+	return true;
+}
+
+bool bind_core_globals(VM *vm, ObjectModuleRecord *module_record)
+{
+	for (int i = 0; i < vm->core_fns.capacity; i++) {
+		if (vm->core_fns.entries[i].key == NULL) {
+			continue;
+		}
+
+		ObjectString *name = vm->core_fns.entries[i].key;
+		Value val = vm->core_fns.entries[i].value;
+
+		Value index_value;
+		uint32_t index;
+		if (table_get(&module_record->global_names, name, &index_value)) {
+			index = (uint32_t)AS_INT(index_value);
+		} else {
+			return false;
+		}
+
+		module_record->globals[index] = val;
+
+		if (IS_CRUX_NATIVE_CALLABLE(val)) {
+			ObjectTypeRecord *existing_type;
+			if (!type_table_get(module_record->types, name, &existing_type)) {
+				const ObjectNativeCallable *callable = AS_CRUX_NATIVE_CALLABLE(val);
+				ObjectTypeRecord **args_copy = NULL;
+				if (callable->arity > 0) {
+					args_copy = ALLOCATE(vm, ObjectTypeRecord *, callable->arity);
+					for (int j = 0; j < callable->arity; j++) {
+						args_copy[j] = callable->arg_types[j];
+					}
+				}
+				ObjectTypeRecord *type_rec = new_function_type_rec(vm, args_copy, callable->arity,
+																   callable->return_type);
+				type_table_set(module_record->types, name, type_rec);
+			}
+		}
+	}
 	return true;
 }

@@ -1,10 +1,21 @@
-#include "panic.h"
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "panic.h"
 #include "vm.h"
+
+char *repeat(const char c, const int count)
+{
+	static char buffer[256];
+	int i;
+	for (i = 0; i < count && i < (int)sizeof(buffer) - 1; i++) {
+		buffer[i] = c;
+	}
+	buffer[i] = '\0';
+	return buffer;
+}
 
 static ErrorDetails getErrorDetails(const ErrorType type)
 {
@@ -342,19 +353,8 @@ void runtime_panic(ObjectModuleRecord *module_record, const ErrorType type, cons
 	}
 	fprintf(stderr, "\n%s%s%s\n\n", RED, repeat('=', 60), RESET);
 
-	module_record->owner->is_exiting = true;
 	reset_stack(module_record);
-}
-
-char *repeat(const char c, const int count)
-{
-	static char buffer[256];
-	int i;
-	for (i = 0; i < count && i < (int)sizeof(buffer) - 1; i++) {
-		buffer[i] = c;
-	}
-	buffer[i] = '\0';
-	return buffer;
+	longjmp(module_record->owner->jump_buffer, INTERPRET_RUNTIME_ERROR);
 }
 
 /**

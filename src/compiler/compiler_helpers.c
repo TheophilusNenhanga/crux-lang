@@ -1,5 +1,7 @@
+#include <stdint.h>
 #include <string.h>
 
+#include "chunk.h"
 #include "compiler.h"
 #include "garbage_collector.h"
 #include "object.h"
@@ -187,6 +189,27 @@ const ObjectNativeCallable *lookup_stdlib_method(const Compiler *compiler, const
 	return AS_CRUX_NATIVE_CALLABLE(value);
 }
 
+bool check_previous_op_code(const Compiler *compiler, const OpCode op, const int distance)
+{
+	const Chunk *chunk = current_chunk(compiler);
+	if (chunk->count == 0)
+		return false;
+	if (chunk->count - distance < 0)
+		return false;
+	return chunk->code[chunk->count - distance] == op;
+}
+
+bool set_previous_op_code(const Compiler *compiler, const OpCode op, const int distance)
+{
+	const Chunk *chunk = current_chunk(compiler);
+	if (chunk->code == 0)
+		return false;
+	if (chunk->code - distance < 0)
+		return false;
+	chunk->code[chunk->count - distance] = op;
+	return true;
+}
+
 void emit_word(const Compiler *compiler, const uint16_t word)
 {
 	write_chunk(compiler->owner, current_chunk(compiler), word, compiler->parser->previous.line);
@@ -338,26 +361,57 @@ void begin_scope(Compiler *compiler)
 
 void cleanupLocalsToDepth(Compiler *compiler, const int targetDepth)
 {
+	uint16_t to_pop_count = 0;
 	while (compiler->local_count > 0 && compiler->locals[compiler->local_count - 1].depth > targetDepth) {
 		if (compiler->locals[compiler->local_count - 1].is_captured) {
+			if (to_pop_count > 0) {
+				if (to_pop_count == 1) {
+					emit_word(compiler, OP_POP);
+				} else {
+					emit_words(compiler, OP_POP_N, to_pop_count);
+				}
+			}
 			emit_word(compiler, OP_CLOSE_UPVALUE);
 		} else {
-			emit_word(compiler, OP_POP);
+			to_pop_count++;
 		}
 		compiler->local_count--;
+	}
+	if (to_pop_count > 0) {
+		if (to_pop_count == 1) {
+			emit_word(compiler, OP_POP);
+		} else {
+			emit_words(compiler, OP_POP_N, to_pop_count);
+		}
 	}
 }
 
 void emit_cleanup_for_jump(const Compiler *compiler, const int targetDepth)
 {
+	uint16_t to_pop_count = 0;
 	int i = compiler->local_count - 1;
 	while (i >= 0 && compiler->locals[i].depth > targetDepth) {
 		if (compiler->locals[i].is_captured) {
+			if (to_pop_count > 0) {
+				if (to_pop_count == 1) {
+					emit_word(compiler, OP_POP);
+				} else {
+					emit_words(compiler, OP_POP_N, to_pop_count);
+				}
+			}
+			to_pop_count = 0;
 			emit_word(compiler, OP_CLOSE_UPVALUE);
 		} else {
-			emit_word(compiler, OP_POP);
+			to_pop_count++;
 		}
 		i--;
+	}
+	if (to_pop_count > 0) {
+		if (to_pop_count == 1) {
+			emit_word(compiler, OP_POP);
+		} else {
+			emit_words(compiler, OP_POP_N, to_pop_count);
+		}
 	}
 }
 
@@ -548,16 +602,31 @@ void check_compound_type_math(const Compiler *compiler, ObjectTypeRecord *lhs_ty
 	}
 }
 
-void define_variable(Compiler *compiler, const uint16_t global)
+void define_variable(Compiler *compiler, const uint16_t global, bool is_public)
 {
 	if (compiler->scope_depth > 0) {
 		mark_initialized(compiler);
 		return;
 	}
 	if (global >= UINT16_MAX) {
-		compiler_panic(compiler->parser, "Too many variables.", SYNTAX);
+		compiler_panic(compiler->parser, "Too many global variables.", SYNTAX);
 	}
-	emit_words(compiler, OP_DEFINE_GLOBAL, global);
+
+	ObjectString *global_var_name = AS_CRUX_STRING(current_chunk(compiler)->constants.values[global]);
+	const int global_index = compiler->global_count;
+	if (!table_set(compiler->owner, &compiler->globals, global_var_name, INT_VAL(global_index))) {
+		compiler_panicf(compiler->parser, NAME,
+						"Failed to add global variable '%s'. Are you trying to redefine an existing variable?",
+						global_var_name->chars);
+	}
+	compiler->global_count++;
+
+	if (is_public) {
+		emit_words(compiler, OP_DEFINE_PUB_GLOBAL, global_index);
+		emit_word(compiler, global);
+	} else {
+		emit_words(compiler, OP_DEFINE_GLOBAL, global_index);
+	}
 }
 
 OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const int op)
@@ -570,6 +639,9 @@ OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const i
 								 OP_SET_GLOBAL_SLASH, OP_SET_GLOBAL_INT_DIVIDE, OP_SET_GLOBAL_MODULUS};
 	const OpCode property_ops[] = {OP_SET_PROPERTY_PLUS,  OP_SET_PROPERTY_MINUS,	  OP_SET_PROPERTY_STAR,
 								   OP_SET_PROPERTY_SLASH, OP_SET_PROPERTY_INT_DIVIDE, OP_SET_PROPERTY_MODULUS};
+	const OpCode property_index_ops[] = {OP_SET_PROPERTY_PLUS_INDEX,	   OP_SET_PROPERTY_MINUS_INDEX,
+										 OP_SET_PROPERTY_STAR_INDEX,	   OP_SET_PROPERTY_SLASH_INDEX,
+										 OP_SET_PROPERTY_INT_DIVIDE_INDEX, OP_SET_PROPERTY_MODULUS_INDEX};
 
 	if (setOp == OP_SET_LOCAL)
 		return local_ops[op];
@@ -579,6 +651,8 @@ OpCode get_compound_opcode(const Compiler *compiler, const OpCode setOp, const i
 		return global_ops[op];
 	if (setOp == OP_SET_PROPERTY)
 		return property_ops[op];
+	if (setOp == OP_SET_PROPERTY_INDEX)
+		return property_index_ops[op];
 
 	compiler_panic(compiler->parser, "Compiler Error: Failed to create bytecode for compound operation.", RUNTIME);
 	return setOp;

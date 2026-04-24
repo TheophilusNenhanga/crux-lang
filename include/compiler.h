@@ -21,6 +21,7 @@ typedef struct {
 	bool had_error;
 	bool panic_mode;
 	Scanner *scanner;
+	jmp_buf jump_buffer;
 } Parser;
 
 // Precedence in order from lowest to highest
@@ -144,23 +145,25 @@ struct Compiler {
 	Compiler *enclosing;
 	Compiler *enclosed;
 	ObjectFunction *function;
-	FunctionType type;
-	ObjectTypeRecord *return_type;
-	int local_count;
-	int scope_depth; // 0 is global scope
-	int loop_depth; // 0 is no loop
-	LoopContext loop_stack[UINT8_COUNT];
-	Local locals[UINT8_COUNT];
-	Upvalue upvalues[UINT8_COUNT];
-	ObjectTypeRecord *type_stack[UINT8_COUNT];
-	int type_stack_count;
 	ObjectTypeTable *type_table;
+	ObjectTypeRecord *return_type;
 	ObjectTypeRecord *last_give_type;
 	Parser *parser;
-	bool has_return;
-	NarrowingInfo current_narrowing;
+	ObjectTypeRecord *type_stack[UINT8_COUNT];
+	LoopContext loop_stack[UINT8_COUNT];
+	Local locals[UINT8_COUNT];
     MatchCompiler match_compiler[MATCH_NEST_DEPTH];
+	Upvalue upvalues[UINT8_COUNT];
+	NarrowingInfo current_narrowing;
+	Table globals;
+	int scope_depth; // 0 is global scope
+	int loop_depth; // 0 is no loop
+	int global_count;
+	int local_count;
+	FunctionType type;
+	int type_stack_count;
     int match_depth;
+	bool has_return;
 };
 typedef void (*ParseFn)(Compiler *compiler, const bool can_assign);
 
@@ -301,8 +304,9 @@ OpCode get_compound_opcode(const Compiler *compiler,  OpCode setOp, int op);
  * @param compiler
  * @param global The index of the variable name constant in the constant pool
  * (for global variables).
+ * @param is_public if this is a public declaration
  */
-void define_variable(Compiler *compiler, uint16_t global);
+void define_variable(Compiler *compiler, uint16_t global, bool is_public);
 
 /**
  * Check math types for compound operations
@@ -368,4 +372,15 @@ void declare_named_variable(Compiler *compiler, Token name, ObjectTypeRecord *ty
 bool match_type_name(const Compiler *compiler);
 
 TypeMask type_token_type_to_mask(CruxTokenType token_type);
+/**
+ * Checks if the previous opcode in the current chunk matches the given opcode.
+ *
+ * @param compiler The current compiler.
+ * @param op The opcode to check for.
+ * @param distance The distance from the current instruction to check
+ * @return true if the previous opcode matches, false otherwise.
+ */
+bool check_previous_op_code(const Compiler *compiler, OpCode op, int distance);
+bool set_previous_op_code(const Compiler *compiler, OpCode op, int distance);
+
 #endif // COMPILER_H

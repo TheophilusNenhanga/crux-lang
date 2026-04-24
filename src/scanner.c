@@ -257,18 +257,7 @@ static CruxTokenType identifier_type(Scanner *scanner)
 		break;
 	}
 	case 'd': {
-		if (scanner->current - scanner->start > 1) {
-			switch (scanner->start[1]) {
-			case 'y': {
-				return check_keyword(scanner, 2, 4, "nuse", CRUX_TOKEN_DYN_USE);
-			}
-			case 'e': {
-				return check_keyword(scanner, 2, 5, "fault", CRUX_TOKEN_DEFAULT);
-			}
-			default:;
-			}
-		}
-		break;
+		return check_keyword(scanner, 1, 6, "efault", CRUX_TOKEN_DEFAULT);
 	}
 	case 'e':
 		return check_keyword(scanner, 1, 3, "lse", CRUX_TOKEN_ELSE);

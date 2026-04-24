@@ -11,6 +11,9 @@ typedef struct {
 
 /**
  * Displays a runtime error message with formatting and stack trace.
+ * Jumps to VM destruction
+ *
+ * NOTE!: Any code called after this will not execute
  */
 void runtime_panic(ObjectModuleRecord *module_record,
 		   ErrorType type, const char *format, ...);
@@ -56,7 +59,5 @@ void compiler_panic_at_current(Parser *parser, const char *message,
 void compiler_panicf_at_current(Parser *parser, ErrorType error_type,
 				const char *format, ...)
 	__attribute__((format(printf, 3, 4)));
-
-char *repeat(char c, int count);
 
 #endif // PANIC_H

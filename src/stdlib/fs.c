@@ -544,10 +544,15 @@ Value fs_is_open_method(VM *vm, const Value *args)
  */
 Value fs_exists_function(VM *vm, const Value *args)
 {
-	(void)vm;
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
+		return BOOL_VAL(false);
+	}
 
 	FS_STAT_T st;
-	return BOOL_VAL(FS_STAT(AS_C_STRING(args[0]), &st) == 0);
+	int result = FS_STAT(resolved, &st) == 0;
+	free(resolved);
+	return BOOL_VAL(result);
 }
 
 /**
@@ -557,11 +562,18 @@ Value fs_exists_function(VM *vm, const Value *args)
  */
 Value fs_is_file_function(VM *vm, const Value *args)
 {
-	(void)vm;
-	FS_STAT_T st;
-	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0)
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
 		return BOOL_VAL(false);
-	return BOOL_VAL(FS_S_ISREG(st.st_mode));
+	}
+
+	FS_STAT_T st;
+	int result = false;
+	if (FS_STAT(resolved, &st) == 0) {
+		result = FS_S_ISREG(st.st_mode);
+	}
+	free(resolved);
+	return BOOL_VAL(result);
 }
 
 /**
@@ -571,11 +583,18 @@ Value fs_is_file_function(VM *vm, const Value *args)
  */
 Value fs_is_dir_function(VM *vm, const Value *args)
 {
-	(void)vm;
-	FS_STAT_T st;
-	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0)
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
 		return BOOL_VAL(false);
-	return BOOL_VAL(FS_S_ISDIR(st.st_mode));
+	}
+
+	FS_STAT_T st;
+	int result = false;
+	if (FS_STAT(resolved, &st) == 0) {
+		result = FS_S_ISDIR(st.st_mode);
+	}
+	free(resolved);
+	return BOOL_VAL(result);
 }
 
 /**
@@ -585,8 +604,16 @@ Value fs_is_dir_function(VM *vm, const Value *args)
  */
 Value fs_file_size_function(VM *vm, const Value *args)
 {
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
+	}
+
 	FS_STAT_T st;
-	if (FS_STAT(AS_C_STRING(args[0]), &st) != 0) {
+	int stat_result = FS_STAT(resolved, &st);
+	free(resolved);
+
+	if (stat_result != 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "File not found or inaccessible.", IO);
 	}
 
@@ -604,18 +631,25 @@ Value fs_file_size_function(VM *vm, const Value *args)
  */
 Value fs_remove_function(VM *vm, const Value *args)
 {
-	const char *path = AS_C_STRING(args[0]);
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
+	}
 
 	/* Reject directories explicitly for a clear error message */
 	FS_STAT_T st;
-	if (FS_STAT(path, &st) == 0 && FS_S_ISDIR(st.st_mode)) {
+	if (FS_STAT(resolved, &st) == 0 && FS_S_ISDIR(st.st_mode)) {
+		free(resolved);
 		return MAKE_GC_SAFE_ERROR(vm,
 								  "Path is a directory. Use fs.remove_dir to remove "
 								  "directories.",
 								  IO);
 	}
 
-	if (remove(path) != 0) {
+	int result = remove(resolved);
+	free(resolved);
+
+	if (result != 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to remove file.", IO);
 	}
 
@@ -627,8 +661,16 @@ Value fs_remove_function(VM *vm, const Value *args)
  */
 Value fs_rename_function(VM *vm, const Value *args)
 {
-	const char *from = AS_C_STRING(args[0]);
-	const char *to = AS_C_STRING(args[1]);
+	char *resolved_from = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved_from == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve source path.", IO);
+	}
+
+	char *resolved_to = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[1]));
+	if (resolved_to == NULL) {
+		free(resolved_from);
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve destination path.", IO);
+	}
 
 #ifdef _WIN32
 	/*
@@ -636,14 +678,17 @@ Value fs_rename_function(VM *vm, const Value *args)
 	 * MoveFileExA with MOVEFILE_REPLACE_EXISTING gives POSIX rename()
 	 * semantics (atomic replace on the same volume).
 	 */
-	if (!MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING)) {
-		return MAKE_GC_SAFE_ERROR(vm, "Failed to rename file.", IO);
-	}
+	int result = MoveFileExA(resolved_from, resolved_to, MOVEFILE_REPLACE_EXISTING) ? 0 : -1;
 #else
-	if (rename(from, to) != 0) {
+	int result = rename(resolved_from, resolved_to);
+#endif
+
+	free(resolved_from);
+	free(resolved_to);
+
+	if (result != 0) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to rename file.", IO);
 	}
-#endif
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 }
@@ -656,8 +701,16 @@ Value fs_rename_function(VM *vm, const Value *args)
  */
 Value fs_copy_file_function(VM *vm, const Value *args)
 {
-	const char *from = AS_C_STRING(args[0]);
-	const char *to = AS_C_STRING(args[1]);
+	char *resolved_from = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved_from == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve source path.", IO);
+	}
+
+	char *resolved_to = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[1]));
+	if (resolved_to == NULL) {
+		free(resolved_from);
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve destination path.", IO);
+	}
 
 #ifdef _WIN32
 	/*
@@ -665,18 +718,25 @@ Value fs_copy_file_function(VM *vm, const Value *args)
 	 * handles all the edge cases (attributes, sharing) correctly.
 	 * FALSE = do not fail if destination exists (overwrite).
 	 */
-	if (!CopyFileA(from, to, FALSE)) {
+	BOOL result = CopyFileA(resolved_from, resolved_to, FALSE);
+	free(resolved_from);
+	free(resolved_to);
+
+	if (!result) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to copy file.", IO);
 	}
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
 #else
-	FILE *src = fopen(from, "rb");
+	FILE *src = fopen(resolved_from, "rb");
+	free(resolved_from);
 	if (src == NULL) {
+		free(resolved_to);
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open source file.", IO);
 	}
 
-	FILE *dst = fopen(to, "wb");
+	FILE *dst = fopen(resolved_to, "wb");
 	if (dst == NULL) {
+		free(resolved_to);
 		fclose(src);
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open destination file.", IO);
 	}
@@ -704,7 +764,12 @@ Value fs_copy_file_function(VM *vm, const Value *args)
 
 	if (!ok) {
 		/* Best-effort cleanup of a partial destination */
-		remove(to);
+		remove(resolved_to);
+	}
+
+	free(resolved_to);
+
+	if (!ok) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error during file copy.", IO);
 	}
 
@@ -719,9 +784,15 @@ Value fs_copy_file_function(VM *vm, const Value *args)
  */
 Value fs_mkdir_function(VM *vm, const Value *args)
 {
-	const char *path = AS_C_STRING(args[0]);
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve directory path.", IO);
+	}
 
-	if (FS_MKDIR(path) != 0) {
+	int result = FS_MKDIR(resolved);
+	free(resolved);
+
+	if (result != 0) {
 		if (errno == EEXIST) {
 			return MAKE_GC_SAFE_ERROR(vm, "Directory already exists.", IO);
 		}
@@ -744,9 +815,15 @@ Value fs_mkdir_function(VM *vm, const Value *args)
  */
 Value fs_read_file_function(VM *vm, const Value *args)
 {
-	const char *path = AS_C_STRING(args[0]);
+	const ObjectString *path_str = AS_CRUX_STRING(args[0]);
 
-	FILE *fp = fopen(path, "rb");
+	char *resolved = resolve_path(vm->current_module_record->path->chars, path_str->chars);
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
+	}
+
+	FILE *fp = fopen(resolved, "rb");
+	free(resolved);
 	if (fp == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
 	}
@@ -773,10 +850,16 @@ Value fs_read_file_function(VM *vm, const Value *args)
  */
 Value fs_write_file_function(VM *vm, const Value *args)
 {
-	const char *path = AS_C_STRING(args[0]);
+	const ObjectString *path_str = AS_CRUX_STRING(args[0]);
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
 
-	FILE *fp = fopen(path, "wb");
+	char *resolved = resolve_path(vm->current_module_record->path->chars, path_str->chars);
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
+	}
+
+	FILE *fp = fopen(resolved, "wb");
+	free(resolved);
 	if (fp == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
 	}
@@ -800,10 +883,16 @@ Value fs_write_file_function(VM *vm, const Value *args)
  */
 Value fs_append_file_function(VM *vm, const Value *args)
 {
-	const char *path = AS_C_STRING(args[0]);
+	const ObjectString *path_str = AS_CRUX_STRING(args[0]);
 	const ObjectString *content = AS_CRUX_STRING(args[1]);
 
-	FILE *fp = fopen(path, "ab");
+	char *resolved = resolve_path(vm->current_module_record->path->chars, path_str->chars);
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve file path.", IO);
+	}
+
+	FILE *fp = fopen(resolved, "ab");
+	free(resolved);
 	if (fp == NULL) {
 		return MAKE_GC_SAFE_ERROR(vm, "Failed to open file.", IO);
 	}
@@ -814,6 +903,34 @@ Value fs_append_file_function(VM *vm, const Value *args)
 
 	if (!ok) {
 		return MAKE_GC_SAFE_ERROR(vm, "Error writing to file.", IO);
+	}
+
+	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));
+}
+
+/**
+ * Removes an empty directory
+ * arg0 -> path: String
+ * Returns Result<Nil>
+ */
+Value fs_remove_dir_function(VM *vm, const Value *args)
+{
+	char *resolved = resolve_path(vm->current_module_record->path->chars, AS_C_STRING(args[0]));
+	if (resolved == NULL) {
+		return MAKE_GC_SAFE_ERROR(vm, "Could not resolve directory path.", IO);
+	}
+
+	int result;
+#ifdef _WIN32
+	result = _rmdir(resolved);
+#else
+	result = rmdir(resolved);
+#endif
+
+	free(resolved);
+
+	if (result != 0) {
+		return MAKE_GC_SAFE_ERROR(vm, "Failed to remove directory.", IO);
 	}
 
 	return OBJECT_VAL(new_ok_result(vm, NIL_VAL));

@@ -133,13 +133,12 @@ typedef enum {
 	OBJECT_COROUTINE,
 } ObjectType;
 
-struct CruxObject { // 8
-	uint32_t pool_index;
+struct CruxObject { // 16
+    CruxObject* next;
 	ObjectType type;
-};
-
-struct PoolObject { // 8
-	void *data;
+	bool is_marked;
+	bool is_immortal;
+	bool use_for_some_other_flag_in_the_future;
 };
 
 #define MARK_BIT ((uintptr_t)1 << 63)
@@ -315,6 +314,7 @@ struct ObjectTypeRecord { // 40
 			ObjectTypeRecord **arg_types;
 			int arg_count;
 			ObjectTypeRecord *return_type;
+			// TODO: add is_native flag
 		} function_type;
 		struct {
 			ObjectTypeRecord *element_type;
@@ -417,23 +417,25 @@ struct ObjectIterator {
 
 struct ObjectModuleRecord { // 120
 	CruxObject object;
+	VM* owner;
 	ObjectString *path;
-	Table globals;
+	Table global_names;
 	Table publics;
 	ObjectTypeTable *types;
 	ObjectClosure *module_closure;
 	ObjectModuleRecord *enclosing_module;
 	ObjectUpvalue *open_upvalues;
+	Value *globals;
 	Value *stack;
 	Value *stack_top;
 	Value *stack_limit;
 	CallFrame *frames;
+	uint32_t global_count;
+	ModuleState state;
 	uint8_t frame_count;
 	uint8_t frame_capacity;
 	bool is_repl;
 	bool is_main;
-	ModuleState state;
-	VM* owner;
 };
 
 struct ObjectRange { // 40

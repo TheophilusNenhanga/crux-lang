@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <setjmp.h>
 
 #define RESET "\033[0m"
 #define GREEN "\033[32m"
@@ -20,14 +21,14 @@
 #define COMPILER_EXIT_CODE 65
 #define STRUCT_INSTANCE_DEPTH 16
 #define NATIVE_MODULES_CAPACITY (16)
-#define INITIAL_OBJECT_POOL_CAPACITY (8192)
-#define OBJECT_POOL_GROWTH_FACTOR (1.5)
 #define INITIAL_BUFFER_CAPACITY (64)
 #define INITIAL_SET_CAPACITY (8)
 #define MATCH_NEST_DEPTH (16)
 #define TYPE_NAME_BUF_SIZE (256)
 
 #define INIT_GC_HEAP_GROW_FACTOR (2)
+#define MIN_GC_HEAP_SIZE (1024 * 1024)
+#define MIN_GC_GROWTH_DELTA (256 * 1024)
 #define SLAB_CAPACITY (4096)
 #define INITIAL_TYPE_TABLE_SIZE 16
 

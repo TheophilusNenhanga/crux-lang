@@ -177,11 +177,11 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_POP:
 		return simple_instruction("OP_POP", offset);
 	case OP_DEFINE_GLOBAL:
-		return constant_instruction("OP_DEFINE_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_DEFINE_GLOBAL", chunk, offset);
 	case OP_GET_GLOBAL:
-		return constant_instruction("OP_GET_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_GET_GLOBAL", chunk, offset);
 	case OP_SET_GLOBAL:
-		return constant_instruction("OP_SET_GLOBAL", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL", chunk, offset);
 	case OP_GET_LOCAL:
 		return byte_instruction("OP_GET_LOCAL", chunk, offset);
 	case OP_SET_LOCAL:
@@ -264,22 +264,22 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 		return inline_arg_instruction("OP_SET_UPVALUE_MINUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_SLASH: {
-		return constant_instruction("OP_SET_GLOBAL_SLASH", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_SLASH", chunk, offset);
 	}
 	case OP_SET_GLOBAL_STAR: {
-		return constant_instruction("OP_SET_GLOBAL_STAR", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_STAR", chunk, offset);
 	}
 	case OP_SET_GLOBAL_PLUS: {
-		return constant_instruction("OP_SET_GLOBAL_PLUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_PLUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_MINUS: {
-		return constant_instruction("OP_SET_GLOBAL_MINUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_MINUS", chunk, offset);
 	}
 	case OP_SET_GLOBAL_INT_DIVIDE: {
-		return constant_instruction("OP_SET_GLOBAL_INT_DIVIDE", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_INT_DIVIDE", chunk, offset);
 	}
 	case OP_SET_GLOBAL_MODULUS: {
-		return constant_instruction("OP_SET_GLOBAL_MODULUS", chunk, offset);
+		return inline_arg_instruction("OP_SET_GLOBAL_MODULUS", chunk, offset);
 	}
 	case OP_SET_LOCAL_INT_DIVIDE: {
 		return inline_arg_instruction("OP_SET_LOCAL_INT_DIVIDE", chunk, offset);
@@ -343,13 +343,6 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_POWER: {
 		return simple_instruction("OP_POWER", offset);
 	}
-	case OP_USE_NATIVE: {
-		const uint16_t nameCount = chunk->code[offset + 1];
-		printf("%-16s %4d name(s) from '", "OP_USE_NATIVE", nameCount);
-		print_value(chunk->constants.values[chunk->code[offset + 2 + 2 * nameCount]], false);
-		printf("'\n");
-		return offset + 3 + 2 * nameCount;
-	}
 	case OP_FINISH_USE: {
 		const uint16_t nameCount = chunk->code[offset + 1];
 		printf("%-16s %4d name(s)\n", "OP_FINISH_USE", nameCount);
@@ -410,6 +403,30 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	case OP_SET_PROPERTY_MODULUS: {
 		return constant_instruction("OP_SET_PROPERTY_MODULUS", chunk, offset);
 	}
+	case OP_GET_PROPERTY_INDEX: {
+		return inline_arg_instruction("OP_GET_PROPERTY_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_PLUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_PLUS_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_MINUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_MINUS_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_STAR_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_STAR_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_SLASH_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_SLASH_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_INT_DIVIDE_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_INT_DIVIDE_INDEX", chunk, offset);
+	}
+	case OP_SET_PROPERTY_MODULUS_INDEX: {
+		return inline_arg_instruction("OP_SET_PROPERTY_MODULUS_INDEX", chunk, offset);
+	}
 	case OP_BITWISE_NOT: {
 		return simple_instruction("OP_BITWISE_NOT", offset);
 	}
@@ -433,6 +450,146 @@ int disassemble_instruction(const Chunk *chunk, int offset)
 	}
 	case OP_NONE: {
 		return simple_instruction("OP_NONE", offset);
+	}
+	case OP_ADD_INT: {
+		return simple_instruction("OP_ADD_INT", offset);
+	}
+	case OP_ADD_NUM: {
+		return simple_instruction("OP_ADD_NUM", offset);
+	}
+	case OP_SUBTRACT_INT: {
+		return simple_instruction("OP_SUBTRACT_INT", offset);
+	}
+	case OP_SUBTRACT_NUM: {
+		return simple_instruction("OP_SUBTRACT_NUM", offset);
+	}
+	case OP_MULTIPLY_INT: {
+		return simple_instruction("OP_MULTIPLY_INT", offset);
+	}
+	case OP_MULTIPLY_NUM: {
+		return simple_instruction("OP_MULTIPLY_NUM", offset);
+	}
+	case OP_DIVIDE_NUM: {
+		return simple_instruction("OP_DIVIDE_NUM", offset);
+	}
+	case OP_INT_DIVIDE_INT: {
+		return simple_instruction("OP_INT_DIVIDE_INT", offset);
+	}
+	case OP_MODULUS_INT: {
+		return simple_instruction("OP_MODULUS_INT", offset);
+	}
+	case OP_POWER_INT: {
+		return simple_instruction("OP_POWER_INT", offset);
+	}
+	case OP_POWER_NUM: {
+		return simple_instruction("OP_POWER_NUM", offset);
+	}
+	case OP_ADD_VECTOR_VECTOR: {
+		return simple_instruction("OP_ADD_VECTOR_VECTOR", offset);
+	}
+	case OP_SUBTRACT_VECTOR_VECTOR: {
+		return simple_instruction("OP_SUBTRACT_VECTOR_VECTOR", offset);
+	}
+	case OP_MULTIPLY_VECTOR_VECTOR: {
+		return simple_instruction("OP_MULTIPLY_VECTOR_VECTOR", offset);
+	}
+	case OP_DIVIDE_VECTOR_VECTOR: {
+		return simple_instruction("OP_DIVIDE_VECTOR_VECTOR", offset);
+	}
+	case OP_MULTIPLY_VECTOR_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_VECTOR_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_VECTOR: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_VECTOR", offset);
+	}
+	case OP_DIVIDE_VECTOR_SCALAR: {
+		return simple_instruction("OP_DIVIDE_VECTOR_SCALAR", offset);
+	}
+	case OP_ADD_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_ADD_COMPLEX_COMPLEX", offset);
+	}
+	case OP_SUBTRACT_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_SUBTRACT_COMPLEX_COMPLEX", offset);
+	}
+	case OP_MULTIPLY_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_MULTIPLY_COMPLEX_COMPLEX", offset);
+	}
+	case OP_DIVIDE_COMPLEX_COMPLEX: {
+		return simple_instruction("OP_DIVIDE_COMPLEX_COMPLEX", offset);
+	}
+	case OP_MULTIPLY_COMPLEX_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_COMPLEX_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_COMPLEX: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_COMPLEX", offset);
+	}
+	case OP_DIVIDE_COMPLEX_SCALAR: {
+		return simple_instruction("OP_DIVIDE_COMPLEX_SCALAR", offset);
+	}
+	case OP_ADD_MATRIX_MATRIX: {
+		return simple_instruction("OP_ADD_MATRIX_MATRIX", offset);
+	}
+	case OP_SUBTRACT_MATRIX_MATRIX: {
+		return simple_instruction("OP_SUBTRACT_MATRIX_MATRIX", offset);
+	}
+	case OP_ADD_MATRIX_SCALAR: {
+		return simple_instruction("OP_ADD_MATRIX_SCALAR", offset);
+	}
+	case OP_ADD_SCALAR_MATRIX: {
+		return simple_instruction("OP_ADD_SCALAR_MATRIX", offset);
+	}
+	case OP_SUBTRACT_MATRIX_SCALAR: {
+		return simple_instruction("OP_SUBTRACT_MATRIX_SCALAR", offset);
+	}
+	case OP_SUBTRACT_SCALAR_MATRIX: {
+		return simple_instruction("OP_SUBTRACT_SCALAR_MATRIX", offset);
+	}
+	case OP_MULTIPLY_MATRIX_MATRIX: {
+		return simple_instruction("OP_MULTIPLY_MATRIX_MATRIX", offset);
+	}
+	case OP_MULTIPLY_MATRIX_SCALAR: {
+		return simple_instruction("OP_MULTIPLY_MATRIX_SCALAR", offset);
+	}
+	case OP_MULTIPLY_SCALAR_MATRIX: {
+		return simple_instruction("OP_MULTIPLY_SCALAR_MATRIX", offset);
+	}
+	case OP_DIVIDE_MATRIX_SCALAR: {
+		return simple_instruction("OP_DIVIDE_MATRIX_SCALAR", offset);
+	}
+	case OP_INVOKE_STDLIB: {
+		return invoke_instruction("OP_INVOKE_STDLIB", chunk, offset);
+	}
+	case OP_INVOKE_STDLIB_UNWRAP: {
+		return invoke_instruction("OP_INVOKE_STDLIB_UNWRAP", chunk, offset);
+	}
+	case OP_POP_N: {
+		return inline_arg_instruction("OP_POP_N", chunk, offset);
+	}
+	case OP_DEFINE_PUB_GLOBAL: {
+		const uint16_t index = chunk->code[offset + 1];
+		const uint16_t name = chunk->code[offset + 2];
+		printf("%-16s %4d '", "OP_DEFINE_PUB_GLOBAL", index);
+		print_value(chunk->constants.values[name], false);
+		printf("'\n");
+		return offset + 3;
+	}
+	case OP_0_INT: {
+		return simple_instruction("OP_0_INT", offset);
+	}
+	case OP_1_INT: {
+		return simple_instruction("OP_1_INT", offset);
+	}
+	case OP_2_INT: {
+		return simple_instruction("OP_2_INT", offset);
+	}
+	case OP_0_FLOAT: {
+		return simple_instruction("OP_0_FLOAT", offset);
+	}
+	case OP_1_FLOAT: {
+		return simple_instruction("OP_1_FLOAT", offset);
+	}
+	case OP_2_FLOAT: {
+		return simple_instruction("OP_2_FLOAT", offset);
 	}
 	default:
 		printf("Unknown opcode %d\n", instruction);

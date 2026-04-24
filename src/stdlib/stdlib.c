@@ -37,6 +37,8 @@ static ObjectTypeRecord **make_args(VM *vm, ObjectTypeRecord **src, int count)
 	if (count == 0)
 		return NULL;
 	ObjectTypeRecord **dst = ALLOCATE(vm, ObjectTypeRecord *, count);
+	if (!dst)
+		return NULL;
 	memcpy(dst, src, sizeof(ObjectTypeRecord *) * count);
 	return dst;
 }
@@ -109,6 +111,7 @@ static ObjectString **make_names(VM *vm, ObjectString **src, int count)
 #define t_cmpl REC(COMPLEX_TYPE)
 #define t_rang REC(RANGE_TYPE)
 #define t_buf REC(BUFFER_TYPE)
+#define t_tbl REC(TABLE_TYPE)
 #define t_never REC(NEVER_TYPE)
 
 #define arr_str ARR(t_str)
@@ -143,8 +146,27 @@ bool register_native_method(VM *vm, Table *method_table, const char *method_name
 							const int arity, ObjectTypeRecord **arg_types, ObjectTypeRecord *return_type)
 {
 	ObjectString *name = copy_string(vm, method_name, (int)strlen(method_name));
-	table_set(vm, method_table, name,
-			  OBJECT_VAL(new_native_callable(vm, method_function, arity, name, arg_types, return_type)));
+	if (!name) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
+	name->object.is_immortal = true; // method names are immortal
+	ObjectNativeCallable *callable = new_native_callable(vm, method_function, arity, name, arg_types, return_type);
+	if (!callable) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
+	callable->object.is_immortal = true; // method callables are immortal
+
+	for (int i = 0; i < arity; i++) {
+		ObjectTypeRecord *arg_type = arg_types[i];
+		arg_type->object.is_immortal = true; // argument types are immortal
+	}
+	return_type->object.is_immortal = true; // return type is immortal
+
+	table_set(vm, method_table, name, OBJECT_VAL(callable));
 	return true;
 }
 
@@ -154,8 +176,28 @@ static bool register_native_function(VM *vm, Table *function_table, const char *
 {
 	ObjectModuleRecord *module_record = vm->current_module_record;
 	ObjectString *name = copy_string(vm, function_name, (int)strlen(function_name));
+	if (!name) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
+	name->object.is_immortal = true; // function names are immortal
 	push(module_record, OBJECT_VAL(name));
-	const Value func = OBJECT_VAL(new_native_callable(vm, function, arity, name, arg_types, return_type));
+	ObjectNativeCallable *callable = new_native_callable(vm, function, arity, name, arg_types, return_type);
+	if (!callable) {
+		if (arg_types && arity > 0)
+			FREE_ARRAY(vm, ObjectTypeRecord *, arg_types, arity);
+		return false;
+	}
+	callable->object.is_immortal = true; // function callables are immortal
+
+	for (int i = 0; i < arity; i++) {
+		ObjectTypeRecord *arg_type = arg_types[i];
+		arg_type->object.is_immortal = true; // argument types are immortal
+	}
+	return_type->object.is_immortal = true; // return type is immortal
+
+	const Value func = OBJECT_VAL(callable);
 	push(module_record, func);
 	const bool ok = table_set(vm, function_table, name, func);
 	pop(module_record);
@@ -201,6 +243,7 @@ static bool init_module(VM *vm, const char *module_name, const Callable *functio
 	}
 
 	ObjectString *name_copy = copy_string(vm, module_name, (int)strlen(module_name));
+	name_copy->object.is_immortal = true; // module names are immortal
 	vm->native_modules.modules[vm->native_modules.count++] = (NativeModule){.name = name_copy, .names = module_table};
 	return true;
 }
@@ -233,13 +276,6 @@ bool initialize_std_lib(VM *vm)
 		if (!register_native_functions(vm, &vm->core_fns, fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;
 			return false;
-		}
-
-		for (int i = 0; i < vm->core_fns.capacity; i++) {
-			if (vm->core_fns.entries[i].key != NULL) {
-				table_set(vm, &vm->current_module_record->globals, vm->core_fns.entries[i].key,
-						  vm->core_fns.entries[i].value);
-			}
 		}
 	}
 
@@ -391,10 +427,13 @@ bool initialize_std_lib(VM *vm)
 			{"off", gc_off_function, 0, ARGS0, t_nil},
 			{"on", gc_on_function, 0, ARGS0, t_nil},
 			{"set_heap_growth", gc_set_heap_growth_function, 1, ARGS(numeric), res_nil},
+			{"set_min_heap", gc_set_min_heap_function, 1, ARGS(numeric), res_nil},
+			{"set_min_growth", gc_set_min_growth_function, 1, ARGS(numeric), res_nil},
 			{"collect", gc_collect_function, 0, ARGS0, t_nil},
 			{"heap_used", gc_heap_used_function, 0, ARGS0, t_flt},
 			{"heap_capacity", gc_heap_capacity_function, 0, ARGS0, t_flt},
 			{"is_on", gc_is_on_function, 0, ARGS0, t_bool},
+			{"stats", gc_stats_function, 0, ARGS0, t_tbl},
 		};
 		if (!init_module(vm, "gc", fns, ARRAY_COUNT(fns))) {
 			vm->gc_status = prev_status;
@@ -709,6 +748,7 @@ bool initialize_std_lib(VM *vm)
 		const Callable fns[] = {
 			{"open", fs_open_function, 2, ARGS(t_str, t_str), res_file},
 			{"remove", fs_remove_function, 1, ARGS(t_str), res_nil},
+			{"remove_dir", fs_remove_dir_function, 1, ARGS(t_str), res_nil},
 			{"size", fs_file_size_function, 1, ARGS(t_str), res_int},
 			{"copy_file", fs_copy_file_function, 2, ARGS(t_str, t_str), res_nil},
 			{"mkdir", fs_mkdir_function, 1, ARGS(t_str), res_nil},

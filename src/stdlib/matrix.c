@@ -254,16 +254,8 @@ Value matrix_cols_method(VM *vm, const Value *args)
 /* ── Arithmetic ──────────────────────────────────────────────────────────────
  */
 
-/**
- * Adds another matrix element-wise (matrices must have the same dimensions)
- * arg0 -> matrix: Matrix
- * arg1 -> other: Matrix
- * Returns Result<Matrix>
- */
-Value matrix_add_method(VM *vm, const Value *args)
+Value matrix_add_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b)
 {
-	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
-	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 	REQUIRE_SAME_SHAPE(a, b, "addition");
 
 	ObjectMatrix *result = new_matrix(vm, a->row_dim, a->col_dim);
@@ -279,15 +271,8 @@ Value matrix_add_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/**
- * Subtracts another matrix element-wise (matrices must have the same
- * dimensions) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
- * Result<Matrix>
- */
-Value matrix_subtract_method(VM *vm, const Value *args)
+Value matrix_subtract_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b)
 {
-	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
-	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
 	REQUIRE_SAME_SHAPE(a, b, "subtraction");
 
 	ObjectMatrix *result = new_matrix(vm, a->row_dim, a->col_dim);
@@ -303,16 +288,8 @@ Value matrix_subtract_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
-/**
- * Performs standard matrix multiplication (first matrix cols must equal second
- * matrix rows) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
- * Result<Matrix>
- */
-Value matrix_multiply_method(VM *vm, const Value *args)
+Value matrix_multiply_value(VM *vm, const ObjectMatrix *a, const ObjectMatrix *b)
 {
-	const ObjectMatrix *a = AS_CRUX_MATRIX(args[0]);
-	const ObjectMatrix *b = AS_CRUX_MATRIX(args[1]);
-
 	if (a->col_dim != b->row_dim) {
 		return MAKE_GC_SAFE_ERROR(vm,
 								  "Number of columns in first matrix must equal "
@@ -329,7 +306,7 @@ Value matrix_multiply_method(VM *vm, const Value *args)
 		for (uint16_t k = 0; k < a->col_dim; k++) {
 			const double aik = MATRIX_AT(a, i, k);
 			if (fabs(aik) < EPSILON)
-				continue; /* skip zero rows */
+				continue;
 			for (uint16_t j = 0; j < b->col_dim; j++) {
 				MATRIX_AT(result, i, j) += aik * MATRIX_AT(b, k, j);
 			}
@@ -341,6 +318,91 @@ Value matrix_multiply_method(VM *vm, const Value *args)
 	return OBJECT_VAL(res);
 }
 
+Value matrix_scale_value(VM *vm, const ObjectMatrix *mat, const double scalar)
+{
+	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
+	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
+	for (uint32_t i = 0; i < total; i++) {
+		result->data[i] = mat->data[i] * scalar;
+	}
+	return OBJECT_VAL(result);
+}
+
+Value matrix_scalar_add_value(VM *vm, const ObjectMatrix *mat, const double scalar)
+{
+	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
+	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
+	for (uint32_t i = 0; i < total; i++) {
+		result->data[i] = mat->data[i] + scalar;
+	}
+	return OBJECT_VAL(result);
+}
+
+Value matrix_scalar_subtract_value(VM *vm, const ObjectMatrix *mat, const double scalar)
+{
+	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
+	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
+	for (uint32_t i = 0; i < total; i++) {
+		result->data[i] = mat->data[i] - scalar;
+	}
+	return OBJECT_VAL(result);
+}
+
+Value scalar_matrix_subtract_value(VM *vm, const double scalar, const ObjectMatrix *mat)
+{
+	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
+	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
+	for (uint32_t i = 0; i < total; i++) {
+		result->data[i] = scalar - mat->data[i];
+	}
+	return OBJECT_VAL(result);
+}
+
+Value matrix_scalar_divide_value(VM *vm, const ObjectMatrix *mat, const double scalar)
+{
+	if (fabs(scalar) < EPSILON) {
+		return MAKE_GC_SAFE_ERROR(vm, "Division by zero.", MATH);
+	}
+
+	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
+	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
+	for (uint32_t i = 0; i < total; i++) {
+		result->data[i] = mat->data[i] / scalar;
+	}
+	return OBJECT_VAL(result);
+}
+
+/**
+ * Adds another matrix element-wise (matrices must have the same dimensions)
+ * arg0 -> matrix: Matrix
+ * arg1 -> other: Matrix
+ * Returns Result<Matrix>
+ */
+Value matrix_add_method(VM *vm, const Value *args)
+{
+	return matrix_add_value(vm, AS_CRUX_MATRIX(args[0]), AS_CRUX_MATRIX(args[1]));
+}
+
+/**
+ * Subtracts another matrix element-wise (matrices must have the same
+ * dimensions) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
+ * Result<Matrix>
+ */
+Value matrix_subtract_method(VM *vm, const Value *args)
+{
+	return matrix_subtract_value(vm, AS_CRUX_MATRIX(args[0]), AS_CRUX_MATRIX(args[1]));
+}
+
+/**
+ * Performs standard matrix multiplication (first matrix cols must equal second
+ * matrix rows) arg0 -> matrix: Matrix arg1 -> other: Matrix Returns
+ * Result<Matrix>
+ */
+Value matrix_multiply_method(VM *vm, const Value *args)
+{
+	return matrix_multiply_value(vm, AS_CRUX_MATRIX(args[0]), AS_CRUX_MATRIX(args[1]));
+}
+
 /**
  * Multiplies every element in the matrix by a scalar value
  * arg0 -> matrix: Matrix
@@ -349,16 +411,7 @@ Value matrix_multiply_method(VM *vm, const Value *args)
  */
 Value matrix_scale_method(VM *vm, const Value *args)
 {
-	const ObjectMatrix *mat = AS_CRUX_MATRIX(args[0]);
-	const double scalar = TO_DOUBLE(args[1]);
-
-	ObjectMatrix *result = new_matrix(vm, mat->row_dim, mat->col_dim);
-
-	const uint32_t total = (uint32_t)mat->row_dim * mat->col_dim;
-	for (uint32_t i = 0; i < total; i++) {
-		result->data[i] = mat->data[i] * scalar;
-	}
-	return OBJECT_VAL(result);
+	return matrix_scale_value(vm, AS_CRUX_MATRIX(args[0]), TO_DOUBLE(args[1]));
 }
 
 /* ── Linear-algebra operations ───────────────────────────────────────────────

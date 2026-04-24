@@ -7,7 +7,7 @@ println("--- Testing platform ---");
 let plat = platform();
 assert(typeof plat == "String", "platform should return String");
 println("Platform: " + plat);
-assert(plat == "linux" or plat == "windows" or plat == "macos", "platform should return known platform");
+assert(plat == "linux" or plat == "windows" or plat == "apple", "platform should return known platform");
 println("platform() test passed");
 
 // Test arch

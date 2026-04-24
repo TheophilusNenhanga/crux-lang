@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "common.h"
 #include "table.h"
 #include "utf8.h"
 #include "value.h"
@@ -17,46 +18,6 @@
 #include "garbage_collector.h"
 #include "object.h"
 #include "panic.h"
-
-static uint32_t get_new_pool_object(ObjectPool *pool)
-{
-	if (pool->free_top == 0) {
-		const uint32_t new_capacity = pool->capacity * OBJECT_POOL_GROWTH_FACTOR;
-		if (new_capacity < pool->capacity) { // overflow
-			fprintf(stderr, "Fatal Error: Cannot index memory. "
-							"Shutting Down!");
-			exit(1);
-		}
-		PoolObject *new_objects = realloc(pool->objects, new_capacity * sizeof(PoolObject));
-		if (new_objects == NULL) {
-			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-							"to reallocate space for object pool. "
-							"Shutting down!");
-			exit(1);
-		}
-		pool->objects = new_objects;
-
-		uint32_t *new_free_list = realloc(pool->free_list, new_capacity * sizeof(uint32_t));
-		if (new_free_list == NULL) {
-			fprintf(stderr, "Fatal Error - Out of Memory: Failed "
-							"to reallocate space for object pool. "
-							"Shutting down!");
-			exit(1);
-		}
-		pool->free_list = new_free_list;
-
-		for (uint32_t i = pool->capacity; i < new_capacity; i++) {
-			pool->free_list[pool->free_top++] = i;
-			PoolObject *pool_object = &pool->objects[i];
-			SET_DATA(pool_object, NULL);
-			SET_MARKED(pool_object, false);
-		}
-		pool->capacity = new_capacity;
-	}
-	const uint32_t index = pool->free_list[--pool->free_top];
-	pool->count++;
-	return index;
-}
 
 /**
  * @brief Allocates a new object of the specified type.
@@ -72,40 +33,19 @@ CruxObject *allocate_pooled_object(VM *vm, const size_t size, const ObjectType t
 {
 	CruxObject *object = allocate_object_with_gc(vm, size);
 
-	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
-
 	object->type = type;
-	object->pool_index = pool_index;
+	object->is_marked = false;
+	object->is_immortal = false;
 
-	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
-
-	SET_DATA(pool_object, object);
-	SET_MARKED(pool_object, false);
+	// Insert at head of global object list
+	object->next = vm->objects;
+	vm->objects = object;
+	vm->object_count++;
 
 #ifdef DEBUG_LOG_GC
 	printf("%p allocate %zu for %d\n", (void *)object, size, type);
 #endif
 
-	return object;
-}
-
-CruxObject *allocate_pooled_object_without_gc(VM *vm, const size_t size, const ObjectType type)
-{
-	CruxObject *object = allocate_object_without_gc(vm, size);
-
-	const uint32_t pool_index = get_new_pool_object(vm->object_pool);
-
-	object->pool_index = pool_index;
-	object->type = type;
-
-	PoolObject *pool_object = &vm->object_pool->objects[pool_index];
-
-	SET_DATA(pool_object, object);
-	SET_MARKED(pool_object, false);
-
-#ifdef DEBUG_LOG_GC
-	printf("%p allocate %zu for %d\n", (void *)object, size, type);
-#endif
 	return object;
 }
 
@@ -1086,7 +1026,17 @@ ObjectFile *new_object_file(VM *vm, ObjectString *path, ObjectString *mode)
 	pop(vm->current_module_record);
 	file->path = path;
 	file->mode = mode;
+
+	/* On Windows, always open in binary mode to avoid CRLF translation
+	   issues with ftell/fseek when determining file size. */
+#ifdef _WIN32
+	char bin_mode[8];
+	snprintf(bin_mode, sizeof(bin_mode), "%sb", mode->chars);
+	file->file = fopen(path->chars, bin_mode);
+#else
 	file->file = fopen(path->chars, mode->chars);
+#endif
+
 	file->is_open = file->file != NULL;
 	file->position = 0;
 	return file;
@@ -1381,33 +1331,36 @@ ObjectModuleRecord *new_object_module_record(VM *vm, ObjectString *path, const b
 	GC_STATUS previous = vm->gc_status;
 	vm->gc_status = PAUSED;
 
-	ObjectModuleRecord *moduleRecord = ALLOCATE_OBJECT_WITHOUT_GC(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
-	moduleRecord->path = path;
-	init_table(&moduleRecord->globals);
-	init_table(&moduleRecord->publics);
+	ObjectModuleRecord *module_record = ALLOCATE_OBJECT(vm, ObjectModuleRecord, OBJECT_MODULE_RECORD);
+	module_record->path = path;
+	init_table(&module_record->global_names);
+	init_table(&module_record->publics);
 
-	moduleRecord->types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
-	moduleRecord->state = STATE_LOADING;
-	moduleRecord->module_closure = NULL;
-	moduleRecord->enclosing_module = NULL;
+	module_record->types = new_type_table(vm, INITIAL_TYPE_TABLE_SIZE);
+	module_record->state = STATE_LOADING;
+	module_record->module_closure = NULL;
+	module_record->enclosing_module = NULL;
 
-	moduleRecord->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
-	moduleRecord->stack_top = moduleRecord->stack;
-	moduleRecord->stack_limit = moduleRecord->stack + STACK_MAX;
-	moduleRecord->open_upvalues = NULL;
+	module_record->stack = (Value *)malloc(STACK_MAX * sizeof(Value));
+	module_record->stack_top = module_record->stack;
+	module_record->stack_limit = module_record->stack + STACK_MAX;
+	module_record->open_upvalues = NULL;
 
-	moduleRecord->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
-	moduleRecord->frame_count = 0;
-	moduleRecord->frame_capacity = FRAMES_MAX;
+	module_record->globals = NULL;
+	module_record->global_count = 0;
 
-	moduleRecord->is_main = is_main;
-	moduleRecord->is_repl = is_repl;
+	module_record->frames = (CallFrame *)malloc(FRAMES_MAX * sizeof(CallFrame));
+	module_record->frame_count = 0;
+	module_record->frame_capacity = FRAMES_MAX;
 
-	moduleRecord->owner = vm;
+	module_record->is_main = is_main;
+	module_record->is_repl = is_repl;
+
+	module_record->owner = vm;
 
 	vm->gc_status = previous;
 
-	return moduleRecord;
+	return module_record;
 }
 
 /**
@@ -1421,7 +1374,11 @@ void free_object_module_record(VM *vm, ObjectModuleRecord *record)
 	record->frames = NULL;
 	free(record->stack);
 	record->stack = NULL;
-	free_table(vm, &record->globals);
+	free(record->globals);
+	record->globals = NULL;
+	record->global_count = 0;
+
+	free_table(vm, &record->global_names);
 	free_table(vm, &record->publics);
 }
 

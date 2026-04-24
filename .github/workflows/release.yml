@@ -187,7 +187,7 @@ jobs:
           fi
 
           # Add download information
-          CHANGELOG="${CHANGELOG}## 📦 Downloads\n\n"
+          CHANGELOG="${CHANGELOG}## Downloads\n\n"
           CHANGELOG="${CHANGELOG}Choose the appropriate binary for your system:\n\n"
           CHANGELOG="${CHANGELOG}- **Linux (x64)**: \`crux-linux-amd64\`\n"
           CHANGELOG="${CHANGELOG}- **Windows (x64)**: \`crux-windows-amd64.exe\`\n"

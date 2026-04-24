@@ -4,8 +4,8 @@
 #include "chunk.h"
 #include "common.h"
 #include "table.h"
-#include "value.h"
 #include "utf8.h"
+#include "value.h"
 
 typedef struct ObjectClosure ObjectClosure;
 typedef struct ObjectUpvalue ObjectUpvalue;
@@ -19,7 +19,7 @@ typedef struct ObjectRange ObjectRange;
 typedef struct SlabAllocator SlabAllocator;
 typedef struct Compiler Compiler;
 
-typedef enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR, INTERPRET_EXIT } InterpretResult;
+typedef enum { INTERPRET_OK = 0, INTERPRET_COMPILE_ERROR = 1, INTERPRET_RUNTIME_ERROR = 2, INTERPRET_EXIT = 3 } InterpretResult;
 
 /**
  * An ongoing function call
@@ -76,18 +76,10 @@ typedef enum {
 	RUNNING,
 } GC_STATUS;
 
-typedef struct {
-	PoolObject *objects;
-	uint32_t count;
-	uint32_t capacity;
-	uint32_t *free_list;
-	uint32_t free_top;
-} ObjectPool;
-
 struct VM {
-	ObjectPool *object_pool; // Global object pool
+	CruxObject *objects; // Head of global object linked list
+	size_t object_count;
 
-	SlabAllocator *slab_16;
 	SlabAllocator *slab_24;
 	SlabAllocator *slab_32;
 	SlabAllocator *slab_48;
@@ -122,26 +114,56 @@ struct VM {
 	Args args;
 
 	double heap_growth_factor;
+	size_t min_gc_heap_size;
+	size_t min_gc_growth_delta;
 	size_t bytes_allocated;
 	size_t next_gc;
 	CruxObject **gray_stack;
 	int gray_capacity;
 	int gray_count;
+	uint64_t gc_collections;
+	uint64_t gc_total_ns;
+	uint64_t gc_mark_roots_ns;
+	uint64_t gc_trace_ns;
+	uint64_t gc_remove_white_ns;
+	uint64_t gc_sweep_ns;
+	uint64_t gc_last_total_ns;
+	uint64_t gc_last_mark_roots_ns;
+	uint64_t gc_last_trace_ns;
+	uint64_t gc_last_remove_white_ns;
+	uint64_t gc_last_sweep_ns;
+	uint32_t gc_last_gray_peak;
+	uint32_t gc_max_gray_peak;
+	size_t gc_last_live_objects;
+	size_t gc_last_pool_capacity;
+	size_t gc_last_bytes_before;
+	size_t gc_last_bytes_after;
+	size_t gc_last_bytes_freed;
+	size_t gc_last_next_gc;
+	size_t gc_last_objects_before_sweep;
+	size_t gc_last_objects_after_sweep;
+	size_t gc_last_objects_freed;
+	size_t gc_last_strings_count;
+	size_t gc_last_strings_capacity;
+	size_t gc_last_strings_tombstones;
+	size_t gc_last_sweep_slots_scanned;
+	size_t gc_sweep_slots_scanned;
 
 	GC_STATUS gc_status;
-
-	bool is_exiting;
-	int exit_code;
 
 	int import_count;
 	ObjectTypeTable *type_table;
 	Compiler *main_compiler;
+
+	int exit_code;
+	jmp_buf jump_buffer;
 };
 
+#ifdef STACK_SAFETY
 #define push(module_record, value)                                                                                     \
 	do {                                                                                                               \
 		if (__builtin_expect((module_record)->stack_top >= (module_record)->stack_limit, 0)) {                         \
-			runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                              \
+			runtime_panic((module_record), STACK_OVERFLOW, "Stack overflow error");                                    \
 		}                                                                                                              \
 		*(module_record)->stack_top++ = (value);                                                                       \
 	} while (0)
@@ -149,16 +171,20 @@ struct VM {
 #define pop(module_record)                                                                                             \
 	({                                                                                                                 \
 		if (__builtin_expect((module_record)->stack_top <= (module_record)->stack, 0)) {                               \
-			runtime_panic((module_record), RUNTIME, "Stack underflow error");                                    \
+			runtime_panic((module_record), RUNTIME, "Stack underflow error");                                          \
 		}                                                                                                              \
 		*--(module_record)->stack_top;                                                                                 \
 	})
+#else
+#define push(module_record, value) *(module_record)->stack_top++ = (value)
+#define pop(module_record) *--(module_record)->stack_top
+#endif
 
 #define PEEK(module_record, distance) ((module_record)->stack_top[-1 - (distance)])
 
 VM *new_vm(int argc, const char **argv);
 
-void init_vm(VM *vm, int argc, const char **argv);
+bool init_vm(VM *vm, int argc, const char **argv);
 
 void free_vm(VM *vm);
 
@@ -183,6 +209,8 @@ bool is_in_import_stack(const VM *vm, const ObjectString *path);
 
 ObjectResult *execute_callable(VM *vm, Value callable, int arg_count, InterpretResult *result);
 
+bool get_module_global_index(const ObjectModuleRecord *module_record, const ObjectString *name, uint32_t *index_out);
+
 bool is_falsy(Value value);
 
 void pop_push(ObjectModuleRecord *moduleRecord, Value value);
@@ -198,15 +226,6 @@ void pop_push(ObjectModuleRecord *moduleRecord, Value value);
 bool binary_operation(VM *vm, OpCode operation);
 
 bool concatenate(VM *vm);
-
-/**
- * Checks if a previous instruction matches the expected opcode.
- * @param frame The current call frame
- * @param instructions_ago How many instructions to look back
- * @param instruction The opcode to check for
- * @return true if the previous instruction matches, false otherwise
- */
-bool check_previous_instruction(const CallFrame *frame, int instructions_ago, OpCode instruction);
 
 /**
  * Calls a value as a function with the given arguments.
@@ -246,7 +265,7 @@ bool invoke(VM *vm, const ObjectString *name, int arg_count);
  */
 void define_method(VM *vm, ObjectString *name);
 
-InterpretResult global_compound_operation(VM *vm, ObjectString *name, OpCode opcode, char *operation);
+InterpretResult global_compound_operation(VM *vm, uint16_t index, OpCode opcode, char *operation);
 
 /**
  * Calls a function closure with the given arguments.
@@ -266,5 +285,7 @@ ObjectStructInstance *peek_struct_stack(const VM *vm);
 bool handle_compound_assignment(ObjectModuleRecord *currentModuleRecord, Value *target, Value operand, OpCode op);
 bool range_indices_in_bounds(const ObjectRange *range, const uint32_t collection_size);
 bool collect_string_codepoint_starts(VM *vm, const ObjectString *string, const utf8_int8_t ***starts_out);
+
+bool bind_core_globals(VM *vm, ObjectModuleRecord *module_record);
 
 #endif // VM_H
