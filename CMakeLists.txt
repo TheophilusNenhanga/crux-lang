@@ -11,6 +11,7 @@ option(CRUX_DEBUG_TRACE_EXECUTION "Enable execution tracing" OFF)
 option(CRUX_DEBUG_PRINT_CODE "Print compiled bytecode" OFF)
 option(CRUX_DEBUG_LOG_GC "Enable GC logging" OFF)
 option(CRUX_DEBUG_STRESS_GC "Enable GC stress mode" OFF)
+option(CRUX_TAGGED_OBJECT "Enables tagged pointers for objects. Should not be used on 32 bit platforms." ON)
 set(CRUX_VERSION "dev" CACHE STRING "Crux language version")
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -85,6 +86,7 @@ target_compile_definitions(crux PRIVATE
         $<$<BOOL:${CRUX_DEBUG_PRINT_CODE}>:DEBUG_PRINT_CODE>
         $<$<BOOL:${CRUX_DEBUG_LOG_GC}>:DEBUG_LOG_GC>
         $<$<BOOL:${CRUX_DEBUG_STRESS_GC}>:DEBUG_STRESS_GC>
+        $<$<BOOL:${CRUX_TAGGED_OBJECT}>:CRUX_TAGGED_OBJECT>
         CRUX_VERSION="${CRUX_VERSION}"
 )
 
@@ -121,7 +123,10 @@ endif()
 if(CRUX_DEBUG_STRESS_GC)
   message(STATUS "    - CRUX_DEBUG_STRESS_GC: ON")
 endif()
-if(NOT CRUX_STACK_SAFETY AND NOT CRUX_DEBUG_TRACE_EXECUTION AND NOT CRUX_DEBUG_PRINT_CODE AND NOT CRUX_DEBUG_LOG_GC AND NOT CRUX_DEBUG_STRESS_GC)
+if(CRUX_TAGGED_OBJECT)
+  message(STATUS "    - CRUX_TAGGED_OBJECT: ON")
+endif()
+if(NOT CRUX_STACK_SAFETY AND NOT CRUX_DEBUG_TRACE_EXECUTION AND NOT CRUX_DEBUG_PRINT_CODE AND NOT CRUX_DEBUG_LOG_GC AND NOT CRUX_DEBUG_STRESS_GC AND NOT CRUX_TAGGED_OBJECT)
   message(STATUS "    (none)")
 endif()
 message(STATUS "")

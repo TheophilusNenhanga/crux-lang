@@ -1,8 +1,10 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "chunk.h"
 #include "table.h"
@@ -36,8 +38,7 @@
 		OBJECT_VAL(gcSafeResult);                                                                                      \
 	})
 
-#define OBJECT_TYPE(value) (AS_CRUX_OBJECT(value)->type)
-#define OBJECT_SET_TYPE(obj, obj_type) ((obj)->type = (obj_type))
+#define OBJECT_TYPE(value) (object_get_type(AS_CRUX_OBJECT(value)))
 
 #define IS_CRUX_STRING(value) is_object_type(value, OBJECT_STRING)
 #define IS_CRUX_FUNCTION(value) is_object_type(value, OBJECT_FUNCTION)
@@ -131,27 +132,122 @@ typedef enum {
 	OBJECT_OPTION,
 	OBJECT_ENUM,
 	OBJECT_COROUTINE,
+	SENTINEL_OBJECT_COUNT
 } ObjectType;
 
-struct CruxObject { // 16
+static_assert(SENTINEL_OBJECT_COUNT <= 32, "Object type count exceeds 32 bits");
+
+#ifdef CRUX_TAGGED_OBJECT
+
+#ifdef __i386__
+#error "Tagged objects are not supported on 32-bit architectures. Please compile with -DCRUX_TAGGED_OBJECT=OFF"
+#endif
+
+#if UINTPTR_MAX == 0xFFFFFFFF
+#error "Tagged objects are not supported on 32-bit architectures. Please compile with -DCRUX_TAGGED_OBJECT=OFF"
+#endif
+
+struct CruxObject {
+    uintptr_t tagged_next;
+};
+
+#define CRUX_TAGGED_POINTER_MASK 0x0000FFFFFFFFFFFFULL
+#define CRUX_TAGGED_TAG_MASK 0xFFFF000000000000ULL
+
+#define CRUX_TAGGED_TYPE_SHIFT 48
+#define CRUX_TAGGED_TYPE_MASK 0x1FULL
+
+#define CRUX_TAGGED_MARKED_SHIFT 53
+#define CRUX_TAGGED_IMMORTAL_SHIFT 54
+
+#else
+struct CruxObject {
     CruxObject* next;
 	ObjectType type;
 	bool is_marked;
 	bool is_immortal;
-	bool use_for_some_other_flag_in_the_future;
 };
+#endif
 
-#define MARK_BIT ((uintptr_t)1 << 63)
-#define PTR_MASK (~MARK_BIT)
-#define IS_MARKED(obj) ((uintptr_t)(obj)->data & MARK_BIT)
-#define GET_DATA(obj) ((void *)((uintptr_t)(obj)->data & PTR_MASK))
-#define SET_DATA(obj, ptr) ((obj)->data = (void *)((uintptr_t)(ptr) | ((uintptr_t)(obj)->data & MARK_BIT)))
-#define SET_MARKED(obj, marked)                                                                                        \
-	((obj)->data = (void *)(((uintptr_t)(obj)->data & PTR_MASK) | ((marked) ? MARK_BIT : 0)))
+// Object getters
+
+static inline CruxObject* object_get_next(CruxObject* object) {
+    #ifdef CRUX_TAGGED_OBJECT
+    return (CruxObject*)(object->tagged_next & CRUX_TAGGED_POINTER_MASK);
+    #else
+    return object->next;
+    #endif
+}
+
+static inline ObjectType object_get_type(CruxObject* object) {
+    #ifdef CRUX_TAGGED_OBJECT
+    return (ObjectType)((object->tagged_next >> CRUX_TAGGED_TYPE_SHIFT) & CRUX_TAGGED_TYPE_MASK);
+    #else
+    return object->type;
+    #endif
+}
+
+static inline bool object_is_marked(CruxObject* object) {
+    #ifdef CRUX_TAGGED_OBJECT
+    return (object->tagged_next >> CRUX_TAGGED_MARKED_SHIFT) & 1;
+    #else
+    return object->is_marked;
+    #endif
+}
+
+static inline bool object_is_immortal(CruxObject* object) {
+    #ifdef CRUX_TAGGED_OBJECT
+    return (object->tagged_next >> CRUX_TAGGED_IMMORTAL_SHIFT) & 1;
+    #else
+    return object->is_immortal;
+    #endif
+}
+
+
+static inline void object_set_next(CruxObject* object, CruxObject* next) {
+    #ifdef CRUX_TAGGED_OBJECT
+    object->tagged_next = (object->tagged_next & ~CRUX_TAGGED_POINTER_MASK) | ((uintptr_t)next & CRUX_TAGGED_POINTER_MASK);
+    #else
+    object->next = next;
+    #endif
+}
+
+static inline void object_set_marked(CruxObject* object, bool marked) {
+    #ifdef CRUX_TAGGED_OBJECT
+    object->tagged_next = (object->tagged_next & ~(1ULL << CRUX_TAGGED_MARKED_SHIFT)) | ((uintptr_t)marked << CRUX_TAGGED_MARKED_SHIFT);
+    #else
+    object->is_marked = marked;
+    #endif
+}
+
+static inline void object_set_immortal(CruxObject* object, bool immortal) {
+    #ifdef CRUX_TAGGED_OBJECT
+    object->tagged_next = (object->tagged_next & ~(1ULL << CRUX_TAGGED_IMMORTAL_SHIFT)) | ((uintptr_t)immortal << CRUX_TAGGED_IMMORTAL_SHIFT);
+    #else
+    object->is_immortal = immortal;
+    #endif
+}
+
+static inline void object_init(CruxObject* object, CruxObject* next,  ObjectType type, bool marked, bool immortal) {
+    #ifdef CRUX_TAGGED_OBJECT
+    uintptr_t tags = 0;
+    tags |= ((uintptr_t) type & CRUX_TAGGED_TYPE_MASK) << CRUX_TAGGED_TYPE_SHIFT;
+    tags |= ((uintptr_t) marked) << CRUX_TAGGED_MARKED_SHIFT;
+    tags |= ((uintptr_t) immortal) << CRUX_TAGGED_IMMORTAL_SHIFT;
+
+    object->tagged_next = ((uintptr_t) next & CRUX_TAGGED_POINTER_MASK) | tags;
+    #else
+    object->next = next;
+    object->type = type;
+    object->is_marked = marked;
+    object->is_immortal = immortal;
+    #endif
+}
+
 
 #define TO_DOUBLE(value) (IS_INT((value)) ? (double)AS_INT((value)) : AS_FLOAT((value)))
 
-struct ObjectString { // 24
+struct ObjectString {
 	CruxObject object;
 	utf8_int8_t* chars;
 	uint32_t byte_length; // this is the length without the null terminator
@@ -161,7 +257,7 @@ struct ObjectString { // 24
 
 typedef struct ObjectModuleRecord ObjectModuleRecord;
 
-typedef struct { // 72
+typedef struct {
 	CruxObject object;
 	int arity;
 	int upvalue_count;
@@ -170,28 +266,28 @@ typedef struct { // 72
 	ObjectModuleRecord *module_record;
 } ObjectFunction;
 
-typedef struct ObjectUpvalue { // 32
+typedef struct ObjectUpvalue {
 	CruxObject object;
 	Value *location;
 	Value closed;
 	ObjectUpvalue *next;
 } ObjectUpvalue;
 
-typedef struct ObjectClosure { // 32
+typedef struct ObjectClosure {
 	CruxObject object;
 	ObjectFunction *function;
 	ObjectUpvalue **upvalues;
 	int upvalue_count;
 } ObjectClosure;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	Value *values;
 	uint32_t size;
 	uint32_t capacity;
 } ObjectArray;
 
-typedef struct { // 16
+typedef struct {
 	CruxObject object;
 	uint64_t seed;
 } ObjectRandom;
@@ -224,14 +320,14 @@ typedef enum {
 	IMPORT,
 } ErrorType;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectString *message;
 	ErrorType type;
 	bool is_panic;
 } ObjectError;
 
-struct ObjectResult { // 24
+struct ObjectResult {
 	CruxObject object;
 	bool is_ok;
 	union {
@@ -240,28 +336,19 @@ struct ObjectResult { // 24
 	} as;
 };
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	Value value;
 	bool is_some;
 } ObjectOption;
 
-typedef struct { // 32
+typedef struct {
 	CruxObject object;
 	ObjectString *name;
 	Table fields;
 	Table methods;
 } ObjectStruct;
 
-// Not implemented yet
-typedef struct { // 24
-	CruxObject object;
-} ObjectEnum;
-
-// Not implemented yet
-typedef struct { // 24
-	CruxObject object;
-} ObjectCoroutine;
 
 typedef struct ObjectTypeTable ObjectTypeTable;
 
@@ -270,14 +357,14 @@ typedef struct {
 	ObjectTypeRecord *value;
 } TypeEntry;
 
-struct ObjectTypeTable { // 24
+struct ObjectTypeTable {
 	CruxObject object;
 	TypeEntry *entries;
 	int count;
 	int capacity;
 };
 
-struct ObjectTypeRecord { // 40
+struct ObjectTypeRecord {
 	CruxObject object;
 	TypeMask base_type;
 	union {
@@ -336,7 +423,7 @@ struct ObjectTypeRecord { // 40
 
 typedef Value (*CruxCallable)(VM *vm, const Value *args);
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	CruxCallable function;
 	ObjectString *name;
@@ -345,20 +432,20 @@ typedef struct { // 48
 	ObjectTypeRecord *return_type;
 } ObjectNativeCallable;
 
-typedef struct { // 24
+typedef struct {
 	Value key;
 	Value value;
 	bool is_occupied;
 } ObjectTableEntry;
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectTableEntry *entries;
 	uint32_t capacity;
 	uint32_t size;
 } ObjectTable;
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	ObjectString *path;
 	ObjectString *mode;
@@ -367,7 +454,7 @@ typedef struct { // 48
 	bool is_open;
 } ObjectFile;
 
-struct ObjectStructInstance { // 32
+struct ObjectStructInstance {
 	CruxObject object;
 	ObjectStruct *struct_type;
 	Value *fields;
@@ -378,7 +465,7 @@ struct ObjectStructInstance { // 32
 #define VECTOR_COMPONENTS(vec)                                                                                         \
 	((vec)->dimensions <= STATIC_VECTOR_SIZE ? (vec)->as.s_components : (vec)->as.h_components)
 
-typedef struct { // 48
+typedef struct {
 	CruxObject object;
 	uint32_t dimensions;
 	union {
@@ -387,8 +474,7 @@ typedef struct { // 48
 	} as;
 } ObjectVector;
 
-typedef struct // 32
-{
+typedef struct {
 	CruxObject object;
 	double real;
 	double imag;
@@ -415,7 +501,7 @@ struct ObjectIterator {
 	uint32_t index;
 };
 
-struct ObjectModuleRecord { // 120
+struct ObjectModuleRecord {
 	CruxObject object;
 	VM* owner;
 	ObjectString *path;
@@ -438,19 +524,19 @@ struct ObjectModuleRecord { // 120
 	bool is_main;
 };
 
-struct ObjectRange { // 40
+struct ObjectRange {
 	CruxObject object;
 	int32_t start;
 	int32_t end;
 	int32_t step;
 };
 
-typedef struct { // 24
+typedef struct {
 	CruxObject object;
 	ObjectTable *entries;
 } ObjectSet;
 
-typedef struct { // 32
+typedef struct {
 	CruxObject object;
 	uint32_t read_pos;
 	uint32_t write_pos;
@@ -458,7 +544,7 @@ typedef struct { // 32
 	uint8_t *data;
 } ObjectBuffer;
 
-typedef struct { // 20
+typedef struct {
 	CruxObject object;
 	uint32_t size;
 	Value *elements;
@@ -466,7 +552,7 @@ typedef struct { // 20
 
 static bool is_object_type(const Value value, const ObjectType type)
 {
-	return IS_CRUX_OBJECT(value) && AS_CRUX_OBJECT(value)->type == type;
+	return IS_CRUX_OBJECT(value) && object_get_type(AS_CRUX_OBJECT(value)) == type;
 }
 
 ObjectError *new_error(VM *vm, ObjectString *message, ErrorType type, bool is_panic);
